@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     )
 
     # Application metadata
-    app_name: str = "Obsidian Agent Project"
+    app_name: str = "VTV"
     version: str = "0.1.0"
     environment: str = "development"
     log_level: str = "INFO"

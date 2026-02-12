@@ -31,7 +31,7 @@ def test_settings_defaults() -> None:
     ):
         settings = create_settings()
 
-        assert settings.app_name == "Obsidian Agent Project"
+        assert settings.app_name == "VTV"
         assert settings.version == "0.1.0"
         assert settings.environment == "development"
         assert settings.log_level == "INFO"

@@ -1,7 +1,7 @@
 [project]
-name = "vsa-fastapi-project"
+name = "vtv"
 version = "0.1.0"
-description = "FastAPI + PostgreSQL starter with vertical slice architecture, optimized for AI coding"
+description = "VTV: Unified CMS and AI Agent Service for Riga City Bus Operations"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-FastAPI + PostgreSQL application using **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright.
+VTV is a unified transit operations platform for Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 9 tools (5 transit + 4 Obsidian vault). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright.
 
 ## Core Principles
 
@@ -246,12 +246,34 @@ app/agent/
 ├── config.py          # LLM provider settings (model names, tokens, timeouts)
 ├── exceptions.py      # Agent-specific exceptions
 ├── tools/
-│   ├── transit/       # 5 read-only transit tools (stops, routes, schedules, etc.)
-│   └── obsidian/      # 4 vault tools (search, read, create, patch)
+│   ├── transit/       # 5 read-only tools (see below)
+│   └── obsidian/      # 4 vault tools (see below)
 └── tests/
 ```
 
 `config.py` is feature-specific (not in `core/`) because LLM settings are agent-specific. Tools are grouped by domain under `tools/`, each with agent-optimized docstrings (see "Tool Docstrings for Agents" above).
+
+**Transit Tools (5, all read-only — AI advises, humans decide):**
+- `query_bus_status` — Current delay/position for a route or vehicle
+- `get_route_schedule` — Timetable for a route and service date
+- `search_stops` — Search stops by name or proximity (lat/lon)
+- `get_adherence_report` — On-time performance metrics for routes/periods
+- `check_driver_availability` — Available drivers for a shift/date
+
+**Obsidian Vault Tools (4):**
+- `obsidian_query_vault` — Search and discover (search, find_by_tags, list, recent, glob)
+- `obsidian_manage_notes` — Individual note CRUD (create, read, update, delete, move)
+- `obsidian_manage_folders` — Folder operations (create, delete, list, move)
+- `obsidian_bulk_operations` — Batch operations (move, tag, delete, update_frontmatter, create)
+
+**Agent Safety Constraints:**
+- Transit tools: read-only, no write operations
+- Vault deletes: require `confirm: true` parameter
+- Bulk operations: support `dry_run` for preview before execution
+- Path sandboxing: prevents directory traversal (`../`)
+- No vault file access outside configured vault path
+- Monthly spending cap on Claude API (EUR 100 hard limit)
+- Token budget per user per day (50 queries)
 
 ### Configuration
 

@@ -304,8 +304,8 @@ app/agent/
 ├── exceptions.py      # Agent-specific exceptions
 ├── tools/
 │   ├── __init__.py
-│   ├── transit/       # 5 read-only transit tools (stops, routes, schedules, etc.)
-│   └── obsidian/      # 4 vault tools (search, read, create, patch)
+│   ├── transit/       # 5 read-only tools (see below)
+│   └── obsidian/      # 4 vault tools (see below)
 └── tests/
     ├── __init__.py
     ├── conftest.py
@@ -316,6 +316,25 @@ app/agent/
 **Why `config.py` separate from `core/config.py`:** LLM settings (model names, token limits, provider keys) are agent-specific, not universal infrastructure. They belong with the feature.
 
 **Tool organization:** Tools are grouped by domain (transit, obsidian) under `tools/`. Each tool module contains the tool function and its docstring optimized for LLM selection (see CLAUDE.md "Tool Docstrings for Agents").
+
+**Transit Tools (5, all read-only):**
+- `query_bus_status` — Current delay/position for a route or vehicle
+- `get_route_schedule` — Timetable for a route and service date
+- `search_stops` — Search stops by name or proximity (lat/lon)
+- `get_adherence_report` — On-time performance metrics for routes/periods
+- `check_driver_availability` — Available drivers for a shift/date
+
+**Obsidian Vault Tools (4):**
+- `obsidian_query_vault` — Search and discover (search, find_by_tags, list, recent, glob)
+- `obsidian_manage_notes` — Individual note CRUD (create, read, update, delete, move)
+- `obsidian_manage_folders` — Folder operations (create, delete, list, move)
+- `obsidian_bulk_operations` — Batch operations (move, tag, delete, update_frontmatter, create)
+
+**Safety constraints:**
+- Transit tools: read-only, no write operations
+- Vault deletes: require `confirm: true`
+- Bulk operations: support `dry_run` for preview
+- Path sandboxing: prevents directory traversal (`../`)
 
 ---
 

@@ -113,7 +113,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 | Data Tables | TanStack Table v8 | Server-side filtering/pagination |
 | API | tRPC v11 | Type-safe, SSE subscriptions |
 | ORM | Drizzle ORM | Native PostGIS support |
-| Database | PostgreSQL 16 + PostGIS | Spatial indexes, Supabase managed |
+| Database | PostgreSQL 18 + PostGIS | Spatial indexes, Supabase managed |
 | Maps | MapLibre GL JS 4.x | Open-source, self-hosted tiles |
 | Auth | Auth.js v5 | Self-hosted RBAC, data sovereignty |
 | Agent Framework | Pydantic AI 1.58+ | Strongest Python agent framework |
@@ -126,8 +126,8 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 # docker-compose.yml
 services:
   cms:          # Next.js 15 — port 3000
-  agent:        # FastAPI + Pydantic AI — port 8000
-  db:           # PostgreSQL 16 + PostGIS
+  agent:        # FastAPI + Pydantic AI — port 8123
+  db:           # PostgreSQL 18 + PostGIS
   ollama:       # Local LLM (fallback/dev)
 ```
 

@@ -23,7 +23,7 @@ def test_root_endpoint(client: TestClient) -> None:
     assert "message" in data
     assert "version" in data
     assert "docs" in data
-    assert data["message"] == "Obsidian Agent Project"
+    assert data["message"] == "VTV"
     assert data["version"] == "0.1.0"
     assert data["docs"] == "/docs"
 
@@ -43,7 +43,7 @@ def test_openapi_endpoint_accessible(client: TestClient) -> None:
     data = response.json()
     assert "openapi" in data
     assert "info" in data
-    assert data["info"]["title"] == "Obsidian Agent Project"
+    assert data["info"]["title"] == "VTV"
     assert data["info"]["version"] == "0.1.0"
 
 
@@ -89,7 +89,7 @@ def test_lifespan_startup_logging() -> None:
             # Check that logger.info was called with application.lifecycle_started
             mock_logger.info.assert_any_call(
                 "application.lifecycle_started",
-                app_name="Obsidian Agent Project",
+                app_name="VTV",
                 version="0.1.0",
                 environment="development",
             )

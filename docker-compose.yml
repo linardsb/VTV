@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: obsidian_db
+      POSTGRES_DB: vtv_db
     ports:
       # Use port 5433 on host to avoid conflicts with local PostgreSQL on standard port 5432
       - "5433:5432"
@@ -41,7 +41,7 @@ services:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # Override DATABASE_URL for Docker networking (app -> db service)
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/obsidian_db
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/vtv_db
 
     # Wait for database to be healthy before starting app
     depends_on:

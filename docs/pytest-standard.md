@@ -556,7 +556,7 @@ def test_root_endpoint(client):
     """Test root endpoint."""
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json()["message"] == "Obsidian Agent Project"
+    assert response.json()["message"] == "VTV"
 
 def test_post_endpoint(client):
     """Test POST endpoint."""
