@@ -1,7 +1,14 @@
 ---
-description: Review code against VTV project standards
-argument-hint: [file-or-directory]
+description: Review code against all 8 VTV quality standards
+argument-hint: [file-or-directory] e.g. app/agent/ or app/core/health.py
+allowed-tools: Read, Glob, Grep
 ---
+
+This command performs a comprehensive code review against VTV's 8 quality standards: type safety, Pydantic schemas, structured logging, database patterns, architecture (VSA boundaries), docstrings, testing, and security. It reads every file in the target path and checks each one systematically, producing a findings table with file:line references, issue descriptions, fix suggestions, and priority levels.
+
+Issues are categorized by priority: Critical (type safety violations, security issues, data corruption risks), High (missing logging, broken patterns, no tests), Medium (inconsistent naming, missing docstrings, suboptimal patterns), and Low (style nits, minor improvements). For agent tool files, it additionally checks that docstrings follow the 5-principle agent-optimized format (selection guidance, composition hints, token efficiency, expectations, examples).
+
+Use this command before committing to catch issues early, or run it on an entire feature directory after implementation. It's read-only and makes no changes — it only reports findings. Pair it with `/validate` which runs automated checks (linting, type checking, tests), while `/review` catches architectural and convention issues that automated tools miss.
 
 # Review — Code Review Against VTV Standards
 

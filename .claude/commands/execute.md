@@ -1,8 +1,14 @@
 ---
-description: Execute a VTV implementation plan
-argument-hint: [path-to-plan]
+description: Execute a VTV implementation plan file step by step
+argument-hint: [path-to-plan] e.g. plans/user-profiles.md
 allowed-tools: Read, Write, Edit, Bash(uv run ruff:*), Bash(uv run mypy:*), Bash(uv run pyright:*), Bash(uv run pytest:*), Bash(uv run alembic:*)
 ---
+
+This command takes a plan file (typically created by `/planning`) and implements every step in it sequentially. It reads the entire plan first to understand the full scope, then creates and modifies files following VTV conventions: strict type annotations, async SQLAlchemy patterns, structured logging with the `domain.component.action_state` format, and Google-style docstrings on all functions.
+
+After implementation, it runs the full 5-step validation suite (ruff format, ruff check, mypy, pyright, pytest) and fixes any failures before reporting results. It also performs post-implementation checks to ensure routers are registered, models inherit `TimestampMixin`, and no type suppressions were introduced. This is the execution counterpart to `/planning` — the plan provides the blueprint, this command builds it.
+
+The plan file must be self-contained with explicit file paths, exact code patterns, and unambiguous steps. If the plan includes database model changes, this command will also run Alembic migrations. After successful execution, use `/commit` to commit the changes.
 
 # Execute — Implement from Plan
 

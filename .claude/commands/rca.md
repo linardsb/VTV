@@ -1,7 +1,14 @@
 ---
-description: Analyze and document root cause for a GitHub issue
-argument-hint: [github-issue-id]
+description: Investigate a bug and produce a root cause analysis document
+argument-hint: [github-issue-id] e.g. 42
+allowed-tools: Read, Glob, Grep, Write, Bash(git log:*), Bash(git blame:*)
 ---
+
+This command performs a systematic root cause analysis for a GitHub issue. It reads the issue details, then investigates the VTV codebase layer by layer: routes for affected endpoints, services for business logic edge cases, models for constraint issues, schemas for validation gaps, middleware for cross-cutting problems, and config for environment-related issues. It also searches for `_failed` log events and reviews migration history.
+
+The investigation produces a structured RCA document saved to `docs/rca/issue-{id}.md`. This document contains the root cause location with exact file:line references, the category of failure (validation gap, logic error, race condition, etc.), evidence from the codebase, a proposed fix with specific file changes, required regression tests, and validation steps. The RCA format is designed to be machine-executable — `/implement-fix` can read it and apply the fix autonomously.
+
+Use this command whenever a bug is reported. The two-step workflow (`/rca` then `/implement-fix`) separates investigation from implementation, which produces better fixes because the root cause is fully understood before any code changes are made. The RCA document also serves as permanent documentation for the team.
 
 # RCA — Root Cause Analysis
 

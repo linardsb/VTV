@@ -1,8 +1,14 @@
 ---
-description: Implement fix from RCA document
-argument-hint: [github-issue-id]
+description: Apply the fix described in an RCA document with regression tests
+argument-hint: [github-issue-id] e.g. 42
 allowed-tools: Read, Write, Edit, Bash(uv run ruff:*), Bash(uv run mypy:*), Bash(uv run pyright:*), Bash(uv run pytest:*), Bash(uv run alembic:*)
 ---
+
+This command reads an RCA document (created by `/rca`) and implements the proposed fix. It applies each code change described in the "Proposed Fix" section, writes regression tests to prevent the bug from recurring, and runs the full validation suite. This is the execution half of the `/rca` + `/implement-fix` bug fix workflow.
+
+The command follows the RCA document as its source of truth — it reads the root cause analysis, understands what needs to change and why, then applies changes following VTV conventions (type annotations, async patterns, structured logging). Regression tests are named `test_issue_{id}_{description}()` and placed in the appropriate feature's test directory, making them easy to find later.
+
+After implementation, it runs all 5 validation checks (ruff format, ruff check, mypy, pyright, pytest) and suggests a conventional commit message in `fix(scope): description (Fixes #{id})` format. Prerequisite: you must run `/rca {id}` first to create the RCA document at `docs/rca/issue-{id}.md`.
 
 # Implement Fix — Execute from RCA Document
 

@@ -1,6 +1,14 @@
 ---
-description: Prime agent with VTV tool designs, patterns, and agent architecture
+description: Load AI agent tool designs, patterns, and architecture context
+argument-hint:
+allowed-tools: Read, Glob, Grep
 ---
+
+This command is a specialized context loader for AI agent tool development. While `/prime` gives you the full project picture, `/prime-tools` dives deep into the agent tool system: it reads tool specifications from `mvp-tool-designs.md`, the PRD's agent sections, and CLAUDE.md's tool docstring standards. It then inventories which tools are implemented vs. planned, checks existing docstrings against the agent-optimized format, and reviews dry-run patterns and error response formats.
+
+The output is a tool-focused summary: a complete tool inventory table (name, status, type, dry-run support, composition chains), design pattern assessment (docstring format, error handling, token efficiency, response structure), and workflow chains showing how tools compose into multi-step agent operations. This is everything you need to know before building or modifying an agent tool.
+
+Use this before running `/planning` for a tool feature, when debugging agent tool behavior, or when reviewing whether existing tools follow VTV's agent-optimized patterns. The 5-principle docstring standard (selection guidance, token waste prevention, composition hints, expectations, examples) is critical for tools because their docstrings are read by LLMs during tool selection, not by human developers.
 
 # Prime Tools — Load AI Agent Tool Context
 

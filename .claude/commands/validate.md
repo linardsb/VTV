@@ -1,7 +1,14 @@
 ---
-description: Run full VTV validation suite (lint, type check, tests)
+description: Run all 5 VTV quality checks — formatting, linting, type checking, and tests
+argument-hint:
 allowed-tools: Bash(uv run ruff:*), Bash(uv run mypy:*), Bash(uv run pyright:*), Bash(uv run pytest:*)
 ---
+
+This command runs the complete VTV quality validation pipeline in sequence: ruff format (auto-fixes formatting), ruff check (linting for style, imports, security), mypy strict mode (type checking), pyright strict mode (catches issues mypy misses), and pytest with verbose output. Each check must pass before the next is reported, giving you a clear picture of what needs fixing first.
+
+The output is a pass/fail scorecard for all 5 checks. If any check fails, it includes specific error locations with file paths and line numbers so you can fix them immediately. This is the single command you run after any code change to verify nothing is broken — it's faster than running each tool individually and ensures nothing is skipped.
+
+Run `/validate` before every commit, after implementing features with `/execute`, and after applying bug fixes with `/implement-fix`. It's also useful as a quick sanity check during development to catch type errors or linting issues early. Pair it with `/review` for a complete quality assessment — `/validate` catches automated issues while `/review` catches architectural and convention issues.
 
 # Validate — Run Full VTV Validation Suite
 

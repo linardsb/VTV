@@ -1,7 +1,14 @@
 ---
-description: Research and create implementation plan for a VTV feature
-argument-hint: [feature-description]
+description: Research codebase and create a self-contained implementation plan
+argument-hint: [feature-description] e.g. add obsidian search tool
+allowed-tools: Read, Glob, Grep, Write
 ---
+
+This command researches the VTV codebase and produces a detailed implementation plan that another agent (or `/execute`) can follow without any additional context. It reads CLAUDE.md, PRD.md, and existing features to understand conventions, identifies reusable shared utilities, finds similar features to use as code patterns, and designs the complete vertical slice with explicit file paths, exact code patterns, and per-task validation commands.
+
+If the feature involves AI agent tools (detected by keywords like "tool", "agent", "Obsidian", "transit"), the plan includes tool-specific sections: agent-optimized docstrings following the 5-principle format, dry-run support design, token efficiency considerations, and composition chains showing how the tool fits into multi-step workflows. This ensures agent tools are built with LLM consumption patterns in mind from the start.
+
+The plan is saved to `plans/{feature-name}.md` and is intentionally self-contained — it includes everything needed for execution without referencing the original conversation. This means `/execute` can run it in a completely separate session. After the plan is created, review it, then run `/execute plans/{feature-name}.md` to implement it.
 
 # Planning — Create Feature Implementation Plan
 

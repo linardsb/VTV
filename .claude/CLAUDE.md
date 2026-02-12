@@ -14,5 +14,6 @@
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
+| #13919 | 1:44 PM | ✅ | Removed documents directory access restrictions from project settings | ~304 |
 | #13775 | 6:28 AM | 🔵 | VTV .claude/CLAUDE.md - Empty Configuration File | ~208 |
 </claude-mem-context>

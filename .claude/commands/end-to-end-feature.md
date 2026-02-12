@@ -1,8 +1,14 @@
 ---
-description: Autonomously develop a complete VTV feature from planning to commit
-argument-hint: [feature-description]
+description: Autonomously develop a complete feature through all 5 phases (prime, plan, execute, validate, commit)
+argument-hint: [feature-description] e.g. add health dashboard
 allowed-tools: Read, Write, Edit, Bash(uv run ruff:*), Bash(uv run mypy:*), Bash(uv run pyright:*), Bash(uv run pytest:*), Bash(uv run alembic:*), Bash(git:*)
 ---
+
+This command runs the entire feature development lifecycle autonomously in 5 phases: Prime (load project context), Plan (design the vertical slice and save to `plans/`), Execute (implement all files with VTV conventions), Validate (run all 5 quality checks and fix failures), and Commit (stage explicitly and create conventional commit). It's equivalent to running `/prime`, `/planning`, `/execute`, `/validate`, and `/commit` back-to-back without manual intervention.
+
+The command auto-detects agent tool features (by keywords like "tool", "agent", "Obsidian", "transit") and loads tool-specific context during the Prime phase — reading `mvp-tool-designs.md` and checking existing tool implementations. During Execute, it follows all VTV conventions: strict type annotations, async SQLAlchemy patterns, structured logging with `domain.component.action_state` format, Google-style docstrings, and agent-optimized docstrings for tool functions.
+
+Only use this command after you've run each individual command (`/prime`, `/planning`, `/execute`, `/validate`, `/commit`) separately and verified their output. This trust progression ensures you understand what each phase does before letting them run autonomously. The command produces a full summary with files created/modified, validation scorecard, and commit hash so you can verify the result.
 
 # End-to-End Feature — Full Autonomous Feature Lifecycle
 
