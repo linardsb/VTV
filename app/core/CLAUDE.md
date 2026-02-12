@@ -7,6 +7,6 @@
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #13849 | 8:04 AM | 🔵 | VTV Application Entry Point Architecture | ~482 |
-| #13786 | 6:31 AM | 🔵 | VTV FastAPI Entry Point - Lifespan Management with Structured Logging | ~469 |
+| #13853 | 8:05 AM | 🔵 | VTV Async Database Architecture with SQLAlchemy 2.0 | ~485 |
+| #13852 | " | 🔵 | VTV Exception Hierarchy and Global Handler Pattern | ~521 |
 </claude-mem-context>

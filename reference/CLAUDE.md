@@ -7,6 +7,5 @@
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #13849 | 8:04 AM | 🔵 | VTV Application Entry Point Architecture | ~482 |
-| #13786 | 6:31 AM | 🔵 | VTV FastAPI Entry Point - Lifespan Management with Structured Logging | ~469 |
+| #13858 | 8:06 AM | 🔵 | VTV Product Requirements: Transit CMS with AI Agent and Obsidian Integration | ~683 |
 </claude-mem-context>

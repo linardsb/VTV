@@ -54,7 +54,7 @@ uv run uvicorn app.main:app --reload --port 8123
 ### Testing
 
 ```bash
-# Run all tests (34 tests, <1s execution)
+# Run all tests (75 tests, <3s execution)
 uv run pytest -v
 
 # Run integration tests only
@@ -115,14 +115,27 @@ docker-compose down
 
 ## Architecture
 
-### Directory Structure
+### Project Structure
 
 ```
-app/
-├── core/           # Infrastructure (config, database, logging, middleware, health, exceptions)
-├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
-├── main.py         # FastAPI application entry point
-└── features/       # Feature directories (e.g., products/, orders/)
+VTV/
+├── app/
+│   ├── core/           # Infrastructure (config, database, logging, middleware, health, exceptions)
+│   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
+│   ├── main.py         # FastAPI application entry point
+│   ├── agent/          # AI agent feature (see Agent Module below)
+│   ├── {feature}/      # Feature slices (e.g., products/, orders/)
+│   └── tests/          # Integration tests spanning multiple features
+├── reference/          # Architecture docs and templates
+│   ├── vsa-patterns.md         # Async VSA patterns (repository, service, routes, cross-feature)
+│   ├── feature-readme-template.md  # Template for feature README.md files
+│   ├── PRD.md                  # Product requirements document
+│   └── mvp-tool-designs.md    # Agent tool specifications
+├── .claude/commands/   # 13 slash commands (see .claude/commands/CLAUDE.md for full docs)
+├── plans/              # Implementation plans created by /planning
+├── docs/rca/           # Root cause analysis documents created by /rca
+├── alembic/            # Database migration scripts
+└── pyproject.toml      # Dependencies, tooling config (ruff, mypy, pyright, pytest)
 ```
 
 ### Database
@@ -221,6 +234,25 @@ Agent tool docstrings guide **when to use the tool and how** for LLM reasoning.
 - `ErrorResponse`: Standard error response format
 - Global exception handlers configured in `app.main`
 
+### Agent Module (Planned)
+
+VTV's primary feature is a Pydantic AI agent. It follows the feature slice pattern with a `tools/` subdirectory:
+
+```
+app/agent/
+├── routes.py          # /v1/chat/completions, /v1/models
+├── service.py         # Agent orchestration, model building
+├── schemas.py         # OpenAI-compatible request/response schemas
+├── config.py          # LLM provider settings (model names, tokens, timeouts)
+├── exceptions.py      # Agent-specific exceptions
+├── tools/
+│   ├── transit/       # 5 read-only transit tools (stops, routes, schedules, etc.)
+│   └── obsidian/      # 4 vault tools (search, read, create, patch)
+└── tests/
+```
+
+`config.py` is feature-specific (not in `core/`) because LLM settings are agent-specific. Tools are grouped by domain under `tools/`, each with agent-optimized docstrings (see "Tool Docstrings for Agents" above).
+
 ### Configuration
 
 - Environment variables via Pydantic Settings (`app.core.config`)
@@ -232,12 +264,49 @@ Agent tool docstrings guide **when to use the tool and how** for LLM reasoning.
 
 **When Creating New Features**
 
+Use `/create-feature {name}` to scaffold, or follow these steps manually:
+
 1. Create feature directory under `app/` (e.g., `app/products/`)
-2. Structure: `models.py`, `schemas.py`, `routes.py`, `service.py`, `tests/`
-3. Models inherit from `Base` and `TimestampMixin`
-4. Use `get_db()` dependency for database sessions
-5. Follow structured logging pattern: `feature.action_state` (e.g., `product.create_started`, `product.create_completed`)
-6. Add router to `app/main.py`: `app.include_router(feature_router)`
+2. Create files **in this order**: schemas → models → repository → service → exceptions → routes → tests
+3. Full structure:
+   ```
+   app/{feature}/
+   ├── __init__.py
+   ├── schemas.py         # Pydantic request/response models
+   ├── models.py          # SQLAlchemy models (Base + TimestampMixin, Mapped[] annotations)
+   ├── repository.py      # Async data access (AsyncSession + select())
+   ├── service.py         # Business logic + structured logging
+   ├── exceptions.py      # Inherit from app.core.exceptions base classes
+   ├── routes.py          # FastAPI endpoints (thin — delegate to service)
+   ├── tests/
+   │   ├── conftest.py    # Feature-specific fixtures
+   │   ├── test_service.py
+   │   └── test_routes.py
+   └── README.md          # Feature docs (see reference/feature-readme-template.md)
+   ```
+4. Models inherit from `Base` and `TimestampMixin`, use `Mapped[]` type annotations
+5. Repositories take `AsyncSession`, use `select()` — see `reference/vsa-patterns.md`
+6. Services create repositories, apply business rules, do structured logging
+7. Routes are thin: create service via `Depends(get_service)`, call service methods, no try/except (let global handler catch feature exceptions)
+8. Wire router in `app/main.py`: `app.include_router(feature_router)`
+9. Create migration: `uv run alembic revision --autogenerate -m "add {feature} table"`
+
+**Layer Responsibilities:**
+- **Routes** → HTTP concerns (status codes, dependency injection)
+- **Service** → Business logic, validation, logging, orchestration
+- **Repository** → Database operations only (no business logic)
+- **Exceptions** → Inherit from `core.exceptions` for automatic HTTP status mapping
+
+**Cross-Feature Data Access:**
+- **Read** from other features' repositories freely (import and use with same session)
+- **Never write** to another feature's tables directly
+- All repositories sharing the same `AsyncSession` = single transaction
+- Document cross-feature dependencies in both READMEs
+
+**Three-Feature Rule for `shared/`:**
+1. First feature: Write code inline
+2. Second feature: Duplicate (add `# NOTE: duplicated from {other}`)
+3. Third feature: Extract to `app/shared/` and refactor all three
 
 **Type Checking**
 
@@ -274,6 +343,14 @@ Agent tool docstrings guide **when to use the tool and how** for LLM reasoning.
 - Pagination: Use `PaginationParams` and `PaginatedResponse[T]`
 - Error responses: Use `ErrorResponse` schema
 - Route prefixes: Use router `prefix` parameter for feature namespacing
+
+## Key Reference Documents
+
+- `reference/vsa-patterns.md` — Async repository, service, routes, cross-feature orchestration, and model patterns adapted for VTV's stack
+- `reference/feature-readme-template.md` — Template for documenting feature slices
+- `reference/PRD.md` — Product requirements and vision
+- `reference/mvp-tool-designs.md` — Agent tool specifications and composition chains
+- `.claude/commands/CLAUDE.md` — Full documentation for all 13 slash commands with usage, behavior, and workflows
 
 
 <claude-mem-context>
