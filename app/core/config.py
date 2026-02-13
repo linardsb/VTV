@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     # CORS settings
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8123"]
 
+    # LLM Provider
+    llm_provider: str = "test"
+    llm_model: str = "test-model"
+    llm_fallback_provider: str | None = None
+    llm_fallback_model: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

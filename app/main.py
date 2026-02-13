@@ -17,6 +17,8 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
+from app.core.agents.exceptions import setup_agent_exception_handlers
+from app.core.agents.routes import router as agent_router
 from app.core.config import get_settings
 from app.core.database import engine
 from app.core.exceptions import setup_exception_handlers
@@ -72,9 +74,11 @@ setup_middleware(app)
 
 # Setup exception handlers
 setup_exception_handlers(app)
+setup_agent_exception_handlers(app)
 
 # Include routers
 app.include_router(health_router)
+app.include_router(agent_router)
 
 
 @app.get("/")

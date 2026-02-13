@@ -8,6 +8,7 @@ dependencies = [
     "alembic>=1.17.1",
     "asyncpg>=0.30.0",
     "fastapi>=0.120.1",
+    "pydantic-ai>=1.58.0",
     "pydantic-settings>=2.11.0",
     "python-dotenv>=1.2.1",
     "sqlalchemy[asyncio]>=2.0.44",
@@ -66,6 +67,7 @@ ignore = [
 "__init__.py" = ["F401"]  # Allow unused imports in package init
 "scripts/**/*.py" = ["T201"]  # Allow print in scripts
 "app/core/health.py" = ["B008"]  # FastAPI Depends() in defaults is the recommended pattern
+"app/core/agents/routes.py" = ["B008"]  # FastAPI Depends() in defaults is the recommended pattern
 
 [tool.ruff.format]
 quote-style = "double"

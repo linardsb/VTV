@@ -1,0 +1,62 @@
+"""Tests for agent API routes."""
+
+from fastapi.testclient import TestClient
+from pydantic_ai import models
+from pydantic_ai.models.test import TestModel
+
+from app.core.agents.agent import agent
+from app.main import app
+
+# Prevent accidental real LLM API calls during testing
+models.ALLOW_MODEL_REQUESTS = False
+
+
+def test_chat_completions_endpoint():
+    with agent.override(model=TestModel()):
+        with TestClient(app) as client:
+            response = client.post(
+                "/v1/chat/completions",
+                json={"messages": [{"role": "user", "content": "Hello"}]},
+            )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["object"] == "chat.completion"
+    assert "choices" in data
+    assert "model" in data
+
+
+def test_chat_completions_empty_messages():
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            json={"messages": []},
+        )
+
+    assert response.status_code == 422
+
+
+def test_models_endpoint():
+    with TestClient(app) as client:
+        response = client.get("/v1/models")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["object"] == "list"
+    assert isinstance(data["data"], list)
+    assert len(data["data"]) >= 1
+    assert data["data"][0]["object"] == "model"
+
+
+def test_chat_completions_returns_assistant_message():
+    with agent.override(model=TestModel()):
+        with TestClient(app) as client:
+            response = client.post(
+                "/v1/chat/completions",
+                json={"messages": [{"role": "user", "content": "What is VTV?"}]},
+            )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["choices"][0]["message"]["role"] == "assistant"
+    assert data["choices"][0]["finish_reason"] == "stop"
