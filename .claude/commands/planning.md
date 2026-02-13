@@ -15,6 +15,8 @@ Research the codebase and produce a self-contained plan that `/execute` can foll
 
 **Feature request:** $ARGUMENTS
 
+Make sure the structured planning is between 600 to 700 lines. 
+
 You are creating a detailed implementation plan that ANOTHER AGENT will execute without seeing this conversation. The plan must be completely self-contained with explicit file paths, exact code patterns, and unambiguous steps.
 
 **The test:** Could a developer who knows nothing about this feature implement it from the plan alone? If yes, an agent can too.
@@ -159,6 +161,14 @@ IMPORTANT: Execute every step in order, top to bottom. Do not skip steps.
 Create one task per file — each task targets exactly one file path.
 Use action keywords: CREATE, UPDATE, ADD, REMOVE, REFACTOR, MIRROR
 
+CRITICAL: Every task MUST include a **Per-task validation** block with ALL applicable checks in this order:
+1. `uv run ruff format [file path]` — auto-format (ALWAYS include)
+2. `uv run ruff check [file path]` — lint check (ALWAYS include)
+3. `uv run mypy [file path]` — type check (for all non-test .py files)
+4. `uv run pyright [file path]` — type check (when strict typing is critical)
+5. `uv run pytest [test path] -v` — run tests (for test files only)
+Never omit linting from per-task validation. Every file gets formatted and lint-checked.
+
 ### Task 1: [Foundational Task Name]
 **File:** `[exact/path/to/file.py]` (create new)
 **Action:** CREATE
@@ -172,6 +182,8 @@ Create [schema/model/utility]:
 - Follow pattern from: `[reference-file.py]` (lines X-Y)
 
 **Per-task validation:**
+- `uv run ruff format [exact file path]`
+- `uv run ruff check [exact file path]` passes
 - `uv run mypy [exact file path]` passes with 0 errors
 
 ---
@@ -190,6 +202,7 @@ Implement [specific function/class]:
 - Follow pattern from: `[reference-file.py]` (lines X-Y)
 
 **Per-task validation:**
+- `uv run ruff format [exact file path]`
 - `uv run ruff check [exact file path]` passes
 - `uv run mypy [exact file path]` passes
 
@@ -222,6 +235,8 @@ async def test_[feature]_[error_case]():
 ```
 
 **Per-task validation:**
+- `uv run ruff format app/[feature]/tests/test_[module].py`
+- `uv run ruff check app/[feature]/tests/test_[module].py` passes
 - `uv run pytest app/[feature]/tests/ -v` — all tests pass
 
 ---
