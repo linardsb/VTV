@@ -1,14 +1,10 @@
 ---
 description: Investigate a bug and produce a root cause analysis document
 argument-hint: [github-issue-id] e.g. 42
-allowed-tools: Read, Glob, Grep, Write, Bash(git log:*), Bash(git blame:*)
+allowed-tools: Read, Glob, Grep, Write, Bash(git log:*), Bash(git blame:*), Bash(gh issue view:*)
 ---
 
-This command performs a systematic root cause analysis for a GitHub issue. It reads the issue details, then investigates the VTV codebase layer by layer: routes for affected endpoints, services for business logic edge cases, models for constraint issues, schemas for validation gaps, middleware for cross-cutting problems, and config for environment-related issues. It also searches for `_failed` log events and reviews migration history.
-
-The investigation produces a structured RCA document saved to `docs/rca/issue-{id}.md`. This document contains the root cause location with exact file:line references, the category of failure (validation gap, logic error, race condition, etc.), evidence from the codebase, a proposed fix with specific file changes, required regression tests, and validation steps. The RCA format is designed to be machine-executable — `/implement-fix` can read it and apply the fix autonomously.
-
-Use this command whenever a bug is reported. The two-step workflow (`/rca` then `/implement-fix`) separates investigation from implementation, which produces better fixes because the root cause is fully understood before any code changes are made. The RCA document also serves as permanent documentation for the team.
+Investigate a bug systematically and produce a machine-executable RCA document for `/implement-fix`.
 
 # RCA — Root Cause Analysis
 
@@ -20,7 +16,14 @@ Use this command whenever a bug is reported. The two-step workflow (`/rca` then 
 
 ### 1. Gather issue details
 
-- Read the GitHub issue to understand the reported problem
+```
+!gh issue view $ARGUMENTS 2>/dev/null || echo "No GitHub issue found — using user description"
+```
+
+- Get issue details from:
+  - The `!gh issue view` output above (if a numeric issue ID was provided)
+  - The user's description in $ARGUMENTS (if they provided context beyond the ID)
+  - Ask the user for details if neither source provides enough context
 - Note: symptoms, reproduction steps, environment, affected endpoints
 
 ### 2. Investigate the codebase

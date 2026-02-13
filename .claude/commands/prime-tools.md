@@ -1,18 +1,15 @@
 ---
 description: Load AI agent tool designs, patterns, and architecture context
 argument-hint:
-allowed-tools: Read, Glob, Grep
 ---
 
-This command is a specialized context loader for AI agent tool development. While `/prime` gives you the full project picture, `/prime-tools` dives deep into the agent tool system: it reads tool specifications from `mvp-tool-designs.md`, the PRD's agent sections, and CLAUDE.md's tool docstring standards. It then inventories which tools are implemented vs. planned, checks existing docstrings against the agent-optimized format, and reviews dry-run patterns and error response formats.
+Load agent tool context — designs, patterns, docstring standards, composition chains.
 
-The output is a tool-focused summary: a complete tool inventory table (name, status, type, dry-run support, composition chains), design pattern assessment (docstring format, error handling, token efficiency, response structure), and workflow chains showing how tools compose into multi-step agent operations. This is everything you need to know before building or modifying an agent tool.
-
-Use this before running `/planning` for a tool feature, when debugging agent tool behavior, or when reviewing whether existing tools follow VTV's agent-optimized patterns. The 5-principle docstring standard (selection guidance, token waste prevention, composition hints, expectations, examples) is critical for tools because their docstrings are read by LLMs during tool selection, not by human developers.
+@reference/mvp-tool-designs.md
+@reference/PRD.md
+@CLAUDE.md
 
 # Prime Tools — Load AI Agent Tool Context
-
-> **This is tool priming for AI agent development.** Tools are functions that an LLM calls during autonomous workflows. Everything here is optimized for machine consumption — docstrings guide tool selection, responses minimize tokens, errors are actionable.
 
 ## INPUT
 
@@ -22,15 +19,9 @@ You are priming yourself with a complete understanding of VTV's agent tool syste
 
 ### 1. Read tool specifications
 
-Load these files directly into context:
-
-@mvp-tool-designs.md
-@PRD.md
-@CLAUDE.md
-
-Focus on:
-- `mvp-tool-designs.md` — consolidated tool designs (the source of truth)
-- `PRD.md` — sections on AI agent, Obsidian integration, transit data
+The three core docs are loaded via `@` references above. Focus on:
+- `reference/mvp-tool-designs.md` — consolidated tool designs (the source of truth)
+- `reference/PRD.md` — sections on AI agent, Obsidian integration, transit data
 - `CLAUDE.md` — "Tool Docstrings for Agents" section for docstring standards
 
 ### 2. Understand the agent architecture
@@ -104,3 +95,5 @@ Present a scannable summary using this structure:
 **Next Steps:**
 - [What tools should be built next based on PRD priority]
 - [Any gaps between designs and implementation]
+
+**Next step:** Run `/planning [tool description]` to create an implementation plan for the tool.

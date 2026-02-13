@@ -131,8 +131,12 @@ VTV/
 │   ├── feature-readme-template.md  # Template for feature README.md files
 │   ├── PRD.md                  # Product requirements document
 │   └── mvp-tool-designs.md    # Agent tool specifications
-├── .claude/commands/   # 13 slash commands (see .claude/commands/CLAUDE.md for full docs)
-├── plans/              # Implementation plans created by /planning
+├── .claude/commands/   # 16 slash commands (see .claude/commands/CLAUDE.md for full docs)
+├── .agents/            # Agent workflow outputs
+│   ├── plans/              # Implementation plans created by /planning
+│   ├── code-reviews/       # Code review reports created by /review
+│   ├── execution-reports/  # Execution reports created by /execution-report
+│   └── system-reviews/     # System reviews created by /system-review
 ├── docs/rca/           # Root cause analysis documents created by /rca
 ├── alembic/            # Database migration scripts
 └── pyproject.toml      # Dependencies, tooling config (ruff, mypy, pyright, pytest)
@@ -372,7 +376,7 @@ Use `/create-feature {name}` to scaffold, or follow these steps manually:
 - `reference/feature-readme-template.md` — Template for documenting feature slices
 - `reference/PRD.md` — Product requirements and vision
 - `reference/mvp-tool-designs.md` — Agent tool specifications and composition chains
-- `.claude/commands/CLAUDE.md` — Full documentation for all 13 slash commands with usage, behavior, and workflows
+- `.claude/commands/CLAUDE.md` — Full documentation for all 16 slash commands with usage, behavior, and workflows
 
 
 <claude-mem-context>

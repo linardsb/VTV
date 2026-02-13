@@ -1,16 +1,9 @@
 ---
 description: Scaffold a complete vertical slice feature directory with all VSA files
 argument-hint: [feature-name] e.g. orders, transit-stops
-allowed-tools: Read, Write, Edit
 ---
 
-This command generates the full directory structure for a new VTV feature slice. Given a feature name, it creates `app/{feature}/` with all the standard VSA files: `schemas.py` (Pydantic request/response models), `models.py` (SQLAlchemy with `Base` + `TimestampMixin` + `Mapped[]`), `repository.py` (async data access), `service.py` (business logic with structured logging), `exceptions.py` (feature-specific errors), `routes.py` (thin FastAPI router), and a `tests/` directory with conftest and test stubs.
-
-All generated code follows the patterns defined in `reference/vsa-patterns.md` — async SQLAlchemy 2.0 style with `select()`, dependency injection via `Depends(get_service)`, structured logging with the `domain.component.action_state` pattern, and complete type annotations. The router is automatically wired into `app/main.py` with the import and `include_router()` call, and a `README.md` is created from the feature template.
-
-After scaffolding, you fill in the actual fields in schemas and models, write your business logic in the service layer, create a database migration with `uv run alembic revision --autogenerate -m "add {feature} table"`, and run `/validate` to verify everything passes. This is the fastest way to start a new feature while ensuring it follows all VTV conventions from the beginning.
-
-Scaffold a new VTV feature slice named "$ARGUMENTS".
+Scaffold a new VTV feature slice named "$ARGUMENTS" with all VSA files, tests, and router wiring.
 
 ## Steps
 
@@ -41,3 +34,8 @@ Scaffold a new VTV feature slice named "$ARGUMENTS".
    - Fill in schemas with actual fields
    - Create a database migration: `uv run alembic revision --autogenerate -m "add {feature} table"`
    - Run validation: `/validate`
+
+**Next steps:**
+1. Fill in schemas, models, and business logic in the scaffolded files
+2. Run `/validate` to check all quality gates
+3. Run `/commit` when ready

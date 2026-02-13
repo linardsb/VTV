@@ -1,14 +1,11 @@
 ---
 description: Review code against all 8 VTV quality standards
 argument-hint: [file-or-directory] e.g. app/agent/ or app/core/health.py
-allowed-tools: Read, Glob, Grep
 ---
 
-This command performs a comprehensive code review against VTV's 8 quality standards: type safety, Pydantic schemas, structured logging, database patterns, architecture (VSA boundaries), docstrings, testing, and security. It reads every file in the target path and checks each one systematically, producing a findings table with file:line references, issue descriptions, fix suggestions, and priority levels.
+Review code against VTV's 8 quality standards and produce a findings table with fix suggestions.
 
-Issues are categorized by priority: Critical (type safety violations, security issues, data corruption risks), High (missing logging, broken patterns, no tests), Medium (inconsistent naming, missing docstrings, suboptimal patterns), and Low (style nits, minor improvements). For agent tool files, it additionally checks that docstrings follow the 5-principle agent-optimized format (selection guidance, composition hints, token efficiency, expectations, examples).
-
-Use this command before committing to catch issues early, or run it on an entire feature directory after implementation. It's read-only and makes no changes — it only reports findings. Pair it with `/validate` which runs automated checks (linting, type checking, tests), while `/review` catches architectural and convention issues that automated tools miss.
+@CLAUDE.md
 
 # Review — Code Review Against VTV Standards
 
@@ -59,7 +56,12 @@ Read all files in the target path. For each file, check against VTV's standards 
 ### 6. Docstrings
 
 - Functions have Google-style docstrings
-- Tool/agent functions have agent-optimized docstrings (selection guidance, composition hints, examples)
+- Tool/agent functions have agent-optimized docstrings covering all 5 principles:
+  1. **Guide Selection** — When to use this tool (and when NOT to)
+  2. **Prevent Token Waste** — Parameter efficiency tips, concise response formats
+  3. **Enable Composition** — What tools to chain before/after
+  4. **Set Expectations** — Output format, size, performance characteristics
+  5. **Provide Examples** — Concrete usage with realistic data
 
 ### 7. Testing
 
@@ -95,4 +97,12 @@ Present findings in this format:
 - **Medium**: Inconsistent naming, missing docstrings, suboptimal patterns
 - **Low**: Style nits, minor improvements
 
-**Stats:** [X] files reviewed | [Y] issues found | [Z] critical
+**Stats:**
+- Files reviewed: [X]
+- Files modified: [Y]
+- Files added: [Z]
+- Issues: [N] total — [A] Critical, [B] High, [C] Medium, [D] Low
+
+Save the review to `.agents/code-reviews/[target-name]-review.md`.
+
+**Next step:** To fix issues: `/code-review-fix .agents/code-reviews/[target-name]-review.md`

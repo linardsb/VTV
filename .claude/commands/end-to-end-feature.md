@@ -1,14 +1,13 @@
 ---
-description: Autonomously develop a complete feature through all 5 phases (prime, plan, execute, validate, commit)
+description: Autonomously develop a complete feature through all 6 phases (prime, plan, execute, validate, report, commit)
 argument-hint: [feature-description] e.g. add health dashboard
 allowed-tools: Read, Write, Edit, Bash(uv run ruff:*), Bash(uv run mypy:*), Bash(uv run pyright:*), Bash(uv run pytest:*), Bash(uv run alembic:*), Bash(git:*)
 ---
 
-This command runs the entire feature development lifecycle autonomously in 5 phases: Prime (load project context), Plan (design the vertical slice and save to `plans/`), Execute (implement all files with VTV conventions), Validate (run all 5 quality checks and fix failures), and Commit (stage explicitly and create conventional commit). It's equivalent to running `/prime`, `/planning`, `/execute`, `/validate`, and `/commit` back-to-back without manual intervention.
+Run the complete feature lifecycle autonomously: prime → plan → execute → validate → commit.
 
-The command auto-detects agent tool features (by keywords like "tool", "agent", "Obsidian", "transit") and loads tool-specific context during the Prime phase — reading `mvp-tool-designs.md` and checking existing tool implementations. During Execute, it follows all VTV conventions: strict type annotations, async SQLAlchemy patterns, structured logging with `domain.component.action_state` format, Google-style docstrings, and agent-optimized docstrings for tool functions.
-
-Only use this command after you've run each individual command (`/prime`, `/planning`, `/execute`, `/validate`, `/commit`) separately and verified their output. This trust progression ensures you understand what each phase does before letting them run autonomously. The command produces a full summary with files created/modified, validation scorecard, and commit hash so you can verify the result.
+@CLAUDE.md
+@reference/PRD.md
 
 # End-to-End Feature — Full Autonomous Feature Lifecycle
 
@@ -22,17 +21,20 @@ You will autonomously develop this feature from research through commit. Follow 
 
 ### Phase 1: Prime
 
-Load project understanding. **Detect if this is an agent tool feature** (keywords: tool, agent, MCP, Obsidian tool, transit tool).
+```
+!git status
+!docker-compose ps 2>/dev/null || echo "Docker not running"
+```
+
+Load project understanding. Architecture and product context are loaded via `@` references above. **Detect if this is an agent tool feature** (keywords: tool, agent, MCP, Obsidian tool, transit tool).
 
 **If agent tool feature:**
-- Load tool context: read `mvp-tool-designs.md`, `PRD.md` (agent sections), `CLAUDE.md` (tool docstrings section)
+- Load tool context: read `reference/mvp-tool-designs.md`, `reference/PRD.md` (agent sections), `CLAUDE.md` (tool docstrings section)
 - Inventory existing tool implementations in `app/`
 - Check tool design patterns (docstrings, dry-run, error formats)
 - Follow agent tool planning requirements in Phase 2
 
 **For all features:**
-- Read `CLAUDE.md` for architecture and conventions
-- Read `PRD.md` for product context
 - Explore `app/` directory structure to understand existing features
 - Read `app/main.py` for current router registrations
 - Check existing shared utilities in `app/shared/`
@@ -45,7 +47,7 @@ Create a detailed implementation plan:
 - Identify shared utilities to reuse (TimestampMixin, PaginationParams, get_db(), get_logger())
 - Plan database migrations if needed
 - Define structured logging events (`feature.action_state`)
-- Save plan to `plans/[feature-name].md`
+- Save plan to `.agents/plans/[feature-name].md`
 - Plan must be detailed enough for another agent to execute
 
 ### Phase 3: Execute
@@ -91,7 +93,20 @@ uv run pytest -v
 
 Fix any failures before moving on. Do not proceed to commit with failing checks.
 
-### Phase 5: Commit
+**Error recovery rules:**
+- If a check fails, attempt to fix and re-run that specific check
+- Maximum 3 fix attempts per check
+- If still failing after 3 attempts: STOP the entire pipeline and report to the user
+  - Do NOT proceed to Phase 5 (Execution Report)
+  - Report: which phase failed, what was attempted, exact errors
+
+### Phase 5: Execution Report
+
+Generate a brief execution report comparing implementation vs plan.
+Save to `.agents/execution-reports/[feature-name].md`.
+Note any divergences and their reasons.
+
+### Phase 6: Commit
 
 Stage and commit with conventional format:
 
@@ -104,7 +119,7 @@ Stage and commit with conventional format:
 Present a final summary:
 
 **Feature:** [name]
-**Plan:** `plans/[feature-name].md`
+**Plan:** `.agents/plans/[feature-name].md`
 
 **Files Created:**
 - [list with paths]

@@ -1,14 +1,10 @@
 ---
 description: Run all 5 VTV quality checks — formatting, linting, type checking, and tests
 argument-hint:
-allowed-tools: Bash(uv run ruff:*), Bash(uv run mypy:*), Bash(uv run pyright:*), Bash(uv run pytest:*)
+allowed-tools: Bash(uv run ruff:*), Bash(uv run mypy:*), Bash(uv run pyright:*), Bash(uv run pytest:*), Bash(curl:*), Bash(docker-compose:*)
 ---
 
-This command runs the complete VTV quality validation pipeline in sequence: ruff format (auto-fixes formatting), ruff check (linting for style, imports, security), mypy strict mode (type checking), pyright strict mode (catches issues mypy misses), and pytest with verbose output. Each check must pass before the next is reported, giving you a clear picture of what needs fixing first.
-
-The output is a pass/fail scorecard for all 5 checks. If any check fails, it includes specific error locations with file paths and line numbers so you can fix them immediately. This is the single command you run after any code change to verify nothing is broken — it's faster than running each tool individually and ensures nothing is skipped.
-
-Run `/validate` before every commit, after implementing features with `/execute`, and after applying bug fixes with `/implement-fix`. It's also useful as a quick sanity check during development to catch type errors or linting issues early. Pair it with `/review` for a complete quality assessment — `/validate` catches automated issues while `/review` catches architectural and convention issues.
+Run all 5 VTV quality checks in sequence and report a pass/fail scorecard.
 
 # Validate — Run Full VTV Validation Suite
 
@@ -50,6 +46,19 @@ uv run pyright app/
 uv run pytest -v
 ```
 
+### 6. Server Validation (optional — only if Docker is running)
+
+```bash
+docker-compose ps 2>/dev/null
+```
+
+If services are running, test endpoints:
+
+```bash
+curl -s http://localhost:8123/health
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8123/docs
+```
+
 ## OUTPUT
 
 ```
@@ -59,8 +68,13 @@ Validation Results:
   3. MyPy:         PASS / FAIL  [N errors]
   4. Pyright:      PASS / FAIL  [N errors]
   5. Pytest:       PASS / FAIL  [X passed, Y failed]
+  6. Server:       PASS / FAIL / SKIPPED (Docker not running)
 
 Overall: ALL PASS / X FAILURES
 ```
 
 If any step fails, list the specific errors with file paths and line numbers so they can be fixed.
+
+**Next steps:**
+- If all checks pass: Run `/commit` to commit changes, or `/review [path]` for architectural review
+- If checks fail: Fix the reported issues and re-run `/validate`

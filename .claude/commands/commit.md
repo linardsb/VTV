@@ -1,14 +1,10 @@
 ---
 description: Stage files and create a conventional commit with safety checks
 argument-hint: [file1] [file2] ... (optional, commits all changes if empty)
-allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git commit:*), Bash(git log:*)
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git commit:*), Bash(git log:*), Bash(git push:*)
 ---
 
-This command reviews your changes, performs security checks, and creates a conventional commit. It inspects all staged and unstaged changes, checks recent commit history for message style consistency, and scans for sensitive files (`.env`, `.pem`, `.key`, `credentials.*`, `secrets.*`) — stopping and warning you if any are detected. Files are always staged explicitly by name, never with `git add .` or `git add -A`.
-
-The commit message follows conventional commit format with VTV-specific scopes: `core`, `shared`, `agent`, `transit`, `obsidian`, `config`, `db`, `health`, or the feature name. Types include `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`, and `style`. The subject line stays under 72 characters in imperative mood, the body explains WHY (not what), and every commit includes a `Co-Authored-By: Claude` trailer.
-
-You can pass specific file paths as arguments to commit only those files, or run without arguments to commit all changes. Use this as the final step after `/validate` passes, or at the end of `/execute` and `/implement-fix` workflows. The command reports the commit hash, message, files included, and branch name.
+Review changes, scan for secrets, stage explicitly, and create a conventional commit.
 
 # Commit — Conventional Git Commit
 
@@ -82,6 +78,10 @@ EOF
 )"
 ```
 
+### 6. Push
+
+Do NOT push automatically. Report that changes are committed locally. User can push with `git push`.
+
 ## OUTPUT
 
 Report:
@@ -89,3 +89,4 @@ Report:
 - Commit message used
 - Files included
 - Branch name
+- Push status: local only (user can `git push` when ready)

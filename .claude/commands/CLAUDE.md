@@ -43,7 +43,7 @@ Scaffolds a complete vertical slice feature directory with all the files defined
 
 **Usage:** `/prime`
 
-Loads the full VTV project context into Claude's working memory for the current session. Reads `CLAUDE.md`, `PRD.md`, and `mvp-tool-designs.md` for architecture and product context. Analyzes the `app/` directory structure to identify implemented vs. planned features. Checks `app/main.py` for registered routers, reads `docker-compose.yml` and `pyproject.toml` for infrastructure config, reviews recent git history, and checks if Docker services and the API are running.
+Loads the full VTV project context into Claude's working memory for the current session. Reads `CLAUDE.md`, `PRD.md`, and `mvp-tool-designs.md` via `@` file references. Analyzes the `app/` directory structure to identify implemented vs. planned features. Checks `app/main.py` for registered routers, reads `docker-compose.yml` and `pyproject.toml` for infrastructure config, reviews recent git history, and checks if Docker services and the API are running.
 
 **Output:** A structured summary covering project identity, tech stack, implemented/planned features, infrastructure health, recent commits, and key entry point file paths. Use this before working on features so Claude understands the full picture.
 
@@ -55,7 +55,7 @@ Loads the full VTV project context into Claude's working memory for the current 
 
 **Usage:** `/prime-tools`
 
-Specialized context loading for AI agent tool development. Reads tool specifications from `mvp-tool-designs.md`, PRD agent sections, and CLAUDE.md's tool docstring standards. Inventories which tools are implemented vs. planned, checks existing tool docstrings against the agent-optimized format (selection guidance, composition hints, token efficiency), reviews dry-run patterns, and inspects error response formats.
+Specialized context loading for AI agent tool development. Loads tool specifications from `reference/mvp-tool-designs.md`, `reference/PRD.md`, and `CLAUDE.md` via `@` file references. Inventories which tools are implemented vs. planned, checks existing tool docstrings against the agent-optimized format (selection guidance, composition hints, token efficiency), reviews dry-run patterns, and inspects error response formats.
 
 **Output:** A tool-focused summary covering tool inventory (implemented/planned), design patterns, workflow chains, docstring standards, and next steps. Use this before building or modifying any agent tools.
 
@@ -69,19 +69,11 @@ Specialized context loading for AI agent tool development. Reads tool specificat
 
 **Usage:** `/planning add obsidian search tool`
 
-Researches the codebase and creates a detailed implementation plan that another agent (or `/execute`) can follow without any additional context. Reads CLAUDE.md, PRD.md, and existing features to understand conventions. Identifies reusable shared utilities, finds similar features to use as patterns, and designs the full vertical slice. If the feature involves agent tools (detected by keywords like "tool", "agent", "Obsidian"), it adds tool-specific planning sections: agent-optimized docstrings, dry-run support, token efficiency, and composition chains.
+Researches the codebase and creates a detailed implementation plan that another agent (or `/execute`) can follow without any additional context. Loads `CLAUDE.md` and `PRD.md` via `@` references, reads existing features to understand conventions. Identifies reusable shared utilities, finds similar features to use as patterns, and designs the full vertical slice. If the feature involves agent tools (detected by keywords like "tool", "agent", "Obsidian"), it adds tool-specific planning sections: agent-optimized docstrings, dry-run support, token efficiency, and composition chains.
 
-**Output:** A plan file saved to `plans/{feature-name}.md` containing: feature description, user story, solution approach with alternatives considered, relevant files with exact line ranges, step-by-step implementation tasks with per-task validation commands, testing strategy, logging events, acceptance criteria, and final validation commands.
+**Output:** A plan file saved to `.agents/plans/{feature-name}.md` containing: feature metadata, feature description, user story, solution approach with alternatives considered, relevant files with exact line ranges, step-by-step implementation tasks (with CREATE/UPDATE/ADD/REMOVE action keywords) with per-task validation commands, testing strategy, logging events, acceptance criteria, completion checklist, and a 5-level validation pyramid.
 
 **Key design:** The plan is self-contained — it includes everything needed for execution without referencing the original conversation. This means `/execute` can run it in a completely separate session.
-
----
-
-### `/plan-template`
-
-**Usage:** `/plan-template`
-
-Outputs the blank VTV plan template to `plans/template.md`. Use this when you want to write a plan manually instead of having `/planning` generate one, or as a reference for the plan structure. The template has all the sections that `/execute` expects: feature description, user story, solution approach, relevant files, implementation tasks, testing strategy, acceptance criteria, and final validation.
 
 ---
 
@@ -89,9 +81,9 @@ Outputs the blank VTV plan template to `plans/template.md`. Use this when you wa
 
 ### `/execute`
 
-**Usage:** `/execute plans/user-profiles.md`
+**Usage:** `/execute .agents/plans/user-profiles.md`
 
-Reads a plan file and implements every step in order. Creates all specified files following VTV conventions (type annotations, async patterns, structured logging, Google-style docstrings). Runs database migrations if the plan requires them. After implementation, runs the full 5-step validation suite (ruff format, ruff check, mypy, pyright, pytest) and fixes any failures before reporting results.
+Reads a plan file and implements every step in order. Loads `CLAUDE.md` via `@` reference for conventions context. Creates all specified files following VTV conventions (type annotations, async patterns, structured logging, Google-style docstrings). Runs database migrations if the plan requires them. After implementation, runs the full 5-step validation suite (ruff format, ruff check, mypy, pyright, pytest) and fixes any failures before reporting results. Documents any deviations from the plan.
 
 **What it checks post-implementation:**
 - Router registered in `app/main.py`
@@ -121,15 +113,16 @@ Reads the RCA document at `docs/rca/issue-42.md` (created by `/rca`) and impleme
 
 **Usage:** `/validate`
 
-Runs all 5 VTV quality checks in sequence against the current codebase. Each check must pass before reporting the next:
+Runs all VTV quality checks in sequence against the current codebase. Each check must pass before reporting the next:
 
 1. **Ruff format** — Auto-fixes formatting issues
 2. **Ruff check** — Linting (style, imports, security, type annotation rules)
 3. **MyPy** — Strict mode type checking
 4. **Pyright** — Strict mode type checking (catches issues MyPy misses)
 5. **Pytest** — Full test suite with verbose output
+6. **Server validation** — (optional) Health check if Docker is running
 
-**Output:** A pass/fail scorecard for all 5 checks with specific error locations if anything fails. Run this after any code changes and before committing.
+**Output:** A pass/fail scorecard for all checks with specific error locations if anything fails. Run this after any code changes and before committing.
 
 ---
 
@@ -137,7 +130,7 @@ Runs all 5 VTV quality checks in sequence against the current codebase. Each che
 
 **Usage:** `/review app/agent/` or `/review app/core/health.py`
 
-Reads all files in the target path and reviews them against VTV's 8 quality standards: type safety, Pydantic schemas, structured logging, database patterns, architecture (VSA boundaries), docstrings, testing, and security. Produces a table of findings with file:line references, descriptions, fix suggestions, and priority levels (Critical/High/Medium/Low).
+Reads all files in the target path and reviews them against VTV's 8 quality standards. Loads `CLAUDE.md` via `@` reference for standards context. Produces a table of findings with file:line references, descriptions, fix suggestions, and priority levels (Critical/High/Medium/Low). Saves review to `.agents/code-reviews/`.
 
 **What it checks:**
 - Type annotations complete, no `Any` without justification, no suppressions
@@ -150,13 +143,23 @@ Reads all files in the target path and reviews them against VTV's 8 quality stan
 
 ---
 
+### `/code-review-fix`
+
+**Usage:** `/code-review-fix .agents/code-reviews/agent-review.md all`
+
+Reads a code review report (created by `/review`) and fixes all issues, prioritized by severity (Critical → High → Medium → Low). Runs the full 5-step validation suite after fixes with a max 3-attempt recovery loop.
+
+**Output:** Issues fixed (file:line, what changed), issues skipped with reasons, and a validation scorecard.
+
+---
+
 ## Git Commands
 
 ### `/commit`
 
 **Usage:** `/commit` or `/commit app/agent/routes.py app/agent/service.py`
 
-Reviews all changes (or specified files), performs safety checks for secrets (`.env`, `.pem`, `.key`, `credentials.*`), stages files explicitly (never `git add .`), and creates a conventional commit. Uses VTV-specific scopes: `core`, `shared`, `agent`, `transit`, `obsidian`, `config`, `db`, `health`, or the feature name.
+Reviews all changes (or specified files), performs safety checks for secrets (`.env`, `.pem`, `.key`, `credentials.*`), stages files explicitly (never `git add .`), and creates a conventional commit. Does NOT push automatically — user pushes with `git push` when ready.
 
 **Commit format:**
 ```
@@ -168,6 +171,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`, `style`
+**VTV Scopes:** `core`, `shared`, `agent`, `transit`, `obsidian`, `config`, `db`, `health`, or feature name
 
 ---
 
@@ -177,9 +181,31 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 **Usage:** `/rca 42`
 
-Performs root cause analysis for a GitHub issue. Reads the issue details, then systematically investigates the VTV codebase: routes for affected endpoints, services for business logic edge cases, models for constraint issues, schemas for validation gaps, middleware for cross-cutting problems, and config for environment issues. Checks for `_failed` log events related to the issue, reviews migration history, and identifies the root cause with specific file:line references.
+Performs root cause analysis for a GitHub issue. Loads issue details via `!gh issue view`, then systematically investigates the VTV codebase: routes for affected endpoints, services for business logic edge cases, models for constraint issues, schemas for validation gaps, middleware for cross-cutting problems, and config for environment issues. Checks for `_failed` log events related to the issue, reviews migration history, and identifies the root cause with specific file:line references.
 
 **Output:** An RCA document saved to `docs/rca/issue-42.md` containing: summary, symptoms, root cause location and category, evidence, proposed fix with exact file changes, required tests, and validation steps. Tells you to run `/implement-fix 42` to apply the fix.
+
+---
+
+## Process Improvement Commands
+
+### `/execution-report`
+
+**Usage:** `/execution-report .agents/plans/user-auth.md`
+
+Post-execution reflection comparing what was actually implemented vs. the plan. Checks git diff, compares files created/modified against the plan's task list, assesses validation results, and identifies divergences.
+
+**Output:** A report saved to `.agents/execution-reports/[feature-name].md` with files changed, validation results, what went well, challenges, divergences from plan, and recommendations.
+
+---
+
+### `/system-review`
+
+**Usage:** `/system-review .agents/plans/auth.md .agents/execution-reports/auth.md`
+
+Meta-level process improvement. Reads an execution report and the original plan, classifies each divergence as justified or problematic, traces root causes (unclear plan? missing context? missing validation?), and generates actionable improvements to CLAUDE.md, commands, or processes.
+
+**Output:** A review saved to `.agents/system-reviews/[feature-name]-review.md` with an alignment score (1-10), divergence analysis, pattern compliance checklist, recommended actions, and key learnings.
 
 ---
 
@@ -189,13 +215,14 @@ Performs root cause analysis for a GitHub issue. Reads the issue details, then s
 
 **Usage:** `/end-to-end-feature add health dashboard`
 
-Runs the complete feature development lifecycle autonomously in 5 phases:
+Runs the complete feature development lifecycle autonomously in 6 phases:
 
-1. **Prime** — Loads project context (CLAUDE.md, PRD.md, app structure, git state). Auto-detects agent tool features and loads tool-specific context.
-2. **Plan** — Designs the vertical slice, identifies shared utilities to reuse, plans migrations, defines logging events. Saves plan to `plans/`.
+1. **Prime** — Loads project context via `@CLAUDE.md` and `@reference/PRD.md`. Checks git state and Docker. Auto-detects agent tool features.
+2. **Plan** — Designs the vertical slice, identifies shared utilities to reuse, plans migrations, defines logging events. Saves plan to `.agents/plans/`.
 3. **Execute** — Implements every file with type annotations, async patterns, structured logging, docstrings. Registers router, runs migrations.
-4. **Validate** — Runs all 5 checks (ruff format, ruff check, mypy, pyright, pytest). Fixes any failures before proceeding.
-5. **Commit** — Stages files explicitly, creates conventional commit with Co-Authored-By.
+4. **Validate** — Runs all checks (ruff format, ruff check, mypy, pyright, pytest). Fixes any failures before proceeding.
+5. **Execution Report** — Compares implementation vs plan. Saves to `.agents/execution-reports/`.
+6. **Commit** — Stages files explicitly, creates conventional commit with Co-Authored-By.
 
 **Output:** Full summary with files created/modified, validation scorecard, and commit hash.
 
@@ -207,11 +234,12 @@ Runs the complete feature development lifecycle autonomously in 5 phases:
 
 ### Feature Development (manual steps)
 ```
-/prime                                    # Load project context
-/planning add user authentication         # Create the plan
-/execute plans/user-authentication.md     # Implement it
-/validate                                 # Verify everything passes
-/commit                                   # Commit with conventional format
+/prime                                              # Load project context
+/planning add user authentication                   # Create the plan
+/execute .agents/plans/user-authentication.md       # Implement it
+/validate                                           # Verify everything passes
+/execution-report .agents/plans/user-authentication.md  # Document what happened
+/commit                                             # Commit with conventional format
 ```
 
 ### Feature Development (autonomous)
@@ -237,11 +265,26 @@ Runs the complete feature development lifecycle autonomously in 5 phases:
 
 ### Agent Tool Development
 ```
-/prime-tools                              # Load tool designs and patterns
-/planning add obsidian search tool        # Plan with tool-specific sections
-/execute plans/obsidian-search-tool.md    # Implement with agent-optimized docstrings
-/validate                                 # Verify all checks pass
-/commit                                   # Commit
+/prime-tools                                        # Load tool designs and patterns
+/planning add obsidian search tool                  # Plan with tool-specific sections
+/execute .agents/plans/obsidian-search-tool.md      # Implement with agent-optimized docstrings
+/validate                                           # Verify all checks pass
+/commit                                             # Commit
+```
+
+### Code Quality Loop
+```
+/review app/agent/                                              # Review, save to .agents/code-reviews/
+/code-review-fix .agents/code-reviews/agent-review.md           # Fix issues
+/validate                                                       # Verify
+/commit                                                         # Commit
+```
+
+### Process Improvement (after feature work)
+```
+/execution-report .agents/plans/feature.md                      # Document what happened
+/system-review .agents/plans/feature.md .agents/execution-reports/feature.md
+# Apply recommended improvements manually
 ```
 
 ### Quick Check
@@ -252,7 +295,10 @@ Runs the complete feature development lifecycle autonomously in 5 phases:
 
 ## Output Directories
 
-- `plans/` — Implementation plans created by `/planning`
+- `.agents/plans/` — Implementation plans created by `/planning`
+- `.agents/code-reviews/` — Code review reports created by `/review`
+- `.agents/execution-reports/` — Execution reports created by `/execution-report`
+- `.agents/system-reviews/` — System reviews created by `/system-review`
 - `docs/rca/` — Root cause analysis documents created by `/rca`
 
 ## Trust Progression
@@ -262,6 +308,7 @@ Follow this progression before using autonomous commands:
 1. **Manual prompts** — Learn what instructions work
 2. **Individual commands** — Run `/prime`, `/planning`, `/execute`, `/commit` separately and verify each
 3. **Chained commands** — Use `/end-to-end-feature` only after trusting each individual command
+
 
 <claude-mem-context>
 # Recent Activity

@@ -1,14 +1,12 @@
 ---
 description: Research codebase and create a self-contained implementation plan
 argument-hint: [feature-description] e.g. add obsidian search tool
-allowed-tools: Read, Glob, Grep, Write
 ---
 
-This command researches the VTV codebase and produces a detailed implementation plan that another agent (or `/execute`) can follow without any additional context. It reads CLAUDE.md, PRD.md, and existing features to understand conventions, identifies reusable shared utilities, finds similar features to use as code patterns, and designs the complete vertical slice with explicit file paths, exact code patterns, and per-task validation commands.
+Research the codebase and produce a self-contained plan that `/execute` can follow without additional context.
 
-If the feature involves AI agent tools (detected by keywords like "tool", "agent", "Obsidian", "transit"), the plan includes tool-specific sections: agent-optimized docstrings following the 5-principle format, dry-run support design, token efficiency considerations, and composition chains showing how the tool fits into multi-step workflows. This ensures agent tools are built with LLM consumption patterns in mind from the start.
-
-The plan is saved to `plans/{feature-name}.md` and is intentionally self-contained — it includes everything needed for execution without referencing the original conversation. This means `/execute` can run it in a completely separate session. After the plan is created, review it, then run `/execute plans/{feature-name}.md` to implement it.
+@CLAUDE.md
+@reference/PRD.md
 
 # Planning — Create Feature Implementation Plan
 
@@ -24,9 +22,9 @@ You are creating a detailed implementation plan that ANOTHER AGENT will execute 
 
 ### 1. Understand the feature
 
-- Read `CLAUDE.md` for architecture rules and conventions
-- Read `PRD.md` to understand how this feature fits the product vision
-- Read `mvp-tool-designs.md` if the feature relates to agent tools
+- Architecture rules and conventions are loaded via `@CLAUDE.md` above
+- Product context is loaded via `@reference/PRD.md` above
+- Read `reference/mvp-tool-designs.md` if the feature relates to agent tools
 - **If this is an AI agent tool:** flag it as tool planning (see "Agent Tool Planning" section below)
 - Explore existing features under `app/` to understand established patterns
 - Read `app/main.py` to see current router registrations
@@ -36,7 +34,10 @@ You are creating a detailed implementation plan that ANOTHER AGENT will execute 
 - Identify which existing modules this feature will interact with
 - Check `app/shared/` for reusable utilities (TimestampMixin, PaginationParams, PaginatedResponse, ErrorResponse, get_db(), get_logger())
 - Find similar features and note **exact file paths with line ranges** for patterns the executing agent must follow
-- Check `alembic/versions/` for migration context
+- Check `alembic/versions/` for unapplied or recent migrations that could conflict
+- Check `pyproject.toml` for existing dependencies; note any new packages needed (`uv add` commands)
+- Check `.env.example` for current env vars; note if the feature needs new ones
+- Identify existing features that might need changes when this feature is added (cross-feature impact)
 - Research any external libraries/APIs needed — capture documentation URLs with specific sections
 
 ### 3. Agent Tool Planning (if applicable)
@@ -84,10 +85,15 @@ Plan the complete feature following VTV's vertical slice structure:
 
 ### 5. Write the plan
 
-Create the plan file at `plans/[feature-name].md` using this template:
+Create the plan file at `.agents/plans/[feature-name].md` using this template:
 
 ```markdown
 # Plan: [Feature Name]
+
+## Feature Metadata
+**Feature Type**: [New Capability / Enhancement / Refactor / Bug Fix]
+**Estimated Complexity**: [Low / Medium / High]
+**Primary Systems Affected**: [list]
 
 ## Feature Description
 
@@ -149,10 +155,12 @@ Use these resources for implementation guidance:
 ## Step by Step Tasks
 
 IMPORTANT: Execute every step in order, top to bottom. Do not skip steps.
+Create one task per file — each task targets exactly one file path.
+Use action keywords: CREATE, UPDATE, ADD, REMOVE, REFACTOR, MIRROR
 
 ### Task 1: [Foundational Task Name]
 **File:** `[exact/path/to/file.py]` (create new)
-**Action:** Create
+**Action:** CREATE
 
 Create [schema/model/utility]:
 - Define [Specific class name] with:
@@ -169,7 +177,7 @@ Create [schema/model/utility]:
 
 ### Task 2: [Implementation Task Name]
 **File:** `[exact/path/to/file.py]` (create new OR modify existing)
-**Action:** Create/Modify
+**Action:** CREATE / UPDATE
 
 Implement [specific function/class]:
 - Function signature: `async def function_name(param: Type) -> ReturnType:`
@@ -219,7 +227,7 @@ async def test_[feature]_[error_case]():
 
 ### Task N: Register Router & Final Integration
 **File:** `app/main.py`
-**Action:** Modify
+**Action:** UPDATE
 
 Add:
 ```python
@@ -271,34 +279,54 @@ This feature is complete when:
 - [ ] Router registered in `app/main.py`
 - [ ] No regressions in existing tests
 
-## Final Validation
+## Completion Checklist
 
-Run ALL commands in order — every one must pass with 0 errors:
+Before marking this plan as fully executed:
+- [ ] All tasks completed in order
+- [ ] Per-task validations passed
+- [ ] Full validation pyramid passed (Levels 1-4)
+- [ ] No deviations from plan (or deviations documented with reasons)
+- [ ] Ready for `/commit`
 
+## Final Validation (5-Level Pyramid)
+
+Run each level in order — every one must pass with 0 errors:
+
+**Level 1: Syntax & Style**
 ```bash
-# 1. Format (auto-fixes)
 uv run ruff format .
-
-# 2. Lint (must pass)
 uv run ruff check .
+```
 
-# 3. Type check — MyPy (must pass)
+**Level 2: Type Safety**
+```bash
 uv run mypy app/
-
-# 4. Type check — Pyright (must pass)
 uv run pyright app/
+```
 
-# 5. All tests (must pass)
+**Level 3: Unit Tests (feature-specific)**
+```bash
+uv run pytest app/[feature]/tests/ -v
+```
+
+**Level 4: Full Test Suite**
+```bash
 uv run pytest -v
 ```
 
-**Success definition:** All commands exit code 0, all tests pass, zero errors or warnings.
+**Level 5: Server Validation (if Docker running)**
+```bash
+curl -s http://localhost:8123/health
+```
+
+**Success definition:** Levels 1-4 exit code 0, all tests pass, zero errors or warnings. Level 5 optional.
 
 ## Dependencies
 
 - Shared utilities used: [list from app/shared/]
 - Core modules used: [list from app/core/]
 - New dependencies: [any new packages — include `uv add [package]` commands]
+- New env vars: [any new environment variables — include `.env.example` updates]
 
 ## Notes
 
@@ -316,10 +344,10 @@ The executing agent MUST verify before writing any code:
 
 ## OUTPUT
 
-1. Save the plan to `plans/[feature-name].md` (use kebab-case for the filename)
+1. Save the plan to `.agents/plans/[feature-name].md` (use kebab-case for the filename)
 2. Report to the user:
    - Plan file location
    - Summary of what will be created
    - Number of new files and modified files
    - Any architectural decisions made and why (including alternatives rejected)
-   - To execute: `/execute plans/[feature-name].md`
+   - To execute: `/execute .agents/plans/[feature-name].md`
