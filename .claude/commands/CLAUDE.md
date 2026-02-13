@@ -1,6 +1,8 @@
 # VTV Commands
 
-15 slash commands for AI-assisted development workflows. Run any command by typing `/command-name` in Claude Code.
+16 slash commands for AI-assisted development workflows. Run any command by typing `/command-name` in Claude Code.
+
+Every command is designed to produce artifacts that other commands consume. This creates composable pipelines where each step's output feeds the next. Commands work standalone but are most powerful when chained.
 
 ---
 
@@ -10,7 +12,9 @@
 
 **Usage:** `/init-project`
 
-Checks that all prerequisites are installed (Python 3.12+, uv, Docker, Docker Compose), starts Docker services with `docker-compose up -d`, verifies containers are running and healthy, and hits the `/health` endpoint to confirm the API is responding. Run this at the start of a session or after a reboot to get everything up.
+Bootstraps the VTV development environment from scratch. Verifies that Python 3.12+, uv, Docker, and Docker Compose are installed and at compatible versions. Starts PostgreSQL and the FastAPI app containers with `docker-compose up -d`, waits for the database to report healthy, then hits `http://localhost:8123/health` to confirm the API is responding. Reports the full status including a link to Swagger UI at `/docs`.
+
+Run this at the start of a new session, after a reboot, or whenever Docker services need restarting. If Docker Desktop isn't running, it tells you to start it first rather than failing silently.
 
 **What it does:**
 1. Verifies Python, uv, Docker, and Docker Compose versions
@@ -19,13 +23,21 @@ Checks that all prerequisites are installed (Python 3.12+, uv, Docker, Docker Co
 4. Hits `http://localhost:8123/health` to verify the API
 5. Reports status and links to Swagger UI at `/docs`
 
+**Produces:** Running Docker services, healthy API endpoint
+
+**Chains with:**
+- Run **before** `/prime` — prime checks infrastructure state, so services should be up first
+- Required **before** any integration tests — `/validate` skips integration tests when Docker is down
+
 ---
 
 ### `/create-feature`
 
 **Usage:** `/create-feature orders`
 
-Scaffolds a complete vertical slice feature directory with all the files defined in `reference/vsa-patterns.md`. Generates the full directory structure (`schemas.py`, `models.py`, `repository.py`, `service.py`, `exceptions.py`, `routes.py`, `tests/`, `README.md`), wires the router into `app/main.py`, and follows VTV's async patterns. You fill in the actual fields and business logic after scaffolding.
+Scaffolds a complete vertical slice feature directory with every file defined in `reference/vsa-patterns.md`. Generates the full directory structure — `schemas.py`, `models.py`, `repository.py`, `service.py`, `exceptions.py`, `routes.py`, `tests/`, and `README.md` — all pre-wired with async SQLAlchemy patterns, structured logging setup, type annotations, and proper imports. Automatically wires the router into `app/main.py` with the correct import and `include_router()` call.
+
+The scaffolded code compiles and passes type checkers but contains placeholder fields and stub logic. You fill in the actual domain model, business rules, and test assertions after scaffolding.
 
 **What it creates:**
 - `app/{feature}/` with all VSA files using async SQLAlchemy patterns
@@ -33,7 +45,12 @@ Scaffolds a complete vertical slice feature directory with all the files defined
 - `app/{feature}/README.md` from the feature README template
 - Import + `include_router()` line in `app/main.py`
 
-**After running:** Fill in schemas with real fields, create a migration with `uv run alembic revision --autogenerate`, and run `/validate`.
+**Produces:** A compilable feature skeleton ready for implementation
+
+**Chains with:**
+- Use **instead of** `/planning` + `/execute` when you want to hand-write the implementation rather than having an agent do it
+- Run `/validate` **after** to confirm the skeleton passes all quality gates
+- Run `/commit` **after** to save the scaffold before filling in business logic
 
 ---
 
@@ -43,11 +60,19 @@ Scaffolds a complete vertical slice feature directory with all the files defined
 
 **Usage:** `/prime`
 
-Loads the full VTV project context into Claude's working memory for the current session. Reads `CLAUDE.md`, `PRD.md`, and `mvp-tool-designs.md` via `@` file references. Analyzes the `app/` directory structure to identify implemented vs. planned features. Checks `app/main.py` for registered routers, reads `docker-compose.yml` and `pyproject.toml` for infrastructure config, reviews recent git history, and checks if Docker services and the API are running.
+Loads the full VTV project context into Claude's working memory for the current session. This is the most important command for starting productive work — without it, Claude lacks understanding of the project's architecture, conventions, current state, and what's already been built.
 
-**Output:** A structured summary covering project identity, tech stack, implemented/planned features, infrastructure health, recent commits, and key entry point file paths. Use this before working on features so Claude understands the full picture.
+Reads three core documents via `@` file references: `CLAUDE.md` (architecture and conventions), `reference/PRD.md` (product requirements), and `reference/mvp-tool-designs.md` (agent tool specs). Then actively explores the codebase: analyzes the `app/` directory tree to map implemented features, reads `app/main.py` for registered routers, checks `docker-compose.yml` and `pyproject.toml` for infrastructure config, reviews the last 10 git commits, and probes whether Docker and the API are currently running.
 
-**When to use:** Start of a new session, before planning, or whenever Claude seems to lack project context.
+**Output:** A structured summary covering: project identity, tech stack, implemented vs. planned features, infrastructure health (Docker, API, database), current git branch, recent commits, key entry point file paths, and validation commands.
+
+**Produces:** Session-wide project understanding in Claude's context
+
+**Chains with:**
+- Run **after** `/init-project` if you need services up first
+- Run **before** `/planning` — planning needs project context to design features correctly
+- Run **before** any manual feature work — Claude needs to know what exists and what conventions to follow
+- `/end-to-end-feature` runs this automatically as Phase 1
 
 ---
 
@@ -55,11 +80,18 @@ Loads the full VTV project context into Claude's working memory for the current 
 
 **Usage:** `/prime-tools`
 
-Specialized context loading for AI agent tool development. Loads tool specifications from `reference/mvp-tool-designs.md`, `reference/PRD.md`, and `CLAUDE.md` via `@` file references. Inventories which tools are implemented vs. planned, checks existing tool docstrings against the agent-optimized format (selection guidance, composition hints, token efficiency), reviews dry-run patterns, and inspects error response formats.
+Specialized context loading for AI agent tool development. While `/prime` gives broad project understanding, `/prime-tools` goes deep on the agent tool system: loads tool specifications from `reference/mvp-tool-designs.md`, inventories which of the 9 planned tools (5 transit + 4 Obsidian) are implemented vs. planned, checks existing tool docstrings against the agent-optimized 5-principle format (selection guidance, composition hints, token efficiency, expectations, examples), reviews dry-run patterns, and inspects error response formats.
 
-**Output:** A tool-focused summary covering tool inventory (implemented/planned), design patterns, workflow chains, docstring standards, and next steps. Use this before building or modifying any agent tools.
+Use this when you're about to build, modify, or debug any agent tool. It ensures Claude understands the tool design philosophy — tools are consumed by LLMs, not humans, so their docstrings, parameter design, and error messages must be optimized for machine reasoning.
 
-**When to use:** Before running `/planning` for a tool feature, or when debugging agent tool behavior.
+**Output:** A tool-focused summary covering: tool inventory (implemented/planned), design patterns, workflow chains, docstring standards, and recommended next steps.
+
+**Produces:** Deep agent-tool context in Claude's memory
+
+**Chains with:**
+- Run **before** `/planning` when the feature is an agent tool — planning will auto-detect tool keywords and add tool-specific sections
+- Can replace `/prime` if you're only working on tools (though running both gives the fullest context)
+- Feeds into the Agent Tool Development workflow: `/prime-tools` → `/planning` → `/execute` → `/validate` → `/commit`
 
 ---
 
@@ -69,11 +101,33 @@ Specialized context loading for AI agent tool development. Loads tool specificat
 
 **Usage:** `/planning add obsidian search tool`
 
-Researches the codebase and creates a detailed implementation plan that another agent (or `/execute`) can follow without any additional context. Loads `CLAUDE.md` and `PRD.md` via `@` references, reads existing features to understand conventions. Identifies reusable shared utilities, finds similar features to use as patterns, and designs the full vertical slice. If the feature involves agent tools (detected by keywords like "tool", "agent", "Obsidian"), it adds tool-specific planning sections: agent-optimized docstrings, dry-run support, token efficiency, and composition chains.
+Researches the codebase and creates a detailed, self-contained implementation plan that another agent (or `/execute`) can follow without any additional context. This is the bridge between "what should we build?" and "build it step by step."
 
-**Output:** A plan file saved to `.agents/plans/{feature-name}.md` containing: feature metadata, feature description, user story, solution approach with alternatives considered, relevant files with exact line ranges, step-by-step implementation tasks (with CREATE/UPDATE/ADD/REMOVE action keywords) with per-task validation commands, testing strategy, logging events, acceptance criteria, completion checklist, and a 5-level validation pyramid.
+The command loads `CLAUDE.md` and `PRD.md` for architecture and product context, then actively explores: reads existing features to learn established patterns, identifies reusable shared utilities (`TimestampMixin`, `PaginationParams`, `get_db()`, `get_logger()`), finds similar features to use as reference (with exact file paths and line ranges), checks for migration conflicts, and reviews `pyproject.toml` for dependency needs.
 
-**Key design:** The plan is self-contained — it includes everything needed for execution without referencing the original conversation. This means `/execute` can run it in a completely separate session.
+If the feature involves agent tools (detected by keywords: "tool", "agent", "MCP", "Obsidian", "transit"), it automatically adds tool-specific planning sections covering agent-optimized docstrings, dry-run support, token efficiency, error messages for LLMs, and composition chains.
+
+**Output:** A plan file saved to `.agents/plans/{feature-name}.md` containing:
+- Feature metadata, description, and user story
+- Solution approach with alternatives considered and rejected (with reasons)
+- Relevant files with exact line ranges to read before implementing
+- Step-by-step tasks (one file per task) with CREATE/UPDATE/ADD/REMOVE action keywords
+- Per-task validation commands so each step can be verified independently
+- Testing strategy (unit + integration + edge cases)
+- Logging events to emit
+- Acceptance criteria and completion checklist
+- 5-level validation pyramid (syntax → types → feature tests → full suite → server)
+
+**Key design:** The plan is self-contained — it includes everything needed for execution without referencing the original conversation. This means `/execute` can run it in a completely separate session with a fresh Claude instance.
+
+**Produces:** `.agents/plans/{feature-name}.md` — a machine-executable implementation plan
+
+**Chains with:**
+- Run `/prime` (or `/prime-tools` for agent tools) **before** this — planning needs project context
+- The plan is consumed **by** `/execute` to implement the feature
+- After execution, the plan is consumed **by** `/execution-report` to compare plan vs. reality
+- After the report, the plan is consumed **by** `/system-review` along with the execution report
+- `/end-to-end-feature` runs this automatically as Phase 2
 
 ---
 
@@ -83,7 +137,11 @@ Researches the codebase and creates a detailed implementation plan that another 
 
 **Usage:** `/execute .agents/plans/user-profiles.md`
 
-Reads a plan file and implements every step in order. Loads `CLAUDE.md` via `@` reference for conventions context. Creates all specified files following VTV conventions (type annotations, async patterns, structured logging, Google-style docstrings). Runs database migrations if the plan requires them. After implementation, runs the full 5-step validation suite (ruff format, ruff check, mypy, pyright, pytest) and fixes any failures before reporting results. Documents any deviations from the plan.
+Takes a plan file (created by `/planning`) and implements every step in order, transforming the written specification into working code. Starts with pre-flight checks (plan file exists, tools available), then reads the entire plan to understand the implementation sequence and dependencies between steps.
+
+For each task in the plan, creates or modifies the specified file following VTV conventions: complete type annotations on every function, models inheriting `Base` and `TimestampMixin`, async `select()` queries, structured logging with `get_logger(__name__)`, and Google-style docstrings. Runs database migrations if the plan requires them. Documents any deviations from the plan with explanations.
+
+After all implementation steps, runs the full validation suite (ruff format, ruff check, mypy, pyright, pytest unit tests, and integration tests if Docker is running) with a 3-attempt error recovery loop per check. Also verifies post-implementation requirements: router registered, all functions typed, no type suppressions, correct logging patterns, TimestampMixin on models, tests passing.
 
 **What it checks post-implementation:**
 - Router registered in `app/main.py`
@@ -93,7 +151,14 @@ Reads a plan file and implements every step in order. Loads `CLAUDE.md` via `@` 
 - Models inherit `TimestampMixin`
 - Tests exist and pass
 
-**After running:** Review the output, then `/commit` if satisfied.
+**Produces:** Implemented feature code, passing validation suite, deviation notes
+
+**Chains with:**
+- **Requires** a plan from `/planning` as input (the `$ARGUMENTS` path)
+- Run `/validate` **after** to double-check everything (execute runs validation internally, but an explicit check confirms)
+- Run `/execution-report` **after** to document plan vs. reality
+- Run `/commit` **after** to save the work
+- `/end-to-end-feature` runs this automatically as Phase 3
 
 ---
 
@@ -101,9 +166,19 @@ Reads a plan file and implements every step in order. Loads `CLAUDE.md` via `@` 
 
 **Usage:** `/implement-fix 42`
 
-Reads the RCA document at `docs/rca/issue-42.md` (created by `/rca`) and implements the proposed fix. Applies each code change described in the RCA's "Proposed Fix" section, writes regression tests named `test_issue_42_{description}()`, runs migrations if needed, and validates with the full 5-step suite. Suggests a commit message in `fix(scope): description (Fixes #42)` format.
+Takes an RCA document (created by `/rca`) and implements the proposed fix. Reads `docs/rca/issue-{id}.md`, applies each code change described in the "Proposed Fix" section, writes regression tests named `test_issue_{id}_{description}()` to prevent the bug from returning, runs migrations if the fix requires schema changes, and validates with the full suite (ruff, mypy, pyright, pytest).
 
-**Prerequisite:** Run `/rca 42` first to create the RCA document.
+This command is the execution counterpart to `/rca` — where `/rca` investigates and documents, `/implement-fix` applies and verifies. The regression tests it creates are the most important output: they encode the bug's trigger condition so CI will catch any recurrence.
+
+**Prerequisite:** Run `/rca {id}` first to create the RCA document.
+
+**Produces:** Bug fix code, regression tests, suggested commit message in `fix(scope): description (Fixes #{id})` format
+
+**Chains with:**
+- **Requires** an RCA document from `/rca` at `docs/rca/issue-{id}.md`
+- Run `/validate` **after** to confirm the fix doesn't break anything
+- Run `/commit` **after** — the command suggests a conventional commit message with `Fixes #{id}`
+- Full bug fix chain: `/rca 42` → `/implement-fix 42` → `/validate` → `/commit`
 
 ---
 
@@ -113,17 +188,27 @@ Reads the RCA document at `docs/rca/issue-42.md` (created by `/rca`) and impleme
 
 **Usage:** `/validate`
 
-Runs all VTV quality checks in sequence against the current codebase. Each check must pass before reporting the next:
+Runs all VTV quality checks in sequence against the current codebase and reports a pass/fail scorecard. This is the single command that tells you whether the codebase is in a committable state. Every other command that modifies code runs some form of validation internally, but `/validate` is the explicit, standalone check.
 
-1. **Ruff format** — Auto-fixes formatting issues
+Steps run in order — each must pass before the next is reported:
+
+1. **Ruff format** — Auto-fixes formatting issues (tabs, trailing whitespace, line length)
 2. **Ruff check** — Linting (style, imports, security, type annotation rules)
-3. **MyPy** — Strict mode type checking
-4. **Pyright** — Strict mode type checking (catches issues MyPy misses)
+3. **MyPy** — Strict mode type checking (catches type errors, missing annotations)
+4. **Pyright** — Strict mode type checking (catches issues MyPy misses, different type inference)
 5. **Pytest (unit)** — Unit tests (`-m "not integration"`, no Docker required)
-6. **Pytest (integration)** — Integration tests (only if Docker is running)
-7. **Server validation** — (optional) Health check if Docker is running
+6. **Pytest (integration)** — Integration tests (only runs if Docker is running, skipped otherwise)
+7. **Server validation** — Health endpoint check (only if Docker is running, skipped otherwise)
 
-**Output:** A pass/fail scorecard for all checks. Unit tests always run; integration tests and server checks are skipped when Docker is not running.
+**Output:** A pass/fail scorecard for all 7 checks. Steps 1-5 always run. Steps 6-7 are conditional on Docker being available and are marked SKIPPED (not FAIL) when Docker is down.
+
+**Produces:** Quality scorecard — the go/no-go signal for committing
+
+**Chains with:**
+- Run **after** any code-modifying command: `/execute`, `/implement-fix`, `/code-review-fix`, or manual edits
+- Run **before** `/commit` — never commit without green validation
+- If validation fails, fix the issues and re-run `/validate`
+- `/end-to-end-feature` runs this automatically as Phase 4
 
 ---
 
@@ -131,16 +216,26 @@ Runs all VTV quality checks in sequence against the current codebase. Each check
 
 **Usage:** `/review app/core/` or `/review app/core/health.py`
 
-Reads all files in the target path and reviews them against VTV's 8 quality standards. Loads `CLAUDE.md` via `@` reference for standards context. Produces a table of findings with file:line references, descriptions, fix suggestions, and priority levels (Critical/High/Medium/Low). Saves review to `.agents/code-reviews/`.
+Performs a deep architectural code review against VTV's 8 quality standards. Unlike `/validate` which runs automated tools, `/review` uses Claude's reasoning to catch design issues, missing patterns, and architectural violations that linters can't detect.
 
-**What it checks:**
-- Type annotations complete, no `Any` without justification, no suppressions
-- Logging events follow `domain.component.action_state` with started/completed/failed pairs
-- Async/await + `select()` style for database operations
-- VSA boundaries respected (no cross-feature imports violating rules)
-- Agent tool docstrings follow the 5-principle format (if applicable)
-- Tests exist with integration tests properly marked
-- No hardcoded secrets, SQL injection prevention via SQLAlchemy
+Reads every file in the target path and evaluates against:
+1. **Type Safety** — Complete annotations, no `Any` without justification, no suppressions
+2. **Pydantic Schemas** — Complete request/response models, proper validators
+3. **Structured Logging** — Events follow `domain.component.action_state`, started/completed/failed pairs, proper error context
+4. **Database Patterns** — Async/await with SQLAlchemy, `select()` style, TimestampMixin, `get_db()`
+5. **Architecture** — VSA boundaries, shared utility rules, router registration
+6. **Docstrings** — Google-style for regular code, agent-optimized 5-principle format for tool functions
+7. **Testing** — Tests exist, integration tests marked, edge cases covered
+8. **Security** — No hardcoded secrets, input validation, SQL injection prevention
+
+**Output:** A findings table with file:line references, descriptions, fix suggestions, and priority levels (Critical/High/Medium/Low), plus summary stats.
+
+**Produces:** `.agents/code-reviews/{target-name}-review.md` — a structured review document
+
+**Chains with:**
+- Can run **standalone** at any time to assess code quality
+- The review document feeds directly into `/code-review-fix` for automated fixing
+- Full quality loop: `/review app/core/` → `/code-review-fix .agents/code-reviews/core-review.md` → `/validate` → `/commit`
 
 ---
 
@@ -148,9 +243,21 @@ Reads all files in the target path and reviews them against VTV's 8 quality stan
 
 **Usage:** `/code-review-fix .agents/code-reviews/core-review.md all`
 
-Reads a code review report (created by `/review`) and fixes all issues, prioritized by severity (Critical → High → Medium → Low). Runs the full 5-step validation suite after fixes with a max 3-attempt recovery loop.
+Takes a code review report (created by `/review`) and systematically fixes all identified issues. Reads the review, then works through findings in priority order: Critical issues first, then High, Medium, and Low. For each issue, reads the affected file for full context, applies the fix following VTV conventions, and documents what was changed.
 
-**Output:** Issues fixed (file:line, what changed), issues skipped with reasons, and a validation scorecard.
+The optional second argument controls scope: `all` (default) fixes everything, `critical` fixes only Critical issues, `high` fixes Critical + High. This lets you do targeted fixes when you don't want to address every finding.
+
+After all fixes, runs the full validation suite (ruff, mypy, pyright, pytest) with a 3-attempt recovery loop per check to ensure fixes didn't introduce regressions.
+
+**Output:** List of issues fixed (with file:line and what changed), issues skipped (with reasons), and validation scorecard.
+
+**Produces:** Fixed code, validation results
+
+**Chains with:**
+- **Requires** a review document from `/review` as input
+- Run `/validate` **after** to double-check (the command runs validation internally, but explicit confirmation is good practice)
+- Run `/commit` **after** to save the fixes
+- Full quality loop: `/review` → `/code-review-fix` → `/validate` → `/commit`
 
 ---
 
@@ -160,7 +267,11 @@ Reads a code review report (created by `/review`) and fixes all issues, prioriti
 
 **Usage:** `/commit` or `/commit app/core/health.py app/core/middleware.py`
 
-Reviews all changes (or specified files), performs safety checks for secrets (`.env`, `.pem`, `.key`, `credentials.*`), stages files explicitly (never `git add .`), and creates a conventional commit. Does NOT push automatically — user pushes with `git push` when ready.
+Reviews all changes (or specific files if provided), performs safety checks, stages files explicitly, and creates a conventional commit. This is the final step in every workflow — it captures the work with a well-formatted message.
+
+Safety checks scan for secrets: `.env`, `*.pem`, `*.key`, `credentials.*`, `secrets.*`. If any are detected, the command stops and warns you before proceeding. Files are always staged explicitly by name (never `git add -A` or `git add .`) to prevent accidental inclusion of generated files or secrets.
+
+The commit message follows conventional commit format with VTV-specific scopes. The command reviews the diff, recent commit history (to match the repo's style), and drafts the message. Does NOT push automatically — you push with `git push` when ready.
 
 **Commit format:**
 ```
@@ -174,6 +285,46 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`, `style`
 **VTV Scopes:** `core`, `shared`, `agent`, `transit`, `obsidian`, `config`, `db`, `health`, or feature name
 
+**Produces:** A git commit (local only, not pushed)
+
+**Chains with:**
+- Run **after** `/validate` — never commit with failing checks
+- Run **after** `/execute`, `/implement-fix`, `/code-review-fix`, or any code changes
+- The final step in every workflow chain
+- `/end-to-end-feature` runs this automatically as Phase 6
+
+---
+
+## Documentation Commands
+
+### `/update-docs`
+
+**Usage:** `/update-docs agents` or `/update-docs .agents/execution-reports/agents.md`
+
+Updates all living project documentation to reflect a newly implemented feature. This is the documentation feedback loop — after a feature is built, validated, and committed, the docs still reflect the old state. This command reads the actual implementation and updates everything: CLAUDE.md project structure, the feature README (replacing scaffold placeholders with real content), PRD feature status, and bug logs in execution reports.
+
+The command accepts either a feature name or a path to an execution report. It resolves the feature directory at `app/{feature}/`, scans the actual code to extract endpoints, models, schemas, and business rules, then systematically updates each documentation file. Only sections that actually need changes are modified.
+
+**What it updates:**
+
+1. **Locates artifacts** — Finds execution report, plan, or falls back to scanning code and git history
+2. **Scans implementation** — Reads routes, models, schemas, service, exceptions for concrete details
+3. **`CLAUDE.md` project structure** — Adds new feature to the ASCII tree, updates shared utilities and config sections
+4. **`app/{feature}/README.md`** — Replaces scaffold placeholders with real endpoints, schemas, business rules, and database columns
+5. **`reference/PRD.md`** — Updates feature status from planned to implemented (if the feature is listed)
+6. **Execution report bugs** — Appends a "Bugs Found During Implementation" section documenting validation failures and fixes
+7. **Summary diff** — Shows what changed in each file for user review
+
+**Prerequisite:** Feature must be fully implemented, validated, and committed. Run after `/validate` + `/commit`.
+
+**Produces:** Updated documentation across multiple files, summary of changes
+
+**Chains with:**
+- Run **after** `/validate` + `/commit` — docs should reflect committed, working code
+- Run `/commit` **after** this to commit the documentation updates
+- Optional follow-up after `/end-to-end-feature`
+- Full feature documentation chain: `/execute` → `/validate` → `/commit` → `/update-docs` → `/commit`
+
 ---
 
 ## Investigation Commands
@@ -182,9 +333,21 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 **Usage:** `/rca 42`
 
-Performs root cause analysis for a GitHub issue. Loads issue details via `!gh issue view`, then systematically investigates the VTV codebase: routes for affected endpoints, services for business logic edge cases, models for constraint issues, schemas for validation gaps, middleware for cross-cutting problems, and config for environment issues. Checks for `_failed` log events related to the issue, reviews migration history, and identifies the root cause with specific file:line references.
+Performs systematic root cause analysis for a bug. Loads issue details from GitHub (via `gh issue view`) if a numeric ID is provided, or works from the user's description if context is given inline. Then methodically investigates the VTV codebase layer by layer: routes for endpoint issues, services for business logic edge cases, models for constraint violations, schemas for validation gaps, middleware for cross-cutting problems, and config for environment issues.
 
-**Output:** An RCA document saved to `docs/rca/issue-42.md` containing: summary, symptoms, root cause location and category, evidence, proposed fix with exact file changes, required tests, and validation steps. Tells you to run `/implement-fix 42` to apply the fix.
+Also checks structured log patterns for `_failed` events related to the issue, reviews exception handlers in `app/core/exceptions.py`, examines alembic migration history for data-related bugs, and uses git blame to trace when the issue was introduced.
+
+The investigation produces a structured RCA document with the root cause pinpointed to a specific file:line, categorized by type (validation gap, logic error, race condition, missing constraint, config issue, etc.), with evidence and a concrete proposed fix including exact file changes, required tests, and validation steps.
+
+**Output:** An RCA document saved to `docs/rca/issue-{id}.md` containing: summary, symptoms, root cause location and category, evidence, proposed fix with exact file changes, required regression tests, validation steps, and impact assessment.
+
+**Produces:** `docs/rca/issue-{id}.md` — a machine-executable investigation document
+
+**Chains with:**
+- Can run **standalone** to investigate any bug
+- The RCA document feeds directly into `/implement-fix` for automated fixing
+- Full bug fix chain: `/rca 42` → `/implement-fix 42` → `/validate` → `/commit`
+- The RCA document also serves as permanent documentation of what went wrong and why
 
 ---
 
@@ -194,9 +357,20 @@ Performs root cause analysis for a GitHub issue. Loads issue details via `!gh is
 
 **Usage:** `/execution-report .agents/plans/user-auth.md`
 
-Post-execution reflection comparing what was actually implemented vs. the plan. Checks git diff, compares files created/modified against the plan's task list, assesses validation results, and identifies divergences.
+Post-execution reflection that compares what was actually implemented against what was planned. This is the quality feedback loop — it catches divergences, documents what worked, and identifies what needs improvement.
 
-**Output:** A report saved to `.agents/execution-reports/[feature-name].md` with files changed, validation results, what went well, challenges, divergences from plan, and recommendations.
+Reads the plan file, then analyzes what actually happened: checks git diff to see real changes, compares files created/modified against the plan's task list, runs validation tools to capture current quality state, and identifies every divergence between plan and implementation. Classifies each divergence by type (better approach discovered, plan gap, security concern, performance optimization).
+
+**Output:** A report saved to `.agents/execution-reports/{feature-name}.md` containing: files changed, validation results (ruff, mypy, pyright, pytest), what went well, challenges encountered, divergence table (planned vs. actual with reasons), skipped items, and recommendations for improving the planning and execution process.
+
+**Produces:** `.agents/execution-reports/{feature-name}.md` — a retrospective document
+
+**Chains with:**
+- **Requires** a plan from `/planning` as input
+- Run **after** `/execute` (or `/end-to-end-feature`) — needs both plan and implementation to compare
+- The execution report feeds into `/system-review` along with the original plan
+- Process improvement chain: `/execute` → `/execution-report` → `/system-review`
+- `/end-to-end-feature` runs this automatically as Phase 5
 
 ---
 
@@ -204,9 +378,24 @@ Post-execution reflection comparing what was actually implemented vs. the plan. 
 
 **Usage:** `/system-review .agents/plans/auth.md .agents/execution-reports/auth.md`
 
-Meta-level process improvement. Reads an execution report and the original plan, classifies each divergence as justified or problematic, traces root causes (unclear plan? missing context? missing validation?), and generates actionable improvements to CLAUDE.md, commands, or processes.
+Meta-level process improvement — finds bugs in the PROCESS, not the code. Reads both the original plan and the execution report, then analyzes the development process itself: classifies each divergence as justified (plan was wrong, better pattern discovered, security/performance concern) or problematic (ignored constraints, took shortcuts, misunderstood requirements).
 
-**Output:** A review saved to `.agents/system-reviews/[feature-name]-review.md` with an alignment score (1-10), divergence analysis, pattern compliance checklist, recommended actions, and key learnings.
+For each problematic divergence, traces the root cause to a specific process failure: unclear plan instructions → update `/planning` template; missing context → update `/prime` or `/prime-tools`; missing validation → update `/validate`; manual step repeated → create new command. Generates specific, actionable improvements to CLAUDE.md, command files, or development processes.
+
+**Output:** A review saved to `.agents/system-reviews/{feature-name}-review.md` containing:
+- Alignment score (1-10) measuring plan-to-implementation fidelity
+- Divergence analysis with root cause classification
+- Pattern compliance checklist (type safety, logging, VSA, testing, docstrings)
+- Recommended actions (specific text to add/change in CLAUDE.md or commands)
+- Key learnings to carry forward
+
+**Produces:** `.agents/system-reviews/{feature-name}-review.md` — process improvement recommendations
+
+**Chains with:**
+- **Requires** both a plan from `/planning` AND an execution report from `/execution-report`
+- The final step in the process improvement chain: `/planning` → `/execute` → `/execution-report` → `/system-review`
+- Recommendations may lead to manual edits of CLAUDE.md, command files, or creation of new commands
+- Run **periodically** after feature work to continuously improve the development process
 
 ---
 
@@ -216,18 +405,27 @@ Meta-level process improvement. Reads an execution report and the original plan,
 
 **Usage:** `/end-to-end-feature add health dashboard`
 
-Runs the complete feature development lifecycle autonomously in 6 phases:
+Runs the complete feature development lifecycle autonomously in 6 phases, combining `/prime` → `/planning` → `/execute` → `/validate` → `/execution-report` → `/commit` into a single command. Each phase must complete successfully before the next begins — if any phase fails after 3 recovery attempts, the entire pipeline stops and reports what went wrong.
 
-1. **Prime** — Loads project context via `@CLAUDE.md` and `@reference/PRD.md`. Checks git state and Docker. Auto-detects agent tool features.
-2. **Plan** — Designs the vertical slice, identifies shared utilities to reuse, plans migrations, defines logging events. Saves plan to `.agents/plans/`.
-3. **Execute** — Implements every file with type annotations, async patterns, structured logging, docstrings. Registers router, runs migrations.
-4. **Validate** — Runs all checks (ruff format, ruff check, mypy, pyright, pytest). Fixes any failures before proceeding.
-5. **Execution Report** — Compares implementation vs plan. Saves to `.agents/execution-reports/`.
-6. **Commit** — Stages files explicitly, creates conventional commit with Co-Authored-By.
+**Phase breakdown:**
 
-**Output:** Full summary with files created/modified, validation scorecard, and commit hash.
+1. **Prime** — Loads project context via `@CLAUDE.md` and `@reference/PRD.md`. Checks git state and Docker. Auto-detects agent tool features (keywords: tool, agent, MCP, Obsidian, transit) and loads additional tool context if detected.
+2. **Plan** — Designs the vertical slice, identifies shared utilities to reuse, plans migrations, defines logging events. Saves plan to `.agents/plans/`. Plan must be detailed enough for another agent to execute.
+3. **Execute** — Implements every file with type annotations, async patterns, structured logging, docstrings. Registers router in `app/main.py`, runs migrations if needed.
+4. **Validate** — Runs all checks (ruff format, ruff check, mypy, pyright, pytest unit, pytest integration if Docker running). Fixes any failures with max 3 attempts per check. Stops entire pipeline if validation can't be fixed.
+5. **Execution Report** — Compares implementation vs plan, documents divergences. Saves to `.agents/execution-reports/`.
+6. **Commit** — Stages files explicitly (never `git add .`), creates conventional commit with `Co-Authored-By`.
+
+**Output:** Full summary with files created/modified, validation scorecard, commit hash, and paths to all generated artifacts (plan, execution report).
 
 **Trust level:** Only use this after you've run each individual command (`/prime`, `/planning`, `/execute`, `/validate`, `/commit`) separately and verified their output. See Trust Progression below.
+
+**Produces:** Complete implemented feature, plan, execution report, and git commit
+
+**Chains with:**
+- Run **standalone** — this IS the full chain
+- Optionally run `/system-review` **after** for process improvement insights
+- Optionally run `/review` **after** for an additional architectural review of the generated code
 
 ---
 
@@ -241,6 +439,7 @@ Runs the complete feature development lifecycle autonomously in 6 phases:
 /validate                                           # Verify everything passes
 /execution-report .agents/plans/user-authentication.md  # Document what happened
 /commit                                             # Commit with conventional format
+/update-docs user-authentication                    # Update all living documentation
 ```
 
 ### Feature Development (autonomous)
@@ -292,6 +491,23 @@ Runs the complete feature development lifecycle autonomously in 6 phases:
 ```
 /validate        # Run all linting, type checking, and tests
 /review app/     # Review code against VTV standards
+```
+
+## Command Dependency Graph
+
+```
+/init-project ──→ /prime ──→ /planning ──→ /execute ──→ /validate ──→ /commit ──→ /update-docs
+                  /prime-tools ─┘               │            │
+                                                ├──→ /execution-report ──→ /system-review
+                                                │
+/rca ──→ /implement-fix ──→ /validate ──→ /commit
+
+/review ──→ /code-review-fix ──→ /validate ──→ /commit
+
+/create-feature ──→ (manual implementation) ──→ /validate ──→ /commit ──→ /update-docs
+
+/end-to-end-feature = /prime + /planning + /execute + /validate + /execution-report + /commit
+                      (optional follow-up: /update-docs)
 ```
 
 ## Output Directories

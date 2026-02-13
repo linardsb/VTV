@@ -142,4 +142,6 @@ Present a final summary:
 
 **Commit:** `[hash]` — `[commit message]`
 
-**Optional follow-up:** `/system-review .agents/plans/[feature-name].md .agents/execution-reports/[feature-name].md`
+**Optional follow-ups:**
+- Update documentation: `/update-docs [feature-name]`
+- Process improvement: `/system-review .agents/plans/[feature-name].md .agents/execution-reports/[feature-name].md`

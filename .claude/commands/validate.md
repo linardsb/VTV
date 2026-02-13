@@ -4,7 +4,7 @@ argument-hint:
 allowed-tools: Bash(uv run ruff:*), Bash(uv run mypy:*), Bash(uv run pyright:*), Bash(uv run pytest:*), Bash(curl:*), Bash(docker-compose:*)
 ---
 
-Run all 5 VTV quality checks in sequence and report a pass/fail scorecard.
+Run all VTV quality checks in sequence and report a pass/fail scorecard.
 
 # Validate — Run Full VTV Validation Suite
 

@@ -42,6 +42,31 @@ VTV is a unified transit operations platform for Riga's municipal bus system. Th
 - Request correlation: All logs include `request_id` automatically via context vars
 - Consistent verbose naming: Predictable patterns for AI code generation
 
+## Slash Commands
+
+16 AI-assisted development commands. Run with `/command-name` in Claude Code. Full documentation: `.claude/commands/CLAUDE.md`.
+
+| Command | Description |
+|---------|-------------|
+| `/init-project` | Initialize and validate the VTV development environment |
+| `/create-feature` | Scaffold a complete vertical slice feature directory |
+| `/prime` | Load full VTV project context into the current session |
+| `/prime-tools` | Load AI agent tool designs, patterns, and architecture context |
+| `/planning` | Research codebase and create a self-contained implementation plan |
+| `/execute` | Execute a VTV implementation plan file step by step |
+| `/implement-fix` | Apply the fix described in an RCA document with regression tests |
+| `/validate` | Run all quality checks — formatting, linting, type checking, and tests |
+| `/review` | Review code against all 8 VTV quality standards |
+| `/code-review-fix` | Fix issues found in a code review report |
+| `/commit` | Stage files and create a conventional commit with safety checks |
+| `/rca` | Investigate a bug and produce a root cause analysis document |
+| `/execution-report` | Generate report comparing implementation against the plan |
+| `/system-review` | Analyze implementation vs plan for process improvements |
+| `/update-docs` | Update project documentation after a feature is implemented and committed |
+| `/end-to-end-feature` | Autonomously develop a complete feature through all 6 phases |
+
+**Workflows:** Feature dev, bug fix, code quality, agent tools, process improvement — see `.claude/commands/CLAUDE.md` for chained workflows.
+
 ## Essential Commands
 
 ### Development
@@ -134,7 +159,7 @@ VTV/
 │   ├── feature-readme-template.md  # Template for feature README.md files
 │   ├── PRD.md                  # Product requirements document
 │   └── mvp-tool-designs.md    # Agent tool specifications
-├── .claude/commands/   # 15 slash commands (see .claude/commands/CLAUDE.md for full docs)
+├── .claude/commands/   # 16 slash commands (see .claude/commands/CLAUDE.md for full docs)
 ├── .agents/            # Agent workflow outputs
 │   ├── plans/              # Implementation plans created by /planning
 │   ├── code-reviews/       # Code review reports created by /review
@@ -379,7 +404,7 @@ Use `/create-feature {name}` to scaffold, or follow these steps manually:
 - `reference/feature-readme-template.md` — Template for documenting feature slices
 - `reference/PRD.md` — Product requirements and vision
 - `reference/mvp-tool-designs.md` — Agent tool specifications and composition chains
-- `.claude/commands/CLAUDE.md` — Full documentation for all 15 slash commands with usage, behavior, and workflows
+- `.claude/commands/CLAUDE.md` — Full documentation for all 16 slash commands with usage, behavior, and workflows
 
 
 <claude-mem-context>
