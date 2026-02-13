@@ -1,9 +1,13 @@
 ---
 description: Scaffold a complete vertical slice feature directory with all VSA files
 argument-hint: [feature-name] e.g. orders, transit-stops
+allowed-tools: Read, Write, Edit
 ---
 
 Scaffold a new VTV feature slice named "$ARGUMENTS" with all VSA files, tests, and router wiring.
+
+@reference/vsa-patterns.md
+@reference/feature-readme-template.md
 
 ## Steps
 

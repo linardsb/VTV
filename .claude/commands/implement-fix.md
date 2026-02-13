@@ -71,8 +71,22 @@ uv run pyright app/
 ```
 
 ```bash
-uv run pytest -v
+uv run pytest -v -m "not integration"
 ```
+
+**Integration tests (if Docker is running):**
+
+```bash
+docker-compose ps 2>/dev/null && uv run pytest -v -m integration || echo "Skipped — Docker not running"
+```
+
+**Error recovery rules:**
+- If a check fails, attempt to fix the issue and re-run that specific check
+- Maximum 3 fix attempts per check before stopping
+- If you cannot fix after 3 attempts, STOP and report the failures to the user with:
+  - Which check failed
+  - What you tried
+  - The exact error output
 
 ## OUTPUT
 
@@ -84,4 +98,6 @@ Report to the user:
 - Suggested commit message: `fix(scope): description (Fixes #$ARGUMENTS)`
 - To commit: `/commit`
 
-**Next step:** Run `/commit` with the suggested message.
+**Next steps:**
+- If fix succeeds: `/commit` with the suggested message
+- If fix fails after validation: re-investigate with `/rca $ARGUMENTS`

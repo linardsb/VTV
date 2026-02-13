@@ -1,5 +1,5 @@
 ---
-description: Run all 5 VTV quality checks — formatting, linting, type checking, and tests
+description: Run all VTV quality checks — formatting, linting, type checking, and tests
 argument-hint:
 allowed-tools: Bash(uv run ruff:*), Bash(uv run mypy:*), Bash(uv run pyright:*), Bash(uv run pytest:*), Bash(curl:*), Bash(docker-compose:*)
 ---
@@ -40,13 +40,19 @@ uv run mypy app/
 uv run pyright app/
 ```
 
-### 5. Tests
+### 5. Tests (unit)
 
 ```bash
-uv run pytest -v
+uv run pytest -v -m "not integration"
 ```
 
-### 6. Server Validation (optional — only if Docker is running)
+### 6. Tests (integration — only if Docker is running)
+
+```bash
+docker-compose ps 2>/dev/null && uv run pytest -v -m integration || echo "Skipped — Docker not running"
+```
+
+### 7. Server Validation (optional — only if Docker is running)
 
 ```bash
 docker-compose ps 2>/dev/null
@@ -63,12 +69,13 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8123/docs
 
 ```
 Validation Results:
-  1. Ruff format:  PASS / FAIL
-  2. Ruff check:   PASS / FAIL  [N issues]
-  3. MyPy:         PASS / FAIL  [N errors]
-  4. Pyright:      PASS / FAIL  [N errors]
-  5. Pytest:       PASS / FAIL  [X passed, Y failed]
-  6. Server:       PASS / FAIL / SKIPPED (Docker not running)
+  1. Ruff format:       PASS / FAIL
+  2. Ruff check:        PASS / FAIL  [N issues]
+  3. MyPy:              PASS / FAIL  [N errors]
+  4. Pyright:           PASS / FAIL  [N errors]
+  5. Pytest (unit):     PASS / FAIL  [X passed, Y failed]
+  6. Pytest (integration): PASS / FAIL / SKIPPED (Docker not running)
+  7. Server:            PASS / FAIL / SKIPPED (Docker not running)
 
 Overall: ALL PASS / X FAILURES
 ```

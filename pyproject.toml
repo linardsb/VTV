@@ -92,10 +92,6 @@ disallow_untyped_decorators = false
 module = "*.tests.*"
 disallow_untyped_defs = false
 
-[[tool.mypy.overrides]]
-module = "test_*"
-disallow_untyped_defs = false
-
 [tool.pytest.ini_options]
 asyncio_mode = "auto"  # Creates new event loop per test (proper isolation)
 testpaths = ["app", "tests"]

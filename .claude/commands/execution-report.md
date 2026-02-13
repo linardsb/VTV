@@ -1,6 +1,7 @@
 ---
 description: Generate report comparing implementation against the plan
 argument-hint: [plan-file] e.g. .agents/plans/user-auth.md
+allowed-tools: Read, Glob, Grep, Write, Bash(git diff:*), Bash(uv run ruff:*), Bash(uv run mypy:*), Bash(uv run pyright:*), Bash(uv run pytest:*)
 ---
 
 Analyze what was actually implemented and compare against the plan.
@@ -15,7 +16,7 @@ Plan file: $ARGUMENTS
 
 ### 1. Read the plan
 
-Read @$ARGUMENTS to understand what was intended.
+Read the plan file at `$ARGUMENTS` completely to understand what was intended.
 
 ### 2. Analyze implementation
 
@@ -29,7 +30,9 @@ Check recent validation output or run:
 
 ```bash
 uv run ruff check . --statistics 2>&1 | tail -5
-uv run pytest -v --tb=no -q 2>&1 | tail -5
+uv run mypy app/ 2>&1 | tail -5
+uv run pyright app/ 2>&1 | tail -5
+uv run pytest -v -m "not integration" --tb=no -q 2>&1 | tail -5
 ```
 
 ### 4. Write report

@@ -1,6 +1,6 @@
 # VTV Commands
 
-Slash commands for AI-assisted development workflows. Run any command by typing `/command-name` in Claude Code.
+15 slash commands for AI-assisted development workflows. Run any command by typing `/command-name` in Claude Code.
 
 ---
 
@@ -119,16 +119,17 @@ Runs all VTV quality checks in sequence against the current codebase. Each check
 2. **Ruff check** — Linting (style, imports, security, type annotation rules)
 3. **MyPy** — Strict mode type checking
 4. **Pyright** — Strict mode type checking (catches issues MyPy misses)
-5. **Pytest** — Full test suite with verbose output
-6. **Server validation** — (optional) Health check if Docker is running
+5. **Pytest (unit)** — Unit tests (`-m "not integration"`, no Docker required)
+6. **Pytest (integration)** — Integration tests (only if Docker is running)
+7. **Server validation** — (optional) Health check if Docker is running
 
-**Output:** A pass/fail scorecard for all checks with specific error locations if anything fails. Run this after any code changes and before committing.
+**Output:** A pass/fail scorecard for all checks. Unit tests always run; integration tests and server checks are skipped when Docker is not running.
 
 ---
 
 ### `/review`
 
-**Usage:** `/review app/agent/` or `/review app/core/health.py`
+**Usage:** `/review app/core/` or `/review app/core/health.py`
 
 Reads all files in the target path and reviews them against VTV's 8 quality standards. Loads `CLAUDE.md` via `@` reference for standards context. Produces a table of findings with file:line references, descriptions, fix suggestions, and priority levels (Critical/High/Medium/Low). Saves review to `.agents/code-reviews/`.
 
@@ -145,7 +146,7 @@ Reads all files in the target path and reviews them against VTV's 8 quality stan
 
 ### `/code-review-fix`
 
-**Usage:** `/code-review-fix .agents/code-reviews/agent-review.md all`
+**Usage:** `/code-review-fix .agents/code-reviews/core-review.md all`
 
 Reads a code review report (created by `/review`) and fixes all issues, prioritized by severity (Critical → High → Medium → Low). Runs the full 5-step validation suite after fixes with a max 3-attempt recovery loop.
 
@@ -157,7 +158,7 @@ Reads a code review report (created by `/review`) and fixes all issues, prioriti
 
 ### `/commit`
 
-**Usage:** `/commit` or `/commit app/agent/routes.py app/agent/service.py`
+**Usage:** `/commit` or `/commit app/core/health.py app/core/middleware.py`
 
 Reviews all changes (or specified files), performs safety checks for secrets (`.env`, `.pem`, `.key`, `credentials.*`), stages files explicitly (never `git add .`), and creates a conventional commit. Does NOT push automatically — user pushes with `git push` when ready.
 
@@ -274,8 +275,8 @@ Runs the complete feature development lifecycle autonomously in 6 phases:
 
 ### Code Quality Loop
 ```
-/review app/agent/                                              # Review, save to .agents/code-reviews/
-/code-review-fix .agents/code-reviews/agent-review.md           # Fix issues
+/review app/core/                                               # Review, save to .agents/code-reviews/
+/code-review-fix .agents/code-reviews/core-review.md            # Fix issues
 /validate                                                       # Verify
 /commit                                                         # Commit
 ```

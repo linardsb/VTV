@@ -79,7 +79,13 @@ uv run pyright app/
 ```
 
 ```bash
-uv run pytest -v
+uv run pytest -v -m "not integration"
+```
+
+**Integration tests (if Docker is running):**
+
+```bash
+docker-compose ps 2>/dev/null && uv run pytest -v -m integration || echo "Skipped — Docker not running"
 ```
 
 **Error recovery rules:**

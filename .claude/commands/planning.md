@@ -1,6 +1,7 @@
 ---
 description: Research codebase and create a self-contained implementation plan
 argument-hint: [feature-description] e.g. add obsidian search tool
+allowed-tools: Read, Glob, Grep, Write
 ---
 
 Research the codebase and produce a self-contained plan that `/execute` can follow without additional context.
@@ -309,9 +310,9 @@ uv run pyright app/
 uv run pytest app/[feature]/tests/ -v
 ```
 
-**Level 4: Full Test Suite**
+**Level 4: Full Test Suite (unit)**
 ```bash
-uv run pytest -v
+uv run pytest -v -m "not integration"
 ```
 
 **Level 5: Server Validation (if Docker running)**

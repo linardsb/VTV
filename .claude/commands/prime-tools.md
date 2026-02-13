@@ -1,6 +1,7 @@
 ---
 description: Load AI agent tool designs, patterns, and architecture context
 argument-hint:
+allowed-tools: Read, Glob, Grep
 ---
 
 Load agent tool context — designs, patterns, docstring standards, composition chains.

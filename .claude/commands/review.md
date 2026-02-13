@@ -1,6 +1,7 @@
 ---
 description: Review code against all 8 VTV quality standards
-argument-hint: [file-or-directory] e.g. app/agent/ or app/core/health.py
+argument-hint: [file-or-directory] e.g. app/core/ or app/core/health.py
+allowed-tools: Read, Glob, Grep, Write
 ---
 
 Review code against VTV's 8 quality standards and produce a findings table with fix suggestions.
@@ -99,8 +100,6 @@ Present findings in this format:
 
 **Stats:**
 - Files reviewed: [X]
-- Files modified: [Y]
-- Files added: [Z]
 - Issues: [N] total — [A] Critical, [B] High, [C] Medium, [D] Low
 
 Save the review to `.agents/code-reviews/[target-name]-review.md`.

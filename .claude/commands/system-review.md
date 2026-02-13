@@ -1,19 +1,22 @@
 ---
 description: Analyze implementation vs plan for process improvements
 argument-hint: [plan-file] [execution-report] e.g. .agents/plans/auth.md .agents/execution-reports/auth.md
+allowed-tools: Read, Glob, Grep, Write
 ---
 
 Process review — find bugs in the PROCESS, not the code.
 
-@.claude/commands/planning.md
-@.claude/commands/execute.md
+@.claude/commands/CLAUDE.md
 
 # System Review
 
 ## INPUT
 
-Plan: $1
-Execution report: $2
+**Arguments:** $ARGUMENTS
+
+Parse two values from the arguments:
+- **Plan file** (required): first argument — path to the plan (e.g., `.agents/plans/auth.md`)
+- **Execution report** (required): second argument — path to the report (e.g., `.agents/execution-reports/auth.md`)
 
 ## PROCESS
 

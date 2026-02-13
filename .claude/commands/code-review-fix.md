@@ -1,6 +1,6 @@
 ---
 description: Fix issues found in a code review report
-argument-hint: [code-review-file] [scope] e.g. .agents/code-reviews/agent-review.md all
+argument-hint: [code-review-file] [scope] e.g. .agents/code-reviews/core-review.md all
 allowed-tools: Read, Write, Edit, Bash(uv run ruff:*), Bash(uv run mypy:*), Bash(uv run pyright:*), Bash(uv run pytest:*)
 ---
 
@@ -10,8 +10,11 @@ Fix all issues from a code review, then validate.
 
 ## INPUT
 
-Code review file: $1
-Scope: $2 (default: all issues)
+**Arguments:** $ARGUMENTS
+
+Parse two values from the arguments:
+- **Code review file** (required): first argument — path to the review file
+- **Scope** (optional, default: `all`): second argument — which issues to fix (`all`, `critical`, `high`)
 
 ## PROCESS
 
@@ -28,17 +31,38 @@ For each issue (Critical first, then High, Medium, Low):
 
 ### 3. Validate
 
-Run full validation:
+Run each command in sequence. Fix any issues before moving to the next:
 
 ```bash
 uv run ruff format .
-uv run ruff check .
-uv run mypy app/
-uv run pyright app/
-uv run pytest -v
 ```
 
-Max 3 fix attempts per validation failure.
+```bash
+uv run ruff check .
+```
+
+```bash
+uv run mypy app/
+```
+
+```bash
+uv run pyright app/
+```
+
+```bash
+uv run pytest -v -m "not integration"
+```
+
+**Integration tests (if Docker is running):**
+
+```bash
+docker-compose ps 2>/dev/null && uv run pytest -v -m integration || echo "Skipped — Docker not running"
+```
+
+**Error recovery rules:**
+- If a check fails, attempt to fix the issue and re-run that specific check
+- Maximum 3 fix attempts per check before stopping
+- If you cannot fix after 3 attempts, STOP and report the failures to the user
 
 ## OUTPUT
 

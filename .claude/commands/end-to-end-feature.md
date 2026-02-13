@@ -88,7 +88,13 @@ uv run pyright app/
 ```
 
 ```bash
-uv run pytest -v
+uv run pytest -v -m "not integration"
+```
+
+**Integration tests (if Docker is running):**
+
+```bash
+docker-compose ps 2>/dev/null && uv run pytest -v -m integration || echo "Skipped — Docker not running"
 ```
 
 Fix any failures before moving on. Do not proceed to commit with failing checks.
@@ -135,3 +141,5 @@ Present a final summary:
 - Pytest: PASS ([X] tests, [Y] new)
 
 **Commit:** `[hash]` — `[commit message]`
+
+**Optional follow-up:** `/system-review .agents/plans/[feature-name].md .agents/execution-reports/[feature-name].md`
