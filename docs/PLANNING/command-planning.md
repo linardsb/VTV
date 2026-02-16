@@ -7,7 +7,7 @@
 |---------|-------|--------|
 | `/prime` | General project context — CLAUDE.md, PRD, app structure, Docker, DB, git | Exists |
 | `/prime-tools` | Agent tool depth — tool designs, composition chains, docstring patterns | Exists |
-| `/prime-frontend` | Frontend/CMS patterns, component structure, state management | Planned |
+| `/fe-prime` | Frontend context — design system, components, pages, i18n, RBAC | Shipped (Feb 16, 2026) |
 
 **Decision:** No `/prime-backend` needed — `/prime` already serves this role. Only add specialized primes for genuinely different domains.
 
@@ -22,9 +22,9 @@
 | Command | Stack-agnostic? | Status |
 |---------|-----------------|--------|
 | `/validate` | No — hardcoded to ruff/mypy/pyright/pytest (Python only) | Exists |
-| `/validate-frontend` | No — will need eslint/tsc/vitest or equivalent | Planned |
+| `/fe-validate` | No — uses pnpm type-check/lint/build + design system/i18n/a11y scans | Shipped (Feb 16, 2026) |
 | `/review` | No — 8 checks are Python-specific (SQLAlchemy, Pydantic, logging) | Exists |
-| `/review-frontend` | No — will need frontend standards (components, a11y, state) | Planned |
+| `/review-frontend` | No — will need frontend standards (components, a11y, state) | Planned (not yet needed) |
 
 ### Investigation & Scaffolding Commands
 | Command | Stack-agnostic? | Status |
@@ -68,14 +68,17 @@ Each command's OUTPUT section should point to the next step. Full audit:
 
 **Status:** All gaps fixed (Feb 13, 2026).
 
-### Frontend Pipeline (When CMS is Added)
+### Frontend Pipeline (Shipped Feb 16, 2026)
 
 ```
-/prime → /prime-frontend → /planning → [review plan] → /execute → /review-frontend → /validate-frontend → /commit
+/fe-prime → /fe-planning → /fe-execute → /fe-validate → /commit
+                                │
+             /fe-create-page ───┘  (quick scaffold, skip planning)
 ```
 
-Reusable commands: `/prime`, `/planning`, `/execute`, `/commit`
-New commands needed: `/prime-frontend`, `/review-frontend`, `/validate-frontend`
+5 dedicated frontend commands shipped: `/fe-prime`, `/fe-planning`, `/fe-create-page`, `/fe-execute`, `/fe-validate`.
+Reusable command: `/commit` (git is language-agnostic).
+Still planned: `/review-frontend` (not yet needed — `/fe-validate` covers quality gates).
 
 ## Planning Improvements Applied
 
@@ -107,7 +110,7 @@ Changes made to `/planning` command (Feb 13, 2026):
 
 ## Command Audit — Feb 13, 2026
 
-Full audit of all 12 active commands against codebase architecture and Anthropic prompt engineering guidance.
+Full audit of all 12 active backend commands against codebase architecture and Anthropic prompt engineering guidance. (Note: 5 frontend commands added Feb 16, 2026 — total now 21.)
 
 ### Findings
 

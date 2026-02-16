@@ -1118,7 +1118,7 @@ const importGtfsFeed = async () => {
 
 ```
 1.-2. Nedēļa: Pamats
-├── Inicializēt Next.js 15 + TypeScript projektu
+├── Inicializēt Next.js 16 + TypeScript projektu
 ├── Konfigurēt Drizzle ORM + Supabase PostgreSQL
 ├── Iestatīt Auth.js v5 ar lomu balstītu piekļuvi
 ├── Ieviest tRPC v11 pamata maršrutētāju

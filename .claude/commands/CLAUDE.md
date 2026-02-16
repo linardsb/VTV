@@ -656,6 +656,5 @@ Follow this progression before using autonomous commands:
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #13777 | 6:28 AM | 🔵 | VTV init-project Command - Docker-Based Project Initialization Pattern | ~325 |
-| #13776 | " | 🔵 | VTV Commands CLAUDE.md - Empty Context File Ready for Command Documentation | ~195 |
+| #13776 | 6:28 AM | 🔵 | VTV Commands CLAUDE.md - Empty Context File Ready for Command Documentation | ~195 |
 </claude-mem-context>

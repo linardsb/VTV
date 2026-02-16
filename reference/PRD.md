@@ -35,7 +35,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 
 ### 4.1 What's In (MVP)
 
-**CMS (Next.js 15 Monolith)**
+**CMS (Next.js 16 Turborepo Monorepo)**
 - Route management — CRUD with map visualization (MapLibre)
 - Stop management — CRUD with geolocation, PostGIS spatial queries
 - Schedule management — timetable grid, service calendar, trip CRUD
@@ -73,7 +73,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              Next.js 15 CMS Monolith            │
+│       Next.js 16 CMS (Turborepo Monorepo)       │
 │  ┌──────────┐  ┌──────────┐  ┌──────────────┐  │
 │  │  Routes   │  │ Schedules│  │   AI Chat    │  │
 │  │  Stops    │  │ Calendar │  │   Sidebar    │  │
@@ -108,7 +108,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 | Layer | Technology | Justification |
 |-------|-----------|---------------|
 | Language | TypeScript 5.x | Single language for CMS monolith |
-| CMS Framework | Next.js 15 (App Router) | Full-stack, production-ready, enterprise patterns via implementation |
+| CMS Framework | Next.js 16 (App Router) | Full-stack, production-ready, enterprise patterns via implementation |
 | UI | Shadcn/ui + Tailwind v4 | No framework lock-in, CSS variable theming |
 | Data Tables | TanStack Table v8 | Server-side filtering/pagination |
 | API | tRPC v11 | Type-safe, SSE subscriptions |
@@ -125,7 +125,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 ```yaml
 # docker-compose.yml
 services:
-  cms:          # Next.js 15 — port 3000
+  cms:          # Next.js 16 — port 3000
   agent:        # FastAPI + Pydantic AI — port 8123
   db:           # PostgreSQL 18 + PostGIS
   ollama:       # Local LLM (fallback/dev)

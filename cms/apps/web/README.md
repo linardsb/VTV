@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# @vtv/web — VTV Transit Operations CMS
 
-## Getting Started
+Next.js 16 application for managing Riga's municipal bus operations. Part of the VTV Turborepo monorepo (`cms/`).
 
-First, run the development server:
+## Quick Start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# From the cms/ root
+pnpm install
+pnpm --filter @vtv/web dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16.1.6 (App Router) |
+| UI | React 19.2.3 |
+| Styling | Tailwind CSS v4 + design tokens |
+| Components | shadcn/ui + Class Variance Authority |
+| Auth | Auth.js v5 with 4-role RBAC |
+| i18n | next-intl (Latvian + English) |
+| API Client | @vtv/sdk (OpenAPI-generated) |
 
-## Learn More
+## Pages
 
-To learn more about Next.js, take a look at the following resources:
+| Page | Route | Auth | Roles |
+|------|-------|------|-------|
+| Dashboard | `/(dashboard)` | Yes | All |
+| Login | `/login` | No | — |
+| Unauthorized | `/unauthorized` | No | — |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Additional pages (routes, stops, schedules, GTFS, users, AI chat) are planned per the PRD and referenced in middleware RBAC rules.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Development Commands
 
-## Deploy on Vercel
+```bash
+pnpm --filter @vtv/web dev          # Dev server (port 3000)
+pnpm --filter @vtv/web build        # Production build
+pnpm --filter @vtv/web type-check   # TypeScript strict check
+pnpm --filter @vtv/web lint         # ESLint
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Workspace Dependencies
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **@vtv/ui** — Design tokens (`tokens.css`)
+- **@vtv/sdk** — TypeScript API client (generated from FastAPI OpenAPI spec)
+- **@vtv/typescript-config** — Shared tsconfig presets
+
+## Design System
+
+Uses a three-tier design token system defined in `@vtv/ui`:
+- Primitive → Semantic → Component tokens
+- OKLCH color space for perceptual uniformity
+- Master rules in `cms/design-system/vtv/MASTER.md`
+
+All styling uses semantic tokens — no hardcoded hex/rgb colors.
+
+## i18n
+
+- Primary locale: Latvian (`lv`)
+- Secondary locale: English (`en`)
+- Messages in `messages/lv.json` and `messages/en.json`
+- All user-visible text via `useTranslations()` from `next-intl`
+
+## Auth & RBAC
+
+Four roles: `admin`, `dispatcher`, `editor`, `viewer`. Route protection is enforced in `middleware.ts` with role-based matchers. Defense-in-depth pattern with both middleware and component-level checks.

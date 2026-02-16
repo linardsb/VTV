@@ -1121,7 +1121,7 @@ const importGtfsFeed = async () => {
 
 ```
 Week 1-2: Foundation
-├── Initialize Next.js 15 + TypeScript project
+├── Initialize Next.js 16 + TypeScript project
 ├── Configure Drizzle ORM + Supabase PostgreSQL
 ├── Set up Auth.js v5 with role-based access
 ├── Implement tRPC v11 base router

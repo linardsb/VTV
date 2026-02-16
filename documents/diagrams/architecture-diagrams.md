@@ -12,7 +12,7 @@ graph TB
     end
 
     subgraph "Riga Bus CMS"
-        CMS[CMS Web Portal<br/>Next.js 15 App Router]
+        CMS[CMS Web Portal<br/>Next.js 16 App Router]
     end
 
     subgraph "External Systems"
@@ -46,7 +46,7 @@ graph TB
         MAP[MapLibre GL JS<br/>Real-time vehicle map]
     end
 
-    subgraph "Next.js 15 Server"
+    subgraph "Next.js 16 Server"
         SC[Server Components<br/>SSR for CRUD pages]
         API[tRPC v11 Router<br/>Type-safe API + SSE]
         GTFS_M[GTFS Module<br/>Import/Export/Validate]
