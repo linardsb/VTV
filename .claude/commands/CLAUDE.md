@@ -1,6 +1,6 @@
 # VTV Commands
 
-16 slash commands for AI-assisted development workflows. Run any command by typing `/command-name` in Claude Code.
+21 slash commands for AI-assisted development workflows (16 backend + 5 frontend). Run any command by typing `/command-name` in Claude Code.
 
 Every command is designed to produce artifacts that other commands consume. This creates composable pipelines where each step's output feeds the next. Commands work standalone but are most powerful when chained.
 
@@ -283,7 +283,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`, `style`
-**VTV Scopes:** `core`, `shared`, `agent`, `transit`, `obsidian`, `config`, `db`, `health`, or feature name
+**VTV Scopes:** `core`, `shared`, `agent`, `transit`, `obsidian`, `config`, `db`, `health`, `cms`, or feature name
 
 **Produces:** A git commit (local only, not pushed)
 
@@ -429,6 +429,100 @@ Runs the complete feature development lifecycle autonomously in 6 phases, combin
 
 ---
 
+## Frontend Commands
+
+Frontend commands mirror the backend pipeline but use pnpm/TypeScript/Next.js tooling instead of uv/Python/FastAPI. They integrate with the VTV design system (`cms/design-system/vtv/MASTER.md`) and the ui-ux-pro-max skill for visual design guidance.
+
+### `/fe-prime`
+
+**Usage:** `/fe-prime`
+
+Loads the full VTV frontend context into Claude's working memory. Reads the design system master document, inventories all installed shadcn/ui components, maps all existing pages and their routes, checks i18n coverage across both languages, reviews RBAC middleware configuration, and reports the current SDK generation state.
+
+**Output:** A structured summary covering: pages built vs planned, components available, design system rules, RBAC route mapping, i18n key coverage, and validation commands.
+
+**Produces:** Session-wide frontend understanding in Claude's context
+
+**Chains with:**
+- Run **before** `/fe-planning` — planning needs frontend context
+- Run **before** any manual frontend work
+- Frontend equivalent of `/prime`
+
+---
+
+### `/fe-planning`
+
+**Usage:** `/fe-planning add routes management page`
+
+Researches the frontend codebase and creates a self-contained implementation plan that `/fe-execute` can follow. Loads the design system (MASTER.md + page overrides), identifies needed components (existing shadcn/ui vs new), plans i18n keys for both languages, designs RBAC integration, and specifies sidebar navigation entry.
+
+**Output:** A plan file saved to `.agents/plans/fe-{page-name}.md` containing: page metadata, design system rules, components needed, i18n keys, data fetching strategy, RBAC configuration, step-by-step tasks with per-task validation using `pnpm type-check/lint/build`, and post-implementation checks.
+
+**Produces:** `.agents/plans/fe-{page-name}.md` — a machine-executable frontend plan
+
+**Chains with:**
+- Run `/fe-prime` **before** this — planning needs frontend context
+- The plan is consumed **by** `/fe-execute`
+- Frontend equivalent of `/planning`
+
+---
+
+### `/fe-create-page`
+
+**Usage:** `/fe-create-page routes`
+
+Scaffolds a new Next.js page with all required integrations: creates the page component with server-side rendering and i18n support, adds translation keys to both `lv.json` and `en.json`, adds a sidebar navigation entry, and updates the RBAC middleware matcher. The scaffolded page uses semantic design tokens and follows established patterns from the dashboard page.
+
+**What it creates:**
+- `cms/apps/web/src/app/[locale]/(dashboard)/{page}/page.tsx` — Server component with i18n
+- i18n keys in both language files
+- Sidebar nav link in locale layout
+- Middleware route matcher with role permissions
+
+**Produces:** A minimal placeholder page ready for implementation
+
+**Chains with:**
+- Use **instead of** `/fe-planning` + `/fe-execute` for quick scaffolding
+- Run `/fe-validate` **after** to verify quality gates
+- Frontend equivalent of `/create-feature`
+
+---
+
+### `/fe-execute`
+
+**Usage:** `/fe-execute .agents/plans/fe-routes.md`
+
+Takes a frontend plan file (created by `/fe-planning`) and implements every step in order. Starts with pre-flight checks (Node.js, pnpm, plan file), reads the entire plan, then implements each task following VTV frontend conventions: semantic design tokens, next-intl translations, server components by default, shadcn/ui components, and proper TypeScript types.
+
+Runs per-task TypeScript validation after each file, then the full frontend validation suite (type-check, lint, build) with 3-attempt error recovery. Includes a design system compliance scan that checks for hardcoded colors and verifies semantic token usage.
+
+**Produces:** Implemented frontend feature, passing validation suite
+
+**Chains with:**
+- **Requires** a plan from `/fe-planning` as input
+- Run `/fe-validate` **after** for full quality check
+- Run `/commit` **after** to save the work
+- Frontend equivalent of `/execute`
+
+---
+
+### `/fe-validate`
+
+**Usage:** `/fe-validate`
+
+Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): TypeScript type check, lint, and Next.js build. Three soft gates (warnings): design system compliance (no hardcoded colors), i18n completeness (matching keys across languages), and accessibility spot-check (alt text, ARIA labels, form labels).
+
+**Output:** A pass/fail scorecard for all 6 checks with specific error locations for failures.
+
+**Produces:** Quality scorecard — the go/no-go signal for committing frontend changes
+
+**Chains with:**
+- Run **after** `/fe-execute` or any frontend code changes
+- Run **before** `/commit` — never commit with failing hard gates
+- Frontend equivalent of `/validate`
+
+---
+
 ## Workflows
 
 ### Feature Development (manual steps)
@@ -489,12 +583,31 @@ Runs the complete feature development lifecycle autonomously in 6 phases, combin
 
 ### Quick Check
 ```
-/validate        # Run all linting, type checking, and tests
+/validate        # Run all backend linting, type checking, and tests
+/fe-validate     # Run all frontend quality checks
 /review app/     # Review code against VTV standards
+```
+
+### Frontend Page Development
+```
+/fe-prime                                       # Load frontend context
+/fe-planning add routes management page         # Create the plan
+/fe-execute .agents/plans/fe-routes.md          # Implement it
+/fe-validate                                    # Verify everything passes
+/commit                                         # Commit with conventional format
+```
+
+### Quick Frontend Page Scaffolding
+```
+/fe-create-page routes                          # Generate page skeleton
+# Fill in content, components, data fetching
+/fe-validate                                    # Verify checks pass
+/commit                                         # Commit the page
 ```
 
 ## Command Dependency Graph
 
+### Backend Pipeline
 ```
 /init-project ──→ /prime ──→ /planning ──→ /execute ──→ /validate ──→ /commit ──→ /update-docs
                   /prime-tools ─┘               │            │
@@ -510,9 +623,16 @@ Runs the complete feature development lifecycle autonomously in 6 phases, combin
                       (optional follow-up: /update-docs)
 ```
 
+### Frontend Pipeline
+```
+/fe-prime ──→ /fe-planning ──→ /fe-execute ──→ /fe-validate ──→ /commit
+                                    │
+               /fe-create-page ─────┘  (quick scaffold, skip planning)
+```
+
 ## Output Directories
 
-- `.agents/plans/` — Implementation plans created by `/planning`
+- `.agents/plans/` — Implementation plans created by `/planning` and `/fe-planning`
 - `.agents/code-reviews/` — Code review reports created by `/review`
 - `.agents/execution-reports/` — Execution reports created by `/execution-report`
 - `.agents/system-reviews/` — System reviews created by `/system-review`

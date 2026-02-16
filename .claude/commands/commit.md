@@ -56,7 +56,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`, `style`
 
-**VTV Scopes:** `core`, `shared`, `agent`, `transit`, `obsidian`, `config`, `db`, `health`, or feature name
+**VTV Scopes:** `core`, `shared`, `agent`, `transit`, `obsidian`, `config`, `db`, `health`, `cms`, or feature name
 
 **Rules:**
 - Subject line under 72 characters

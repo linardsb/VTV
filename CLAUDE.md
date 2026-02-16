@@ -44,7 +44,9 @@ VTV is a unified transit operations platform for Riga's municipal bus system. Th
 
 ## Slash Commands
 
-16 AI-assisted development commands. Run with `/command-name` in Claude Code. Full documentation: `.claude/commands/CLAUDE.md`.
+21 AI-assisted development commands (16 backend + 5 frontend). Run with `/command-name` in Claude Code. Full documentation: `.claude/commands/CLAUDE.md`.
+
+### Backend Commands
 
 | Command | Description |
 |---------|-------------|
@@ -65,7 +67,19 @@ VTV is a unified transit operations platform for Riga's municipal bus system. Th
 | `/update-docs` | Update project documentation after a feature is implemented and committed |
 | `/end-to-end-feature` | Autonomously develop a complete feature through all 6 phases |
 
+### Frontend Commands
+
+| Command | Description |
+|---------|-------------|
+| `/fe-prime` | Load full VTV frontend context (design system, components, pages, i18n, RBAC) |
+| `/fe-planning` | Research frontend codebase and create a page/feature implementation plan |
+| `/fe-create-page` | Scaffold a new Next.js page with i18n, RBAC, sidebar nav, and design tokens |
+| `/fe-execute` | Execute a frontend implementation plan file step by step |
+| `/fe-validate` | Run frontend quality checks — TypeScript, lint, build, design system, i18n, a11y |
+
 **Workflows:** Feature dev, bug fix, code quality, agent tools, process improvement — see `.claude/commands/CLAUDE.md` for chained workflows.
+
+**Frontend workflow:** `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` → `/commit`
 
 ## Essential Commands
 
@@ -159,7 +173,13 @@ VTV/
 │   ├── feature-readme-template.md  # Template for feature README.md files
 │   ├── PRD.md                  # Product requirements document
 │   └── mvp-tool-designs.md    # Agent tool specifications
-├── .claude/commands/   # 16 slash commands (see .claude/commands/CLAUDE.md for full docs)
+├── cms/               # Frontend monorepo (Turborepo + pnpm workspaces)
+│   ├── apps/web/          # Next.js 16 application (@vtv/web)
+│   ├── packages/ui/       # Design tokens and shared UI (@vtv/ui)
+│   ├── packages/sdk/      # OpenAPI TypeScript client (@vtv/sdk)
+│   ├── packages/typescript-config/  # Shared tsconfig presets
+│   └── design-system/vtv/ # Design system docs (MASTER.md + page overrides)
+├── .claude/commands/   # 21 slash commands (see .claude/commands/CLAUDE.md for full docs)
 ├── .agents/            # Agent workflow outputs
 │   ├── plans/              # Implementation plans created by /planning
 │   ├── code-reviews/       # Code review reports created by /review
@@ -314,6 +334,87 @@ app/agent/
 - Copy `.env.example` to `.env` for local development
 - Settings singleton: `get_settings()` from `app.core.config`
 
+## Frontend (CMS)
+
+The VTV frontend is a Turborepo monorepo under `cms/` with pnpm workspaces.
+
+### Tech Stack
+
+- **Framework:** Next.js 16 (App Router) + React 19
+- **Styling:** Tailwind CSS v4 + three-tier design tokens (primitive → semantic → component)
+- **Components:** shadcn/ui with CVA variants, `cn()` utility for class merging
+- **Auth:** Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer)
+- **i18n:** next-intl with Latvian (`lv`) and English (`en`) locales
+- **Build:** Turborepo with pnpm workspaces
+- **SDK:** @hey-api/openapi-ts for TypeScript client generation from FastAPI
+
+### Frontend Essential Commands
+
+```bash
+# Install dependencies
+cd cms && pnpm install
+
+# TypeScript type check
+pnpm --filter @vtv/web type-check
+
+# Lint
+pnpm --filter @vtv/web lint
+
+# Build (catches SSR issues)
+pnpm --filter @vtv/web build
+
+# Dev server (port 3000)
+pnpm --filter @vtv/web dev
+
+# Generate SDK client (requires FastAPI running on port 8123)
+pnpm --filter @vtv/sdk generate-sdk
+```
+
+### Frontend Directory Structure
+
+```
+cms/apps/web/src/
+├── app/[locale]/
+│   ├── layout.tsx              # Root locale layout with sidebar nav
+│   ├── (dashboard)/
+│   │   ├── page.tsx            # Dashboard (default authenticated page)
+│   │   └── {page}/page.tsx     # Feature pages (routes, stops, etc.)
+│   ├── login/page.tsx          # Login page (public)
+│   └── unauthorized/page.tsx   # Unauthorized redirect page
+├── components/ui/              # shadcn/ui components
+├── lib/                        # Utilities (cn, agent-client)
+└── i18n/                       # next-intl configuration
+```
+
+### Page Creation Conventions
+
+Every new page requires:
+1. **Page component** at `cms/apps/web/src/app/[locale]/(dashboard)/{page}/page.tsx`
+2. **i18n keys** in both `cms/apps/web/messages/lv.json` and `en.json`
+3. **Sidebar nav entry** in `cms/apps/web/src/app/[locale]/layout.tsx`
+4. **Middleware matcher** in `cms/apps/web/middleware.ts` with role permissions
+5. **Design tokens** — use semantic tokens from `tokens.css`, never hardcode colors
+
+Use `/fe-create-page {name}` to scaffold, or `/fe-planning {description}` for a full plan.
+
+### Design System Hierarchy
+
+1. **MASTER.md** (`cms/design-system/vtv/MASTER.md`) — Global rules: spacing scale, typography, color system, component patterns
+2. **Page overrides** (`cms/design-system/vtv/pages/{page}.md`) — Page-specific design rules that override or extend MASTER.md
+3. **Design tokens** (`cms/packages/ui/src/tokens.css`) — CSS custom properties in three tiers:
+   - Primitive: `--color-blue-500`, raw values
+   - Semantic: `--color-surface-primary`, `--color-text-secondary`, contextual meaning
+   - Component: `--button-bg`, component-specific aliases
+
+### Component Patterns
+
+- Use shadcn/ui components from `cms/apps/web/src/components/ui/`
+- CVA (Class Variance Authority) for component variants
+- `cn()` from `cms/apps/web/src/lib/utils.ts` for conditional class merging
+- Server components by default, `'use client'` only when needed (forms, interactivity)
+- `useTranslations` from `next-intl` for all user-visible text
+- Accessibility: ARIA labels, alt text, keyboard navigation, skip links, focus rings
+
 ## Development Guidelines
 
 **When Creating New Features**
@@ -404,7 +505,7 @@ Use `/create-feature {name}` to scaffold, or follow these steps manually:
 - `reference/feature-readme-template.md` — Template for documenting feature slices
 - `reference/PRD.md` — Product requirements and vision
 - `reference/mvp-tool-designs.md` — Agent tool specifications and composition chains
-- `.claude/commands/CLAUDE.md` — Full documentation for all 16 slash commands with usage, behavior, and workflows
+- `.claude/commands/CLAUDE.md` — Full documentation for all 21 slash commands with usage, behavior, and workflows
 
 
 <claude-mem-context>
