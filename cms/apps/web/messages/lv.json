@@ -1,0 +1,23 @@
+{
+  "common": {
+    "appName": "VTV — Rigas Satiksme",
+    "login": "Pieteikties",
+    "logout": "Iziet",
+    "unauthorized": "Nav piekluves",
+    "loading": "Ielade..."
+  },
+  "nav": {
+    "dashboard": "Panele",
+    "routes": "Marsruti",
+    "stops": "Pieturas",
+    "schedules": "Grafiki",
+    "gtfs": "GTFS",
+    "users": "Lietotaji",
+    "chat": "AI paligs"
+  },
+  "dashboard": {
+    "title": "Operaciju panele",
+    "activeRoutes": "{count, plural, zero {Nav aktivu marsrutu} one {{count} aktivs marsruts} other {{count} aktivi marsruti}}",
+    "delayedRoutes": "{count, plural, zero {Neviens nekavejas} one {{count} marsruts kavejas} other {{count} marsruti kavejas}}"
+  }
+}

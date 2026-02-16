@@ -1,0 +1,23 @@
+{
+  "common": {
+    "appName": "VTV — Rigas Satiksme",
+    "login": "Sign In",
+    "logout": "Sign Out",
+    "unauthorized": "Access Denied",
+    "loading": "Loading..."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "routes": "Routes",
+    "stops": "Stops",
+    "schedules": "Schedules",
+    "gtfs": "GTFS",
+    "users": "Users",
+    "chat": "AI Assistant"
+  },
+  "dashboard": {
+    "title": "Operations Dashboard",
+    "activeRoutes": "{count, plural, one {{count} active route} other {{count} active routes}}",
+    "delayedRoutes": "{count, plural, one {{count} route delayed} other {{count} routes delayed}}"
+  }
+}

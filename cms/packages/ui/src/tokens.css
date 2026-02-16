@@ -1,0 +1,115 @@
+/* VTV Design Token System
+ * Three-tier hierarchy: Primitive -> Semantic -> Component
+ * Color space: oklch for WCAG-compliant contrast ratios
+ * Source: ui-ux-pro-max-skill Government/Public profile
+ *
+ * PRIMITIVE tokens: Raw values. Never use in components.
+ * SEMANTIC tokens: Purpose-named. Use in layouts and features.
+ * COMPONENT tokens: Scoped per-component. Defined in component files.
+ */
+
+/* ============================================
+   TIER 1: PRIMITIVE TOKENS
+   Raw color values in oklch for perceptual uniformity
+   ============================================ */
+@theme {
+  /* Navy scale (Government primary) */
+  --color-navy-50: oklch(0.97 0.005 260);
+  --color-navy-100: oklch(0.93 0.01 260);
+  --color-navy-200: oklch(0.85 0.02 260);
+  --color-navy-400: oklch(0.6 0.06 260);
+  --color-navy-600: oklch(0.4 0.08 260);
+  --color-navy-800: oklch(0.25 0.06 260);
+  --color-navy-900: oklch(0.18 0.04 260);
+  --color-navy-950: oklch(0.12 0.03 260);
+
+  /* Slate scale (Neutral) */
+  --color-slate-50: oklch(0.98 0.002 265);
+  --color-slate-100: oklch(0.95 0.004 265);
+  --color-slate-200: oklch(0.9 0.006 265);
+  --color-slate-300: oklch(0.82 0.008 265);
+  --color-slate-400: oklch(0.65 0.012 265);
+  --color-slate-500: oklch(0.55 0.015 265);
+  --color-slate-600: oklch(0.45 0.015 265);
+  --color-slate-700: oklch(0.37 0.014 265);
+  --color-slate-800: oklch(0.28 0.012 265);
+  --color-slate-900: oklch(0.2 0.01 265);
+
+  /* Blue scale (CTA / Interactive) */
+  --color-blue-400: oklch(0.7 0.15 240);
+  --color-blue-500: oklch(0.62 0.18 240);
+  --color-blue-600: oklch(0.55 0.2 240);
+  --color-blue-700: oklch(0.47 0.18 240);
+
+  /* Transit status colors */
+  --color-emerald-500: oklch(0.7 0.17 155);
+  --color-amber-400: oklch(0.85 0.17 85);
+  --color-amber-500: oklch(0.77 0.17 70);
+  --color-red-500: oklch(0.63 0.22 25);
+  --color-red-600: oklch(0.55 0.22 25);
+
+  /* Typography — Lexend + Source Sans 3 (Corporate Trust pairing) */
+  --font-heading: "Lexend", system-ui, sans-serif;
+  --font-body: "Source Sans 3", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Spacing scale */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* ============================================
+   TIER 2: SEMANTIC TOKENS
+   Purpose-named — use these in layouts and features
+   Dark mode overrides ONLY this tier
+   ============================================ */
+@theme inline {
+  /* Brand */
+  --color-brand: var(--color-navy-800);
+  --color-brand-hover: var(--color-navy-900);
+  --color-brand-muted: var(--color-navy-100);
+
+  /* Interactive */
+  --color-interactive: var(--color-blue-600);
+  --color-interactive-hover: var(--color-blue-700);
+
+  /* Surface */
+  --color-background: oklch(1 0 0);
+  --color-surface: var(--color-slate-50);
+  --color-surface-raised: oklch(1 0 0);
+
+  /* Content */
+  --color-foreground: var(--color-slate-900);
+  --color-foreground-muted: var(--color-slate-600);
+  --color-border: var(--color-slate-200);
+  --color-border-subtle: var(--color-slate-100);
+
+  /* Transit status (domain-specific) */
+  --color-status-ontime: var(--color-emerald-500);
+  --color-status-delayed: var(--color-amber-500);
+  --color-status-critical: var(--color-red-600);
+
+  /* Focus ring — 3px for WCAG AAA compliance */
+  --color-focus-ring: var(--color-blue-500);
+}
+
+/* Dark mode — override semantic tier only */
+.dark {
+  --color-background: var(--color-slate-900);
+  --color-surface: var(--color-slate-800);
+  --color-surface-raised: var(--color-slate-700);
+  --color-foreground: var(--color-slate-50);
+  --color-foreground-muted: var(--color-slate-400);
+  --color-border: var(--color-slate-700);
+  --color-border-subtle: var(--color-slate-800);
+}

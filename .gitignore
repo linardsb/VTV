@@ -23,3 +23,27 @@ Thumbs.db
 
 # Docker
 *.log
+
+# === Node.js / Frontend ===
+node_modules/
+.next/
+out/
+dist/
+.turbo/
+.vercel/
+*.tsbuildinfo
+
+# pnpm
+.pnpm-store/
+
+# Environment (frontend)
+cms/.env
+cms/.env.local
+cms/.env.*.local
+
+# Build artifacts
+cms/apps/web/.next/
+cms/packages/sdk/src/client/
+
+# ui-ux-pro-max skill (installed locally, not committed)
+.claude/skills/ui-ux-pro-max/

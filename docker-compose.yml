@@ -71,6 +71,19 @@ services:
     # Restart policy
     restart: unless-stopped
 
+  cms:
+    build:
+      context: ./cms/apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_AGENT_URL=http://app:8123
+      - AUTH_SECRET=change-in-production-32-chars-min
+    depends_on:
+      - app
+    restart: unless-stopped
+
 # Named volumes for data persistence
 volumes:
   postgres_data:
