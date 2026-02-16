@@ -52,7 +52,22 @@ uv run pytest -v -m "not integration"
 docker-compose ps 2>/dev/null && uv run pytest -v -m integration || echo "Skipped — Docker not running"
 ```
 
-### 7. Server Validation (optional — only if Docker is running)
+### 7. SDK Sync Check (optional — only if FastAPI is running)
+
+```bash
+curl -sf http://localhost:8123/openapi.json > /dev/null 2>&1 && echo "FastAPI running — checking SDK sync" || echo "Skipped — FastAPI not running"
+```
+
+If FastAPI is running:
+1. Fetch the live OpenAPI spec: `curl -s http://localhost:8123/openapi.json`
+2. Compare against `cms/packages/sdk/openapi.json` (if it exists)
+3. If the specs differ (or `cms/packages/sdk/openapi.json` doesn't exist), warn:
+   ```
+   SDK out of sync — run: cd cms && pnpm --filter @vtv/sdk generate-sdk
+   ```
+4. This is a WARNING (soft gate) — does not block the commit, but should be addressed
+
+### 8. Server Validation (optional — only if Docker is running)
 
 ```bash
 docker-compose ps 2>/dev/null
@@ -69,15 +84,16 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8123/docs
 
 ```
 Validation Results:
-  1. Ruff format:       PASS / FAIL
-  2. Ruff check:        PASS / FAIL  [N issues]
-  3. MyPy:              PASS / FAIL  [N errors]
-  4. Pyright:           PASS / FAIL  [N errors]
-  5. Pytest (unit):     PASS / FAIL  [X passed, Y failed]
+  1. Ruff format:          PASS / FAIL
+  2. Ruff check:           PASS / FAIL  [N issues]
+  3. MyPy:                 PASS / FAIL  [N errors]
+  4. Pyright:              PASS / FAIL  [N errors]
+  5. Pytest (unit):        PASS / FAIL  [X passed, Y failed]
   6. Pytest (integration): PASS / FAIL / SKIPPED (Docker not running)
-  7. Server:            PASS / FAIL / SKIPPED (Docker not running)
+  7. SDK sync:             IN SYNC / OUT OF SYNC / SKIPPED (FastAPI not running)
+  8. Server:               PASS / FAIL / SKIPPED (Docker not running)
 
-Overall: ALL PASS / X FAILURES
+Overall: ALL PASS / X FAILURES / Y WARNINGS
 ```
 
 If any step fails, list the specific errors with file paths and line numbers so they can be fixed.

@@ -1,6 +1,6 @@
 # VTV Commands
 
-21 slash commands for AI-assisted development workflows (16 backend + 5 frontend). Run any command by typing `/command-name` in Claude Code.
+23 slash commands for AI-assisted development workflows (16 backend + 7 frontend). Run any command by typing `/command-name` in Claude Code.
 
 Every command is designed to produce artifacts that other commands consume. This creates composable pipelines where each step's output feeds the next. Commands work standalone but are most powerful when chained.
 
@@ -198,9 +198,10 @@ Steps run in order — each must pass before the next is reported:
 4. **Pyright** — Strict mode type checking (catches issues MyPy misses, different type inference)
 5. **Pytest (unit)** — Unit tests (`-m "not integration"`, no Docker required)
 6. **Pytest (integration)** — Integration tests (only runs if Docker is running, skipped otherwise)
-7. **Server validation** — Health endpoint check (only if Docker is running, skipped otherwise)
+7. **SDK sync** — Compares live OpenAPI spec against `@vtv/sdk` (only if FastAPI is running, warning only)
+8. **Server validation** — Health endpoint check (only if Docker is running, skipped otherwise)
 
-**Output:** A pass/fail scorecard for all 7 checks. Steps 1-5 always run. Steps 6-7 are conditional on Docker being available and are marked SKIPPED (not FAIL) when Docker is down.
+**Output:** A pass/fail scorecard for all 8 checks. Steps 1-5 always run. Steps 6-8 are conditional on Docker/FastAPI being available and are marked SKIPPED (not FAIL) when services are down. Step 7 (SDK sync) is a soft gate — warns but doesn't block commits.
 
 **Produces:** Quality scorecard — the go/no-go signal for committing
 
@@ -523,6 +524,63 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 
 ---
 
+### `/fe-review`
+
+**Usage:** `/fe-review cms/apps/web/src/app/[locale]/(dashboard)/routes/`
+
+Performs a deep architectural code review against VTV's 8 frontend quality standards. Unlike `/fe-validate` which runs automated tools, `/fe-review` uses Claude's reasoning to catch design issues, missing patterns, and architectural violations that linters can't detect.
+
+Reads every file in the target path and evaluates against:
+1. **TypeScript Quality** — Complete types, no `any` without justification, correct server/client boundaries
+2. **Design System Compliance** — Semantic tokens used, no hardcoded colors, spacing/typography follow MASTER.md
+3. **Component Patterns** — shadcn/ui used correctly, CVA for variants, `cn()` for class merging, appropriate decomposition
+4. **Internationalization** — All user-visible text uses `useTranslations`, keys match in both languages, no hardcoded strings
+5. **Accessibility** — Alt text, ARIA labels, form labels, focus indicators, color contrast
+6. **RBAC & Auth** — Routes protected in middleware, role-based UI gating, unauthorized redirect
+7. **Data Fetching & Performance** — Server components for data, Suspense boundaries, no unnecessary `'use client'`
+8. **Security** — No hardcoded secrets, XSS prevention, `rel="noopener noreferrer"` on external links
+
+**Output:** A findings table with file:line references, descriptions, fix suggestions, and priority levels (Critical/High/Medium/Low), plus summary stats.
+
+**Produces:** `.agents/code-reviews/fe-{target-name}-review.md` — a structured frontend review document
+
+**Chains with:**
+- Can run **standalone** at any time to assess frontend code quality
+- The review document feeds directly into `/code-review-fix` for automated fixing
+- Full frontend quality loop: `/fe-review cms/apps/web/src/` → `/code-review-fix .agents/code-reviews/fe-web-review.md` → `/fe-validate` → `/commit`
+- Frontend equivalent of `/review`
+
+---
+
+### `/fe-end-to-end-page`
+
+**Usage:** `/fe-end-to-end-page add routes management page`
+
+Runs the complete frontend page development lifecycle autonomously in 6 phases, combining `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` → execution report → `/commit` into a single command. Each phase must complete successfully before the next begins — if any phase fails after 3 recovery attempts, the entire pipeline stops and reports what went wrong.
+
+**Phase breakdown:**
+
+1. **Prime** — Loads frontend context via `@CLAUDE.md` and `@cms/design-system/vtv/MASTER.md`. Inventories components, pages, i18n, RBAC, and SDK state.
+2. **Plan** — Designs the page, identifies components, plans i18n keys, RBAC integration, sidebar nav entry. Saves plan to `.agents/plans/fe-{page-name}.md` (400-600 lines).
+3. **Execute** — Implements every file with semantic tokens, i18n, server components, shadcn/ui, TypeScript types, accessibility. Updates middleware and sidebar nav.
+4. **Validate** — Runs all checks (type-check, lint, build as hard gates; design system, i18n, a11y as soft gates). Fixes any failures with max 3 attempts per check. Stops entire pipeline if hard gates can't be fixed.
+5. **Execution Report** — Compares implementation vs plan, documents divergences. Saves to `.agents/execution-reports/fe-{page-name}.md`.
+6. **Commit** — Stages files explicitly (never `git add .`), creates conventional commit with `Co-Authored-By`.
+
+**Output:** Full summary with files created/modified, validation scorecard, commit hash, and paths to all generated artifacts.
+
+**Trust level:** Only use this after you've run each individual frontend command (`/fe-prime`, `/fe-planning`, `/fe-execute`, `/fe-validate`, `/commit`) separately and verified their output. See Trust Progression below.
+
+**Produces:** Complete implemented page, plan, execution report, and git commit
+
+**Chains with:**
+- Run **standalone** — this IS the full frontend chain
+- Optionally run `/fe-review` **after** for an additional architectural review
+- Optionally run `/system-review` **after** for process improvement insights
+- Frontend equivalent of `/be-end-to-end-feature`
+
+---
+
 ## Workflows
 
 ### Feature Development (manual steps)
@@ -581,20 +639,34 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 # Apply recommended improvements manually
 ```
 
-### Quick Check
+### Frontend Quality Loop
 ```
-/be-validate        # Run all backend linting, type checking, and tests
-/fe-validate     # Run all frontend quality checks
-/review app/     # Review code against VTV standards
+/fe-review cms/apps/web/src/app/[locale]/(dashboard)/routes/    # Review frontend code
+/code-review-fix .agents/code-reviews/fe-routes-review.md       # Fix issues
+/fe-validate                                                    # Verify
+/commit                                                         # Commit
 ```
 
-### Frontend Page Development
+### Quick Check
+```
+/be-validate        # Run all backend linting, type checking, tests, and SDK sync
+/fe-validate     # Run all frontend quality checks
+/review app/     # Review backend code against VTV standards
+/fe-review cms/apps/web/src/  # Review frontend code against VTV standards
+```
+
+### Frontend Page Development (manual steps)
 ```
 /fe-prime                                       # Load frontend context
 /fe-planning add routes management page         # Create the plan
 /fe-execute .agents/plans/fe-routes.md          # Implement it
 /fe-validate                                    # Verify everything passes
 /commit                                         # Commit with conventional format
+```
+
+### Frontend Page Development (autonomous)
+```
+/fe-end-to-end-page add routes management page
 ```
 
 ### Quick Frontend Page Scaffolding
@@ -626,14 +698,18 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 ### Frontend Pipeline
 ```
 /fe-prime ──→ /fe-planning ──→ /fe-execute ──→ /fe-validate ──→ /commit
-                                    │
-               /fe-create-page ─────┘  (quick scaffold, skip planning)
+                                    │                │
+               /fe-create-page ─────┘                ├──→ /execution-report ──→ /system-review
+                                                     │
+/fe-review ──→ /code-review-fix ──→ /fe-validate ──→ /commit
+
+/fe-end-to-end-page = /fe-prime + /fe-planning + /fe-execute + /fe-validate + /execution-report + /commit
 ```
 
 ## Output Directories
 
 - `.agents/plans/` — Implementation plans created by `/be-planning` and `/fe-planning`
-- `.agents/code-reviews/` — Code review reports created by `/review`
+- `.agents/code-reviews/` — Code review reports created by `/review` and `/fe-review`
 - `.agents/execution-reports/` — Execution reports created by `/execution-report`
 - `.agents/system-reviews/` — System reviews created by `/system-review`
 - `docs/rca/` — Root cause analysis documents created by `/rca`
@@ -643,8 +719,8 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 Follow this progression before using autonomous commands:
 
 1. **Manual prompts** — Learn what instructions work
-2. **Individual commands** — Run `/be-prime`, `/be-planning`, `/be-execute`, `/commit` separately and verify each
-3. **Chained commands** — Use `/be-end-to-end-feature` only after trusting each individual command
+2. **Individual commands** — Run `/be-prime`, `/be-planning`, `/be-execute`, `/commit` (or frontend equivalents) separately and verify each
+3. **Chained commands** — Use `/be-end-to-end-feature` or `/fe-end-to-end-page` only after trusting each individual command
 
 
 <claude-mem-context>
@@ -652,9 +728,9 @@ Follow this progression before using autonomous commands:
 
 <!-- This section is auto-generated by claude-mem. Edit content outside the tags. -->
 
-### Feb 16, 2026
+### Feb 12, 2026
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #14545 | 4:54 PM | 🔵 | VTV Commands Documentation Structure and Cross-References | ~498 |
+| #13776 | 6:28 AM | 🔵 | VTV Commands CLAUDE.md - Empty Context File Ready for Command Documentation | ~195 |
 </claude-mem-context>

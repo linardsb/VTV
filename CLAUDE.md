@@ -44,7 +44,7 @@ VTV is a unified transit operations platform for Riga's municipal bus system. Th
 
 ## Slash Commands
 
-21 AI-assisted development commands (16 backend + 5 frontend). Run with `/command-name` in Claude Code. Full documentation: `.claude/commands/CLAUDE.md`.
+23 AI-assisted development commands (16 backend + 7 frontend). Run with `/command-name` in Claude Code. Full documentation: `.claude/commands/CLAUDE.md`.
 
 ### Backend Commands
 
@@ -76,6 +76,8 @@ VTV is a unified transit operations platform for Riga's municipal bus system. Th
 | `/fe-create-page` | Scaffold a new Next.js page with i18n, RBAC, sidebar nav, and design tokens |
 | `/fe-execute` | Execute a frontend implementation plan file step by step |
 | `/fe-validate` | Run frontend quality checks — TypeScript, lint, build, design system, i18n, a11y |
+| `/fe-review` | Review frontend code against all 8 VTV frontend quality standards |
+| `/fe-end-to-end-page` | Autonomously develop a complete frontend page through all 6 phases |
 
 **Workflows:** Feature dev, bug fix, code quality, agent tools, process improvement — see `.claude/commands/CLAUDE.md` for chained workflows.
 
