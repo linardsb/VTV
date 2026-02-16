@@ -84,4 +84,4 @@ If any step fails, list the specific errors with file paths and line numbers so 
 
 **Next steps:**
 - If all checks pass: Run `/commit` to commit changes, or `/review [path]` for architectural review
-- If checks fail: Fix the reported issues and re-run `/validate`
+- If checks fail: Fix the reported issues and re-run `/be-validate`

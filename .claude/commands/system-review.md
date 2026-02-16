@@ -43,9 +43,9 @@ For each divergence in the execution report:
 For each bad divergence: was the plan unclear? Context missing? Validation missing? Manual step that should be automated?
 
 **Root cause categories:**
-- Unclear plan → update `/planning` template
-- Missing context → update `/prime` or `/prime-tools`
-- Missing validation → update `/validate`
+- Unclear plan → update `/be-planning` template
+- Missing context → update `/be-prime` or `/be-prime-tools`
+- Missing validation → update `/be-validate`
 - Manual process repeated → create new command
 
 ### 4. Generate improvements

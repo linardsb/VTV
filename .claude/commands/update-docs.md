@@ -21,7 +21,7 @@ Resolve the feature name:
 - If the argument is a feature name (e.g., `agents`), use it directly
 - The feature directory must exist at `app/{feature}/`
 
-**Prerequisite:** The feature must be fully implemented, validated, and committed. Do NOT run this before `/validate` and `/commit` have succeeded.
+**Prerequisite:** The feature must be fully implemented, validated, and committed. Do NOT run this before `/be-validate` and `/commit` have succeeded.
 
 ## PROCESS
 

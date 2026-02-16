@@ -37,9 +37,9 @@ Scaffold a new VTV feature slice named "$ARGUMENTS" with all VSA files, tests, a
 7. **Report what was created** and remind the user to:
    - Fill in schemas with actual fields
    - Create a database migration: `uv run alembic revision --autogenerate -m "add {feature} table"`
-   - Run validation: `/validate`
+   - Run validation: `/be-validate`
 
 **Next steps:**
 1. Fill in schemas, models, and business logic in the scaffolded files
-2. Run `/validate` to check all quality gates
+2. Run `/be-validate` to check all quality gates
 3. Run `/commit` when ready

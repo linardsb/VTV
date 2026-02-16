@@ -97,4 +97,4 @@ Present a scannable summary using this structure:
 - [What tools should be built next based on PRD priority]
 - [Any gaps between designs and implementation]
 
-**Next step:** Run `/planning [tool description]` to create an implementation plan for the tool.
+**Next step:** Run `/be-planning [tool description]` to create an implementation plan for the tool.

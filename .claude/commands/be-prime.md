@@ -96,6 +96,6 @@ uv run ruff format . && uv run ruff check . && uv run mypy app/ && uv run pyrigh
 ```
 
 **Next steps:**
-- To build a new feature: `/planning [feature description]`
-- To scaffold a feature skeleton: `/create-feature [name]`
+- To build a new feature: `/be-planning [feature description]`
+- To scaffold a feature skeleton: `/be-create-feature [name]`
 - To investigate a bug: `/rca [issue-id]`

@@ -210,14 +210,14 @@ pnpm --filter @vtv/sdk generate-sdk
 
 | Command | Purpose |
 |---------|---------|
-| `/init-project` | Initialize dev environment (Docker, env, migrations, health checks) |
-| `/prime` | Load full backend codebase context |
-| `/prime-tools` | Load tool designs, patterns, and agent architecture |
-| `/planning` | Research and create implementation plan for a feature |
-| `/create-feature` | Scaffold a new VSA feature slice |
-| `/execute` | Implement a plan autonomously |
-| `/end-to-end-feature` | Full feature lifecycle (plan, implement, test, commit) |
-| `/validate` | Run full validation suite (lint, types, tests) |
+| `/be-init-project` | Initialize dev environment (Docker, env, migrations, health checks) |
+| `/be-prime` | Load full backend codebase context |
+| `/be-prime-tools` | Load tool designs, patterns, and agent architecture |
+| `/be-planning` | Research and create implementation plan for a feature |
+| `/be-create-feature` | Scaffold a new VSA feature slice |
+| `/be-execute` | Implement a plan autonomously |
+| `/be-end-to-end-feature` | Full feature lifecycle (plan, implement, test, commit) |
+| `/be-validate` | Run full validation suite (lint, types, tests) |
 | `/review` | Review code against VTV standards |
 | `/code-review-fix` | Fix issues found in a code review report |
 | `/rca` | Root cause analysis for bugs |
@@ -240,7 +240,7 @@ pnpm --filter @vtv/sdk generate-sdk
 ### Workflow Chains
 
 ```
-Backend:  /prime → /planning → /execute → /validate → /commit
+Backend:  /be-prime → /be-planning → /be-execute → /be-validate → /commit
 Frontend: /fe-prime → /fe-planning → /fe-execute → /fe-validate → /commit
 ```
 

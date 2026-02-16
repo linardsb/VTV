@@ -50,14 +50,14 @@ VTV is a unified transit operations platform for Riga's municipal bus system. Th
 
 | Command | Description |
 |---------|-------------|
-| `/init-project` | Initialize and validate the VTV development environment |
-| `/create-feature` | Scaffold a complete vertical slice feature directory |
-| `/prime` | Load full VTV project context into the current session |
-| `/prime-tools` | Load AI agent tool designs, patterns, and architecture context |
-| `/planning` | Research codebase and create a self-contained implementation plan |
-| `/execute` | Execute a VTV implementation plan file step by step |
+| `/be-init-project` | Initialize and validate the VTV development environment |
+| `/be-create-feature` | Scaffold a complete vertical slice feature directory |
+| `/be-prime` | Load full VTV project context into the current session |
+| `/be-prime-tools` | Load AI agent tool designs, patterns, and architecture context |
+| `/be-planning` | Research codebase and create a self-contained implementation plan |
+| `/be-execute` | Execute a VTV implementation plan file step by step |
 | `/implement-fix` | Apply the fix described in an RCA document with regression tests |
-| `/validate` | Run all quality checks — formatting, linting, type checking, and tests |
+| `/be-validate` | Run all quality checks — formatting, linting, type checking, and tests |
 | `/review` | Review code against all 8 VTV quality standards |
 | `/code-review-fix` | Fix issues found in a code review report |
 | `/commit` | Stage files and create a conventional commit with safety checks |
@@ -65,7 +65,7 @@ VTV is a unified transit operations platform for Riga's municipal bus system. Th
 | `/execution-report` | Generate report comparing implementation against the plan |
 | `/system-review` | Analyze implementation vs plan for process improvements |
 | `/update-docs` | Update project documentation after a feature is implemented and committed |
-| `/end-to-end-feature` | Autonomously develop a complete feature through all 6 phases |
+| `/be-end-to-end-feature` | Autonomously develop a complete feature through all 6 phases |
 
 ### Frontend Commands
 
@@ -181,7 +181,7 @@ VTV/
 │   └── design-system/vtv/ # Design system docs (MASTER.md + page overrides)
 ├── .claude/commands/   # 21 slash commands (see .claude/commands/CLAUDE.md for full docs)
 ├── .agents/            # Agent workflow outputs
-│   ├── plans/              # Implementation plans created by /planning
+│   ├── plans/              # Implementation plans created by /be-planning
 │   ├── code-reviews/       # Code review reports created by /review
 │   ├── execution-reports/  # Execution reports created by /execution-report
 │   └── system-reviews/     # System reviews created by /system-review
@@ -419,7 +419,7 @@ Use `/fe-create-page {name}` to scaffold, or `/fe-planning {description}` for a 
 
 **When Creating New Features**
 
-Use `/create-feature {name}` to scaffold, or follow these steps manually:
+Use `/be-create-feature {name}` to scaffold, or follow these steps manually:
 
 1. Create feature directory under `app/` (e.g., `app/products/`)
 2. Create files **in this order**: schemas → models → repository → service → exceptions → routes → tests

@@ -49,4 +49,4 @@ Tell the user:
 - Whether the health check passed
 - The Swagger UI is at http://localhost:8123/docs
 
-**Next step:** Run `/prime` to load project context into this session.
+**Next step:** Run `/be-prime` to load project context into this session.

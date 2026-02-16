@@ -8,9 +8,9 @@ Every command is designed to produce artifacts that other commands consume. This
 
 ## Setup Commands
 
-### `/init-project`
+### `/be-init-project`
 
-**Usage:** `/init-project`
+**Usage:** `/be-init-project`
 
 Bootstraps the VTV development environment from scratch. Verifies that Python 3.12+, uv, Docker, and Docker Compose are installed and at compatible versions. Starts PostgreSQL and the FastAPI app containers with `docker-compose up -d`, waits for the database to report healthy, then hits `http://localhost:8123/health` to confirm the API is responding. Reports the full status including a link to Swagger UI at `/docs`.
 
@@ -26,14 +26,14 @@ Run this at the start of a new session, after a reboot, or whenever Docker servi
 **Produces:** Running Docker services, healthy API endpoint
 
 **Chains with:**
-- Run **before** `/prime` — prime checks infrastructure state, so services should be up first
-- Required **before** any integration tests — `/validate` skips integration tests when Docker is down
+- Run **before** `/be-prime` — prime checks infrastructure state, so services should be up first
+- Required **before** any integration tests — `/be-validate` skips integration tests when Docker is down
 
 ---
 
-### `/create-feature`
+### `/be-create-feature`
 
-**Usage:** `/create-feature orders`
+**Usage:** `/be-create-feature orders`
 
 Scaffolds a complete vertical slice feature directory with every file defined in `reference/vsa-patterns.md`. Generates the full directory structure — `schemas.py`, `models.py`, `repository.py`, `service.py`, `exceptions.py`, `routes.py`, `tests/`, and `README.md` — all pre-wired with async SQLAlchemy patterns, structured logging setup, type annotations, and proper imports. Automatically wires the router into `app/main.py` with the correct import and `include_router()` call.
 
@@ -48,17 +48,17 @@ The scaffolded code compiles and passes type checkers but contains placeholder f
 **Produces:** A compilable feature skeleton ready for implementation
 
 **Chains with:**
-- Use **instead of** `/planning` + `/execute` when you want to hand-write the implementation rather than having an agent do it
-- Run `/validate` **after** to confirm the skeleton passes all quality gates
+- Use **instead of** `/be-planning` + `/be-execute` when you want to hand-write the implementation rather than having an agent do it
+- Run `/be-validate` **after** to confirm the skeleton passes all quality gates
 - Run `/commit` **after** to save the scaffold before filling in business logic
 
 ---
 
 ## Context Loading Commands
 
-### `/prime`
+### `/be-prime`
 
-**Usage:** `/prime`
+**Usage:** `/be-prime`
 
 Loads the full VTV project context into Claude's working memory for the current session. This is the most important command for starting productive work — without it, Claude lacks understanding of the project's architecture, conventions, current state, and what's already been built.
 
@@ -69,18 +69,18 @@ Reads three core documents via `@` file references: `CLAUDE.md` (architecture an
 **Produces:** Session-wide project understanding in Claude's context
 
 **Chains with:**
-- Run **after** `/init-project` if you need services up first
-- Run **before** `/planning` — planning needs project context to design features correctly
+- Run **after** `/be-init-project` if you need services up first
+- Run **before** `/be-planning` — planning needs project context to design features correctly
 - Run **before** any manual feature work — Claude needs to know what exists and what conventions to follow
-- `/end-to-end-feature` runs this automatically as Phase 1
+- `/be-end-to-end-feature` runs this automatically as Phase 1
 
 ---
 
-### `/prime-tools`
+### `/be-prime-tools`
 
-**Usage:** `/prime-tools`
+**Usage:** `/be-prime-tools`
 
-Specialized context loading for AI agent tool development. While `/prime` gives broad project understanding, `/prime-tools` goes deep on the agent tool system: loads tool specifications from `reference/mvp-tool-designs.md`, inventories which of the 9 planned tools (5 transit + 4 Obsidian) are implemented vs. planned, checks existing tool docstrings against the agent-optimized 5-principle format (selection guidance, composition hints, token efficiency, expectations, examples), reviews dry-run patterns, and inspects error response formats.
+Specialized context loading for AI agent tool development. While `/be-prime` gives broad project understanding, `/be-prime-tools` goes deep on the agent tool system: loads tool specifications from `reference/mvp-tool-designs.md`, inventories which of the 9 planned tools (5 transit + 4 Obsidian) are implemented vs. planned, checks existing tool docstrings against the agent-optimized 5-principle format (selection guidance, composition hints, token efficiency, expectations, examples), reviews dry-run patterns, and inspects error response formats.
 
 Use this when you're about to build, modify, or debug any agent tool. It ensures Claude understands the tool design philosophy — tools are consumed by LLMs, not humans, so their docstrings, parameter design, and error messages must be optimized for machine reasoning.
 
@@ -89,19 +89,19 @@ Use this when you're about to build, modify, or debug any agent tool. It ensures
 **Produces:** Deep agent-tool context in Claude's memory
 
 **Chains with:**
-- Run **before** `/planning` when the feature is an agent tool — planning will auto-detect tool keywords and add tool-specific sections
-- Can replace `/prime` if you're only working on tools (though running both gives the fullest context)
-- Feeds into the Agent Tool Development workflow: `/prime-tools` → `/planning` → `/execute` → `/validate` → `/commit`
+- Run **before** `/be-planning` when the feature is an agent tool — planning will auto-detect tool keywords and add tool-specific sections
+- Can replace `/be-prime` if you're only working on tools (though running both gives the fullest context)
+- Feeds into the Agent Tool Development workflow: `/be-prime-tools` → `/be-planning` → `/be-execute` → `/be-validate` → `/commit`
 
 ---
 
 ## Planning Commands
 
-### `/planning`
+### `/be-planning`
 
-**Usage:** `/planning add obsidian search tool`
+**Usage:** `/be-planning add obsidian search tool`
 
-Researches the codebase and creates a detailed, self-contained implementation plan that another agent (or `/execute`) can follow without any additional context. This is the bridge between "what should we build?" and "build it step by step."
+Researches the codebase and creates a detailed, self-contained implementation plan that another agent (or `/be-execute`) can follow without any additional context. This is the bridge between "what should we build?" and "build it step by step."
 
 The command loads `CLAUDE.md` and `PRD.md` for architecture and product context, then actively explores: reads existing features to learn established patterns, identifies reusable shared utilities (`TimestampMixin`, `PaginationParams`, `get_db()`, `get_logger()`), finds similar features to use as reference (with exact file paths and line ranges), checks for migration conflicts, and reviews `pyproject.toml` for dependency needs.
 
@@ -118,26 +118,26 @@ If the feature involves agent tools (detected by keywords: "tool", "agent", "MCP
 - Acceptance criteria and completion checklist
 - 5-level validation pyramid (syntax → types → feature tests → full suite → server)
 
-**Key design:** The plan is self-contained — it includes everything needed for execution without referencing the original conversation. This means `/execute` can run it in a completely separate session with a fresh Claude instance.
+**Key design:** The plan is self-contained — it includes everything needed for execution without referencing the original conversation. This means `/be-execute` can run it in a completely separate session with a fresh Claude instance.
 
 **Produces:** `.agents/plans/{feature-name}.md` — a machine-executable implementation plan
 
 **Chains with:**
-- Run `/prime` (or `/prime-tools` for agent tools) **before** this — planning needs project context
-- The plan is consumed **by** `/execute` to implement the feature
+- Run `/be-prime` (or `/be-prime-tools` for agent tools) **before** this — planning needs project context
+- The plan is consumed **by** `/be-execute` to implement the feature
 - After execution, the plan is consumed **by** `/execution-report` to compare plan vs. reality
 - After the report, the plan is consumed **by** `/system-review` along with the execution report
-- `/end-to-end-feature` runs this automatically as Phase 2
+- `/be-end-to-end-feature` runs this automatically as Phase 2
 
 ---
 
 ## Execution Commands
 
-### `/execute`
+### `/be-execute`
 
-**Usage:** `/execute .agents/plans/user-profiles.md`
+**Usage:** `/be-execute .agents/plans/user-profiles.md`
 
-Takes a plan file (created by `/planning`) and implements every step in order, transforming the written specification into working code. Starts with pre-flight checks (plan file exists, tools available), then reads the entire plan to understand the implementation sequence and dependencies between steps.
+Takes a plan file (created by `/be-planning`) and implements every step in order, transforming the written specification into working code. Starts with pre-flight checks (plan file exists, tools available), then reads the entire plan to understand the implementation sequence and dependencies between steps.
 
 For each task in the plan, creates or modifies the specified file following VTV conventions: complete type annotations on every function, models inheriting `Base` and `TimestampMixin`, async `select()` queries, structured logging with `get_logger(__name__)`, and Google-style docstrings. Runs database migrations if the plan requires them. Documents any deviations from the plan with explanations.
 
@@ -154,11 +154,11 @@ After all implementation steps, runs the full validation suite (ruff format, ruf
 **Produces:** Implemented feature code, passing validation suite, deviation notes
 
 **Chains with:**
-- **Requires** a plan from `/planning` as input (the `$ARGUMENTS` path)
-- Run `/validate` **after** to double-check everything (execute runs validation internally, but an explicit check confirms)
+- **Requires** a plan from `/be-planning` as input (the `$ARGUMENTS` path)
+- Run `/be-validate` **after** to double-check everything (execute runs validation internally, but an explicit check confirms)
 - Run `/execution-report` **after** to document plan vs. reality
 - Run `/commit` **after** to save the work
-- `/end-to-end-feature` runs this automatically as Phase 3
+- `/be-end-to-end-feature` runs this automatically as Phase 3
 
 ---
 
@@ -176,19 +176,19 @@ This command is the execution counterpart to `/rca` — where `/rca` investigate
 
 **Chains with:**
 - **Requires** an RCA document from `/rca` at `docs/rca/issue-{id}.md`
-- Run `/validate` **after** to confirm the fix doesn't break anything
+- Run `/be-validate` **after** to confirm the fix doesn't break anything
 - Run `/commit` **after** — the command suggests a conventional commit message with `Fixes #{id}`
-- Full bug fix chain: `/rca 42` → `/implement-fix 42` → `/validate` → `/commit`
+- Full bug fix chain: `/rca 42` → `/implement-fix 42` → `/be-validate` → `/commit`
 
 ---
 
 ## Validation & Review Commands
 
-### `/validate`
+### `/be-validate`
 
-**Usage:** `/validate`
+**Usage:** `/be-validate`
 
-Runs all VTV quality checks in sequence against the current codebase and reports a pass/fail scorecard. This is the single command that tells you whether the codebase is in a committable state. Every other command that modifies code runs some form of validation internally, but `/validate` is the explicit, standalone check.
+Runs all VTV quality checks in sequence against the current codebase and reports a pass/fail scorecard. This is the single command that tells you whether the codebase is in a committable state. Every other command that modifies code runs some form of validation internally, but `/be-validate` is the explicit, standalone check.
 
 Steps run in order — each must pass before the next is reported:
 
@@ -205,10 +205,10 @@ Steps run in order — each must pass before the next is reported:
 **Produces:** Quality scorecard — the go/no-go signal for committing
 
 **Chains with:**
-- Run **after** any code-modifying command: `/execute`, `/implement-fix`, `/code-review-fix`, or manual edits
+- Run **after** any code-modifying command: `/be-execute`, `/implement-fix`, `/code-review-fix`, or manual edits
 - Run **before** `/commit` — never commit without green validation
-- If validation fails, fix the issues and re-run `/validate`
-- `/end-to-end-feature` runs this automatically as Phase 4
+- If validation fails, fix the issues and re-run `/be-validate`
+- `/be-end-to-end-feature` runs this automatically as Phase 4
 
 ---
 
@@ -216,7 +216,7 @@ Steps run in order — each must pass before the next is reported:
 
 **Usage:** `/review app/core/` or `/review app/core/health.py`
 
-Performs a deep architectural code review against VTV's 8 quality standards. Unlike `/validate` which runs automated tools, `/review` uses Claude's reasoning to catch design issues, missing patterns, and architectural violations that linters can't detect.
+Performs a deep architectural code review against VTV's 8 quality standards. Unlike `/be-validate` which runs automated tools, `/review` uses Claude's reasoning to catch design issues, missing patterns, and architectural violations that linters can't detect.
 
 Reads every file in the target path and evaluates against:
 1. **Type Safety** — Complete annotations, no `Any` without justification, no suppressions
@@ -235,7 +235,7 @@ Reads every file in the target path and evaluates against:
 **Chains with:**
 - Can run **standalone** at any time to assess code quality
 - The review document feeds directly into `/code-review-fix` for automated fixing
-- Full quality loop: `/review app/core/` → `/code-review-fix .agents/code-reviews/core-review.md` → `/validate` → `/commit`
+- Full quality loop: `/review app/core/` → `/code-review-fix .agents/code-reviews/core-review.md` → `/be-validate` → `/commit`
 
 ---
 
@@ -255,9 +255,9 @@ After all fixes, runs the full validation suite (ruff, mypy, pyright, pytest) wi
 
 **Chains with:**
 - **Requires** a review document from `/review` as input
-- Run `/validate` **after** to double-check (the command runs validation internally, but explicit confirmation is good practice)
+- Run `/be-validate` **after** to double-check (the command runs validation internally, but explicit confirmation is good practice)
 - Run `/commit` **after** to save the fixes
-- Full quality loop: `/review` → `/code-review-fix` → `/validate` → `/commit`
+- Full quality loop: `/review` → `/code-review-fix` → `/be-validate` → `/commit`
 
 ---
 
@@ -288,10 +288,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 **Produces:** A git commit (local only, not pushed)
 
 **Chains with:**
-- Run **after** `/validate` — never commit with failing checks
-- Run **after** `/execute`, `/implement-fix`, `/code-review-fix`, or any code changes
+- Run **after** `/be-validate` — never commit with failing checks
+- Run **after** `/be-execute`, `/implement-fix`, `/code-review-fix`, or any code changes
 - The final step in every workflow chain
-- `/end-to-end-feature` runs this automatically as Phase 6
+- `/be-end-to-end-feature` runs this automatically as Phase 6
 
 ---
 
@@ -315,15 +315,15 @@ The command accepts either a feature name or a path to an execution report. It r
 6. **Execution report bugs** — Appends a "Bugs Found During Implementation" section documenting validation failures and fixes
 7. **Summary diff** — Shows what changed in each file for user review
 
-**Prerequisite:** Feature must be fully implemented, validated, and committed. Run after `/validate` + `/commit`.
+**Prerequisite:** Feature must be fully implemented, validated, and committed. Run after `/be-validate` + `/commit`.
 
 **Produces:** Updated documentation across multiple files, summary of changes
 
 **Chains with:**
-- Run **after** `/validate` + `/commit` — docs should reflect committed, working code
+- Run **after** `/be-validate` + `/commit` — docs should reflect committed, working code
 - Run `/commit` **after** this to commit the documentation updates
-- Optional follow-up after `/end-to-end-feature`
-- Full feature documentation chain: `/execute` → `/validate` → `/commit` → `/update-docs` → `/commit`
+- Optional follow-up after `/be-end-to-end-feature`
+- Full feature documentation chain: `/be-execute` → `/be-validate` → `/commit` → `/update-docs` → `/commit`
 
 ---
 
@@ -346,7 +346,7 @@ The investigation produces a structured RCA document with the root cause pinpoin
 **Chains with:**
 - Can run **standalone** to investigate any bug
 - The RCA document feeds directly into `/implement-fix` for automated fixing
-- Full bug fix chain: `/rca 42` → `/implement-fix 42` → `/validate` → `/commit`
+- Full bug fix chain: `/rca 42` → `/implement-fix 42` → `/be-validate` → `/commit`
 - The RCA document also serves as permanent documentation of what went wrong and why
 
 ---
@@ -366,11 +366,11 @@ Reads the plan file, then analyzes what actually happened: checks git diff to se
 **Produces:** `.agents/execution-reports/{feature-name}.md` — a retrospective document
 
 **Chains with:**
-- **Requires** a plan from `/planning` as input
-- Run **after** `/execute` (or `/end-to-end-feature`) — needs both plan and implementation to compare
+- **Requires** a plan from `/be-planning` as input
+- Run **after** `/be-execute` (or `/be-end-to-end-feature`) — needs both plan and implementation to compare
 - The execution report feeds into `/system-review` along with the original plan
-- Process improvement chain: `/execute` → `/execution-report` → `/system-review`
-- `/end-to-end-feature` runs this automatically as Phase 5
+- Process improvement chain: `/be-execute` → `/execution-report` → `/system-review`
+- `/be-end-to-end-feature` runs this automatically as Phase 5
 
 ---
 
@@ -380,7 +380,7 @@ Reads the plan file, then analyzes what actually happened: checks git diff to se
 
 Meta-level process improvement — finds bugs in the PROCESS, not the code. Reads both the original plan and the execution report, then analyzes the development process itself: classifies each divergence as justified (plan was wrong, better pattern discovered, security/performance concern) or problematic (ignored constraints, took shortcuts, misunderstood requirements).
 
-For each problematic divergence, traces the root cause to a specific process failure: unclear plan instructions → update `/planning` template; missing context → update `/prime` or `/prime-tools`; missing validation → update `/validate`; manual step repeated → create new command. Generates specific, actionable improvements to CLAUDE.md, command files, or development processes.
+For each problematic divergence, traces the root cause to a specific process failure: unclear plan instructions → update `/be-planning` template; missing context → update `/be-prime` or `/be-prime-tools`; missing validation → update `/be-validate`; manual step repeated → create new command. Generates specific, actionable improvements to CLAUDE.md, command files, or development processes.
 
 **Output:** A review saved to `.agents/system-reviews/{feature-name}-review.md` containing:
 - Alignment score (1-10) measuring plan-to-implementation fidelity
@@ -392,8 +392,8 @@ For each problematic divergence, traces the root cause to a specific process fai
 **Produces:** `.agents/system-reviews/{feature-name}-review.md` — process improvement recommendations
 
 **Chains with:**
-- **Requires** both a plan from `/planning` AND an execution report from `/execution-report`
-- The final step in the process improvement chain: `/planning` → `/execute` → `/execution-report` → `/system-review`
+- **Requires** both a plan from `/be-planning` AND an execution report from `/execution-report`
+- The final step in the process improvement chain: `/be-planning` → `/be-execute` → `/execution-report` → `/system-review`
 - Recommendations may lead to manual edits of CLAUDE.md, command files, or creation of new commands
 - Run **periodically** after feature work to continuously improve the development process
 
@@ -401,11 +401,11 @@ For each problematic divergence, traces the root cause to a specific process fai
 
 ## Autonomous Commands
 
-### `/end-to-end-feature`
+### `/be-end-to-end-feature`
 
-**Usage:** `/end-to-end-feature add health dashboard`
+**Usage:** `/be-end-to-end-feature add health dashboard`
 
-Runs the complete feature development lifecycle autonomously in 6 phases, combining `/prime` → `/planning` → `/execute` → `/validate` → `/execution-report` → `/commit` into a single command. Each phase must complete successfully before the next begins — if any phase fails after 3 recovery attempts, the entire pipeline stops and reports what went wrong.
+Runs the complete feature development lifecycle autonomously in 6 phases, combining `/be-prime` → `/be-planning` → `/be-execute` → `/be-validate` → `/execution-report` → `/commit` into a single command. Each phase must complete successfully before the next begins — if any phase fails after 3 recovery attempts, the entire pipeline stops and reports what went wrong.
 
 **Phase breakdown:**
 
@@ -418,7 +418,7 @@ Runs the complete feature development lifecycle autonomously in 6 phases, combin
 
 **Output:** Full summary with files created/modified, validation scorecard, commit hash, and paths to all generated artifacts (plan, execution report).
 
-**Trust level:** Only use this after you've run each individual command (`/prime`, `/planning`, `/execute`, `/validate`, `/commit`) separately and verified their output. See Trust Progression below.
+**Trust level:** Only use this after you've run each individual command (`/be-prime`, `/be-planning`, `/be-execute`, `/be-validate`, `/commit`) separately and verified their output. See Trust Progression below.
 
 **Produces:** Complete implemented feature, plan, execution report, and git commit
 
@@ -446,7 +446,7 @@ Loads the full VTV frontend context into Claude's working memory. Reads the desi
 **Chains with:**
 - Run **before** `/fe-planning` — planning needs frontend context
 - Run **before** any manual frontend work
-- Frontend equivalent of `/prime`
+- Frontend equivalent of `/be-prime`
 
 ---
 
@@ -463,7 +463,7 @@ Researches the frontend codebase and creates a self-contained implementation pla
 **Chains with:**
 - Run `/fe-prime` **before** this — planning needs frontend context
 - The plan is consumed **by** `/fe-execute`
-- Frontend equivalent of `/planning`
+- Frontend equivalent of `/be-planning`
 
 ---
 
@@ -484,7 +484,7 @@ Scaffolds a new Next.js page with all required integrations: creates the page co
 **Chains with:**
 - Use **instead of** `/fe-planning` + `/fe-execute` for quick scaffolding
 - Run `/fe-validate` **after** to verify quality gates
-- Frontend equivalent of `/create-feature`
+- Frontend equivalent of `/be-create-feature`
 
 ---
 
@@ -502,7 +502,7 @@ Runs per-task TypeScript validation after each file, then the full frontend vali
 - **Requires** a plan from `/fe-planning` as input
 - Run `/fe-validate` **after** for full quality check
 - Run `/commit` **after** to save the work
-- Frontend equivalent of `/execute`
+- Frontend equivalent of `/be-execute`
 
 ---
 
@@ -519,7 +519,7 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 **Chains with:**
 - Run **after** `/fe-execute` or any frontend code changes
 - Run **before** `/commit` — never commit with failing hard gates
-- Frontend equivalent of `/validate`
+- Frontend equivalent of `/be-validate`
 
 ---
 
@@ -527,10 +527,10 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 
 ### Feature Development (manual steps)
 ```
-/prime                                              # Load project context
-/planning add user authentication                   # Create the plan
-/execute .agents/plans/user-authentication.md       # Implement it
-/validate                                           # Verify everything passes
+/be-prime                                              # Load project context
+/be-planning add user authentication                   # Create the plan
+/be-execute .agents/plans/user-authentication.md       # Implement it
+/be-validate                                           # Verify everything passes
 /execution-report .agents/plans/user-authentication.md  # Document what happened
 /commit                                             # Commit with conventional format
 /update-docs user-authentication                    # Update all living documentation
@@ -538,14 +538,14 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 
 ### Feature Development (autonomous)
 ```
-/end-to-end-feature add user authentication
+/be-end-to-end-feature add user authentication
 ```
 
 ### New Feature Scaffolding
 ```
-/create-feature orders                    # Generate VSA skeleton
+/be-create-feature orders                    # Generate VSA skeleton
 # Fill in schemas, models, business logic
-/validate                                 # Verify checks pass
+/be-validate                                 # Verify checks pass
 /commit                                   # Commit the feature
 ```
 
@@ -553,16 +553,16 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 ```
 /rca 42                    # Investigate and document root cause
 /implement-fix 42          # Fix from the RCA document
-/validate                  # Verify the fix
+/be-validate                  # Verify the fix
 /commit                    # Commit with "Fixes #42"
 ```
 
 ### Agent Tool Development
 ```
-/prime-tools                                        # Load tool designs and patterns
-/planning add obsidian search tool                  # Plan with tool-specific sections
-/execute .agents/plans/obsidian-search-tool.md      # Implement with agent-optimized docstrings
-/validate                                           # Verify all checks pass
+/be-prime-tools                                        # Load tool designs and patterns
+/be-planning add obsidian search tool                  # Plan with tool-specific sections
+/be-execute .agents/plans/obsidian-search-tool.md      # Implement with agent-optimized docstrings
+/be-validate                                           # Verify all checks pass
 /commit                                             # Commit
 ```
 
@@ -570,7 +570,7 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 ```
 /review app/core/                                               # Review, save to .agents/code-reviews/
 /code-review-fix .agents/code-reviews/core-review.md            # Fix issues
-/validate                                                       # Verify
+/be-validate                                                       # Verify
 /commit                                                         # Commit
 ```
 
@@ -583,7 +583,7 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 
 ### Quick Check
 ```
-/validate        # Run all backend linting, type checking, and tests
+/be-validate        # Run all backend linting, type checking, and tests
 /fe-validate     # Run all frontend quality checks
 /review app/     # Review code against VTV standards
 ```
@@ -609,17 +609,17 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 
 ### Backend Pipeline
 ```
-/init-project ──→ /prime ──→ /planning ──→ /execute ──→ /validate ──→ /commit ──→ /update-docs
-                  /prime-tools ─┘               │            │
+/be-init-project ──→ /be-prime ──→ /be-planning ──→ /be-execute ──→ /be-validate ──→ /commit ──→ /update-docs
+                  /be-prime-tools ─┘               │            │
                                                 ├──→ /execution-report ──→ /system-review
                                                 │
-/rca ──→ /implement-fix ──→ /validate ──→ /commit
+/rca ──→ /implement-fix ──→ /be-validate ──→ /commit
 
-/review ──→ /code-review-fix ──→ /validate ──→ /commit
+/review ──→ /code-review-fix ──→ /be-validate ──→ /commit
 
-/create-feature ──→ (manual implementation) ──→ /validate ──→ /commit ──→ /update-docs
+/be-create-feature ──→ (manual implementation) ──→ /be-validate ──→ /commit ──→ /update-docs
 
-/end-to-end-feature = /prime + /planning + /execute + /validate + /execution-report + /commit
+/be-end-to-end-feature = /be-prime + /be-planning + /be-execute + /be-validate + /execution-report + /commit
                       (optional follow-up: /update-docs)
 ```
 
@@ -632,7 +632,7 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 
 ## Output Directories
 
-- `.agents/plans/` — Implementation plans created by `/planning` and `/fe-planning`
+- `.agents/plans/` — Implementation plans created by `/be-planning` and `/fe-planning`
 - `.agents/code-reviews/` — Code review reports created by `/review`
 - `.agents/execution-reports/` — Execution reports created by `/execution-report`
 - `.agents/system-reviews/` — System reviews created by `/system-review`
@@ -643,8 +643,8 @@ Runs all VTV frontend quality checks in sequence. Three hard gates (must pass): 
 Follow this progression before using autonomous commands:
 
 1. **Manual prompts** — Learn what instructions work
-2. **Individual commands** — Run `/prime`, `/planning`, `/execute`, `/commit` separately and verify each
-3. **Chained commands** — Use `/end-to-end-feature` only after trusting each individual command
+2. **Individual commands** — Run `/be-prime`, `/be-planning`, `/be-execute`, `/commit` separately and verify each
+3. **Chained commands** — Use `/be-end-to-end-feature` only after trusting each individual command
 
 
 <claude-mem-context>
@@ -652,9 +652,9 @@ Follow this progression before using autonomous commands:
 
 <!-- This section is auto-generated by claude-mem. Edit content outside the tags. -->
 
-### Feb 12, 2026
+### Feb 16, 2026
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #13776 | 6:28 AM | 🔵 | VTV Commands CLAUDE.md - Empty Context File Ready for Command Documentation | ~195 |
+| #14545 | 4:54 PM | 🔵 | VTV Commands Documentation Structure and Cross-References | ~498 |
 </claude-mem-context>

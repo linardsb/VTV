@@ -4,7 +4,7 @@ argument-hint: [feature-description] e.g. add obsidian search tool
 allowed-tools: Read, Glob, Grep, Write
 ---
 
-Research the codebase and produce a self-contained plan that `/execute` can follow without additional context.
+Research the codebase and produce a self-contained plan that `/be-execute` can follow without additional context.
 
 @CLAUDE.md
 @reference/PRD.md
@@ -366,4 +366,4 @@ The executing agent MUST verify before writing any code:
    - Summary of what will be created
    - Number of new files and modified files
    - Any architectural decisions made and why (including alternatives rejected)
-   - To execute: `/execute .agents/plans/[feature-name].md`
+   - To execute: `/be-execute .agents/plans/[feature-name].md`
