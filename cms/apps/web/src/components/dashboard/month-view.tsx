@@ -1,0 +1,157 @@
+"use client";
+
+import { useMemo } from "react";
+import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
+import type { CalendarEvent } from "@/types/dashboard";
+
+interface MonthViewProps {
+  currentDate: Date;
+  events: CalendarEvent[];
+}
+
+const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+
+const categoryDotColors: Record<string, string> = {
+  maintenance: "bg-blue-400",
+  "route-change": "bg-amber-400",
+  "driver-shift": "bg-emerald-500",
+  "service-alert": "bg-red-500",
+};
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function getMonthGrid(year: number, month: number): (Date | null)[][] {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  // Monday = 0 in our grid
+  const startOffset = (firstDay.getDay() + 6) % 7;
+
+  const weeks: (Date | null)[][] = [];
+  let currentWeek: (Date | null)[] = [];
+
+  // Fill leading nulls
+  for (let i = 0; i < startOffset; i++) {
+    currentWeek.push(null);
+  }
+
+  for (let day = 1; day <= lastDay.getDate(); day++) {
+    currentWeek.push(new Date(year, month, day));
+    if (currentWeek.length === 7) {
+      weeks.push(currentWeek);
+      currentWeek = [];
+    }
+  }
+
+  // Fill trailing nulls
+  if (currentWeek.length > 0) {
+    while (currentWeek.length < 7) {
+      currentWeek.push(null);
+    }
+    weeks.push(currentWeek);
+  }
+
+  return weeks;
+}
+
+export function MonthView({ currentDate, events }: MonthViewProps) {
+  const t = useTranslations("dashboard");
+  const today = new Date();
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const weeks = useMemo(() => getMonthGrid(year, month), [year, month]);
+
+  const eventsByDate = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    for (const event of events) {
+      const key = `${event.start.getFullYear()}-${event.start.getMonth()}-${event.start.getDate()}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(event);
+    }
+    return map;
+  }, [events]);
+
+  return (
+    <div className="p-(--spacing-card)">
+      {/* Weekday headers */}
+      <div className="grid grid-cols-7 gap-(--spacing-tight)">
+        {WEEKDAY_KEYS.map((key) => (
+          <div
+            key={key}
+            className="p-(--spacing-cell) text-center text-xs font-medium text-foreground-muted"
+          >
+            {t(`weekdays.${key}`)}
+          </div>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      {weeks.map((week, weekIdx) => (
+        <div key={weekIdx} className="grid grid-cols-7 gap-(--spacing-tight)">
+          {week.map((day, dayIdx) => {
+            if (!day) {
+              return (
+                <div
+                  key={`empty-${dayIdx}`}
+                  className="min-h-18 rounded-sm border border-border-subtle p-(--spacing-tight) opacity-40"
+                />
+              );
+            }
+
+            const isToday = isSameDay(day, today);
+            const dateKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
+            const dayEvents = eventsByDate.get(dateKey) ?? [];
+            const visibleEvents = dayEvents.slice(0, 3);
+            const overflow = dayEvents.length - 3;
+
+            return (
+              <div
+                key={day.getDate()}
+                className={cn(
+                  "min-h-18 rounded-sm border border-border-subtle p-(--spacing-tight) transition-colors duration-200",
+                  isToday && "border-interactive bg-interactive/10"
+                )}
+              >
+                <p
+                  className={cn(
+                    "text-sm text-foreground",
+                    isToday && "font-semibold text-interactive"
+                  )}
+                >
+                  {day.getDate()}
+                </p>
+                <div className="mt-(--spacing-tight) flex flex-col gap-0.5">
+                  {visibleEvents.map((event) => (
+                    <div key={event.id} className="flex items-center gap-(--spacing-tight)">
+                      <div
+                        className={cn(
+                          "size-1.5 shrink-0 rounded-full",
+                          categoryDotColors[event.category]
+                        )}
+                      />
+                      <span className="truncate text-[10px] text-foreground-muted">
+                        {event.title}
+                      </span>
+                    </div>
+                  ))}
+                  {overflow > 0 && (
+                    <span className="text-[10px] text-foreground-muted">
+                      +{overflow} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}

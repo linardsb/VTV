@@ -22,7 +22,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
-        <h1 className="font-heading text-2xl font-semibold">
+        <h1 className="font-heading text-heading font-semibold">
           {t("appName")}
         </h1>
         <div>

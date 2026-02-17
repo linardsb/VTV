@@ -28,27 +28,51 @@
 
 ### Typography
 
-- **Heading Font:** Fira Code
-- **Body Font:** Fira Sans
-- **Mood:** dashboard, data, analytics, code, technical, precise
-- **Google Fonts:** [Fira Code + Fira Sans](https://fonts.google.com/share?selection.family=Fira+Code:wght@400;500;600;700|Fira+Sans:wght@300;400;500;600;700)
+- **Heading Font:** Lexend
+- **Body Font:** Source Sans 3
+- **Mono Font:** JetBrains Mono
+- **Mood:** corporate trust, clean, professional, data-driven
+- **Google Fonts:** [Lexend + Source Sans 3](https://fonts.google.com/share?selection.family=Lexend:wght@400;500;600;700|Source+Sans+3:wght@300;400;500;600;700)
 
 **CSS Import:**
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap');
 ```
 
-### Spacing Variables
+**CSS Variables (from tokens.css):**
+```css
+--font-heading: "Lexend", system-ui, sans-serif;
+--font-body: "Source Sans 3", system-ui, sans-serif;
+--font-mono: "JetBrains Mono", ui-monospace, monospace;
+```
+
+### Spacing Variables (Base Scale)
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--space-xs` | `4px` / `0.25rem` | Tight gaps |
-| `--space-sm` | `8px` / `0.5rem` | Icon gaps, inline spacing |
-| `--space-md` | `16px` / `1rem` | Standard padding |
-| `--space-lg` | `24px` / `1.5rem` | Section padding |
-| `--space-xl` | `32px` / `2rem` | Large gaps |
-| `--space-2xl` | `48px` / `3rem` | Section margins |
-| `--space-3xl` | `64px` / `4rem` | Hero padding |
+| `--spacing-xs` | `4px` / `0.25rem` | Tight gaps |
+| `--spacing-sm` | `8px` / `0.5rem` | Icon gaps, inline spacing |
+| `--spacing-md` | `16px` / `1rem` | Standard padding |
+| `--spacing-lg` | `24px` / `1.5rem` | Section padding |
+| `--spacing-xl` | `32px` / `2rem` | Large gaps |
+| `--spacing-2xl` | `48px` / `3rem` | Section margins |
+
+### Compact Spacing Tokens (Dashboard Density)
+
+Purpose-named tokens for data-dense UIs. Use via Tailwind: `p-(--spacing-card)`, `gap-(--spacing-grid)`, etc.
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--spacing-page` | `16px` / `1rem` | Main content area padding |
+| `--spacing-section` | `16px` / `1rem` | Gap between major sections |
+| `--spacing-card` | `12px` / `0.75rem` | Card internal padding |
+| `--spacing-cell` | `6px` / `0.375rem` | Calendar cell padding |
+| `--spacing-inline` | `6px` / `0.375rem` | Icon-to-text, button gaps |
+| `--spacing-grid` | `12px` / `0.75rem` | Grid gap between cards/columns |
+| `--spacing-tight` | `4px` / `0.25rem` | Micro gaps (badges, dots) |
+| `--spacing-row` | `48px` / `3rem` | Week-view hour row height |
+
+**Usage pattern:** Always reference these tokens via Tailwind arbitrary value syntax — `p-(--spacing-card)` not `p-3`. This allows global adjustment by changing the token value in `tokens.css`.
 
 ### Shadow Depths
 

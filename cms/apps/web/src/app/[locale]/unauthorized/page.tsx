@@ -5,7 +5,7 @@ export default function UnauthorizedPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <h1 className="text-2xl font-semibold">{t("unauthorized")}</h1>
+      <h1 className="font-heading text-heading font-semibold">{t("unauthorized")}</h1>
     </div>
   );
 }

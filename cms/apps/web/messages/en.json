@@ -18,6 +18,57 @@
   "dashboard": {
     "title": "Operations Dashboard",
     "activeRoutes": "{count, plural, one {{count} active route} other {{count} active routes}}",
-    "delayedRoutes": "{count, plural, one {{count} route delayed} other {{count} routes delayed}}"
+    "delayedRoutes": "{count, plural, one {{count} route delayed} other {{count} routes delayed}}",
+    "metrics": {
+      "activeVehicles": "Active Vehicles",
+      "onTimePerformance": "On-Time Performance",
+      "delayedRoutes": "Delayed Routes",
+      "fleetUtilization": "Fleet Utilization",
+      "comparedToLastMonth": "Compared to last month"
+    },
+    "calendar": {
+      "title": "Operations",
+      "today": "Today",
+      "week": "Week",
+      "month": "Month",
+      "threeMonth": "3 Months",
+      "year": "Year",
+      "noEvents": "No events",
+      "allDay": "All day"
+    },
+    "events": {
+      "maintenance": "Maintenance",
+      "routeChange": "Route Change",
+      "driverShift": "Driver Shift",
+      "serviceAlert": "Service Alert"
+    },
+    "priority": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "weekdays": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    },
+    "months": {
+      "jan": "January",
+      "feb": "February",
+      "mar": "March",
+      "apr": "April",
+      "may": "May",
+      "jun": "June",
+      "jul": "July",
+      "aug": "August",
+      "sep": "September",
+      "oct": "October",
+      "nov": "November",
+      "dec": "December"
+    }
   }
 }

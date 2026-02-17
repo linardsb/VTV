@@ -16,8 +16,59 @@
     "chat": "AI paligs"
   },
   "dashboard": {
-    "title": "Operaciju panele",
+    "title": "Darbagalds",
     "activeRoutes": "{count, plural, zero {Nav aktivu marsrutu} one {{count} aktivs marsruts} other {{count} aktivi marsruti}}",
-    "delayedRoutes": "{count, plural, zero {Neviens nekavejas} one {{count} marsruts kavejas} other {{count} marsruti kavejas}}"
+    "delayedRoutes": "{count, plural, zero {Neviens nekavejas} one {{count} marsruts kavejas} other {{count} marsruti kavejas}}",
+    "metrics": {
+      "activeVehicles": "Aktivi transportlidzekli",
+      "onTimePerformance": "Savlaicigums",
+      "delayedRoutes": "Kaveti marsruti",
+      "fleetUtilization": "Parka izmantojums",
+      "comparedToLastMonth": "Salidzinot ar iepriekseji menesi"
+    },
+    "calendar": {
+      "title": "Operacijas",
+      "today": "Sodien",
+      "week": "Nedela",
+      "month": "Menesis",
+      "threeMonth": "3 menesi",
+      "year": "Gads",
+      "noEvents": "Nav notikumu",
+      "allDay": "Visa diena"
+    },
+    "events": {
+      "maintenance": "Apkope",
+      "routeChange": "Marsruta izmaina",
+      "driverShift": "Vaditaja maina",
+      "serviceAlert": "Servisa bridinajums"
+    },
+    "priority": {
+      "high": "Augsta",
+      "medium": "Videja",
+      "low": "Zema"
+    },
+    "weekdays": {
+      "mon": "Pr",
+      "tue": "Ot",
+      "wed": "Tr",
+      "thu": "Ce",
+      "fri": "Pk",
+      "sat": "Se",
+      "sun": "Sv"
+    },
+    "months": {
+      "jan": "Janvaris",
+      "feb": "Februaris",
+      "mar": "Marts",
+      "apr": "Aprilis",
+      "may": "Maijs",
+      "jun": "Junijs",
+      "jul": "Julijs",
+      "aug": "Augusts",
+      "sep": "Septembris",
+      "oct": "Oktobris",
+      "nov": "Novembris",
+      "dec": "Decembris"
+    }
   }
 }
