@@ -168,8 +168,8 @@ agent = Agent(
 | Tool | Purpose | Data Source |
 |------|---------|------------|
 | `query_bus_status` ✅ | Current delay/position status for a route or vehicle | GTFS-RT feeds (Rigas Satiksme) |
-| `get_route_schedule` | Timetable for a specific route and service date | VTV tRPC API |
-| `search_stops` | Search stops by name or proximity (lat/lon) | VTV tRPC API |
+| `get_route_schedule` ✅ | Timetable for a specific route and service date | GTFS static ZIP (stop_times, calendar, calendar_dates) |
+| `search_stops` ✅ | Search stops by name or proximity (lat/lon) | GTFS static ZIP (stops.txt, stop_times.txt) |
 | `get_adherence_report` | On-time performance metrics for routes/periods | VTV tRPC API |
 | `check_driver_availability` | Available drivers for a shift/date | VTV tRPC API |
 

@@ -130,6 +130,7 @@ class GTFSStaticCache:
         self.calendar_dates: list[CalendarDateException] = []
         self.route_trips: dict[str, list[TripInfo]] = {}
         self.trip_stop_times: dict[str, list[StopTimeEntry]] = {}
+        self.stop_routes: dict[str, list[str]] = {}
         self._loaded_at: datetime | None = None
 
     async def load(self, http_client: httpx.AsyncClient, gtfs_url: str) -> None:
@@ -159,6 +160,7 @@ class GTFSStaticCache:
                 self._parse_calendar(zf)
                 self._parse_calendar_dates(zf)
                 self._build_route_trips_index()
+                self._build_stop_routes_index()
         except (zipfile.BadZipFile, KeyError, csv.Error) as e:
             msg = f"Failed to parse GTFS ZIP: {e}"
             raise TransitDataError(msg) from e
@@ -173,6 +175,7 @@ class GTFSStaticCache:
             stop_time_trips=len(self.trip_stop_times),
             calendar_entries=len(self.calendar),
             calendar_exceptions=len(self.calendar_dates),
+            stop_routes_count=len(self.stop_routes),
         )
 
     def _parse_routes(self, zf: zipfile.ZipFile) -> None:
@@ -290,6 +293,20 @@ class GTFSStaticCache:
             if trip.route_id not in self.route_trips:
                 self.route_trips[trip.route_id] = []
             self.route_trips[trip.route_id].append(trip)
+
+    def _build_stop_routes_index(self) -> None:
+        """Build stop_id → list[route_short_name] index from parsed data."""
+        stop_route_sets: dict[str, set[str]] = {}
+        for trip_id, stop_times in self.trip_stop_times.items():
+            trip_info = self.trips.get(trip_id)
+            if trip_info is None:
+                continue
+            route_name = self.get_route_name(trip_info.route_id)
+            for st in stop_times:
+                if st.stop_id not in stop_route_sets:
+                    stop_route_sets[st.stop_id] = set()
+                stop_route_sets[st.stop_id].add(route_name)
+        self.stop_routes = {sid: sorted(routes) for sid, routes in stop_route_sets.items()}
 
     def get_active_service_ids(self, query_date: date) -> set[str]:
         """Determine which service_ids are active on a given date.

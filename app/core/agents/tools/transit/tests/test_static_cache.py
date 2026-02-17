@@ -6,6 +6,9 @@ from app.core.agents.tools.transit.static_cache import (
     CalendarDateException,
     CalendarEntry,
     GTFSStaticCache,
+    RouteInfo,
+    StopTimeEntry,
+    TripInfo,
 )
 
 
@@ -109,3 +112,38 @@ def test_get_active_service_ids_outside_date_range():
     # Date outside the calendar range (2025)
     result = cache.get_active_service_ids(date(2025, 6, 15))
     assert result == set()
+
+
+def test_build_stop_routes_index():
+    cache = GTFSStaticCache()
+    cache.routes = {
+        "r1": RouteInfo(route_id="r1", route_short_name="22", route_long_name="", route_type=3),
+        "r2": RouteInfo(route_id="r2", route_short_name="3", route_long_name="", route_type=3),
+    }
+    cache.trips = {
+        "t1": TripInfo(trip_id="t1", route_id="r1", service_id="WD"),
+        "t2": TripInfo(trip_id="t2", route_id="r2", service_id="WD"),
+    }
+    cache.trip_stop_times = {
+        "t1": [
+            StopTimeEntry(
+                stop_id="s1", stop_sequence=1, arrival_time="06:00", departure_time="06:00"
+            ),
+            StopTimeEntry(
+                stop_id="s2", stop_sequence=2, arrival_time="06:10", departure_time="06:10"
+            ),
+        ],
+        "t2": [
+            StopTimeEntry(
+                stop_id="s2", stop_sequence=1, arrival_time="07:00", departure_time="07:00"
+            ),
+            StopTimeEntry(
+                stop_id="s3", stop_sequence=2, arrival_time="07:10", departure_time="07:10"
+            ),
+        ],
+    }
+    cache._build_stop_routes_index()
+
+    assert cache.stop_routes["s1"] == ["22"]
+    assert cache.stop_routes["s2"] == ["22", "3"]  # sorted alphabetically
+    assert cache.stop_routes["s3"] == ["3"]

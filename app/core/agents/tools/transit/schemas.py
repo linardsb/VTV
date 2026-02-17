@@ -1,7 +1,7 @@
 """Pydantic response schemas for transit tool outputs.
 
 These models define the structured data returned by transit tools
-(query_bus_status, get_route_schedule). The agent receives
+(query_bus_status, get_route_schedule, search_stops). The agent receives
 JSON-serialized versions of these models.
 """
 
@@ -266,4 +266,51 @@ class RouteSchedule(BaseModel):
     service_type: str
     trip_count: int
     directions: list[DirectionSchedule]
+    summary: str
+
+
+# --- Stop search schemas (search_stops) ---
+
+
+class StopResult(BaseModel):
+    """A single stop returned from a search.
+
+    Attributes:
+        stop_id: GTFS stop identifier (use with query_bus_status stop_departures).
+        stop_name: Human-readable stop name.
+        stop_lat: WGS84 latitude, if available.
+        stop_lon: WGS84 longitude, if available.
+        distance_meters: Distance from search point in meters (nearby action only).
+        routes: List of route short names serving this stop, if available.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    stop_id: str
+    stop_name: str
+    stop_lat: float | None = None
+    stop_lon: float | None = None
+    distance_meters: int | None = None
+    routes: list[str] | None = None
+
+
+class StopSearchResults(BaseModel):
+    """Results from a stop search operation.
+
+    Attributes:
+        action: The search action that was performed.
+        query: The search text (for search action).
+        result_count: Number of stops returned.
+        total_matches: Total matches before limit was applied.
+        stops: List of matching stops.
+        summary: Pre-formatted text summary for agent to relay to user.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    action: str
+    query: str | None = None
+    result_count: int
+    total_matches: int
+    stops: list[StopResult]
     summary: str

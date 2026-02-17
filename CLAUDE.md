@@ -111,10 +111,10 @@ uv run uvicorn app.main:app --reload --port 8123
 ### Testing
 
 ```bash
-# Run unit tests (66 tests, <1s execution)
+# Run unit tests (154 tests, ~2.5s execution)
 uv run pytest -v -m "not integration"
 
-# Run all tests including integration (75 tests, requires Docker)
+# Run all tests including integration (163 tests, requires Docker)
 uv run pytest -v
 
 # Run integration tests only
@@ -183,7 +183,7 @@ VTV/
 │   ├── core/           # Infrastructure (config, database, logging, middleware, health, exceptions)
 │   │   └── agents/     # AI agent module (see Agent Module below)
 │   │       ├── tools/
-│   │       │   └── transit/  # Transit tools (query_bus_status ✅, 4 more planned)
+│   │       │   └── transit/  # Transit tools (query_bus_status ✅, get_route_schedule ✅, search_stops ✅, 2 more planned)
 │   │       └── tests/
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── main.py         # FastAPI application entry point
@@ -200,7 +200,7 @@ VTV/
 │   ├── packages/sdk/      # OpenAPI TypeScript client (@vtv/sdk)
 │   ├── packages/typescript-config/  # Shared tsconfig presets
 │   └── design-system/vtv/ # Design system docs (MASTER.md + page overrides)
-├── .claude/commands/   # 21 slash commands (see .claude/commands/CLAUDE.md for full docs)
+├── .claude/commands/   # 23 slash commands (see .claude/commands/CLAUDE.md for full docs)
 ├── .agents/            # Agent workflow outputs
 │   ├── plans/              # Implementation plans created by /be-planning
 │   ├── code-reviews/       # Code review reports created by /review
@@ -321,12 +321,14 @@ app/core/agents/
 ├── exceptions.py      # Agent-specific exceptions (incl. TransitDataError → HTTP 503)
 ├── tools/
 │   ├── transit/       # Transit tools (see below)
-│   │   ├── schemas.py         # Response models (BusStatus, RouteOverview, StopDepartures, etc.)
+│   │   ├── schemas.py         # Response models (BusStatus, RouteOverview, StopDepartures, RouteSchedule, StopResult, etc.)
 │   │   ├── deps.py            # TransitDeps dataclass + factory
 │   │   ├── client.py          # GTFS-RT protobuf client with 20s cache
-│   │   ├── static_cache.py    # Static GTFS ZIP parser (routes/stops/trips, 24h TTL)
-│   │   ├── query_bus_status.py # First tool: 3 actions (status, route_overview, stop_departures)
-│   │   └── tests/             # 16 unit tests
+│   │   ├── static_cache.py    # Static GTFS ZIP parser (routes/stops/trips/calendar/stop_times, 24h TTL)
+│   │   ├── query_bus_status.py # Tool 1: 3 actions (status, route_overview, stop_departures)
+│   │   ├── get_route_schedule.py # Tool 2: timetable queries by route/date/direction/time window
+│   │   ├── search_stops.py    # Tool 3: 2 actions (search by name, nearby by lat/lon)
+│   │   └── tests/             # 69 unit tests
 │   └── obsidian/      # 4 vault tools (planned)
 └── tests/             # 22 agent-level tests
 ```
@@ -335,8 +337,8 @@ app/core/agents/
 
 **Transit Tools (5, all read-only — AI advises, humans decide):**
 - `query_bus_status` ✅ — Current delay/position for a route or vehicle (3 actions: status, route_overview, stop_departures). Data source: GTFS-RT feeds from Rigas Satiksme.
-- `get_route_schedule` — Timetable for a route and service date
-- `search_stops` — Search stops by name or proximity (lat/lon)
+- `get_route_schedule` ✅ — Timetable for a route and service date, with direction and time window filters. Data source: GTFS static ZIP (stop_times.txt, calendar.txt, calendar_dates.txt).
+- `search_stops` ✅ — Search stops by name (substring) or proximity (lat/lon radius). Data source: GTFS static ZIP (stops.txt) with stop-to-routes index.
 - `get_adherence_report` — On-time performance metrics for routes/periods
 - `check_driver_availability` — Available drivers for a shift/date
 
