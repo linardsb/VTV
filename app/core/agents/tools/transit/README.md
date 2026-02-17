@@ -46,15 +46,21 @@ Uses Haversine formula for geographic distance. Case-insensitive Unicode substri
 
 Returns JSON `AdherenceReport` with per-route metrics: scheduled/tracked trips, on-time/late/early/no-data counts, on-time percentage, average delay, worst trip. Network mode aggregates all routes with RT data, sorted worst-first. On-time threshold: +/- 300 seconds (5 min). Capped at 30 trips per route, 15 routes for network reports.
 
-### Planned Tools
+### `check_driver_availability` (driver staffing queries)
 
-- `check_driver_availability` — Available drivers for a shift/date
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `date` | No | Service date YYYY-MM-DD (defaults to today in Riga TZ) |
+| `shift` | No | Filter by shift: "morning" (05:00-13:00), "afternoon" (13:00-21:00), "evening" (17:00-01:00), "night" (22:00-06:00) |
+| `route_id` | No | Filter to drivers qualified for a specific GTFS route (e.g., `"bus_22"`) |
+
+Returns JSON `DriverAvailabilityReport` with per-shift summaries (available/on_duty/on_leave/sick counts), individual driver details (name, license categories, qualified routes, contact info), and a pre-formatted summary string. Capped at 30 drivers for token efficiency. Data source: mock provider (Phase 2: VTV CMS tRPC API via `driver_client.py`).
 
 ## Architecture
 
 ```
 transit/
-├── schemas.py              # Pydantic response models (BusStatus, RouteOverview, RouteSchedule, AdherenceReport, etc.)
+├── schemas.py              # Pydantic response models (BusStatus, RouteOverview, RouteSchedule, AdherenceReport, DriverAvailabilityReport, etc.)
 ├── deps.py                 # TransitDeps dataclass + create_transit_deps() factory
 ├── client.py               # GTFSRealtimeClient — protobuf parsing with 20s in-memory cache
 ├── static_cache.py         # GTFSStaticCache — ZIP parser for route/stop/trip/calendar/stop_times (24h TTL)
@@ -62,12 +68,15 @@ transit/
 ├── get_route_schedule.py   # Tool 2: planned timetable queries with date/direction/time filters
 ├── search_stops.py         # Tool 3: stop search by name or proximity (2 actions)
 ├── get_adherence_report.py # Tool 4: on-time performance metrics (route + network)
-└── tests/                  # 88 unit tests
+├── check_driver_availability.py # Tool 5: driver staffing queries by shift/date/route
+├── driver_data.py          # Mock driver data provider (Phase 2: replaced by CMS API client)
+└── tests/                  # 104 unit tests
     ├── test_client.py              # GTFS-RT client cache and error handling
     ├── test_query_bus_status.py    # Bus status tool function tests
     ├── test_get_route_schedule.py  # Schedule tool helpers + tool function tests
     ├── test_search_stops.py        # Stop search helpers + tool function tests (19 tests)
     ├── test_get_adherence_report.py # Adherence report helpers + tool function tests (19 tests)
+    ├── test_check_driver_availability.py # Driver availability helpers + tool function tests (16 tests)
     └── test_static_cache.py        # Calendar service resolution + stop_routes index tests
 ```
 
@@ -114,6 +123,17 @@ transit/
 6. Results enriched with serving route names via `stop_routes` index
 7. Tool returns structured JSON `StopSearchResults` with stop details and composition hints
 
+### Driver availability queries (check_driver_availability)
+
+1. Dispatcher asks "Who's available for the morning shift?" or "Find drivers for route 22"
+2. Agent selects `check_driver_availability` with optional `date`, `shift`, `route_id` filters
+3. Tool validates date (defaults to today in Riga TZ) and shift parameter
+4. Tool calls `get_driver_availability()` from mock provider (Phase 2: CMS tRPC API)
+5. Tool builds `DriverInfo` list with license categories, route qualifications, and status
+6. Tool computes per-shift `ShiftSummary` aggregates (available/on_duty/on_leave/sick counts)
+7. Tool caps response at 30 drivers for token efficiency
+8. Tool returns structured JSON `DriverAvailabilityReport` for the agent to summarize
+
 ## Configuration
 
 All settings have defaults pointing to Rigas Satiksme public endpoints (no API key required):
@@ -146,7 +166,8 @@ This handles weekday/weekend schedules, holidays, and special service dates.
 
 ## Integration Points
 
-- **Agent module** (`agent.py`) — Tools registered via `tools=[query_bus_status, get_route_schedule, search_stops]`
+- **Agent module** (`agent.py`) — All 5 tools registered via `tools=[query_bus_status, get_route_schedule, search_stops, get_adherence_report, check_driver_availability]`
 - **Agent service** (`service.py`) — `TransitDeps` injected via `create_transit_deps()`
 - **Config** (`app/core/config.py`) — 6 GTFS feed settings
 - **Exceptions** (`exceptions.py`) — `TransitDataError` mapped to HTTP 503
+- **Driver data** (`driver_data.py`) — Mock provider with 20 drivers; async interface identical to future CMS API client
