@@ -344,6 +344,20 @@ curl -s http://localhost:8123/health
 - New dependencies: [any new packages — include `uv add [package]` commands]
 - New env vars: [any new environment variables — include `.env.example` updates]
 
+## Known Pitfalls
+
+The executing agent MUST follow these rules to avoid common errors:
+
+1. **No `assert` in production code** — Ruff S101 forbids assert outside test files. Use conditional checks instead.
+2. **No `object` type hints** — Import and use actual types directly. Never write `def f(data: object)` then isinstance-check.
+3. **Untyped third-party libraries** — When adding a dependency without `py.typed`:
+   - mypy: Add `[[tool.mypy.overrides]]` with `ignore_missing_imports = true`
+   - pyright: Add file-level `# pyright: reportUnknown...=false` directives to the ONE file interfacing with the library
+   - **NEVER** use pyright `[[executionEnvironments]]` with a scoped `root` — it breaks `app.*` import resolution
+4. **Mock exceptions must match catch blocks** — If production code catches `httpx.HTTPError`, tests must mock `httpx.ConnectError` (or another subclass), not bare `Exception`.
+5. **Only import what you use** — Ruff F401 catches unused imports.
+6. **No unnecessary noqa/type-ignore** — Ruff RUF100 flags unused suppression comments.
+
 ## Notes
 
 [Any additional context: future considerations, known limitations, performance implications, security considerations]

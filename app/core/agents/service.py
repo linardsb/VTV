@@ -17,6 +17,7 @@ from app.core.agents.schemas import (
     ChatMessage,
     UsageInfo,
 )
+from app.core.agents.tools.transit.deps import TransitDeps, create_transit_deps
 from app.core.config import get_settings
 from app.core.logging import get_logger
 
@@ -30,11 +31,15 @@ class AgentService:
     following the OpenAI Chat Completions API format.
     """
 
+    def __init__(self) -> None:
+        """Initialize with transit dependencies for agent tool execution."""
+        self._deps: TransitDeps = create_transit_deps()
+
     async def chat(self, request: ChatCompletionRequest) -> ChatCompletionResponse:
         """Process a chat completion request.
 
-        Extracts the last user message, runs the agent, and returns
-        an OpenAI-compatible response.
+        Extracts the last user message, runs the agent with transit deps,
+        and returns an OpenAI-compatible response.
 
         Args:
             request: The chat completion request with messages.
@@ -56,7 +61,7 @@ class AgentService:
         )
 
         try:
-            result = await agent.run(user_prompt)
+            result = await agent.run(user_prompt, deps=self._deps)
         except Exception as e:
             logger.error(
                 "agent.chat_failed",
@@ -91,6 +96,10 @@ class AgentService:
         )
 
         return response
+
+    async def close(self) -> None:
+        """Close the HTTP client used by transit tools."""
+        await self._deps.http_client.aclose()
 
 
 def get_agent_service() -> AgentService:

@@ -167,7 +167,7 @@ agent = Agent(
 
 | Tool | Purpose | Data Source |
 |------|---------|------------|
-| `query_bus_status` | Current delay/position status for a route or vehicle | VTV tRPC API |
+| `query_bus_status` ✅ | Current delay/position status for a route or vehicle | GTFS-RT feeds (Rigas Satiksme) |
 | `get_route_schedule` | Timetable for a specific route and service date | VTV tRPC API |
 | `search_stops` | Search stops by name or proximity (lat/lon) | VTV tRPC API |
 | `get_adherence_report` | On-time performance metrics for routes/periods | VTV tRPC API |
@@ -326,13 +326,15 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 
 ## 7. CMS Core Features (MVP)
 
-### 7.1 Route Management
+### 7.1 Route Management ✅ (Implemented — mock data, no backend)
 
-- Filterable route list (TanStack Table) with search
-- Route detail view with map visualization (MapLibre)
-- CRUD operations (admin/editor roles)
-- Route shape display on map from GTFS shapes.txt
-- Route type support: bus (3), trolleybus (11), tram (0)
+- ✅ Filterable route list with search, type filter, status filter
+- ✅ Route detail view (Sheet panel, no map yet — table-only MVP)
+- ✅ CRUD operations (create, edit, duplicate, delete) with role-based visibility
+- ⬜ Route shape display on map from GTFS shapes.txt (deferred — requires MapLibre)
+- ✅ Route type support: bus (3), trolleybus (11), tram (0) with selectable filter
+- ✅ 26 realistic mock routes (ATD intercity, RS urban, 5 operators)
+- ✅ Bilingual i18n (138 keys each for LV/EN)
 
 ### 7.2 Stop Management
 

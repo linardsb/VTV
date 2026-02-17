@@ -49,6 +49,14 @@ Follow the plan's implementation steps in exact order. For each step:
   - Google-style docstrings for functions
   - Agent-optimized docstrings for tool functions
 
+- **Python Anti-Patterns — AVOID THESE (write correct code on first pass):**
+  1. **No `assert` in production code** — Ruff S101. Use `if x is not None:` not `assert x is not None`
+  2. **No `object` type hints** — Import and use actual types. Never write `def f(data: object)` then isinstance-check
+  3. **Untyped third-party libraries** — Use mypy `[[overrides]]` + pyright file-level `# pyright:` directives. NEVER use pyright `[[executionEnvironments]]` with scoped `root` — it breaks `app.*` import resolution
+  4. **Mock exceptions must match catch blocks** — If code catches `httpx.HTTPError`, test with `httpx.ConnectError`, not `Exception`
+  5. **Only import what you use** — Ruff F401. Don't import symbols speculatively
+  6. **No unnecessary noqa/type-ignore** — Ruff RUF100 flags unused suppression comments
+
 ### 3. Run database migrations (if needed)
 
 If the plan includes new models or schema changes:

@@ -9,6 +9,8 @@ from pydantic_ai import Agent
 from pydantic_ai.models import Model
 
 from app.core.agents.config import get_agent_model
+from app.core.agents.tools.transit.deps import TransitDeps
+from app.core.agents.tools.transit.query_bus_status import query_bus_status
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -23,15 +25,15 @@ SYSTEM_PROMPT: str = (
 )
 
 
-def create_agent(model: str | Model | None = None) -> Agent[None, str]:
-    """Create a Pydantic AI agent with the VTV system prompt.
+def create_agent(model: str | Model | None = None) -> Agent[TransitDeps, str]:
+    """Create a Pydantic AI agent with the VTV system prompt and transit tools.
 
     Args:
         model: LLM model to use. If None, resolves from application settings.
             Pass a TestModel instance for testing.
 
     Returns:
-        Configured Agent instance with string output type.
+        Configured Agent instance with TransitDeps and string output type.
     """
     if model is None:
         model = get_agent_model()
@@ -40,11 +42,13 @@ def create_agent(model: str | Model | None = None) -> Agent[None, str]:
 
     return Agent(
         model,
+        deps_type=TransitDeps,
         output_type=str,
         system_prompt=SYSTEM_PROMPT,
+        tools=[query_bus_status],
     )
 
 
 # Module-level singleton used by routes and service.
 # Tests override via agent.override(model=TestModel()).
-agent: Agent[None, str] = create_agent()
+agent: Agent[TransitDeps, str] = create_agent()

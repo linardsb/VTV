@@ -4,6 +4,7 @@ Exception hierarchy:
 - AgentError (base)
   - AgentConfigurationError (invalid LLM config) → 500
   - AgentExecutionError (LLM call failed) → 502
+  - TransitDataError (transit feed fetch/parse failed) → 503
 """
 
 from typing import Any, cast
@@ -34,6 +35,12 @@ class AgentExecutionError(AgentError):
     pass
 
 
+class TransitDataError(AgentError):
+    """Transit data fetch or parse failed (feed unavailable, invalid protobuf)."""
+
+    pass
+
+
 async def agent_exception_handler(request: Request, exc: AgentError) -> JSONResponse:
     """Handle agent exceptions globally.
 
@@ -58,6 +65,8 @@ async def agent_exception_handler(request: Request, exc: AgentError) -> JSONResp
     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     if isinstance(exc, AgentExecutionError):
         status_code = status.HTTP_502_BAD_GATEWAY
+    elif isinstance(exc, TransitDataError):
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     return JSONResponse(
         status_code=status_code,
@@ -79,3 +88,4 @@ def setup_agent_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AgentError, handler)
     app.add_exception_handler(AgentConfigurationError, handler)
     app.add_exception_handler(AgentExecutionError, handler)
+    app.add_exception_handler(TransitDataError, handler)

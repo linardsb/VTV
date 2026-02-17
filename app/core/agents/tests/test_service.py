@@ -1,6 +1,6 @@
 """Tests for agent service layer."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from pydantic_ai import models
@@ -15,9 +15,17 @@ from app.core.agents.service import AgentService
 models.ALLOW_MODEL_REQUESTS = False
 
 
+def _create_service() -> AgentService:
+    """Create an AgentService with mocked transit deps."""
+    with patch("app.core.agents.service.create_transit_deps") as mock_deps:
+        mock_deps.return_value.http_client = AsyncMock()
+        service = AgentService()
+    return service
+
+
 @pytest.mark.asyncio
 async def test_chat_success():
-    service = AgentService()
+    service = _create_service()
     request = ChatCompletionRequest(messages=[ChatMessage(role="user", content="Hello")])
 
     with agent.override(model=TestModel()):
@@ -32,7 +40,7 @@ async def test_chat_success():
 
 @pytest.mark.asyncio
 async def test_chat_extracts_last_user_message():
-    service = AgentService()
+    service = _create_service()
     request = ChatCompletionRequest(
         messages=[
             ChatMessage(role="system", content="You are helpful."),
@@ -52,7 +60,7 @@ async def test_chat_extracts_last_user_message():
 
 @pytest.mark.asyncio
 async def test_chat_failure_raises_agent_execution_error():
-    service = AgentService()
+    service = _create_service()
     request = ChatCompletionRequest(messages=[ChatMessage(role="user", content="Hello")])
 
     with patch("app.core.agents.service.agent") as mock_agent:

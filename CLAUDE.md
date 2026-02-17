@@ -33,6 +33,22 @@ VTV is a unified transit operations platform for Riga's municipal bus system. Th
 - No `Any` types without explicit justification
 - Test files have relaxed typing rules (see pyproject.toml)
 
+**Python Anti-Patterns (avoid these — they cause lint/type errors)**
+
+1. **No `assert` in production code** — Ruff S101 forbids assert outside test files. Use conditional checks:
+   - BAD: `assert cache is not None; return cache.data`
+   - GOOD: `if cache is not None: return cache.data`
+2. **No `object` type hints** — Forces isinstance + assert chains. Import and use the actual type:
+   - BAD: `def process(data: object) -> str:` then `assert isinstance(data, MyClass)`
+   - GOOD: `def process(data: MyClass) -> str:`
+3. **Untyped third-party libraries** — When a dependency lacks `py.typed` (e.g., protobuf-generated code):
+   - mypy: Add `[[tool.mypy.overrides]]` with `ignore_missing_imports = true` for the module
+   - pyright: Add file-level `# pyright: reportUnknownVariableType=false` directives to the ONE file that interfaces with the untyped library
+   - **NEVER use pyright `[[executionEnvironments]]` with a scoped `root`** — it breaks import resolution for `app.*` modules
+4. **Mock exceptions must match catch blocks** — If code catches `httpx.HTTPError`, mock with `httpx.ConnectError`, not `Exception`
+5. **Only import what you use** — Ruff F401 catches unused imports. Don't import `field` from dataclasses unless you call `field()`
+6. **No unnecessary noqa/type-ignore** — Ruff RUF100 flags unused suppression comments
+
 **AI-Optimized Patterns**
 
 - Structured logging: Use `domain.component.action_state` pattern (hybrid dotted namespace)
@@ -165,9 +181,12 @@ docker-compose down
 VTV/
 ├── app/
 │   ├── core/           # Infrastructure (config, database, logging, middleware, health, exceptions)
+│   │   └── agents/     # AI agent module (see Agent Module below)
+│   │       ├── tools/
+│   │       │   └── transit/  # Transit tools (query_bus_status ✅, 4 more planned)
+│   │       └── tests/
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── main.py         # FastAPI application entry point
-│   ├── agent/          # AI agent feature (see Agent Module below)
 │   ├── {feature}/      # Feature slices (e.g., products/, orders/)
 │   └── tests/          # Integration tests spanning multiple features
 ├── reference/          # Architecture docs and templates
@@ -288,27 +307,34 @@ Agent tool docstrings guide **when to use the tool and how** for LLM reasoning.
 - `ErrorResponse`: Standard error response format
 - Global exception handlers configured in `app.main`
 
-### Agent Module (Planned)
+### Agent Module
 
-VTV's primary feature is a Pydantic AI agent. It follows the feature slice pattern with a `tools/` subdirectory:
+VTV's primary feature is a Pydantic AI agent (`Agent[TransitDeps, str]`). It follows the feature slice pattern with a `tools/` subdirectory:
 
 ```
-app/agent/
+app/core/agents/
+├── agent.py           # Agent creation with TransitDeps, tool registration
 ├── routes.py          # /v1/chat/completions, /v1/models
-├── service.py         # Agent orchestration, model building
+├── service.py         # Agent orchestration, deps injection, model building
 ├── schemas.py         # OpenAI-compatible request/response schemas
 ├── config.py          # LLM provider settings (model names, tokens, timeouts)
-├── exceptions.py      # Agent-specific exceptions
+├── exceptions.py      # Agent-specific exceptions (incl. TransitDataError → HTTP 503)
 ├── tools/
-│   ├── transit/       # 5 read-only tools (see below)
-│   └── obsidian/      # 4 vault tools (see below)
-└── tests/
+│   ├── transit/       # Transit tools (see below)
+│   │   ├── schemas.py         # Response models (BusStatus, RouteOverview, StopDepartures, etc.)
+│   │   ├── deps.py            # TransitDeps dataclass + factory
+│   │   ├── client.py          # GTFS-RT protobuf client with 20s cache
+│   │   ├── static_cache.py    # Static GTFS ZIP parser (routes/stops/trips, 24h TTL)
+│   │   ├── query_bus_status.py # First tool: 3 actions (status, route_overview, stop_departures)
+│   │   └── tests/             # 16 unit tests
+│   └── obsidian/      # 4 vault tools (planned)
+└── tests/             # 22 agent-level tests
 ```
 
 `config.py` is feature-specific (not in `core/`) because LLM settings are agent-specific. Tools are grouped by domain under `tools/`, each with agent-optimized docstrings (see "Tool Docstrings for Agents" above).
 
 **Transit Tools (5, all read-only — AI advises, humans decide):**
-- `query_bus_status` — Current delay/position for a route or vehicle
+- `query_bus_status` ✅ — Current delay/position for a route or vehicle (3 actions: status, route_overview, stop_departures). Data source: GTFS-RT feeds from Rigas Satiksme.
 - `get_route_schedule` — Timetable for a route and service date
 - `search_stops` — Search stops by name or proximity (lat/lon)
 - `get_adherence_report` — On-time performance metrics for routes/periods
@@ -392,11 +418,16 @@ cms/apps/web/src/
 │   ├── layout.tsx              # Root locale layout with sidebar nav
 │   ├── (dashboard)/
 │   │   ├── page.tsx            # Dashboard (default authenticated page)
-│   │   └── {page}/page.tsx     # Feature pages (routes, stops, etc.)
+│   │   ├── routes/page.tsx     # Route management (CRUD, filters, 3-panel layout)
+│   │   └── {page}/page.tsx     # Future feature pages (stops, schedules, etc.)
 │   ├── login/page.tsx          # Login page (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect page
-├── components/ui/              # shadcn/ui components
-├── lib/                        # Utilities (cn, agent-client)
+├── components/
+│   ├── ui/                     # shadcn/ui components (button, table, dialog, etc.)
+│   ├── dashboard/              # Dashboard-specific components (metric-card, calendar)
+│   └── routes/                 # Route management components (table, filters, form, detail)
+├── types/                      # TypeScript types (route.ts, dashboard.ts)
+├── lib/                        # Utilities (cn, agent-client, mock data)
 └── i18n/                       # next-intl configuration
 ```
 
