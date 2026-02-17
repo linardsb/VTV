@@ -1,7 +1,9 @@
 "use client";
 
-import { useTranslations } from "next-intl";
-import { Bus, Clock, AlertTriangle, Gauge } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
+import Link from "next/link";
+import { Bus, Clock, AlertTriangle, Gauge, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { CalendarGrid } from "@/components/dashboard/calendar-grid";
 import {
@@ -21,12 +23,21 @@ const METRIC_KEYS = [
 
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
+  const locale = useLocale();
 
   return (
     <div className="space-y-(--spacing-section)">
-      <h1 className="font-heading text-heading font-semibold text-foreground">
-        {t("title")}
-      </h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-heading text-heading font-semibold text-foreground">
+          {t("title")}
+        </h1>
+        <Button asChild variant="outline" className="cursor-pointer">
+          <Link href={`/${locale}/routes`}>
+            {t("manageRoutes")}
+            <ArrowRight className="ml-2 size-4" aria-hidden="true" />
+          </Link>
+        </Button>
+      </div>
 
       <ResizablePanelGroup orientation="vertical" className="min-h-[calc(100vh-6rem)]">
         {/* Metrics panel */}

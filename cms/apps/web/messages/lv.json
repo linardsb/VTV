@@ -29,6 +29,7 @@
       "fleetUtilization": "Parka izmantojums",
       "comparedToLastMonth": "Salīdzinot ar iepriekšējo mēnesi"
     },
+    "manageRoutes": "Pārvaldīt maršrutus",
     "calendar": {
       "title": "Operācijas",
       "today": "Šodien",
@@ -96,6 +97,84 @@
       "oct": "Oktobris",
       "nov": "Novembris",
       "dec": "Decembris"
+    }
+  },
+  "routes": {
+    "title": "Maršrutu pārvaldība",
+    "description": "Pārvaldiet autobusu, trolejbusu un tramvaju maršrutus",
+    "search": "Meklēt maršrutus...",
+    "filters": {
+      "allTypes": "Visi veidi",
+      "bus": "Autobuss",
+      "trolleybus": "Trolejbuss",
+      "tram": "Tramvajs",
+      "allStatuses": "Visi statusi",
+      "active": "Aktīvs",
+      "inactive": "Neaktīvs"
+    },
+    "table": {
+      "routeNumber": "Nr.",
+      "name": "Nosaukums",
+      "type": "Veids",
+      "agency": "Operators",
+      "status": "Statuss",
+      "color": "Krāsa",
+      "actions": "Darbības",
+      "noResults": "Nav atrasti maršruti",
+      "showing": "Rāda {from}–{to} no {total}"
+    },
+    "detail": {
+      "routeInfo": "Maršruta informācija",
+      "shortName": "Īsais nosaukums",
+      "longName": "Pilnais nosaukums",
+      "description": "Apraksts",
+      "routeType": "Maršruta veids",
+      "agency": "Operators",
+      "routeColor": "Maršruta krāsa",
+      "textColor": "Teksta krāsa",
+      "isActive": "Aktīvs",
+      "createdAt": "Izveidots",
+      "updatedAt": "Atjaunināts"
+    },
+    "actions": {
+      "create": "Jauns maršruts",
+      "edit": "Rediģēt",
+      "delete": "Dzēst",
+      "duplicate": "Dublēt",
+      "save": "Saglabāt",
+      "cancel": "Atcelt",
+      "close": "Aizvērt"
+    },
+    "form": {
+      "createTitle": "Izveidot jaunu maršrutu",
+      "editTitle": "Rediģēt maršrutu",
+      "shortNamePlaceholder": "piem., 22",
+      "longNamePlaceholder": "piem., Rīga — Liepāja",
+      "descriptionPlaceholder": "Maršruta apraksts...",
+      "colorPlaceholder": "#FF0000",
+      "textColorPlaceholder": "#FFFFFF",
+      "required": "Obligāts lauks",
+      "shortNameHelp": "Maršruta numurs vai īsais apzīmējums",
+      "longNameHelp": "Pilns maršruta nosaukums ar galapunktiem"
+    },
+    "delete": {
+      "title": "Dzēst maršrutu",
+      "confirmation": "Vai tiešām vēlaties dzēst maršrutu \"{name}\"?",
+      "warning": "Šī darbība ir neatgriezeniska. Tiks dzēsti visi saistītie grafiki un pieturvietu dati.",
+      "confirm": "Dzēst",
+      "cancel": "Atcelt"
+    },
+    "toast": {
+      "created": "Maršruts veiksmīgi izveidots",
+      "updated": "Maršruts veiksmīgi atjaunināts",
+      "deleted": "Maršruts veiksmīgi dzēsts"
+    },
+    "agencies": {
+      "rs": "Rīgas Satiksme",
+      "atd": "Autotransporta direkcija",
+      "lap": "Liepājas autobusu parks",
+      "dap": "Daugavpils autobusu parks",
+      "nordeka": "Nordeka"
     }
   }
 }

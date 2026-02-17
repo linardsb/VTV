@@ -29,6 +29,7 @@
       "fleetUtilization": "Fleet Utilization",
       "comparedToLastMonth": "Compared to last month"
     },
+    "manageRoutes": "Manage Routes",
     "calendar": {
       "title": "Operations",
       "today": "Today",
@@ -96,6 +97,84 @@
       "oct": "October",
       "nov": "November",
       "dec": "December"
+    }
+  },
+  "routes": {
+    "title": "Route Management",
+    "description": "Manage bus, trolleybus, and tram routes",
+    "search": "Search routes...",
+    "filters": {
+      "allTypes": "All Types",
+      "bus": "Bus",
+      "trolleybus": "Trolleybus",
+      "tram": "Tram",
+      "allStatuses": "All Statuses",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "table": {
+      "routeNumber": "No.",
+      "name": "Name",
+      "type": "Type",
+      "agency": "Operator",
+      "status": "Status",
+      "color": "Color",
+      "actions": "Actions",
+      "noResults": "No routes found",
+      "showing": "Showing {from}–{to} of {total}"
+    },
+    "detail": {
+      "routeInfo": "Route Information",
+      "shortName": "Short Name",
+      "longName": "Full Name",
+      "description": "Description",
+      "routeType": "Route Type",
+      "agency": "Operator",
+      "routeColor": "Route Color",
+      "textColor": "Text Color",
+      "isActive": "Active",
+      "createdAt": "Created",
+      "updatedAt": "Updated"
+    },
+    "actions": {
+      "create": "New Route",
+      "edit": "Edit",
+      "delete": "Delete",
+      "duplicate": "Duplicate",
+      "save": "Save",
+      "cancel": "Cancel",
+      "close": "Close"
+    },
+    "form": {
+      "createTitle": "Create New Route",
+      "editTitle": "Edit Route",
+      "shortNamePlaceholder": "e.g., 22",
+      "longNamePlaceholder": "e.g., Rīga — Liepāja",
+      "descriptionPlaceholder": "Route description...",
+      "colorPlaceholder": "#FF0000",
+      "textColorPlaceholder": "#FFFFFF",
+      "required": "Required field",
+      "shortNameHelp": "Route number or short identifier",
+      "longNameHelp": "Full route name with endpoints"
+    },
+    "delete": {
+      "title": "Delete Route",
+      "confirmation": "Are you sure you want to delete route \"{name}\"?",
+      "warning": "This action cannot be undone. All associated schedules and stop data will be removed.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "created": "Route created successfully",
+      "updated": "Route updated successfully",
+      "deleted": "Route deleted successfully"
+    },
+    "agencies": {
+      "rs": "Rīgas Satiksme",
+      "atd": "Transport Directorate",
+      "lap": "Liepāja Bus Company",
+      "dap": "Daugavpils Bus Company",
+      "nordeka": "Nordeka"
     }
   }
 }

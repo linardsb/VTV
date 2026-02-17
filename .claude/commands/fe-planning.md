@@ -164,6 +164,16 @@ The executing agent MUST read these files before starting implementation.
 - `cms/apps/web/middleware.ts` — Add route matcher
 - `cms/apps/web/src/app/[locale]/layout.tsx` — Add sidebar nav entry
 
+## React 19 Coding Rules
+
+The executor MUST follow these rules to avoid lint/type errors on first pass:
+- **No `setState` in `useEffect`** — use `key` prop on the component to force remount with new initial state
+- **No component definitions inside components** — extract all sub-components to module scope or separate files
+- **No `Math.random()` in render** — use `useId()` or generate outside render
+- **Const placeholders for runtime values** (e.g. `const ROLE = "admin"`) must be annotated as `string` to avoid TS2367
+
+See `cms/apps/web/CLAUDE.md` → "React 19 Anti-Patterns" for full examples.
+
 ## Step by Step Tasks
 
 IMPORTANT: Execute every step in order, top to bottom. Do not skip steps.

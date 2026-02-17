@@ -53,6 +53,45 @@ Use `/fe-create-page {name}` or manually:
 - `cn()` from `lib/utils.ts` for conditional Tailwind class merging
 - Accessibility: ARIA labels, alt text, skip links, focus management
 
+## React 19 Anti-Patterns (MUST AVOID)
+
+These patterns trigger lint errors under React 19 strict rules. Write correct code on the first pass:
+
+1. **No `setState` inside `useEffect`** — `react-hooks/set-state-in-effect` forbids synchronous setState in effects. Instead of resetting form state in an effect, use the React `key` prop pattern to remount the component with fresh initial state.
+   ```tsx
+   // BAD — lint error
+   useEffect(() => { setForm(initialData); }, [isOpen]);
+
+   // GOOD — parent passes key to force remount
+   <MyForm key={formKey} initialData={data} />
+   ```
+
+2. **No component definitions inside components** — `react-hooks/static-components` forbids defining components within render. Components declared inside another component are recreated every render, resetting their state. Move them outside or extract to separate files.
+   ```tsx
+   // BAD — lint error: "Cannot create components during render"
+   function ParentComponent() {
+     function ChildComponent({ text }: { text: string }) { return <p>{text}</p>; }
+     return <ChildComponent text="hello" />;
+   }
+
+   // GOOD — defined outside
+   function ChildComponent({ text }: { text: string }) { return <p>{text}</p>; }
+   function ParentComponent() { return <ChildComponent text="hello" />; }
+   ```
+
+3. **No `Math.random()` in render** — React 19 purity rules forbid impure expressions during render. Generate random values outside render or use `useId()`.
+
+4. **No narrowing const literals for role checks** — TypeScript infers `const role = "admin"` as literal type `"admin"`, making `role === "viewer"` a TS2367 error. Use explicit `string` annotation when the value is a placeholder for runtime data:
+   ```tsx
+   // BAD — TS2367: comparison is unintentional
+   const USER_ROLE = "admin";
+   const readOnly = USER_ROLE === "viewer";
+
+   // GOOD — annotate as string since it's a stand-in for runtime value
+   const USER_ROLE: string = "admin";
+   const readOnly = USER_ROLE === "viewer";
+   ```
+
 ## Zero-Warning Policy
 
 **Lint must be fully clean** — zero errors AND zero warnings. Do not tolerate "pre-existing" lint issues.
@@ -64,6 +103,8 @@ Use `/fe-create-page {name}` or manually:
   - `Math.random()` in React render paths (React 19 purity rules forbid this)
   - Variables only used as types (use `type` keyword directly instead of `const ... as const`)
   - Hardcoded strings in components (must go through `useTranslations()`)
+  - `setState` inside `useEffect` — use key-based remount instead (see anti-patterns above)
+  - Component functions defined inside other components (see anti-patterns above)
 
 <claude-mem-context>
 # Recent Activity

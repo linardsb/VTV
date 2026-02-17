@@ -55,6 +55,11 @@ Follow the plan's implementation steps in exact order. For each step:
   - Proper TypeScript types on all components and functions
   - Accessibility: ARIA labels, alt text, keyboard navigation
   - Follow MASTER.md design system rules (spacing, typography, color)
+- CRITICAL — React 19 anti-patterns (see `cms/apps/web/CLAUDE.md` for full details):
+  - **Never** use `setState` inside `useEffect` — use `key` prop remount pattern instead
+  - **Never** define component functions inside other components — extract to module scope
+  - **Never** use `Math.random()` in render paths
+  - When using const placeholders for runtime values (e.g. `const ROLE = "admin"`), annotate as `string` to avoid TS2367 literal narrowing errors
 
 ### 3. Run per-task validation
 
