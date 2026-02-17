@@ -355,8 +355,9 @@ The executing agent MUST follow these rules to avoid common errors:
    - pyright: Add file-level `# pyright: reportUnknown...=false` directives to the ONE file interfacing with the library
    - **NEVER** use pyright `[[executionEnvironments]]` with a scoped `root` — it breaks `app.*` import resolution
 4. **Mock exceptions must match catch blocks** — If production code catches `httpx.HTTPError`, tests must mock `httpx.ConnectError` (or another subclass), not bare `Exception`.
-5. **Only import what you use** — Ruff F401 catches unused imports.
+5. **No unused imports or variables** — Ruff F401 catches unused imports, Ruff F841 catches unused local variables. Don't write speculative code — only import/assign what you actually use.
 6. **No unnecessary noqa/type-ignore** — Ruff RUF100 flags unused suppression comments.
+7. **Test helper functions need return type annotations** — mypy `disallow_untyped_defs=false` for tests only relaxes *defining* untyped functions, but `disallow_untyped_call` is still globally true. When `async def test_foo()` (implicitly typed via coroutine return) calls an untyped helper, mypy raises `no-untyped-call`. Fix: always add `-> ReturnType` to test helpers (e.g., `def _make_ctx() -> MagicMock:`).
 
 ## Notes
 

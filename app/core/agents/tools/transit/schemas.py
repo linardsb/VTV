@@ -1,7 +1,8 @@
 """Pydantic response schemas for transit tool outputs.
 
-These models define the structured data returned by query_bus_status.
-The agent receives JSON-serialized versions of these models.
+These models define the structured data returned by transit tools
+(query_bus_status, get_route_schedule). The agent receives
+JSON-serialized versions of these models.
 """
 
 from pydantic import BaseModel, ConfigDict
@@ -172,4 +173,97 @@ class StopDepartures(BaseModel):
     stop_id: str
     stop_name: str
     departures: list[StopDeparture]
+    summary: str
+
+
+# --- Schedule schemas (get_route_schedule) ---
+
+
+class ScheduleStop(BaseModel):
+    """A stop within a scheduled trip.
+
+    Attributes:
+        stop_sequence: Order of stop within the trip.
+        stop_id: GTFS stop identifier.
+        stop_name: Human-readable stop name.
+        arrival_time: Arrival time in HH:MM display format.
+        departure_time: Departure time in HH:MM display format.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    stop_sequence: int
+    stop_id: str
+    stop_name: str
+    arrival_time: str
+    departure_time: str
+
+
+class TripSchedule(BaseModel):
+    """A single scheduled trip with summary timing.
+
+    Attributes:
+        trip_id: GTFS trip identifier.
+        direction_id: Direction (0=outbound, 1=inbound), if available.
+        headsign: Trip destination label, if available.
+        first_departure: HH:MM departure from first stop.
+        last_arrival: HH:MM arrival at last stop.
+        stop_count: Number of stops in this trip.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    trip_id: str
+    direction_id: int | None = None
+    headsign: str | None = None
+    first_departure: str
+    last_arrival: str
+    stop_count: int
+
+
+class DirectionSchedule(BaseModel):
+    """Schedule for one direction of a route.
+
+    Attributes:
+        direction_id: Direction (0=outbound, 1=inbound), if available.
+        headsign: Typical destination label for this direction, if available.
+        trip_count: Total number of trips in this direction.
+        first_departure: HH:MM of the earliest trip departure.
+        last_departure: HH:MM of the latest trip departure.
+        trips: Individual trip schedules (may be truncated for token efficiency).
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    direction_id: int | None = None
+    headsign: str | None = None
+    trip_count: int
+    first_departure: str
+    last_departure: str
+    trips: list[TripSchedule]
+
+
+class RouteSchedule(BaseModel):
+    """Full schedule for a route on a specific date.
+
+    Attributes:
+        route_id: GTFS route identifier.
+        route_short_name: Human-readable route number (e.g., "22").
+        route_long_name: Full route name (e.g., "Centrs - Jugla").
+        service_date: ISO date (YYYY-MM-DD) the schedule applies to.
+        service_type: Day classification ("weekday", "saturday", "sunday").
+        trip_count: Total number of scheduled trips across all directions.
+        directions: Schedule broken down by direction.
+        summary: Pre-formatted text summary for agent to relay to user.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    route_id: str
+    route_short_name: str
+    route_long_name: str
+    service_date: str
+    service_type: str
+    trip_count: int
+    directions: list[DirectionSchedule]
     summary: str

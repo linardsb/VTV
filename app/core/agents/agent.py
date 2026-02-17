@@ -10,6 +10,7 @@ from pydantic_ai.models import Model
 
 from app.core.agents.config import get_agent_model
 from app.core.agents.tools.transit.deps import TransitDeps
+from app.core.agents.tools.transit.get_route_schedule import get_route_schedule
 from app.core.agents.tools.transit.query_bus_status import query_bus_status
 from app.core.logging import get_logger
 
@@ -45,7 +46,7 @@ def create_agent(model: str | Model | None = None) -> Agent[TransitDeps, str]:
         deps_type=TransitDeps,
         output_type=str,
         system_prompt=SYSTEM_PROMPT,
-        tools=[query_bus_status],
+        tools=[query_bus_status, get_route_schedule],
     )
 
 

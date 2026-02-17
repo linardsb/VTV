@@ -54,8 +54,9 @@ Follow the plan's implementation steps in exact order. For each step:
   2. **No `object` type hints** — Import and use actual types. Never write `def f(data: object)` then isinstance-check
   3. **Untyped third-party libraries** — Use mypy `[[overrides]]` + pyright file-level `# pyright:` directives. NEVER use pyright `[[executionEnvironments]]` with scoped `root` — it breaks `app.*` import resolution
   4. **Mock exceptions must match catch blocks** — If code catches `httpx.HTTPError`, test with `httpx.ConnectError`, not `Exception`
-  5. **Only import what you use** — Ruff F401. Don't import symbols speculatively
+  5. **No unused imports or variables** — Ruff F401 catches unused imports, Ruff F841 catches unused local variables. Don't import or assign speculatively — only write what you actually use
   6. **No unnecessary noqa/type-ignore** — Ruff RUF100 flags unused suppression comments
+  7. **Test helper functions need return type annotations** — mypy `disallow_untyped_defs=false` for tests only relaxes *defining* untyped functions, but `disallow_untyped_call` is still globally true. When `async def test_foo()` (implicitly typed via coroutine return) calls an untyped helper, mypy raises `no-untyped-call`. Fix: always add `-> ReturnType` to test helpers (e.g., `def _make_ctx() -> MagicMock:`)
 
 ### 3. Run database migrations (if needed)
 
