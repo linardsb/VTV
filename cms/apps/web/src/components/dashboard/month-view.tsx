@@ -144,7 +144,7 @@ export function MonthView({ currentDate, events }: MonthViewProps) {
                     ))}
                     {overflow > 0 && (
                       <span className="text-[10px] text-foreground-muted">
-                        +{overflow} more
+                        {t("calendar.moreEvents", { count: overflow })}
                       </span>
                     )}
                   </div>

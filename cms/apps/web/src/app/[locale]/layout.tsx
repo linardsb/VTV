@@ -1,7 +1,7 @@
 import { NextIntlClientProvider, useTranslations } from "next-intl";
 import { getMessages } from "next-intl/server";
 import Link from "next/link";
-import { auth } from "../../../auth";
+import { LocaleToggle } from "@/components/locale-toggle";
 
 const navItems = [
   { key: "dashboard", href: "", enabled: true },
@@ -17,7 +17,7 @@ function Sidebar({ locale }: { locale: string }) {
   const t = useTranslations("nav");
 
   return (
-    <aside className="w-60 border-r border-border bg-surface p-4">
+    <aside className="flex w-60 flex-col border-r border-border bg-surface p-4">
       <nav aria-label="Main navigation">
         <p className="text-sm font-semibold text-foreground-muted mb-(--spacing-card)">
           VTV
@@ -41,6 +41,9 @@ function Sidebar({ locale }: { locale: string }) {
           ))}
         </ul>
       </nav>
+      <div className="mt-auto pt-(--spacing-card)">
+        <LocaleToggle />
+      </div>
     </aside>
   );
 }
@@ -54,7 +57,6 @@ export default async function LocaleLayout({
 }) {
   const { locale } = await params;
   const messages = await getMessages();
-  const session = await auth();
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>

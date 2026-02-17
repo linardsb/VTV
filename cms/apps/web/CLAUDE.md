@@ -53,6 +53,18 @@ Use `/fe-create-page {name}` or manually:
 - `cn()` from `lib/utils.ts` for conditional Tailwind class merging
 - Accessibility: ARIA labels, alt text, skip links, focus management
 
+## Zero-Warning Policy
+
+**Lint must be fully clean** — zero errors AND zero warnings. Do not tolerate "pre-existing" lint issues.
+
+- Before committing: `pnpm --filter @vtv/web lint` must exit 0 with no output
+- If lint reports warnings in files you didn't touch, fix them anyway — broken windows accumulate
+- Common traps to avoid:
+  - Unused imports/variables after refactoring (remove them)
+  - `Math.random()` in React render paths (React 19 purity rules forbid this)
+  - Variables only used as types (use `type` keyword directly instead of `const ... as const`)
+  - Hardcoded strings in components (must go through `useTranslations()`)
+
 <claude-mem-context>
 # Recent Activity
 

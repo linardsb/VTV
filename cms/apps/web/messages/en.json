@@ -1,10 +1,13 @@
 {
   "common": {
-    "appName": "VTV — Rigas Satiksme",
+    "appName": "VTV — Rīgas Satiksme",
     "login": "Sign In",
     "logout": "Sign Out",
     "unauthorized": "Access Denied",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "email": "Email",
+    "password": "Password",
+    "skipToContent": "Skip to content"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -34,7 +37,11 @@
       "threeMonth": "3 Months",
       "year": "Year",
       "noEvents": "No events",
-      "allDay": "All day"
+      "allDay": "All day",
+      "previous": "Previous",
+      "next": "Next",
+      "moreEvents": "+{count} more",
+      "eventsCount": "{count, plural, one {{count} event} other {{count} events}}"
     },
     "events": {
       "maintenance": "Maintenance",

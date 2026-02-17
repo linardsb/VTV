@@ -1,21 +1,30 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "VTV — Rigas Satiksme",
+  title: "VTV — Rīgas Satiksme",
   description: "Transit operations management for Riga municipal bus system",
 };
 
-export default function RootLayout({
+const skipLinkText: Record<string, string> = {
+  lv: "Pāriet uz saturu",
+  en: "Skip to content",
+};
+
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const store = await cookies();
+  const locale = store.get("locale")?.value ?? "lv";
+
   return (
-    <html lang="lv" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body className="min-h-screen font-body antialiased">
         <a href="#main-content" className="skip-link">
-          Pariet uz saturu
+          {skipLinkText[locale] ?? skipLinkText.lv}
         </a>
         {children}
       </body>

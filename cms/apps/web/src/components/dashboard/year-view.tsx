@@ -80,7 +80,7 @@ export function YearView({ currentDate, events }: YearViewProps) {
                     count >= 3 && "bg-interactive",
                     isToday && "ring-1 ring-status-critical"
                   )}
-                  title={`${date.toLocaleDateString()}: ${count} events`}
+                  title={`${date.toLocaleDateString()}: ${t("calendar.eventsCount", { count })}`}
                 />
               );
             })}

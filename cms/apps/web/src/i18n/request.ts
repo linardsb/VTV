@@ -4,8 +4,7 @@ import { cookies } from "next/headers";
 import lv from "../../messages/lv.json";
 import en from "../../messages/en.json";
 
-const locales = ["lv", "en"] as const;
-type Locale = (typeof locales)[number];
+type Locale = "lv" | "en";
 const defaultLocale: Locale = "lv";
 
 const messagesByLocale: Record<Locale, typeof lv> = { lv, en };

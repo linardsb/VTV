@@ -1,50 +1,57 @@
 {
   "common": {
-    "appName": "VTV — Rigas Satiksme",
+    "appName": "VTV — Rīgas Satiksme",
     "login": "Pieteikties",
     "logout": "Iziet",
-    "unauthorized": "Nav piekluves",
-    "loading": "Ielade..."
+    "unauthorized": "Nav piekļuves",
+    "loading": "Ielāde...",
+    "email": "E-pasts",
+    "password": "Parole",
+    "skipToContent": "Pāriet uz saturu"
   },
   "nav": {
-    "dashboard": "Panele",
-    "routes": "Marsruti",
+    "dashboard": "Panelis",
+    "routes": "Maršruti",
     "stops": "Pieturas",
     "schedules": "Grafiki",
     "gtfs": "GTFS",
-    "users": "Lietotaji",
-    "chat": "AI paligs"
+    "users": "Lietotāji",
+    "chat": "AI palīgs"
   },
   "dashboard": {
     "title": "Darbagalds",
-    "activeRoutes": "{count, plural, zero {Nav aktivu marsrutu} one {{count} aktivs marsruts} other {{count} aktivi marsruti}}",
-    "delayedRoutes": "{count, plural, zero {Neviens nekavejas} one {{count} marsruts kavejas} other {{count} marsruti kavejas}}",
+    "activeRoutes": "{count, plural, zero {Nav aktīvu maršrutu} one {{count} aktīvs maršruts} other {{count} aktīvi maršruti}}",
+    "delayedRoutes": "{count, plural, zero {Neviens nekavējas} one {{count} maršruts kavējas} other {{count} maršruti kavējas}}",
     "metrics": {
-      "activeVehicles": "Aktivi transportlidzekli",
-      "onTimePerformance": "Savlaicigums",
-      "delayedRoutes": "Kaveti marsruti",
+      "activeVehicles": "Aktīvi transportlīdzekļi",
+      "onTimePerformance": "Savlaicīgums",
+      "delayedRoutes": "Kavēti maršruti",
       "fleetUtilization": "Parka izmantojums",
-      "comparedToLastMonth": "Salidzinot ar iepriekseji menesi"
+      "comparedToLastMonth": "Salīdzinot ar iepriekšējo mēnesi"
     },
     "calendar": {
-      "title": "Operacijas",
-      "today": "Sodien",
-      "week": "Nedela",
-      "month": "Menesis",
-      "threeMonth": "3 menesi",
+      "title": "Operācijas",
+      "today": "Šodien",
+      "week": "Nedēļa",
+      "month": "Mēnesis",
+      "threeMonth": "3 mēneši",
       "year": "Gads",
       "noEvents": "Nav notikumu",
-      "allDay": "Visa diena"
+      "allDay": "Visa diena",
+      "previous": "Iepriekšējais",
+      "next": "Nākamais",
+      "moreEvents": "+{count} vēl",
+      "eventsCount": "{count, plural, zero {nav notikumu} one {{count} notikums} other {{count} notikumi}}"
     },
     "events": {
       "maintenance": "Apkope",
-      "routeChange": "Marsruta izmaina",
-      "driverShift": "Vaditaja maina",
-      "serviceAlert": "Servisa bridinajums"
+      "routeChange": "Maršruta izmaiņa",
+      "driverShift": "Vadītāja maiņa",
+      "serviceAlert": "Servisa brīdinājums"
     },
     "priority": {
       "high": "Augsta",
-      "medium": "Videja",
+      "medium": "Vidēja",
       "low": "Zema"
     },
     "weekdays": {
@@ -57,13 +64,13 @@
       "sun": "Sv"
     },
     "months": {
-      "jan": "Janvaris",
-      "feb": "Februaris",
+      "jan": "Janvāris",
+      "feb": "Februāris",
       "mar": "Marts",
-      "apr": "Aprilis",
+      "apr": "Aprīlis",
       "may": "Maijs",
-      "jun": "Junijs",
-      "jul": "Julijs",
+      "jun": "Jūnijs",
+      "jul": "Jūlijs",
       "aug": "Augusts",
       "sep": "Septembris",
       "oct": "Oktobris",

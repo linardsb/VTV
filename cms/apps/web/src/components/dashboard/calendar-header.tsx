@@ -92,7 +92,7 @@ export function CalendarHeader({
           variant="ghost"
           size="icon-sm"
           onClick={() => navigate(-1)}
-          aria-label="Previous"
+          aria-label={t("calendar.previous")}
         >
           <ChevronLeft className="size-4" />
         </Button>
@@ -113,7 +113,7 @@ export function CalendarHeader({
           variant="ghost"
           size="icon-sm"
           onClick={() => navigate(1)}
-          aria-label="Next"
+          aria-label={t("calendar.next")}
         >
           <ChevronRight className="size-4" />
         </Button>

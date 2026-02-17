@@ -2,11 +2,13 @@
 
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
+import { useLocale } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
   const t = useTranslations("common");
+  const locale = useLocale();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -15,7 +17,7 @@ export default function LoginPage() {
     await signIn("credentials", {
       email,
       password,
-      callbackUrl: "/lv",
+      callbackUrl: `/${locale}`,
     });
   }
 
@@ -27,7 +29,7 @@ export default function LoginPage() {
         </h1>
         <div>
           <label htmlFor="email" className="text-sm font-medium">
-            Email
+            {t("email")}
           </label>
           <input
             id="email"
@@ -40,7 +42,7 @@ export default function LoginPage() {
         </div>
         <div>
           <label htmlFor="password" className="text-sm font-medium">
-            Password
+            {t("password")}
           </label>
           <input
             id="password"

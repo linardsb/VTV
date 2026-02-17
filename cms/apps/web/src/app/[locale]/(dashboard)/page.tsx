@@ -40,7 +40,7 @@ export default function DashboardPage() {
                 value={metric.value}
                 delta={metric.delta}
                 deltaType={metric.deltaType}
-                subtitle={metric.subtitle}
+                subtitle={t("metrics.comparedToLastMonth")}
               />
             ))}
           </div>
