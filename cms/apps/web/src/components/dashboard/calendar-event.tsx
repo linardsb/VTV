@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent as CalendarEventType } from "@/types/dashboard";
 
@@ -21,12 +21,13 @@ const priorityStyles = {
   low: "bg-status-ontime/10 text-status-ontime",
 } as const;
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+function formatTime(date: Date, locale: string): string {
+  return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 export function CalendarEventCard({ event }: CalendarEventCardProps) {
   const t = useTranslations("dashboard");
+  const locale = useLocale();
 
   return (
     <div
@@ -35,9 +36,9 @@ export function CalendarEventCard({ event }: CalendarEventCardProps) {
         categoryStyles[event.category]
       )}
     >
-      <p className="truncate font-medium text-foreground">{event.title}</p>
+      <p className="truncate font-medium text-foreground">{t(event.title)}</p>
       <p className="text-foreground-muted">
-        {formatTime(event.start)} – {formatTime(event.end)}
+        {formatTime(event.start, locale)} – {formatTime(event.end, locale)}
       </p>
       <span
         className={cn(

@@ -49,6 +49,26 @@
       "driverShift": "Vadītāja maiņa",
       "serviceAlert": "Servisa brīdinājums"
     },
+    "eventTitles": {
+      "busFleetInspection": "Autobusu parka pārbaude",
+      "route15Detour": "15. maršruta apvedceļš",
+      "morningShiftHandover": "Rīta maiņas nodošana",
+      "trolleybusLineMaintenance": "Trolejbusu līnijas apkope",
+      "serviceAlertIceWarning": "Servisa brīdinājums: Apledojums",
+      "route22ScheduleChange": "22. maršruta grafika izmaiņa",
+      "eveningShiftCoverage": "Vakara maiņas nodrošināšana",
+      "depotAMaintenanceWindow": "A depo apkopes logs",
+      "weekendScheduleActivation": "Brīvdienu grafika aktivizēšana",
+      "emergencyDrill": "Ārkārtas situāciju mācības"
+    },
+    "eventDescriptions": {
+      "busFleetInspection": "Ceturkšņa pārbaude autobusiem 101-120",
+      "route15Detour": "Būvdarbi Brīvības ielā",
+      "trolleybusLineMaintenance": "11. līnijas kontakttīkla remonts",
+      "serviceAlertIceWarning": "Samazināts ātrums visos maršrutos",
+      "depotAMaintenanceWindow": "Plānotā depo tīrīšana un aprīkojuma pārbaude",
+      "emergencyDrill": "Pilsētas ārkārtas reaģēšanas mācības"
+    },
     "priority": {
       "high": "Augsta",
       "medium": "Vidēja",

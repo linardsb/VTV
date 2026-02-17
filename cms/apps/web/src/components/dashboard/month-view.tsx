@@ -138,7 +138,7 @@ export function MonthView({ currentDate, events }: MonthViewProps) {
                           )}
                         />
                         <span className="truncate text-[10px] text-foreground-muted">
-                          {event.title}
+                          {t(event.title)}
                         </span>
                       </div>
                     ))}

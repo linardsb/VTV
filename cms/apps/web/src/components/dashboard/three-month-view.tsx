@@ -162,7 +162,7 @@ function MiniMonth({
                             )}
                           />
                           <span className="truncate text-[8px] leading-tight text-foreground-muted">
-                            {event.title}
+                            {t(event.title)}
                           </span>
                         </div>
                       ))}

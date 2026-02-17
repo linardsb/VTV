@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "@/types/dashboard";
 
@@ -42,6 +42,7 @@ function countEventsOnDay(events: CalendarEvent[], date: Date): number {
 
 export function YearView({ currentDate, events }: YearViewProps) {
   const t = useTranslations("dashboard");
+  const locale = useLocale();
   const year = currentDate.getFullYear();
   const today = new Date();
 
@@ -80,7 +81,7 @@ export function YearView({ currentDate, events }: YearViewProps) {
                     count >= 3 && "bg-interactive",
                     isToday && "ring-1 ring-status-critical"
                   )}
-                  title={`${date.toLocaleDateString()}: ${t("calendar.eventsCount", { count })}`}
+                  title={`${date.toLocaleDateString(locale)}: ${t("calendar.eventsCount", { count })}`}
                 />
               );
             })}

@@ -49,6 +49,26 @@
       "driverShift": "Driver Shift",
       "serviceAlert": "Service Alert"
     },
+    "eventTitles": {
+      "busFleetInspection": "Bus Fleet Inspection",
+      "route15Detour": "Route 15 Detour",
+      "morningShiftHandover": "Morning Shift Handover",
+      "trolleybusLineMaintenance": "Trolleybus Line Maintenance",
+      "serviceAlertIceWarning": "Service Alert: Ice Warning",
+      "route22ScheduleChange": "Route 22 Schedule Change",
+      "eveningShiftCoverage": "Evening Shift Coverage",
+      "depotAMaintenanceWindow": "Depot A Maintenance Window",
+      "weekendScheduleActivation": "Weekend Schedule Activation",
+      "emergencyDrill": "Emergency Drill"
+    },
+    "eventDescriptions": {
+      "busFleetInspection": "Quarterly inspection of buses 101-120",
+      "route15Detour": "Construction on Brivibas iela",
+      "trolleybusLineMaintenance": "Overhead wire repair on line 11",
+      "serviceAlertIceWarning": "Reduced speed on all routes",
+      "depotAMaintenanceWindow": "Scheduled depot cleaning and equipment check",
+      "emergencyDrill": "City-wide emergency response drill"
+    },
     "priority": {
       "high": "High",
       "medium": "Medium",
