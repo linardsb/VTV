@@ -111,10 +111,10 @@ uv run uvicorn app.main:app --reload --port 8123
 ### Testing
 
 ```bash
-# Run unit tests (154 tests, ~2.5s execution)
+# Run unit tests (173 tests, ~4s execution)
 uv run pytest -v -m "not integration"
 
-# Run all tests including integration (163 tests, requires Docker)
+# Run all tests including integration (182 tests, requires Docker)
 uv run pytest -v
 
 # Run integration tests only
@@ -183,7 +183,7 @@ VTV/
 │   ├── core/           # Infrastructure (config, database, logging, middleware, health, exceptions)
 │   │   └── agents/     # AI agent module (see Agent Module below)
 │   │       ├── tools/
-│   │       │   └── transit/  # Transit tools (query_bus_status ✅, get_route_schedule ✅, search_stops ✅, 2 more planned)
+│   │       │   └── transit/  # Transit tools (query_bus_status ✅, get_route_schedule ✅, search_stops ✅, get_adherence_report ✅, 1 more planned)
 │   │       └── tests/
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── main.py         # FastAPI application entry point
@@ -321,14 +321,15 @@ app/core/agents/
 ├── exceptions.py      # Agent-specific exceptions (incl. TransitDataError → HTTP 503)
 ├── tools/
 │   ├── transit/       # Transit tools (see below)
-│   │   ├── schemas.py         # Response models (BusStatus, RouteOverview, StopDepartures, RouteSchedule, StopResult, etc.)
+│   │   ├── schemas.py         # Response models (BusStatus, RouteOverview, StopDepartures, RouteSchedule, StopResult, AdherenceReport, etc.)
 │   │   ├── deps.py            # TransitDeps dataclass + factory
 │   │   ├── client.py          # GTFS-RT protobuf client with 20s cache
 │   │   ├── static_cache.py    # Static GTFS ZIP parser (routes/stops/trips/calendar/stop_times, 24h TTL)
 │   │   ├── query_bus_status.py # Tool 1: 3 actions (status, route_overview, stop_departures)
 │   │   ├── get_route_schedule.py # Tool 2: timetable queries by route/date/direction/time window
 │   │   ├── search_stops.py    # Tool 3: 2 actions (search by name, nearby by lat/lon)
-│   │   └── tests/             # 69 unit tests
+│   │   ├── get_adherence_report.py # Tool 4: on-time performance metrics (route + network)
+│   │   └── tests/             # 88 unit tests
 │   └── obsidian/      # 4 vault tools (planned)
 └── tests/             # 22 agent-level tests
 ```
@@ -339,7 +340,7 @@ app/core/agents/
 - `query_bus_status` ✅ — Current delay/position for a route or vehicle (3 actions: status, route_overview, stop_departures). Data source: GTFS-RT feeds from Rigas Satiksme.
 - `get_route_schedule` ✅ — Timetable for a route and service date, with direction and time window filters. Data source: GTFS static ZIP (stop_times.txt, calendar.txt, calendar_dates.txt).
 - `search_stops` ✅ — Search stops by name (substring) or proximity (lat/lon radius). Data source: GTFS static ZIP (stops.txt) with stop-to-routes index.
-- `get_adherence_report` — On-time performance metrics for routes/periods
+- `get_adherence_report` ✅ — On-time performance metrics for routes or network. Compares GTFS-RT delays against static schedules. Data source: GTFS-RT trip updates + GTFS static ZIP.
 - `check_driver_availability` — Available drivers for a shift/date
 
 **Obsidian Vault Tools (4):**

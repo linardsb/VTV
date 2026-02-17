@@ -35,27 +35,39 @@ Optional params: `radius_meters` (default 500, max 2000), `limit` (default 10, m
 
 Uses Haversine formula for geographic distance. Case-insensitive Unicode substring matching for Latvian stop names (supports diacritics: ā, ē, ī, ū, š, ž). Results include a `stop_routes` index mapping each stop to its serving route names.
 
+### `get_adherence_report` (on-time performance)
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `route_id` | No | GTFS route ID for single-route report (omit for network-wide) |
+| `date` | No | Service date YYYY-MM-DD (defaults to today in Riga TZ) |
+| `time_from` | No | Filter trips departing after HH:MM |
+| `time_until` | No | Filter trips departing before HH:MM |
+
+Returns JSON `AdherenceReport` with per-route metrics: scheduled/tracked trips, on-time/late/early/no-data counts, on-time percentage, average delay, worst trip. Network mode aggregates all routes with RT data, sorted worst-first. On-time threshold: +/- 300 seconds (5 min). Capped at 30 trips per route, 15 routes for network reports.
+
 ### Planned Tools
 
-- `get_adherence_report` — On-time performance metrics
 - `check_driver_availability` — Available drivers for a shift/date
 
 ## Architecture
 
 ```
 transit/
-├── schemas.py              # Pydantic response models (BusStatus, RouteOverview, RouteSchedule, etc.)
+├── schemas.py              # Pydantic response models (BusStatus, RouteOverview, RouteSchedule, AdherenceReport, etc.)
 ├── deps.py                 # TransitDeps dataclass + create_transit_deps() factory
 ├── client.py               # GTFSRealtimeClient — protobuf parsing with 20s in-memory cache
 ├── static_cache.py         # GTFSStaticCache — ZIP parser for route/stop/trip/calendar/stop_times (24h TTL)
 ├── query_bus_status.py     # Tool 1: real-time status queries (3 actions)
 ├── get_route_schedule.py   # Tool 2: planned timetable queries with date/direction/time filters
 ├── search_stops.py         # Tool 3: stop search by name or proximity (2 actions)
-└── tests/                  # 69 unit tests
+├── get_adherence_report.py # Tool 4: on-time performance metrics (route + network)
+└── tests/                  # 88 unit tests
     ├── test_client.py              # GTFS-RT client cache and error handling
     ├── test_query_bus_status.py    # Bus status tool function tests
     ├── test_get_route_schedule.py  # Schedule tool helpers + tool function tests
     ├── test_search_stops.py        # Stop search helpers + tool function tests (19 tests)
+    ├── test_get_adherence_report.py # Adherence report helpers + tool function tests (19 tests)
     └── test_static_cache.py        # Calendar service resolution + stop_routes index tests
 ```
 
@@ -79,6 +91,18 @@ transit/
 5. Tool filters trips by service, direction, and time window
 6. Tool builds per-direction schedules with first/last departure, trip count, summary
 7. Tool returns structured JSON `RouteSchedule` for the agent to relay
+
+### Adherence queries (get_adherence_report)
+
+1. Dispatcher asks "How is route 22 performing today?" or "Give me a network performance report"
+2. Agent selects `get_adherence_report` with `route_id="bus_22"` (or omits for network)
+3. Tool fetches GTFS-RT trip updates via `GTFSRealtimeClient` for current delay data
+4. Tool loads `GTFSStaticCache` (calendar, trips, stop_times) for scheduled trips
+5. Tool resolves active service IDs, filters trips by date and optional time window
+6. Tool cross-references each scheduled trip against RT data: on_time (<=300s), late, early, no_data
+7. Tool computes percentages, average delay, identifies worst trip by absolute delay
+8. For network mode: aggregates per-route, sorts by worst on-time %, caps at 15 routes
+9. Tool returns structured JSON `AdherenceReport` for the agent to summarize
 
 ### Stop search queries (search_stops)
 
