@@ -171,7 +171,7 @@ agent = Agent(
 | `get_route_schedule` ✅ | Timetable for a specific route and service date | GTFS static ZIP (stop_times, calendar, calendar_dates) |
 | `search_stops` ✅ | Search stops by name or proximity (lat/lon) | GTFS static ZIP (stops.txt, stop_times.txt) |
 | `get_adherence_report` ✅ | On-time performance metrics for routes/periods | GTFS-RT trip updates + GTFS static ZIP |
-| `check_driver_availability` | Available drivers for a shift/date | VTV tRPC API |
+| `check_driver_availability` ✅ | Available drivers for a shift/date | Mock provider (Phase 2: VTV tRPC API) |
 
 All transit tools are read-only. The agent cannot create, update, or delete any transit data. This is a safety constraint — AI advises, humans decide.
 

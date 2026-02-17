@@ -407,3 +407,82 @@ class AdherenceReport(BaseModel):
     network_on_time_percentage: float | None = None
     network_average_delay_seconds: float | None = None
     summary: str
+
+
+# --- Driver availability schemas (check_driver_availability) ---
+
+
+class DriverInfo(BaseModel):
+    """Information about a single driver and their availability.
+
+    Attributes:
+        driver_id: Unique driver identifier (e.g., "DRV-001").
+        name: Driver display name (e.g., "J. Bērziņš").
+        license_categories: License categories held (e.g., ["D", "D1"]).
+        qualified_route_ids: GTFS route IDs this driver is certified to operate.
+        shift: Assigned shift ("morning", "afternoon", "evening", "night").
+        status: Availability status ("available", "on_duty", "on_leave", "sick").
+        phone: Contact phone number, if available.
+        notes: Special notes (e.g., "overtime eligible", "trainee").
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    driver_id: str
+    name: str
+    license_categories: list[str]
+    qualified_route_ids: list[str]
+    shift: str
+    status: str
+    phone: str | None = None
+    notes: str | None = None
+
+
+class ShiftSummary(BaseModel):
+    """Aggregate driver counts for a single shift.
+
+    Attributes:
+        shift: Shift name ("morning", "afternoon", "evening", "night").
+        total_drivers: Total drivers assigned to this shift.
+        available_count: Drivers with "available" status.
+        on_duty_count: Drivers currently on duty.
+        on_leave_count: Drivers on planned leave.
+        sick_count: Drivers on sick leave.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    shift: str
+    total_drivers: int
+    available_count: int
+    on_duty_count: int
+    on_leave_count: int
+    sick_count: int
+
+
+class DriverAvailabilityReport(BaseModel):
+    """Driver availability report for a date, optionally filtered by shift/route.
+
+    Attributes:
+        report_date: ISO date (YYYY-MM-DD) the report covers.
+        service_type: Day classification ("weekday", "saturday", "sunday").
+        shift_filter: Shift filter applied, or None for all shifts.
+        route_filter: Route filter applied, or None for all routes.
+        total_drivers: Total matching drivers.
+        available_count: Drivers available for assignment.
+        shifts: Per-shift breakdown of driver counts.
+        drivers: Individual driver details (capped for token efficiency).
+        summary: Pre-formatted text summary for agent to relay to user.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    report_date: str
+    service_type: str
+    shift_filter: str | None = None
+    route_filter: str | None = None
+    total_drivers: int
+    available_count: int
+    shifts: list[ShiftSummary]
+    drivers: list[DriverInfo]
+    summary: str

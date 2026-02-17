@@ -48,6 +48,9 @@ VTV is a unified transit operations platform for Riga's municipal bus system. Th
 4. **Mock exceptions must match catch blocks** — If code catches `httpx.HTTPError`, mock with `httpx.ConnectError`, not `Exception`
 5. **Only import what you use** — Ruff F401 catches unused imports. Don't import `field` from dataclasses unless you call `field()`
 6. **No unnecessary noqa/type-ignore** — Ruff RUF100 flags unused suppression comments
+7. **No EN DASH in strings** — Ruff RUF001 forbids ambiguous Unicode like `–` (EN DASH). LLMs generate these in time ranges and prose. Always use `-` (HYPHEN-MINUS)
+8. **Pydantic AI `ctx` must be referenced** — Ruff ARG001 flags unused args. Tool functions require `ctx: RunContext[...]` — always reference it (e.g., `_settings = ctx.deps.settings`)
+9. **Narrow dict unions before Pydantic** — `dict[str, str | list[str] | None]` values are too broad for `str | None` fields. Use isinstance: `str(val) if isinstance(val := d.get("key"), str) else None`
 
 **AI-Optimized Patterns**
 
@@ -111,7 +114,7 @@ uv run uvicorn app.main:app --reload --port 8123
 ### Testing
 
 ```bash
-# Run unit tests (173 tests, ~4s execution)
+# Run unit tests (189 tests, ~4s execution)
 uv run pytest -v -m "not integration"
 
 # Run all tests including integration (182 tests, requires Docker)
@@ -183,7 +186,7 @@ VTV/
 │   ├── core/           # Infrastructure (config, database, logging, middleware, health, exceptions)
 │   │   └── agents/     # AI agent module (see Agent Module below)
 │   │       ├── tools/
-│   │       │   └── transit/  # Transit tools (query_bus_status ✅, get_route_schedule ✅, search_stops ✅, get_adherence_report ✅, 1 more planned)
+│   │       │   └── transit/  # Transit tools (5/5 implemented ✅)
 │   │       └── tests/
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── main.py         # FastAPI application entry point
@@ -321,7 +324,7 @@ app/core/agents/
 ├── exceptions.py      # Agent-specific exceptions (incl. TransitDataError → HTTP 503)
 ├── tools/
 │   ├── transit/       # Transit tools (see below)
-│   │   ├── schemas.py         # Response models (BusStatus, RouteOverview, StopDepartures, RouteSchedule, StopResult, AdherenceReport, etc.)
+│   │   ├── schemas.py         # Response models (BusStatus, RouteOverview, StopDepartures, RouteSchedule, StopResult, AdherenceReport, DriverAvailabilityReport, etc.)
 │   │   ├── deps.py            # TransitDeps dataclass + factory
 │   │   ├── client.py          # GTFS-RT protobuf client with 20s cache
 │   │   ├── static_cache.py    # Static GTFS ZIP parser (routes/stops/trips/calendar/stop_times, 24h TTL)
@@ -329,7 +332,9 @@ app/core/agents/
 │   │   ├── get_route_schedule.py # Tool 2: timetable queries by route/date/direction/time window
 │   │   ├── search_stops.py    # Tool 3: 2 actions (search by name, nearby by lat/lon)
 │   │   ├── get_adherence_report.py # Tool 4: on-time performance metrics (route + network)
-│   │   └── tests/             # 88 unit tests
+│   │   ├── check_driver_availability.py # Tool 5: driver staffing queries by shift/date/route
+│   │   ├── driver_data.py     # Mock driver data provider (Phase 2: replaced by CMS API client)
+│   │   └── tests/             # 104 unit tests
 │   └── obsidian/      # 4 vault tools (planned)
 └── tests/             # 22 agent-level tests
 ```
@@ -341,7 +346,7 @@ app/core/agents/
 - `get_route_schedule` ✅ — Timetable for a route and service date, with direction and time window filters. Data source: GTFS static ZIP (stop_times.txt, calendar.txt, calendar_dates.txt).
 - `search_stops` ✅ — Search stops by name (substring) or proximity (lat/lon radius). Data source: GTFS static ZIP (stops.txt) with stop-to-routes index.
 - `get_adherence_report` ✅ — On-time performance metrics for routes or network. Compares GTFS-RT delays against static schedules. Data source: GTFS-RT trip updates + GTFS static ZIP.
-- `check_driver_availability` — Available drivers for a shift/date
+- `check_driver_availability` ✅ — Driver availability by shift/date/route with per-shift summaries. Data source: Mock provider (Phase 2: VTV CMS tRPC API).
 
 **Obsidian Vault Tools (4):**
 - `obsidian_query_vault` — Search and discover (search, find_by_tags, list, recent, glob)
