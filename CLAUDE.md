@@ -350,6 +350,18 @@ The VTV frontend is a Turborepo monorepo under `cms/` with pnpm workspaces.
 - **Build:** Turborepo with pnpm workspaces
 - **SDK:** @hey-api/openapi-ts for TypeScript client generation from FastAPI
 
+### Frontend Environment Setup
+
+```bash
+# Install dependencies
+cd cms && pnpm install
+
+# Create .env.local from example (required for Auth.js)
+cp cms/apps/web/.env.example cms/apps/web/.env.local
+# Then generate a real secret:
+openssl rand -base64 32  # paste output as AUTH_SECRET value
+```
+
 ### Frontend Essential Commands
 
 ```bash

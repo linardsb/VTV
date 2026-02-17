@@ -27,6 +27,8 @@ Before reading the plan, verify the environment is ready:
 - Check that Node.js is available: `node --version`
 - Check that pnpm is available: `pnpm --version`
 - Verify the frontend workspace exists: `ls cms/apps/web/package.json`
+- Verify `node_modules` exists: `ls cms/apps/web/node_modules/.package-lock.json` — if missing, run `cd cms && pnpm install`
+- Verify `.env.local` exists: `ls cms/apps/web/.env.local` — if missing, create it from `.env.example` (generate AUTH_SECRET with `openssl rand -base64 32`)
 
 If any pre-flight check fails, STOP and tell the user what's missing.
 

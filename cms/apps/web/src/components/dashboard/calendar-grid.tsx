@@ -17,25 +17,27 @@ export function CalendarGrid({ events }: CalendarGridProps) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-surface-raised">
+    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-surface-raised">
       <CalendarHeader
         currentDate={currentDate}
         view={view}
         onViewChange={setView}
         onDateChange={setCurrentDate}
       />
-      {view === "week" && (
-        <WeekView currentDate={currentDate} events={events} />
-      )}
-      {view === "month" && (
-        <MonthView currentDate={currentDate} events={events} />
-      )}
-      {view === "3month" && (
-        <ThreeMonthView currentDate={currentDate} events={events} />
-      )}
-      {view === "year" && (
-        <YearView currentDate={currentDate} events={events} />
-      )}
+      <div className="min-h-0 flex-1">
+        {view === "week" && (
+          <WeekView currentDate={currentDate} events={events} />
+        )}
+        {view === "month" && (
+          <MonthView currentDate={currentDate} events={events} />
+        )}
+        {view === "3month" && (
+          <ThreeMonthView currentDate={currentDate} events={events} />
+        )}
+        {view === "year" && (
+          <YearView currentDate={currentDate} events={events} />
+        )}
+      </div>
     </div>
   );
 }

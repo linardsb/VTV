@@ -79,9 +79,9 @@ export function MonthView({ currentDate, events }: MonthViewProps) {
   }, [events]);
 
   return (
-    <div className="p-(--spacing-card)">
+    <div className="flex h-full flex-col p-(--spacing-card)">
       {/* Weekday headers */}
-      <div className="grid grid-cols-7 gap-(--spacing-tight)">
+      <div className="grid shrink-0 grid-cols-7 gap-(--spacing-tight)">
         {WEEKDAY_KEYS.map((key) => (
           <div
             key={key}
@@ -92,66 +92,68 @@ export function MonthView({ currentDate, events }: MonthViewProps) {
         ))}
       </div>
 
-      {/* Day grid */}
-      {weeks.map((week, weekIdx) => (
-        <div key={weekIdx} className="grid grid-cols-7 gap-(--spacing-tight)">
-          {week.map((day, dayIdx) => {
-            if (!day) {
+      {/* Day grid — each week row stretches equally */}
+      <div className="flex min-h-0 flex-1 flex-col gap-(--spacing-tight)">
+        {weeks.map((week, weekIdx) => (
+          <div key={weekIdx} className="grid min-h-0 flex-1 grid-cols-7 gap-(--spacing-tight)">
+            {week.map((day, dayIdx) => {
+              if (!day) {
+                return (
+                  <div
+                    key={`empty-${dayIdx}`}
+                    className="overflow-hidden rounded-sm border border-border-subtle p-(--spacing-tight) opacity-40"
+                  />
+                );
+              }
+
+              const isToday = isSameDay(day, today);
+              const dateKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
+              const dayEvents = eventsByDate.get(dateKey) ?? [];
+              const visibleEvents = dayEvents.slice(0, 3);
+              const overflow = dayEvents.length - 3;
+
               return (
                 <div
-                  key={`empty-${dayIdx}`}
-                  className="min-h-18 rounded-sm border border-border-subtle p-(--spacing-tight) opacity-40"
-                />
-              );
-            }
-
-            const isToday = isSameDay(day, today);
-            const dateKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
-            const dayEvents = eventsByDate.get(dateKey) ?? [];
-            const visibleEvents = dayEvents.slice(0, 3);
-            const overflow = dayEvents.length - 3;
-
-            return (
-              <div
-                key={day.getDate()}
-                className={cn(
-                  "min-h-18 rounded-sm border border-border-subtle p-(--spacing-tight) transition-colors duration-200",
-                  isToday && "border-interactive bg-interactive/10"
-                )}
-              >
-                <p
+                  key={day.getDate()}
                   className={cn(
-                    "text-sm text-foreground",
-                    isToday && "font-semibold text-interactive"
+                    "overflow-hidden rounded-sm border border-border-subtle p-(--spacing-tight) transition-colors duration-200",
+                    isToday && "border-interactive bg-interactive/10"
                   )}
                 >
-                  {day.getDate()}
-                </p>
-                <div className="mt-(--spacing-tight) flex flex-col gap-0.5">
-                  {visibleEvents.map((event) => (
-                    <div key={event.id} className="flex items-center gap-(--spacing-tight)">
-                      <div
-                        className={cn(
-                          "size-1.5 shrink-0 rounded-full",
-                          categoryDotColors[event.category]
-                        )}
-                      />
-                      <span className="truncate text-[10px] text-foreground-muted">
-                        {event.title}
+                  <p
+                    className={cn(
+                      "text-sm text-foreground",
+                      isToday && "font-semibold text-interactive"
+                    )}
+                  >
+                    {day.getDate()}
+                  </p>
+                  <div className="mt-(--spacing-tight) flex flex-col gap-0.5">
+                    {visibleEvents.map((event) => (
+                      <div key={event.id} className="flex items-center gap-(--spacing-tight)">
+                        <div
+                          className={cn(
+                            "size-1.5 shrink-0 rounded-full",
+                            categoryDotColors[event.category]
+                          )}
+                        />
+                        <span className="truncate text-[10px] text-foreground-muted">
+                          {event.title}
+                        </span>
+                      </div>
+                    ))}
+                    {overflow > 0 && (
+                      <span className="text-[10px] text-foreground-muted">
+                        +{overflow} more
                       </span>
-                    </div>
-                  ))}
-                  {overflow > 0 && (
-                    <span className="text-[10px] text-foreground-muted">
-                      +{overflow} more
-                    </span>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      ))}
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -50,7 +50,7 @@ export default function DashboardPage() {
 
         {/* Calendar panel */}
         <ResizablePanel defaultSize={80} minSize={30}>
-          <div className="pt-(--spacing-grid)">
+          <div className="h-full pt-(--spacing-grid)">
             <CalendarGrid events={MOCK_EVENTS} />
           </div>
         </ResizablePanel>

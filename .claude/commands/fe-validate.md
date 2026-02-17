@@ -14,6 +14,12 @@ No arguments needed. Runs all validation commands against the current frontend c
 
 ## PROCESS
 
+### 0. Pre-flight checks
+
+Before running validation, verify the environment:
+- Verify `node_modules` exists: `ls cms/apps/web/node_modules/.package-lock.json` — if missing, run `cd cms && pnpm install`
+- Verify `.env.local` exists: `ls cms/apps/web/.env.local` — if missing, create it from `.env.example` (generate AUTH_SECRET with `openssl rand -base64 32`)
+
 Run each check in order. Report results for each before moving to the next.
 
 ### 1. TypeScript Type Check

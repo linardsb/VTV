@@ -57,22 +57,22 @@ function MiniMonth({
   const cells = useMemo(() => getMiniMonthDays(year, month), [year, month]);
 
   return (
-    <div>
-      <h3 className="mb-(--spacing-inline) text-center font-heading text-sm font-semibold text-foreground">
+    <div className="flex h-full flex-col">
+      <h3 className="mb-(--spacing-inline) shrink-0 text-center font-heading text-sm font-semibold text-foreground">
         {t(`months.${MONTH_KEYS[month]}`)} {year}
       </h3>
-      <div className="grid grid-cols-7 gap-0.5">
+      <div className="grid min-h-0 flex-1 grid-cols-7 gap-0.5">
         {WEEKDAY_KEYS.map((key) => (
           <div
             key={key}
-            className="flex h-6 items-center justify-center text-[10px] font-medium text-foreground-muted"
+            className="flex items-center justify-center text-[10px] font-medium text-foreground-muted"
           >
             {t(`weekdays.${key}`)}
           </div>
         ))}
         {cells.map((date, i) => {
           if (!date) {
-            return <div key={`empty-${i}`} className="h-8 w-8" />;
+            return <div key={`empty-${i}`} />;
           }
           const isToday = isSameDay(date, today);
           const hasEvents = hasEventsOnDay(events, date);
@@ -81,7 +81,7 @@ function MiniMonth({
             <div
               key={date.getDate()}
               className={cn(
-                "flex h-8 w-8 flex-col items-center justify-center rounded-sm text-xs",
+                "flex flex-col items-center justify-center rounded-sm text-xs",
                 isToday && "rounded-full bg-interactive font-semibold text-white"
               )}
             >
@@ -114,7 +114,7 @@ export function ThreeMonthView({ currentDate, events }: ThreeMonthViewProps) {
   const today = new Date();
 
   return (
-    <div className="grid grid-cols-1 gap-(--spacing-section) p-(--spacing-card) sm:grid-cols-3">
+    <div className="grid h-full grid-cols-1 gap-(--spacing-section) p-(--spacing-card) sm:grid-cols-3">
       {months.map(({ year, month }) => (
         <MiniMonth
           key={`${year}-${month}`}
