@@ -76,8 +76,10 @@ uv run ruff format .
 ```
 
 ```bash
-uv run ruff check .
+uv run ruff check --fix .
 ```
+
+> **Why `--fix`?** `ruff format` does NOT fix import sorting (I001). Only `ruff check --fix` resolves auto-fixable lint issues like import ordering. This prevents needless failures when adding imports to existing files.
 
 ```bash
 uv run mypy app/

@@ -1,8 +1,8 @@
 """Pydantic response schemas for transit tool outputs.
 
 These models define the structured data returned by transit tools
-(query_bus_status, get_route_schedule, search_stops). The agent receives
-JSON-serialized versions of these models.
+(query_bus_status, get_route_schedule, search_stops, get_adherence_report).
+The agent receives JSON-serialized versions of these models.
 """
 
 from pydantic import BaseModel, ConfigDict
@@ -313,4 +313,97 @@ class StopSearchResults(BaseModel):
     result_count: int
     total_matches: int
     stops: list[StopResult]
+    summary: str
+
+
+# --- Adherence report schemas (get_adherence_report) ---
+
+
+class TripAdherence(BaseModel):
+    """On-time status for a single scheduled trip.
+
+    Attributes:
+        trip_id: GTFS trip identifier.
+        direction_id: Direction (0=outbound, 1=inbound), if available.
+        headsign: Trip destination label, if available.
+        scheduled_departure: HH:MM planned first stop departure.
+        delay_seconds: Current schedule deviation (positive=late, negative=early).
+        delay_description: Human-readable delay text.
+        status: One of "on_time", "late", "early", "no_data".
+        vehicle_id: Fleet vehicle on this trip, if known.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    trip_id: str
+    direction_id: int | None = None
+    headsign: str | None = None
+    scheduled_departure: str = "--:--"
+    delay_seconds: int = 0
+    delay_description: str = "on time"
+    status: str = "on_time"
+    vehicle_id: str | None = None
+
+
+class RouteAdherence(BaseModel):
+    """Aggregated on-time performance metrics for a single route.
+
+    Attributes:
+        route_id: GTFS route identifier.
+        route_short_name: Human-readable route number.
+        scheduled_trips: Total trips scheduled for the analysis period.
+        tracked_trips: Trips with real-time data available.
+        on_time_count: Trips within +/- 300 seconds of schedule.
+        late_count: Trips more than 300 seconds late.
+        early_count: Trips more than 300 seconds early.
+        no_data_count: Scheduled trips without real-time data.
+        on_time_percentage: Percentage of tracked trips that are on time.
+        average_delay_seconds: Mean delay across tracked trips.
+        worst_trip: Trip with highest absolute delay, if any tracked.
+        trips: Individual trip details (may be truncated for token efficiency).
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    route_id: str
+    route_short_name: str
+    scheduled_trips: int
+    tracked_trips: int
+    on_time_count: int
+    late_count: int
+    early_count: int
+    no_data_count: int
+    on_time_percentage: float
+    average_delay_seconds: float
+    worst_trip: TripAdherence | None = None
+    trips: list[TripAdherence] = []
+
+
+class AdherenceReport(BaseModel):
+    """On-time performance report for a route or the transit network.
+
+    Attributes:
+        report_type: "route" for single-route or "network" for all routes.
+        route_id: GTFS route identifier (single-route report only).
+        service_date: ISO date (YYYY-MM-DD) the report covers.
+        service_type: Day classification ("weekday", "saturday", "sunday").
+        time_from: Start of analysis window if filtered, else None.
+        time_until: End of analysis window if filtered, else None.
+        routes: Per-route metrics (one for route report, many for network).
+        network_on_time_percentage: Overall network on-time % (network only).
+        network_average_delay_seconds: Overall network avg delay (network only).
+        summary: Pre-formatted text summary for agent to relay to user.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    report_type: str
+    route_id: str | None = None
+    service_date: str
+    service_type: str
+    time_from: str | None = None
+    time_until: str | None = None
+    routes: list[RouteAdherence]
+    network_on_time_percentage: float | None = None
+    network_average_delay_seconds: float | None = None
     summary: str

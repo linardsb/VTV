@@ -163,7 +163,7 @@ Use action keywords: CREATE, UPDATE, ADD, REMOVE, REFACTOR, MIRROR
 
 CRITICAL: Every task MUST include a **Per-task validation** block with ALL applicable checks in this order:
 1. `uv run ruff format [file path]` — auto-format (ALWAYS include)
-2. `uv run ruff check [file path]` — lint check (ALWAYS include)
+2. `uv run ruff check --fix [file path]` — lint + auto-fix (ALWAYS include; `--fix` resolves import sorting I001 which `ruff format` does NOT handle)
 3. `uv run mypy [file path]` — type check (for all non-test .py files)
 4. `uv run pyright [file path]` — type check (when strict typing is critical)
 5. `uv run pytest [test path] -v` — run tests (for test files only)
@@ -183,7 +183,7 @@ Create [schema/model/utility]:
 
 **Per-task validation:**
 - `uv run ruff format [exact file path]`
-- `uv run ruff check [exact file path]` passes
+- `uv run ruff check --fix [exact file path]` passes
 - `uv run mypy [exact file path]` passes with 0 errors
 
 ---
@@ -203,7 +203,7 @@ Implement [specific function/class]:
 
 **Per-task validation:**
 - `uv run ruff format [exact file path]`
-- `uv run ruff check [exact file path]` passes
+- `uv run ruff check --fix [exact file path]` passes
 - `uv run mypy [exact file path]` passes
 
 ---
@@ -236,7 +236,7 @@ async def test_[feature]_[error_case]():
 
 **Per-task validation:**
 - `uv run ruff format app/[feature]/tests/test_[module].py`
-- `uv run ruff check app/[feature]/tests/test_[module].py` passes
+- `uv run ruff check --fix app/[feature]/tests/test_[module].py` passes
 - `uv run pytest app/[feature]/tests/ -v` — all tests pass
 
 ---
@@ -311,7 +311,7 @@ Run each level in order — every one must pass with 0 errors:
 **Level 1: Syntax & Style**
 ```bash
 uv run ruff format .
-uv run ruff check .
+uv run ruff check --fix .
 ```
 
 **Level 2: Type Safety**
