@@ -53,7 +53,8 @@ Use `/fe-create-page {name}` or manually:
 
 - `middleware.ts` — RBAC route protection, role-based access control
 - `messages/lv.json` / `en.json` — Translation strings
-- `auth.ts` — Auth.js configuration, provider setup
+- `auth.ts` — Auth.js configuration, provider setup, login brute-force protection (5 attempts = 15min lockout)
+- `next.config.ts` — Security headers (CSP, HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff)
 - `src/app/[locale]/layout.tsx` — Root locale layout (server component)
 - `src/components/app-sidebar.tsx` — Responsive sidebar navigation (desktop aside + mobile hamburger)
 
