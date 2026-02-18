@@ -41,6 +41,7 @@ class TransitService:
     def __init__(self, http_client: httpx.AsyncClient, settings: Settings) -> None:
         self._http_client = http_client
         self._settings = settings
+        self._rt_client = GTFSRealtimeClient(http_client, settings)
 
     async def get_vehicle_positions(
         self,
@@ -61,9 +62,8 @@ class TransitService:
 
         logger.info("transit.vehicles.fetch_started", route_filter=route_id)
 
-        client = GTFSRealtimeClient(self._http_client, self._settings)
-        raw_vehicles = await client.fetch_vehicle_positions()
-        trip_updates = await client.fetch_trip_updates()
+        raw_vehicles = await self._rt_client.fetch_vehicle_positions()
+        trip_updates = await self._rt_client.fetch_trip_updates()
         static = await get_static_cache(self._http_client, self._settings)
 
         # Build trip update lookup by trip_id
@@ -164,19 +164,44 @@ def _enrich_vehicles(
     return vehicles
 
 
+# --- Module-level singleton ---
+
+_transit_service: TransitService | None = None
+
+
 def get_transit_service(settings: Settings | None = None) -> TransitService:
-    """Create a TransitService with a configured HTTP client.
+    """Get or create the transit service singleton.
+
+    Reuses the same httpx.AsyncClient and GTFSRealtimeClient across requests
+    so the GTFS-RT cache (10s TTL) actually works.
 
     Args:
         settings: Optional settings override. Uses get_settings() if None.
 
     Returns:
-        Configured TransitService instance.
+        Singleton TransitService instance.
     """
-    if settings is None:
-        settings = get_settings()
-    client = httpx.AsyncClient(
-        timeout=httpx.Timeout(10.0, connect=5.0),
-        limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
-    )
-    return TransitService(http_client=client, settings=settings)
+    global _transit_service
+    if _transit_service is None:
+        if settings is None:
+            settings = get_settings()
+        client = httpx.AsyncClient(
+            timeout=httpx.Timeout(10.0, connect=5.0),
+            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+        )
+        _transit_service = TransitService(http_client=client, settings=settings)
+    return _transit_service
+
+
+async def close_transit_service() -> None:
+    """Close the singleton transit service and its HTTP client.
+
+    Called during application shutdown.
+    """
+    global _transit_service
+    if _transit_service is not None:
+        try:
+            await _transit_service._http_client.aclose()
+        except RuntimeError:
+            pass  # Event loop already closed during shutdown
+        _transit_service = None

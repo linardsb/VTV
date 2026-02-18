@@ -13,19 +13,25 @@ This module creates and configures the FastAPI application with:
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any, cast
 
 import uvicorn
 from fastapi import FastAPI
+from slowapi import _rate_limit_exceeded_handler  # pyright: ignore[reportMissingTypeStubs]
+from slowapi.errors import RateLimitExceeded  # pyright: ignore[reportMissingTypeStubs]
 
 from app.core.agents.exceptions import setup_agent_exception_handlers
 from app.core.agents.routes import router as agent_router
+from app.core.agents.service import close_agent_service
 from app.core.config import get_settings
 from app.core.database import engine
 from app.core.exceptions import setup_exception_handlers
 from app.core.health import router as health_router
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import setup_middleware
+from app.core.rate_limit import limiter
 from app.transit.routes import router as transit_router
+from app.transit.service import close_transit_service
 
 settings = get_settings()
 
@@ -58,6 +64,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
     # Shutdown
+    await close_transit_service()
+    await close_agent_service()
+    logger.info("security.singletons_closed")
     await engine.dispose()
     logger.info("database.connection_closed")
     logger.info("application.lifecycle_stopped", app_name=settings.app_name)
@@ -69,6 +78,10 @@ app = FastAPI(
     version=settings.version,
     lifespan=lifespan,
 )
+
+# Setup rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, cast(Any, _rate_limit_exceeded_handler))
 
 # Setup middleware
 setup_middleware(app)

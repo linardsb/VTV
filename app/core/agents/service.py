@@ -99,13 +99,37 @@ class AgentService:
 
     async def close(self) -> None:
         """Close the HTTP client used by transit tools."""
-        await self._deps.http_client.aclose()
+        try:
+            await self._deps.http_client.aclose()
+        except RuntimeError:
+            pass  # Event loop already closed during shutdown
+
+
+# --- Module-level singleton ---
+
+_agent_service: AgentService | None = None
 
 
 def get_agent_service() -> AgentService:
-    """Factory function for FastAPI dependency injection.
+    """Get or create the agent service singleton.
+
+    Reuses the same httpx.AsyncClient across requests for connection pooling.
 
     Returns:
-        AgentService instance.
+        Singleton AgentService instance.
     """
-    return AgentService()
+    global _agent_service
+    if _agent_service is None:
+        _agent_service = AgentService()
+    return _agent_service
+
+
+async def close_agent_service() -> None:
+    """Close the singleton agent service and its HTTP client.
+
+    Called during application shutdown.
+    """
+    global _agent_service
+    if _agent_service is not None:
+        await _agent_service.close()
+        _agent_service = None

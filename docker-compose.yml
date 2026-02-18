@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: vtv_db
     ports:
-      # Use port 5433 on host to avoid conflicts with local PostgreSQL on standard port 5432
+      # SECURITY: Consider removing in production - only needed for direct DB access during development
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -16,15 +16,22 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
 
-    # Port mapping
-    ports:
-      - "8123:8123"
+    # SECURITY: Internal only - nginx proxies traffic. Uncomment ports for direct access during dev.
+    expose:
+      - "8123"
+    # ports:
+    #   - "8123:8123"
 
     # Volume mounts for development
     # Sync project files but preserve container's .venv
@@ -70,19 +77,48 @@ services:
 
     # Restart policy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
 
   cms:
     build:
       context: ./cms/apps/web
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
+    # SECURITY: Internal only - nginx proxies traffic. Uncomment ports for direct access during dev.
+    expose:
+      - "3000"
+    # ports:
+    #   - "3000:3000"
     environment:
       - NEXT_PUBLIC_AGENT_URL=http://app:8123
-      - AUTH_SECRET=change-in-production-32-chars-min
+      - AUTH_SECRET=${AUTH_SECRET:?AUTH_SECRET must be set - run: openssl rand -base64 32}
     depends_on:
       - app
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+      - cms
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
 
 # Named volumes for data persistence
 volumes:

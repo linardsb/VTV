@@ -8,7 +8,7 @@ import time
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ChatMessage(BaseModel):
@@ -35,8 +35,22 @@ class ChatCompletionRequest(BaseModel):
 
     model_config = ConfigDict(strict=True)
 
-    messages: list[ChatMessage] = Field(min_length=1)
+    messages: list[ChatMessage] = Field(min_length=1, max_length=20)
     model: str | None = None
+
+    @field_validator("messages")
+    @classmethod
+    def validate_message_content_length(
+        cls,
+        v: list[ChatMessage],
+    ) -> list[ChatMessage]:
+        """Reject messages with content exceeding 4000 characters."""
+        max_content_length = 4000
+        for msg in v:
+            if len(msg.content) > max_content_length:
+                msg_text = f"Message content exceeds {max_content_length} characters"
+                raise ValueError(msg_text)
+        return v
 
 
 class ChatCompletionChoice(BaseModel):

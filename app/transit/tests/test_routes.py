@@ -6,8 +6,12 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.core.agents.exceptions import TransitDataError
+from app.core.rate_limit import limiter
 from app.main import app
 from app.transit.schemas import VehiclePosition, VehiclePositionsResponse
+
+# Disable rate limiting during tests
+limiter.enabled = False
 
 
 def _make_response(count: int = 2) -> VehiclePositionsResponse:

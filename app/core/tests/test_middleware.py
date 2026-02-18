@@ -5,8 +5,14 @@ from unittest.mock import patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 
 from app.core.middleware import setup_middleware
+from app.core.rate_limit import limiter
+from app.main import app as main_app
+
+# Disable rate limiting during tests
+limiter.enabled = False
 
 
 @pytest.fixture
@@ -125,3 +131,33 @@ def test_setup_middleware_adds_cors(app: FastAPI) -> None:
     client = TestClient(app)
     response = client.get("/test")
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_body_size_limit_allows_normal_request() -> None:
+    """Normal-sized requests should not be rejected by body size middleware."""
+    async with AsyncClient(
+        transport=ASGITransport(app=main_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/v1/chat/completions",
+            json={"messages": [{"role": "user", "content": "Hello"}]},
+        )
+    # Should not be rejected by body size (may fail for other reasons)
+    assert response.status_code != 413
+
+
+@pytest.mark.asyncio
+async def test_body_size_limit_rejects_oversized_request() -> None:
+    """Requests over 100KB should be rejected with HTTP 413."""
+    huge_content = "x" * 200_000  # ~200KB, exceeds 100KB limit
+    async with AsyncClient(
+        transport=ASGITransport(app=main_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/v1/chat/completions",
+            json={"messages": [{"role": "user", "content": huge_content}]},
+        )
+    assert response.status_code == 413

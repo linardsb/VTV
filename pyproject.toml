@@ -13,6 +13,7 @@ dependencies = [
     "pydantic-ai>=1.58.0",
     "pydantic-settings>=2.11.0",
     "python-dotenv>=1.2.1",
+    "slowapi>=0.1.9",
     "sqlalchemy[asyncio]>=2.0.44",
     "structlog>=25.5.0",
     "uvicorn[standard]>=0.38.0",
@@ -68,8 +69,10 @@ ignore = [
 "**/tests/**/*.py" = ["S101", "ANN", "ARG001", "D", "E731"]  # Also apply to nested test directories
 "__init__.py" = ["F401"]  # Allow unused imports in package init
 "scripts/**/*.py" = ["T201"]  # Allow print in scripts
-"app/core/health.py" = ["B008"]  # FastAPI Depends() in defaults is the recommended pattern
-"app/core/agents/routes.py" = ["B008"]  # FastAPI Depends() in defaults is the recommended pattern
+"app/core/health.py" = ["B008", "ARG001"]  # FastAPI Depends() + slowapi Request param
+"app/core/agents/routes.py" = ["B008", "ARG001"]  # FastAPI Depends() + slowapi Request param
+"app/transit/routes.py" = ["ARG001"]  # slowapi requires Request param for rate limiting
+"app/core/rate_limit.py" = ["B008"]  # slowapi Limiter() at module level is the intended pattern
 
 [tool.ruff.format]
 quote-style = "double"
@@ -99,6 +102,11 @@ disallow_untyped_defs = false
 # gtfs-realtime-bindings uses protobuf without py.typed marker
 [[tool.mypy.overrides]]
 module = "google.transit.*"
+ignore_missing_imports = true
+
+# slowapi lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "slowapi.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -14,6 +14,42 @@ declare module "next-auth" {
   }
 }
 
+// SECURITY: Login brute-force protection
+// 5 failed attempts per email = 15-minute lockout
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+interface LoginAttempt {
+  count: number;
+  lockedUntil: number | null;
+}
+
+const loginAttempts = new Map<string, LoginAttempt>();
+
+function checkBruteForce(email: string): boolean {
+  const attempt = loginAttempts.get(email);
+  if (!attempt) return true;
+  if (attempt.lockedUntil && Date.now() < attempt.lockedUntil) return false;
+  if (attempt.lockedUntil && Date.now() >= attempt.lockedUntil) {
+    loginAttempts.delete(email);
+    return true;
+  }
+  return true;
+}
+
+function recordFailedAttempt(email: string): void {
+  const attempt = loginAttempts.get(email) ?? { count: 0, lockedUntil: null };
+  attempt.count += 1;
+  if (attempt.count >= LOGIN_MAX_ATTEMPTS) {
+    attempt.lockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
+  }
+  loginAttempts.set(email, attempt);
+}
+
+function clearAttempts(email: string): void {
+  loginAttempts.delete(email);
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
@@ -22,12 +58,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // TODO: Replace with Drizzle ORM query when database is set up
-        // For now, use a hardcoded demo user for development
-        if (
-          credentials?.email === "admin@vtv.lv" &&
-          credentials?.password === "admin"
-        ) {
+        const email = credentials?.email as string | undefined;
+        if (!email) return null;
+
+        // SECURITY: Check brute-force lockout
+        if (!checkBruteForce(email)) {
+          return null;
+        }
+
+        // SECURITY: Replace with Drizzle ORM query when database is set up
+        // Hardcoded demo user for development only
+        if (email === "admin@vtv.lv" && credentials?.password === "admin") {
+          clearAttempts(email);
           return {
             id: "1",
             email: "admin@vtv.lv",
@@ -35,6 +77,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: "admin" as VTVRole,
           };
         }
+
+        recordFailedAttempt(email);
         return null;
       },
     }),

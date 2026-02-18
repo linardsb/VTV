@@ -1,12 +1,14 @@
+# pyright: reportUnknownMemberType=false, reportUntypedFunctionDecorator=false
 """Transit REST API routes for real-time vehicle positions.
 
 Endpoints:
 - GET /api/v1/transit/vehicles - Real-time vehicle positions from GTFS-RT
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from app.core.logging import get_logger
+from app.core.rate_limit import limiter
 from app.transit.schemas import VehiclePositionsResponse
 from app.transit.service import get_transit_service
 
@@ -16,7 +18,9 @@ router = APIRouter(prefix="/api/v1/transit", tags=["transit"])
 
 
 @router.get("/vehicles", response_model=VehiclePositionsResponse)
+@limiter.limit("30/minute")
 async def get_vehicles(
+    request: Request,
     route_id: str | None = None,
 ) -> VehiclePositionsResponse:
     """Get real-time vehicle positions from GTFS-RT feeds.

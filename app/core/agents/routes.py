@@ -1,3 +1,4 @@
+# pyright: reportUnknownMemberType=false, reportUntypedFunctionDecorator=false
 """Agent API routes following OpenAI-compatible format.
 
 Endpoints:
@@ -7,18 +8,22 @@ Endpoints:
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.core.agents.quota import get_quota_tracker
 from app.core.agents.schemas import ChatCompletionRequest, ChatCompletionResponse
 from app.core.agents.service import AgentService, get_agent_service
 from app.core.config import get_settings
+from app.core.rate_limit import limiter
 
 router = APIRouter(prefix="/v1", tags=["agent"])
 
 
 @router.post("/chat/completions", response_model=ChatCompletionResponse)
+@limiter.limit("10/minute")
 async def chat_completions(
-    request: ChatCompletionRequest,
+    request: Request,
+    body: ChatCompletionRequest,
     service: AgentService = Depends(get_agent_service),
 ) -> ChatCompletionResponse:
     """Create a chat completion.
@@ -27,17 +32,29 @@ async def chat_completions(
     in OpenAI-compatible format.
 
     Args:
-        request: Chat completion request with messages.
+        request: The incoming HTTP request (used for rate limiting).
+        body: Chat completion request with messages.
         service: Agent service instance (injected).
 
     Returns:
         Chat completion response with the agent's message.
     """
-    return await service.chat(request)
+    # Check daily quota before expensive LLM call
+    client_ip = request.client.host if request.client else "unknown"
+    tracker = get_quota_tracker()
+    if not tracker.check_and_increment(client_ip):
+        remaining = tracker.get_remaining(client_ip)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily query quota exceeded. Remaining: {remaining}. Resets in 24 hours.",
+        )
+
+    return await service.chat(body)
 
 
 @router.get("/models")
-async def list_models() -> dict[str, Any]:
+@limiter.limit("60/minute")
+async def list_models(request: Request) -> dict[str, Any]:
     """List available models.
 
     Returns the currently configured LLM model information.

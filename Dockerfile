@@ -33,18 +33,25 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Stage 2: Runtime - Minimal production image
 FROM python:3.12-slim-bookworm
 
+# SECURITY: Create non-root user
+RUN groupadd --gid 1001 vtv && \
+    useradd --uid 1001 --gid vtv --shell /bin/false --create-home vtv
+
 # Set working directory
 WORKDIR /app
 
 # Copy only the virtual environment from builder
 # This significantly reduces the final image size
-COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder --chown=vtv:vtv /app/.venv /app/.venv
 
 # Copy application code
-COPY . .
+COPY --chown=vtv:vtv . .
 
 # Ensure the virtual environment is used
 ENV PATH="/app/.venv/bin:$PATH"
+
+# SECURITY: Run as non-root user
+USER vtv
 
 # Expose port (adjust if your app uses a different port)
 EXPOSE 8123

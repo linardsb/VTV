@@ -55,6 +55,15 @@ class Settings(BaseSettings):
     gtfs_rt_cache_ttl_seconds: int = 10
     gtfs_static_cache_ttl_hours: int = 24
 
+    # Rate limiting (requests per minute per IP)
+    rate_limit_chat: str = "10/minute"
+    rate_limit_transit: str = "30/minute"
+    rate_limit_health: str = "60/minute"
+    rate_limit_default: str = "120/minute"
+
+    # Query quota (daily per IP)
+    agent_daily_quota: int = 50
+
 
 @lru_cache
 def get_settings() -> Settings:

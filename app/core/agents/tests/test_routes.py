@@ -5,10 +5,14 @@ from pydantic_ai import models
 from pydantic_ai.models.test import TestModel
 
 from app.core.agents.agent import agent
+from app.core.rate_limit import limiter
 from app.main import app
 
 # Prevent accidental real LLM API calls during testing
 models.ALLOW_MODEL_REQUESTS = False
+
+# Disable rate limiting during tests
+limiter.enabled = False
 
 
 def test_chat_completions_endpoint():

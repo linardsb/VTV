@@ -61,6 +61,15 @@ Follow the plan's implementation steps in exact order. For each step:
   9. **Pydantic AI `ctx` parameter must be referenced** — Ruff ARG001 flags unused function arguments. Tool functions require `ctx: RunContext[TransitDeps]` even when mock implementations don't need it. Always reference it: `_settings = ctx.deps.settings` and use `_settings` in logging or guards
   10. **Narrow dict value types before passing to Pydantic** — When extracting values from `dict[str, str | list[str] | None]`, the union type is too broad for Pydantic fields expecting `str | None`. Use isinstance narrowing with walrus operator: `phone=str(val) if isinstance(val := d.get("phone"), str) else None`
   11. **Schema field additions break ALL consumers** — When adding a required field to a Pydantic `BaseModel` (e.g., `route_type: int` on `VehiclePosition`), you MUST update every file that constructs that model: test helpers, mock factories, route tests. Search with `Grep` for `ModelName(` across the codebase before editing. Also update mock objects that return the model's source data — if production code does `static.routes.get(id).route_type`, the test mock for `static.routes` must return an object with a real `route_type` int, not a generic `MagicMock`.
+  12. **Untyped library decorators need a 3-layer fix on FIRST PASS** — When adding an untyped lib (e.g., slowapi):
+      - mypy: Add `[[tool.mypy.overrides]]` with `ignore_missing_imports = true` for the module
+      - pyright: Add file-level `# pyright: reportUnknownMemberType=false, reportUntypedFunctionDecorator=false` on EVERY file using the decorator
+      - ruff: Add per-file-ignores for `ARG001` if the lib forces unused params (e.g., `request: Request` for slowapi)
+      - All three layers must be done simultaneously — missing any one causes a validation failure
+  13. **`limiter.enabled = False` in tests must come AFTER all imports** — Ruff E402 flags module-level imports placed after non-import statements. Write all `from ... import ...` lines first, then `limiter.enabled = False`.
+  14. **Don't add `type: ignore` in test files** — mypy relaxes typing for tests (`disallow_untyped_defs=false`). Adding `# type: ignore[arg-type]` on test lines becomes "unused ignore" (mypy unused-ignore). Use pyright file-level `# pyright: reportArgumentType=false` instead.
+  15. **Pydantic field constraints on shared models affect ALL code paths** — `max_length=4000` on `ChatMessage.content` blocks both input AND output. Move input-only validation to a `field_validator` on the REQUEST model, not the shared message model.
+  16. **Singleton close must handle closed event loops** — TestClient shuts down the event loop before lifespan cleanup runs. Wrap `await client.aclose()` in `try/except RuntimeError: pass`.
 
 ### 3. Run database migrations (if needed)
 

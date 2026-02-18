@@ -11,13 +11,53 @@ import time
 from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.types import ASGIApp
 
 from app.core.config import get_settings
 from app.core.logging import get_logger, get_request_id, set_request_id
 
 logger = get_logger(__name__)
+
+
+class BodySizeLimitMiddleware(BaseHTTPMiddleware):
+    """Middleware that rejects request bodies exceeding a size limit.
+
+    Prevents oversized payloads from consuming server memory. Returns
+    HTTP 413 (Content Too Large) for requests exceeding the limit.
+    """
+
+    def __init__(self, app: ASGIApp, max_body_size: int = 102_400) -> None:
+        """Initialize with the maximum allowed body size in bytes.
+
+        Args:
+            app: The ASGI application.
+            max_body_size: Maximum allowed body size in bytes (default 100KB).
+        """
+        super().__init__(app)
+        self._max_body_size = max_body_size
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """Check Content-Length header and reject oversized requests.
+
+        Args:
+            request: The incoming request.
+            call_next: The next middleware or route handler.
+
+        Returns:
+            Response from the next handler, or 413 if body too large.
+        """
+        content_length = request.headers.get("content-length")
+        if content_length is not None and int(content_length) > self._max_body_size:
+            return JSONResponse(
+                status_code=413,
+                content={"error": "Request body too large", "max_bytes": self._max_body_size},
+            )
+        return await call_next(request)
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
@@ -99,6 +139,9 @@ def setup_middleware(app: FastAPI) -> None:
         app: The FastAPI application instance.
     """
     settings = get_settings()
+
+    # Add body size limit (must be before logging to reject early)
+    app.add_middleware(BodySizeLimitMiddleware, max_body_size=102_400)
 
     # Add request logging middleware
     app.add_middleware(RequestLoggingMiddleware)

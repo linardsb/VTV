@@ -51,6 +51,11 @@ VTV is a unified transit operations platform for Riga's municipal bus system. Th
 7. **No EN DASH in strings** — Ruff RUF001 forbids ambiguous Unicode like `–` (EN DASH). LLMs generate these in time ranges and prose. Always use `-` (HYPHEN-MINUS)
 8. **Pydantic AI `ctx` must be referenced** — Ruff ARG001 flags unused args. Tool functions require `ctx: RunContext[...]` — always reference it (e.g., `_settings = ctx.deps.settings`)
 9. **Narrow dict unions before Pydantic** — `dict[str, str | list[str] | None]` values are too broad for `str | None` fields. Use isinstance: `str(val) if isinstance(val := d.get("key"), str) else None`
+10. **Untyped lib decorators need 3-layer fix** — When adding an untyped lib (e.g., slowapi): (a) mypy `[[overrides]]` with `ignore_missing_imports`, (b) pyright file-level directives on EVERY file using the decorator, (c) ruff per-file-ignores for ARG001 if lib forces unused params. All three simultaneously.
+11. **Test imports must precede module-level setup** — `limiter.enabled = False` after imports triggers Ruff E402. All `from ... import` lines first, then setup.
+12. **No `type: ignore` in test files** — mypy relaxes tests. `# type: ignore[arg-type]` becomes "unused ignore". Use pyright file-level `# pyright: reportArgumentType=false` instead.
+13. **Pydantic constraints on shared models affect all paths** — `max_length` on a shared model blocks both input AND output. Put input-only validation in a `field_validator` on the REQUEST model.
+14. **Singleton close must catch RuntimeError** — TestClient closes event loop before lifespan cleanup. Wrap `await client.aclose()` in `try/except RuntimeError: pass`.
 
 **AI-Optimized Patterns**
 
@@ -114,7 +119,7 @@ uv run uvicorn app.main:app --reload --port 8123
 ### Testing
 
 ```bash
-# Run unit tests (198 tests, ~5s execution)
+# Run unit tests (205 tests, ~5s execution)
 uv run pytest -v -m "not integration"
 
 # Run all tests including integration (182 tests, requires Docker)
@@ -166,8 +171,8 @@ docker-compose up -d
 ### Docker
 
 ```bash
-# Build and start all services
-docker-compose up -d --build
+# Build and start all services (requires AUTH_SECRET env var)
+AUTH_SECRET=$(openssl rand -base64 32) docker-compose up -d --build
 
 # View app logs
 docker-compose logs -f app
@@ -176,6 +181,8 @@ docker-compose logs -f app
 docker-compose down
 ```
 
+**Docker services:** `db` (PostgreSQL), `app` (FastAPI, non-root user), `cms` (Next.js), `nginx` (reverse proxy on port 80). App and CMS are internal-only (expose, not ports) — nginx proxies all external traffic. Resource limits enforced per service.
+
 ## Architecture
 
 ### Project Structure
@@ -183,8 +190,9 @@ docker-compose down
 ```
 VTV/
 ├── app/
-│   ├── core/           # Infrastructure (config, database, logging, middleware, health, exceptions)
+│   ├── core/           # Infrastructure (config, database, logging, middleware, health, rate_limit, exceptions)
 │   │   └── agents/     # AI agent module (see Agent Module below)
+│   │       ├── quota.py     # Daily per-IP query quota tracker (50/day default)
 │   │       ├── tools/
 │   │       │   └── transit/  # Transit tools (5/5 implemented ✅)
 │   │       └── tests/
@@ -192,7 +200,7 @@ VTV/
 │   ├── transit/        # Transit REST API (real-time vehicle positions for CMS frontend)
 │   │   ├── schemas.py      # VehiclePosition, VehiclePositionsResponse
 │   │   ├── service.py      # TransitService — enriches GTFS-RT with static data
-│   │   ├── routes.py       # GET /api/v1/transit/vehicles
+│   │   ├── routes.py       # GET /api/v1/transit/vehicles (rate limited: 30/min)
 │   │   └── tests/          # 9 unit tests
 │   ├── main.py         # FastAPI application entry point
 │   ├── {feature}/      # Feature slices (e.g., products/, orders/)
@@ -208,6 +216,9 @@ VTV/
 │   ├── packages/sdk/      # OpenAPI TypeScript client (@vtv/sdk)
 │   ├── packages/typescript-config/  # Shared tsconfig presets
 │   └── design-system/vtv/ # Design system docs (MASTER.md + page overrides)
+├── nginx/             # Reverse proxy (rate limiting, connection limits, defense-in-depth)
+│   ├── nginx.conf         # Rate limiting zones, upstream backends, security headers
+│   └── Dockerfile         # nginx:1.27-alpine
 ├── .claude/commands/   # 23 slash commands (see .claude/commands/CLAUDE.md for full docs)
 ├── .agents/            # Agent workflow outputs
 │   ├── plans/              # Implementation plans created by /be-planning
@@ -258,9 +269,23 @@ VTV/
 
 **Middleware**
 
+- `BodySizeLimitMiddleware`: Rejects requests >100KB with HTTP 413
 - `RequestLoggingMiddleware`: Logs all requests with correlation IDs
 - `CORSMiddleware`: Configured for local development (see `app.core.config`)
 - Adds `X-Request-ID` header to all responses
+
+**Rate Limiting (slowapi)**
+
+- Per-IP rate limiting via `app.core.rate_limit.limiter`
+- Endpoint-specific limits: `/v1/chat/completions` (10/min), `/api/v1/transit/vehicles` (30/min), `/health/*` (60/min)
+- X-Forwarded-For aware for nginx proxy compatibility
+- Disable in tests: `limiter.enabled = False`
+
+**Query Quota (`app.core.agents.quota`)**
+
+- Daily per-IP quota for LLM chat endpoint (50 queries/day default)
+- In-memory tracker with automatic 24h reset per IP
+- Returns HTTP 429 when exceeded
 
 ### Documentation Style
 
@@ -322,10 +347,11 @@ VTV's primary feature is a Pydantic AI agent (`Agent[TransitDeps, str]`). It fol
 ```
 app/core/agents/
 ├── agent.py           # Agent creation with TransitDeps, tool registration
-├── routes.py          # /v1/chat/completions, /v1/models
-├── service.py         # Agent orchestration, deps injection, model building
-├── schemas.py         # OpenAI-compatible request/response schemas
+├── routes.py          # /v1/chat/completions, /v1/models (rate limited + quota enforced)
+├── service.py         # Agent orchestration, deps injection, model building (singleton)
+├── schemas.py         # OpenAI-compatible request/response schemas (size-constrained)
 ├── config.py          # LLM provider settings (model names, tokens, timeouts)
+├── quota.py           # Daily per-IP query quota tracker (50/day, auto-reset)
 ├── exceptions.py      # Agent-specific exceptions (incl. TransitDataError → HTTP 503)
 ├── tools/
 │   ├── transit/       # Transit tools (see below)
@@ -366,7 +392,9 @@ app/core/agents/
 - Path sandboxing: prevents directory traversal (`../`)
 - No vault file access outside configured vault path
 - Monthly spending cap on Claude API (EUR 100 hard limit)
-- Token budget per user per day (50 queries)
+- Token budget per user per day (50 queries) — enforced via `QueryQuotaTracker` in `app/core/agents/quota.py`
+- Rate limiting: 10 req/min on chat endpoint, 30/min on transit, 60/min on health (slowapi)
+- Request size: 100KB body limit (middleware), 20 messages max, 4000 char content max per message
 
 ### Configuration
 
@@ -374,6 +402,9 @@ app/core/agents/
 - Required: `DATABASE_URL` (postgresql+asyncpg://...)
 - Copy `.env.example` to `.env` for local development
 - Settings singleton: `get_settings()` from `app.core.config`
+- Rate limit settings: `RATE_LIMIT_CHAT`, `RATE_LIMIT_TRANSIT`, `RATE_LIMIT_HEALTH`, `RATE_LIMIT_DEFAULT`
+- Query quota: `AGENT_DAILY_QUOTA` (default: 50)
+- Auth: `AUTH_SECRET` required in Docker (generate with `openssl rand -base64 32`)
 
 ## Frontend (CMS)
 
