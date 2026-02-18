@@ -63,11 +63,12 @@ function FilterContent({
 
         {/* Type Filter */}
         <div className="space-y-(--spacing-tight)">
-          <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide">
+          <p className="text-xs font-medium text-label-text uppercase tracking-wide">
             {t("table.type")}
           </p>
           <ToggleGroup
             type="single"
+            spacing={1}
             value={typeFilter === null ? "all" : String(typeFilter)}
             onValueChange={(value) => {
               if (value === "all" || value === "") {
@@ -78,16 +79,16 @@ function FilterContent({
             }}
             className="flex flex-col gap-1"
           >
-            <ToggleGroupItem value="all" className="w-full justify-start text-sm">
+            <ToggleGroupItem value="all" className="w-full justify-start rounded-md text-sm data-[state=on]:bg-filter-active-bg data-[state=on]:text-filter-active-text data-[state=on]:font-semibold">
               {t("filters.allTypes")}
             </ToggleGroupItem>
-            <ToggleGroupItem value="3" className="w-full justify-start text-sm">
+            <ToggleGroupItem value="3" className="w-full justify-start rounded-md text-sm data-[state=on]:bg-filter-active-bg data-[state=on]:text-filter-active-text data-[state=on]:font-semibold">
               {t("filters.bus")}
             </ToggleGroupItem>
-            <ToggleGroupItem value="11" className="w-full justify-start text-sm">
+            <ToggleGroupItem value="11" className="w-full justify-start rounded-md text-sm data-[state=on]:bg-filter-active-bg data-[state=on]:text-filter-active-text data-[state=on]:font-semibold">
               {t("filters.trolleybus")}
             </ToggleGroupItem>
-            <ToggleGroupItem value="0" className="w-full justify-start text-sm">
+            <ToggleGroupItem value="0" className="w-full justify-start rounded-md text-sm data-[state=on]:bg-filter-active-bg data-[state=on]:text-filter-active-text data-[state=on]:font-semibold">
               {t("filters.tram")}
             </ToggleGroupItem>
           </ToggleGroup>
@@ -97,7 +98,7 @@ function FilterContent({
 
         {/* Status Filter */}
         <div className="space-y-(--spacing-tight)">
-          <p className="text-xs font-medium text-foreground-muted uppercase tracking-wide">
+          <p className="text-xs font-medium text-label-text uppercase tracking-wide">
             {t("table.status")}
           </p>
           <Select value={statusFilter} onValueChange={(v) => onStatusFilterChange(v as "all" | "active" | "inactive")}>

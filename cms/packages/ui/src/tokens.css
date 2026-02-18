@@ -119,8 +119,42 @@
   --color-focus-ring: var(--color-blue-500);
 }
 
-/* Dark mode — override semantic tier only */
+/* ============================================
+   TIER 3: COMPONENT TOKENS
+   Scoped per-component — use in specific UI patterns
+   Derived from semantic tokens for consistency
+   ============================================ */
+@theme inline {
+  /* Navigation — sidebar and nav links */
+  --color-nav-active-bg: oklch(0.2 0.01 265 / 10%);        /* foreground at 10% */
+  --color-nav-active-text: var(--color-foreground);
+  --color-nav-inactive-text: var(--color-foreground-muted);
+  --color-nav-hover-bg: var(--color-surface-raised);
+  --spacing-nav-width: 15rem;                                /* 240px sidebar */
+
+  /* Selected state — table rows, list items, any selectable element */
+  --color-selected-bg: oklch(0.2 0.01 265 / 8%);            /* foreground at 8% */
+  --color-selected-text: var(--color-foreground);
+
+  /* Filter controls — toggle groups, filter chips */
+  --color-filter-active-bg: oklch(0.2 0.01 265 / 10%);      /* foreground at 10% */
+  --color-filter-active-text: var(--color-foreground);
+
+  /* Card — elevated content containers */
+  --color-card-bg: var(--color-surface-raised);
+  --color-card-border: var(--color-border);
+
+  /* Section label — uppercase category headers in sidebars/filters */
+  --color-label-text: var(--color-foreground-muted);
+
+  /* Disabled — non-interactive items */
+  --color-disabled-text: var(--color-foreground-muted);
+  --opacity-disabled: 50%;
+}
+
+/* Dark mode — override semantic + component tiers */
 .dark {
+  /* Semantic overrides */
   --color-background: var(--color-slate-900);
   --color-surface: var(--color-slate-800);
   --color-surface-raised: var(--color-slate-700);
@@ -128,4 +162,12 @@
   --color-foreground-muted: var(--color-slate-400);
   --color-border: var(--color-slate-700);
   --color-border-subtle: var(--color-slate-800);
+
+  /* Component overrides */
+  --color-nav-active-bg: oklch(0.98 0.002 265 / 12%);
+  --color-nav-hover-bg: var(--color-slate-700);
+  --color-selected-bg: oklch(0.98 0.002 265 / 10%);
+  --color-filter-active-bg: oklch(0.98 0.002 265 / 12%);
+  --color-card-bg: var(--color-slate-700);
+  --color-card-border: var(--color-slate-700);
 }

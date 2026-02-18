@@ -17,7 +17,7 @@ export function CalendarGrid({ events }: CalendarGridProps) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-surface-raised">
+    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-card-border bg-card-bg">
       <CalendarHeader
         currentDate={currentDate}
         view={view}

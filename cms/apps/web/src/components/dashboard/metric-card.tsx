@@ -27,7 +27,7 @@ export function MetricCard({
   subtitle,
 }: MetricCardProps) {
   return (
-    <div className="rounded-lg border border-border bg-surface-raised p-(--spacing-card) transition-shadow duration-200 hover:shadow-md">
+    <div className="rounded-lg border border-card-border bg-card-bg p-(--spacing-card) transition-shadow duration-200 hover:shadow-md">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-(--spacing-inline)">
           {icon}

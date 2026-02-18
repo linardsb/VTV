@@ -153,7 +153,7 @@ export function RouteTable({
                 key={route.id}
                 className={cn(
                   "cursor-pointer transition-colors",
-                  selectedRouteId === route.id && "bg-surface-raised"
+                  selectedRouteId === route.id && "bg-selected-bg"
                 )}
                 onClick={() => onSelectRoute(route.id)}
               >

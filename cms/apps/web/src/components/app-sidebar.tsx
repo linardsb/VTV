@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { LocaleToggle } from "@/components/locale-toggle";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,7 @@ interface AppSidebarProps {
 
 function NavContent({ locale }: { locale: string }) {
   const t = useTranslations("nav");
+  const pathname = usePathname();
 
   return (
     <>
@@ -38,22 +41,34 @@ function NavContent({ locale }: { locale: string }) {
           VTV
         </p>
         <ul className="space-y-1">
-          {navItems.map((item) => (
-            <li key={item.key}>
-              {item.enabled ? (
-                <Link
-                  href={`/${locale}${item.href}`}
-                  className="block rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-surface-raised transition-colors"
-                >
-                  {t(item.key)}
-                </Link>
-              ) : (
-                <span className="block rounded-md px-3 py-2 text-sm text-foreground-muted cursor-not-allowed opacity-50">
-                  {t(item.key)}
-                </span>
-              )}
-            </li>
-          ))}
+          {navItems.map((item) => {
+            const isActive = item.href === ""
+              ? pathname === `/${locale}` || pathname === `/${locale}/`
+              : pathname.startsWith(`/${locale}${item.href}`);
+
+            return (
+              <li key={item.key}>
+                {item.enabled ? (
+                  <Link
+                    href={`/${locale}${item.href}`}
+                    className={cn(
+                      "block rounded-md px-3 py-2 text-sm transition-colors",
+                      isActive
+                        ? "bg-nav-active-bg text-nav-active-text font-semibold"
+                        : "font-medium text-nav-inactive-text hover:bg-nav-hover-bg hover:text-nav-active-text"
+                    )}
+                    aria-current={isActive ? "page" : undefined}
+                  >
+                    {t(item.key)}
+                  </Link>
+                ) : (
+                  <span className="block rounded-md px-3 py-2 text-sm text-disabled-text cursor-not-allowed opacity-(--opacity-disabled)">
+                    {t(item.key)}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </nav>
       <div className="mt-auto pt-(--spacing-card)">

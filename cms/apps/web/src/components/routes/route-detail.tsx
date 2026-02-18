@@ -28,7 +28,7 @@ interface RouteDetailProps {
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-(--spacing-tight)">
-      <span className="text-xs font-medium text-foreground-muted uppercase tracking-wide">
+      <span className="text-xs font-medium text-label-text uppercase tracking-wide">
         {label}
       </span>
       <div className="text-sm text-foreground">{children}</div>
