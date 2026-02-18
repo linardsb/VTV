@@ -16,9 +16,10 @@ models.ALLOW_MODEL_REQUESTS = False
 
 
 def _create_service() -> AgentService:
-    """Create an AgentService with mocked transit deps."""
-    with patch("app.core.agents.service.create_transit_deps") as mock_deps:
-        mock_deps.return_value.http_client = AsyncMock()
+    """Create an AgentService with mocked unified deps."""
+    with patch("app.core.agents.service.create_unified_deps") as mock_deps:
+        mock_deps.return_value.transit_http_client = AsyncMock()
+        mock_deps.return_value.obsidian_http_client = AsyncMock()
         service = AgentService()
     return service
 

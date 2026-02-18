@@ -17,7 +17,7 @@ from app.core.agents.tools.transit.static_cache import StopInfo
 def _make_ctx() -> MagicMock:
     """Create a mock RunContext with TransitDeps."""
     ctx = MagicMock()
-    ctx.deps.http_client = AsyncMock()
+    ctx.deps.transit_http_client = AsyncMock()
     ctx.deps.settings = MagicMock()
     return ctx
 

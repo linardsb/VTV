@@ -320,8 +320,8 @@ async def get_adherence_report(
     query_date, date_str = date_result
 
     try:
-        client = GTFSRealtimeClient(ctx.deps.http_client, ctx.deps.settings)
-        static = await get_static_cache(ctx.deps.http_client, ctx.deps.settings)
+        client = GTFSRealtimeClient(ctx.deps.transit_http_client, ctx.deps.settings)
+        static = await get_static_cache(ctx.deps.transit_http_client, ctx.deps.settings)
         trip_updates = await client.fetch_trip_updates()
 
         # Build trip update lookup

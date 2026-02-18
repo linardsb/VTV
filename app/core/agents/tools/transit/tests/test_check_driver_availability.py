@@ -17,7 +17,7 @@ from app.core.agents.tools.transit.check_driver_availability import (
 
 def _make_ctx() -> MagicMock:
     ctx = MagicMock()
-    ctx.deps.http_client = AsyncMock()
+    ctx.deps.transit_http_client = AsyncMock()
     ctx.deps.settings = MagicMock()
     ctx.deps.settings.environment = "test"
     return ctx

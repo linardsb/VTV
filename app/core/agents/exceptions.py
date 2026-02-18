@@ -5,6 +5,7 @@ Exception hierarchy:
   - AgentConfigurationError (invalid LLM config) → 500
   - AgentExecutionError (LLM call failed) → 502
   - TransitDataError (transit feed fetch/parse failed) → 503
+  - ObsidianError (vault operation failed) → 503
 """
 
 from typing import Any, cast
@@ -41,6 +42,12 @@ class TransitDataError(AgentError):
     pass
 
 
+class ObsidianError(AgentError):
+    """Obsidian vault operation failed (vault unreachable, auth failed, note not found)."""
+
+    pass
+
+
 async def agent_exception_handler(request: Request, exc: AgentError) -> JSONResponse:
     """Handle agent exceptions globally.
 
@@ -65,7 +72,7 @@ async def agent_exception_handler(request: Request, exc: AgentError) -> JSONResp
     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     if isinstance(exc, AgentExecutionError):
         status_code = status.HTTP_502_BAD_GATEWAY
-    elif isinstance(exc, TransitDataError):
+    elif isinstance(exc, (TransitDataError, ObsidianError)):
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     return JSONResponse(
@@ -89,3 +96,4 @@ def setup_agent_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AgentConfigurationError, handler)
     app.add_exception_handler(AgentExecutionError, handler)
     app.add_exception_handler(TransitDataError, handler)
+    app.add_exception_handler(ObsidianError, handler)

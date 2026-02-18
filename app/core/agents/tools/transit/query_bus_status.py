@@ -124,8 +124,8 @@ async def query_bus_status(
         return validation_error
 
     try:
-        client = GTFSRealtimeClient(ctx.deps.http_client, ctx.deps.settings)
-        static = await get_static_cache(ctx.deps.http_client, ctx.deps.settings)
+        client = GTFSRealtimeClient(ctx.deps.transit_http_client, ctx.deps.settings)
+        static = await get_static_cache(ctx.deps.transit_http_client, ctx.deps.settings)
 
         if action == "status":
             result = await _handle_status(client, static, route_id, vehicle_id)

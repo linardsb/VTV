@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     gtfs_rt_cache_ttl_seconds: int = 10
     gtfs_static_cache_ttl_hours: int = 24
 
+    # Obsidian Local REST API
+    obsidian_api_key: str | None = None
+    obsidian_vault_url: str = "https://127.0.0.1:27124"
+
     # Rate limiting (requests per minute per IP)
     rate_limit_chat: str = "10/minute"
     rate_limit_transit: str = "30/minute"

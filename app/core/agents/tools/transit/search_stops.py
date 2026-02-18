@@ -237,7 +237,7 @@ async def search_stops(
     effective_radius = min(max(radius_meters or _DEFAULT_RADIUS_METERS, 1), _MAX_RADIUS_METERS)
 
     try:
-        static = await get_static_cache(ctx.deps.http_client, ctx.deps.settings)
+        static = await get_static_cache(ctx.deps.transit_http_client, ctx.deps.settings)
 
         if action == "search" and query is not None:
             results, total = _search_by_name(

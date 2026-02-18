@@ -91,7 +91,7 @@ def test_validate_date_invalid():
 
 def _make_ctx() -> MagicMock:
     ctx = MagicMock()
-    ctx.deps.http_client = AsyncMock()
+    ctx.deps.transit_http_client = AsyncMock()
     ctx.deps.settings = MagicMock()
     return ctx
 

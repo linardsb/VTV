@@ -109,7 +109,7 @@ async def test_query_bus_status_stop_departures_missing_params():
 @pytest.mark.asyncio
 async def test_query_bus_status_status_no_vehicles():
     ctx = MagicMock()
-    ctx.deps.http_client = AsyncMock()
+    ctx.deps.transit_http_client = AsyncMock()
     ctx.deps.settings = MagicMock()
 
     mock_client = AsyncMock()
@@ -138,7 +138,7 @@ async def test_query_bus_status_status_no_vehicles():
 @pytest.mark.asyncio
 async def test_query_bus_status_feed_error():
     ctx = MagicMock()
-    ctx.deps.http_client = AsyncMock()
+    ctx.deps.transit_http_client = AsyncMock()
     ctx.deps.settings = MagicMock()
 
     with (
