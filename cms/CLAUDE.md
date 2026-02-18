@@ -53,6 +53,15 @@ Design rules live in `design-system/vtv/MASTER.md`. Page-specific overrides go i
 
 Workflow: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` → `/commit`
 
+## Implemented Pages
+
+| Page | Route | Status | Data Source |
+|------|-------|--------|-------------|
+| Dashboard | `/[locale]/` | Live | Mock metrics + calendar events |
+| Routes | `/[locale]/routes` | Live | 26 mock routes + GTFS-RT live vehicle positions via backend API (10s polling) on Leaflet map |
+| Login | `/[locale]/login` | Live | Auth.js credentials |
+| Unauthorized | `/[locale]/unauthorized` | Live | — |
+
 ## Key Conventions
 
 - **No hardcoded colors** — use semantic tokens from `tokens.css`

@@ -114,7 +114,7 @@ uv run uvicorn app.main:app --reload --port 8123
 ### Testing
 
 ```bash
-# Run unit tests (189 tests, ~4s execution)
+# Run unit tests (198 tests, ~5s execution)
 uv run pytest -v -m "not integration"
 
 # Run all tests including integration (182 tests, requires Docker)
@@ -189,6 +189,11 @@ VTV/
 │   │       │   └── transit/  # Transit tools (5/5 implemented ✅)
 │   │       └── tests/
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
+│   ├── transit/        # Transit REST API (real-time vehicle positions for CMS frontend)
+│   │   ├── schemas.py      # VehiclePosition, VehiclePositionsResponse
+│   │   ├── service.py      # TransitService — enriches GTFS-RT with static data
+│   │   ├── routes.py       # GET /api/v1/transit/vehicles
+│   │   └── tests/          # 9 unit tests
 │   ├── main.py         # FastAPI application entry point
 │   ├── {feature}/      # Feature slices (e.g., products/, orders/)
 │   └── tests/          # Integration tests spanning multiple features
@@ -426,16 +431,18 @@ cms/apps/web/src/
 │   ├── layout.tsx              # Root locale layout with sidebar nav
 │   ├── (dashboard)/
 │   │   ├── page.tsx            # Dashboard (default authenticated page)
-│   │   ├── routes/page.tsx     # Route management (CRUD, filters, 3-panel layout)
+│   │   ├── routes/page.tsx     # Route management (CRUD, filters, resizable map panel; mobile: tab layout)
 │   │   └── {page}/page.tsx     # Future feature pages (stops, schedules, etc.)
 │   ├── login/page.tsx          # Login page (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect page
 ├── components/
-│   ├── ui/                     # shadcn/ui components (button, table, dialog, etc.)
+│   ├── ui/                     # shadcn/ui components (button, table, dialog, tabs, etc.)
+│   ├── app-sidebar.tsx         # Responsive sidebar (desktop aside + mobile hamburger Sheet)
 │   ├── dashboard/              # Dashboard-specific components (metric-card, calendar)
-│   └── routes/                 # Route management components (table, filters, form, detail)
-├── types/                      # TypeScript types (route.ts, dashboard.ts)
-├── lib/                        # Utilities (cn, agent-client, mock data)
+│   └── routes/                 # Route management components (table, filters, form, detail, map)
+├── hooks/                      # Custom React hooks (use-mobile, use-vehicle-positions)
+├── types/                      # TypeScript types (route.ts with BusPosition, dashboard.ts)
+├── lib/                        # Utilities (cn, agent-client, mock data, mock bus positions)
 └── i18n/                       # next-intl configuration
 ```
 
@@ -444,7 +451,7 @@ cms/apps/web/src/
 Every new page requires:
 1. **Page component** at `cms/apps/web/src/app/[locale]/(dashboard)/{page}/page.tsx`
 2. **i18n keys** in both `cms/apps/web/messages/lv.json` and `en.json`
-3. **Sidebar nav entry** in `cms/apps/web/src/app/[locale]/layout.tsx`
+3. **Sidebar nav entry** in `cms/apps/web/src/components/app-sidebar.tsx`
 4. **Middleware matcher** in `cms/apps/web/middleware.ts` with role permissions
 5. **Design tokens** — use semantic tokens from `tokens.css`, never hardcode colors
 

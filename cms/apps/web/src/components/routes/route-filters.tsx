@@ -12,9 +12,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import type { RouteType } from "@/types/route";
 
-interface RouteFiltersProps {
+interface FilterContentProps {
   search: string;
   onSearchChange: (value: string) => void;
   typeFilter: RouteType | null;
@@ -24,7 +30,7 @@ interface RouteFiltersProps {
   resultCount: number;
 }
 
-export function RouteFilters({
+function FilterContent({
   search,
   onSearchChange,
   typeFilter,
@@ -32,11 +38,11 @@ export function RouteFilters({
   statusFilter,
   onStatusFilterChange,
   resultCount,
-}: RouteFiltersProps) {
+}: FilterContentProps) {
   const t = useTranslations("routes");
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface p-(--spacing-card)">
+    <>
       <div className="space-y-(--spacing-grid)">
         {/* Search */}
         <div className="relative">
@@ -113,6 +119,71 @@ export function RouteFilters({
           {resultCount} {t("table.name").toLowerCase()}
         </p>
       </div>
+    </>
+  );
+}
+
+interface RouteFiltersProps {
+  search: string;
+  onSearchChange: (value: string) => void;
+  typeFilter: RouteType | null;
+  onTypeFilterChange: (type: RouteType | null) => void;
+  statusFilter: "all" | "active" | "inactive";
+  onStatusFilterChange: (status: "all" | "active" | "inactive") => void;
+  resultCount: number;
+  asSheet?: boolean;
+  sheetOpen?: boolean;
+  onSheetOpenChange?: (open: boolean) => void;
+}
+
+export function RouteFilters({
+  search,
+  onSearchChange,
+  typeFilter,
+  onTypeFilterChange,
+  statusFilter,
+  onStatusFilterChange,
+  resultCount,
+  asSheet,
+  sheetOpen,
+  onSheetOpenChange,
+}: RouteFiltersProps) {
+  const t = useTranslations("routes");
+
+  if (asSheet) {
+    return (
+      <Sheet open={sheetOpen} onOpenChange={onSheetOpenChange}>
+        <SheetContent side="left" className="w-[280px] flex flex-col p-(--spacing-card)">
+          <SheetHeader>
+            <SheetTitle className="font-heading text-sm font-semibold">
+              {t("mobile.showFilters")}
+            </SheetTitle>
+          </SheetHeader>
+          <FilterContent
+            search={search}
+            onSearchChange={onSearchChange}
+            typeFilter={typeFilter}
+            onTypeFilterChange={onTypeFilterChange}
+            statusFilter={statusFilter}
+            onStatusFilterChange={onStatusFilterChange}
+            resultCount={resultCount}
+          />
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface p-(--spacing-card)">
+      <FilterContent
+        search={search}
+        onSearchChange={onSearchChange}
+        typeFilter={typeFilter}
+        onTypeFilterChange={onTypeFilterChange}
+        statusFilter={statusFilter}
+        onStatusFilterChange={onStatusFilterChange}
+        resultCount={resultCount}
+      />
     </aside>
   );
 }

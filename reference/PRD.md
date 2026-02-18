@@ -42,7 +42,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 - GTFS import/export — parse and generate GTFS ZIP files
 - Authentication — Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer)
 - Internationalization — Latvian (primary) + English
-- Responsive dashboard layout
+- Responsive dashboard layout (✅ dashboard + routes pages are mobile responsive)
 
 **AI Agent Service (FastAPI + Pydantic AI)**
 - Single unified agent with transit + vault tools
@@ -329,12 +329,14 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 ### 7.1 Route Management ✅ (Implemented — mock data, no backend)
 
 - ✅ Filterable route list with search, type filter, status filter
-- ✅ Route detail view (Sheet panel, no map yet — table-only MVP)
+- ✅ Route detail view (Sheet panel)
+- ✅ Live bus map panel (Leaflet/OSM, live vehicle positions from backend, resizable 60/40 split, bidirectional route selection sync)
+- ✅ Mobile responsive layout (tab-based Table/Map switching, collapsible filter Sheet, hamburger sidebar)
 - ✅ CRUD operations (create, edit, duplicate, delete) with role-based visibility
-- ⬜ Route shape display on map from GTFS shapes.txt (deferred — requires MapLibre)
+- ⬜ Route shape display on map from GTFS shapes.txt (deferred — requires polyline layer)
 - ✅ Route type support: bus (3), trolleybus (11), tram (0) with selectable filter
 - ✅ 26 realistic mock routes (ATD intercity, RS urban, 5 operators)
-- ✅ Bilingual i18n (138 keys each for LV/EN)
+- ✅ Bilingual i18n (142 keys each for LV/EN)
 
 ### 7.2 Stop Management
 

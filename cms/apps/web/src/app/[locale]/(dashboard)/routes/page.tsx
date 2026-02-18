@@ -1,9 +1,19 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
-import { Plus } from "lucide-react";
+import { Plus, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useVehiclePositions } from "@/hooks/use-vehicle-positions";
 import { RouteFilters } from "@/components/routes/route-filters";
 import { RouteTable } from "@/components/routes/route-table";
 import { RouteDetail } from "@/components/routes/route-detail";
@@ -16,16 +26,48 @@ import type { Route, RouteFormData, RouteType } from "@/types/route";
 const USER_ROLE: string = "admin";
 const IS_READ_ONLY = USER_ROLE === "viewer" || USER_ROLE === "dispatcher";
 
+function MapSkeleton() {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-surface">
+      <div className="flex flex-col items-center gap-2">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+    </div>
+  );
+}
+
+const RouteMap = dynamic(
+  () => import("@/components/routes/route-map").then((m) => ({ default: m.RouteMap })),
+  { ssr: false, loading: () => <MapSkeleton /> },
+);
+
 export default function RoutesPage() {
   const t = useTranslations("routes");
+  const isMobile = useIsMobile();
 
   // Data state
   const [routes, setRoutes] = useState<Route[]>(MOCK_ROUTES);
+
+  // Build route color lookup for live vehicle markers
+  const routeColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const r of routes) {
+      map[r.id] = r.color;
+    }
+    return map;
+  }, [routes]);
+
+  // Live vehicle positions from backend (polls every 15s)
+  const { vehicles: liveVehicles } = useVehiclePositions({
+    colorMap: routeColorMap,
+  });
 
   // Filter state
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<RouteType | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
   // UI state
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
@@ -157,40 +199,114 @@ export default function RoutesPage() {
           <h1 className="font-heading text-heading font-semibold text-foreground">
             {t("title")}
           </h1>
-          <p className="text-sm text-foreground-muted">{t("description")}</p>
+          <p className="hidden sm:block text-sm text-foreground-muted">{t("description")}</p>
         </div>
-        {!IS_READ_ONLY && (
-          <Button className="cursor-pointer" onClick={handleCreate}>
-            <Plus className="mr-2 size-4" aria-hidden="true" />
-            {t("actions.create")}
-          </Button>
-        )}
+        <div className="flex items-center gap-(--spacing-inline)">
+          {isMobile && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={() => setFilterSheetOpen(true)}
+              aria-label={t("mobile.showFilters")}
+            >
+              <Filter className="mr-1 size-4" aria-hidden="true" />
+              {t("mobile.showFilters")}
+            </Button>
+          )}
+          {!IS_READ_ONLY && (
+            <Button className="cursor-pointer" onClick={handleCreate}>
+              <Plus className="mr-2 size-4" aria-hidden="true" />
+              {t("actions.create")}
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* 3-panel layout */}
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-border">
-        {/* Left: Filters */}
-        <RouteFilters
-          search={search}
-          onSearchChange={setSearch}
-          typeFilter={typeFilter}
-          onTypeFilterChange={setTypeFilter}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          resultCount={filtered.length}
-        />
+      {/* Layout: Mobile (tabs) vs Desktop (resizable panels) */}
+      {isMobile ? (
+        <>
+          {/* Mobile filter sheet */}
+          <RouteFilters
+            search={search}
+            onSearchChange={setSearch}
+            typeFilter={typeFilter}
+            onTypeFilterChange={setTypeFilter}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            resultCount={filtered.length}
+            asSheet
+            sheetOpen={filterSheetOpen}
+            onSheetOpenChange={setFilterSheetOpen}
+          />
 
-        {/* Center: Table */}
-        <RouteTable
-          routes={filtered}
-          selectedRouteId={selectedRouteId}
-          onSelectRoute={handleSelectRoute}
-          onEditRoute={handleEdit}
-          onDeleteRoute={handleDeleteRequest}
-          onDuplicateRoute={handleDuplicate}
-          isReadOnly={IS_READ_ONLY}
-        />
-      </div>
+          {/* Mobile tabs: Table | Map */}
+          <Tabs defaultValue="table" className="flex min-h-0 flex-1 flex-col">
+            <TabsList className="w-full">
+              <TabsTrigger value="table" className="flex-1 cursor-pointer">
+                {t("mobile.tableTab")}
+              </TabsTrigger>
+              <TabsTrigger value="map" className="flex-1 cursor-pointer">
+                {t("mobile.mapTab")}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="table" className="flex-1 overflow-hidden rounded-lg border border-border mt-(--spacing-tight)">
+              <RouteTable
+                routes={filtered}
+                selectedRouteId={selectedRouteId}
+                onSelectRoute={handleSelectRoute}
+                onEditRoute={handleEdit}
+                onDeleteRoute={handleDeleteRequest}
+                onDuplicateRoute={handleDuplicate}
+                isReadOnly={IS_READ_ONLY}
+              />
+            </TabsContent>
+            <TabsContent value="map" className="min-h-[50vh] flex-1 overflow-hidden rounded-lg border border-border mt-(--spacing-tight)">
+              <RouteMap
+                buses={liveVehicles}
+                selectedRouteId={selectedRouteId}
+                onSelectRoute={handleSelectRoute}
+              />
+            </TabsContent>
+          </Tabs>
+        </>
+      ) : (
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border"
+        >
+          <ResizablePanel defaultSize={60} minSize={40}>
+            <div className="flex h-full">
+              <RouteFilters
+                search={search}
+                onSearchChange={setSearch}
+                typeFilter={typeFilter}
+                onTypeFilterChange={setTypeFilter}
+                statusFilter={statusFilter}
+                onStatusFilterChange={setStatusFilter}
+                resultCount={filtered.length}
+              />
+              <RouteTable
+                routes={filtered}
+                selectedRouteId={selectedRouteId}
+                onSelectRoute={handleSelectRoute}
+                onEditRoute={handleEdit}
+                onDeleteRoute={handleDeleteRequest}
+                onDuplicateRoute={handleDuplicate}
+                isReadOnly={IS_READ_ONLY}
+              />
+            </div>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={40} minSize={25}>
+            <RouteMap
+              buses={liveVehicles}
+              selectedRouteId={selectedRouteId}
+              onSelectRoute={handleSelectRoute}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      )}
 
       {/* Right: Detail Sheet (overlay) */}
       <RouteDetail

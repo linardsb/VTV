@@ -65,7 +65,7 @@ export function RouteForm({
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-[400px] overflow-y-auto sm:w-[400px]">
+      <SheetContent side="right" className="w-full overflow-y-auto sm:w-[400px]">
         <SheetHeader>
           <SheetTitle className="font-heading text-heading font-semibold">
             {mode === "create" ? t("form.createTitle") : t("form.editTitle")}

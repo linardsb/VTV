@@ -1,10 +1,10 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 interface MetricCardProps {
-  icon: LucideIcon;
+  icon: ReactNode;
   title: string;
   value: string;
   delta: string;
@@ -19,7 +19,7 @@ const deltaStyles = {
 } as const;
 
 export function MetricCard({
-  icon: Icon,
+  icon,
   title,
   value,
   delta,
@@ -30,7 +30,7 @@ export function MetricCard({
     <div className="rounded-lg border border-border bg-surface-raised p-(--spacing-card) transition-shadow duration-200 hover:shadow-md">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-(--spacing-inline)">
-          <Icon className="size-5 text-foreground-muted" aria-hidden="true" />
+          {icon}
           <span className="text-sm text-foreground-muted">{title}</span>
         </div>
         <span

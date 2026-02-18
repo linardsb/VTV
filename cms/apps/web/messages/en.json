@@ -16,7 +16,8 @@
     "schedules": "Schedules",
     "gtfs": "GTFS",
     "users": "Users",
-    "chat": "AI Assistant"
+    "chat": "AI Assistant",
+    "menu": "Menu"
   },
   "dashboard": {
     "title": "Operations Dashboard",
@@ -175,6 +176,23 @@
       "lap": "Liepāja Bus Company",
       "dap": "Daugavpils Bus Company",
       "nordeka": "Nordeka"
+    },
+    "map": {
+      "title": "Live Map",
+      "loading": "Loading map...",
+      "vehicles": "vehicles",
+      "delay": "Delay",
+      "onTime": "On time",
+      "early": "Early",
+      "late": "late",
+      "nextStop": "Next stop",
+      "noData": "No vehicle data available",
+      "minutes": "min"
+    },
+    "mobile": {
+      "tableTab": "Table",
+      "mapTab": "Map",
+      "showFilters": "Filters"
     }
   }
 }

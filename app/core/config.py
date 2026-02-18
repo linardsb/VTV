@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     gtfs_rt_trip_updates_url: str = "https://saraksti.rigassatiksme.lv/trip_updates.pb"
     gtfs_rt_alerts_url: str = "https://saraksti.rigassatiksme.lv/gtfs_realtime.pb"
     gtfs_static_url: str = "https://saraksti.rigassatiksme.lv/gtfs.zip"
-    gtfs_rt_cache_ttl_seconds: int = 20
+    gtfs_rt_cache_ttl_seconds: int = 10
     gtfs_static_cache_ttl_hours: int = 24
 
 

@@ -62,7 +62,7 @@ export function RouteDetail({
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-[400px] overflow-y-auto sm:w-[400px]">
+      <SheetContent side="right" className="w-full overflow-y-auto sm:w-[400px]">
         <SheetHeader>
           <div className="flex items-start justify-between">
             <div className="space-y-(--spacing-tight)">

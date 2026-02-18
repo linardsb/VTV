@@ -15,16 +15,27 @@ Next.js 16 App Router application for VTV transit operations management.
 ```
 src/
 ├── app/[locale]/
-│   ├── layout.tsx              # Root locale layout with sidebar navigation
+│   ├── layout.tsx              # Root locale layout (server component, wraps AppSidebar)
 │   ├── (dashboard)/
 │   │   ├── page.tsx            # Dashboard (default authenticated page)
-│   │   └── {page}/page.tsx     # Feature pages
+│   │   ├── routes/page.tsx     # Route management (CRUD, filters, resizable map; mobile: tab layout)
+│   │   └── {page}/page.tsx     # Future feature pages (stops, schedules, etc.)
 │   ├── login/page.tsx          # Login (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect
-├── components/ui/              # shadcn/ui components (button, avatar, badge, etc.)
+├── components/
+│   ├── ui/                     # shadcn/ui components (button, table, dialog, tabs, switch, etc.)
+│   ├── app-sidebar.tsx         # Responsive sidebar (desktop: w-60 aside; mobile: hamburger + Sheet)
+│   ├── dashboard/              # Dashboard components (metric-card, calendar-grid)
+│   └── routes/                 # Route management (table, filters, form, detail, type-badge, map, bus-marker)
+├── hooks/
+│   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
+│   └── use-vehicle-positions.ts # useVehiclePositions() hook (polls backend every 15s)
+├── types/                      # TypeScript types (route.ts, dashboard.ts)
 ├── lib/
 │   ├── utils.ts                # cn() class merge utility
-│   └── agent-client.ts         # FastAPI agent API client
+│   ├── agent-client.ts         # FastAPI agent API client
+│   ├── mock-dashboard-data.ts  # Mock dashboard metrics and events
+│   └── mock-routes-data.ts     # Mock Latvian transit routes (26 routes)
 └── i18n/
     └── request.ts              # next-intl configuration
 ```
@@ -35,7 +46,7 @@ Use `/fe-create-page {name}` or manually:
 
 1. Create `src/app/[locale]/(dashboard)/{name}/page.tsx` — server component with `useTranslations`
 2. Add i18n keys to `messages/lv.json` and `messages/en.json`
-3. Add sidebar nav link in `src/app/[locale]/layout.tsx`
+3. Add sidebar nav link in `src/components/app-sidebar.tsx`
 4. Add route matcher in `middleware.ts` with role permissions
 
 ## Key Files
@@ -43,7 +54,8 @@ Use `/fe-create-page {name}` or manually:
 - `middleware.ts` — RBAC route protection, role-based access control
 - `messages/lv.json` / `en.json` — Translation strings
 - `auth.ts` — Auth.js configuration, provider setup
-- `src/app/[locale]/layout.tsx` — Sidebar navigation, design token imports
+- `src/app/[locale]/layout.tsx` — Root locale layout (server component)
+- `src/components/app-sidebar.tsx` — Responsive sidebar navigation (desktop aside + mobile hamburger)
 
 ## Conventions
 

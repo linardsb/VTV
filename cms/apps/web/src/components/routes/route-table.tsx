@@ -133,10 +133,10 @@ export function RouteTable({
               <TableHead>
                 <SortableHeader onToggle={toggleSort} field="longName">{t("table.name")}</SortableHeader>
               </TableHead>
-              <TableHead className="w-32">
+              <TableHead className="hidden sm:table-cell w-32">
                 <SortableHeader onToggle={toggleSort} field="type">{t("table.type")}</SortableHeader>
               </TableHead>
-              <TableHead className="w-44">
+              <TableHead className="hidden md:table-cell w-44">
                 <SortableHeader onToggle={toggleSort} field="agencyId">{t("table.agency")}</SortableHeader>
               </TableHead>
               <TableHead className="w-24">{t("table.status")}</TableHead>
@@ -168,10 +168,10 @@ export function RouteTable({
                   </div>
                 </TableCell>
                 <TableCell className="text-foreground">{route.longName}</TableCell>
-                <TableCell>
+                <TableCell className="hidden sm:table-cell">
                   <RouteTypeBadge type={route.type} />
                 </TableCell>
-                <TableCell className="text-foreground-muted">
+                <TableCell className="hidden md:table-cell text-foreground-muted">
                   {t(`agencies.${route.agencyId}`)}
                 </TableCell>
                 <TableCell>
@@ -229,7 +229,7 @@ export function RouteTable({
 
       {/* Pagination */}
       <div className="flex items-center justify-between border-t border-border px-(--spacing-card) py-(--spacing-tight)">
-        <p className="text-xs text-foreground-muted">
+        <p className="hidden sm:block text-xs text-foreground-muted">
           {t("table.showing", { from, to, total: sorted.length })}
         </p>
         {totalPages > 1 && (
@@ -243,7 +243,7 @@ export function RouteTable({
                 />
               </PaginationItem>
               {Array.from({ length: totalPages }, (_, i) => (
-                <PaginationItem key={i}>
+                <PaginationItem key={i} className="hidden sm:inline-flex">
                   <PaginationLink
                     isActive={i === safePage}
                     onClick={() => setPage(i)}

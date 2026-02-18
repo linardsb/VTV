@@ -13,7 +13,12 @@ import { MOCK_METRICS, MOCK_EVENTS } from "@/lib/mock-dashboard-data";
 
 export const revalidate = 3600; // 1 hour — dashboard uses mock data
 
-const METRIC_ICONS = [Bus, Clock, AlertTriangle, Gauge] as const;
+const METRIC_ICONS = [
+  <Bus key="bus" className="size-5 text-foreground-muted" aria-hidden="true" />,
+  <Clock key="clock" className="size-5 text-foreground-muted" aria-hidden="true" />,
+  <AlertTriangle key="alert" className="size-5 text-foreground-muted" aria-hidden="true" />,
+  <Gauge key="gauge" className="size-5 text-foreground-muted" aria-hidden="true" />,
+];
 const METRIC_KEYS = [
   "activeVehicles",
   "onTimePerformance",

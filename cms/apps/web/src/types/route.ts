@@ -36,3 +36,17 @@ export const ROUTE_TYPE_MAP: Record<RouteType, RouteTypeLabel> = {
 
 export const AGENCY_IDS = ["rs", "atd", "lap", "dap", "nordeka"] as const;
 export type AgencyId = (typeof AGENCY_IDS)[number];
+
+export interface BusPosition {
+  vehicleId: string;
+  routeId: string;
+  routeShortName: string;
+  routeColor: string;
+  latitude: number;
+  longitude: number;
+  bearing: number | null;
+  delaySeconds: number;
+  currentStatus: "in_transit" | "stopped" | "incoming";
+  nextStopName: string | null;
+  timestamp: string;
+}

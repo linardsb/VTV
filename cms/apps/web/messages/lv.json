@@ -16,7 +16,8 @@
     "schedules": "Grafiki",
     "gtfs": "GTFS",
     "users": "Lietotāji",
-    "chat": "AI palīgs"
+    "chat": "AI palīgs",
+    "menu": "Izvēlne"
   },
   "dashboard": {
     "title": "Darbagalds",
@@ -175,6 +176,23 @@
       "lap": "Liepājas autobusu parks",
       "dap": "Daugavpils autobusu parks",
       "nordeka": "Nordeka"
+    },
+    "map": {
+      "title": "Tiešraides karte",
+      "loading": "Ielādē karti...",
+      "vehicles": "transportlīdzekļi",
+      "delay": "Kavēšanās",
+      "onTime": "Laikā",
+      "early": "Agrāk",
+      "late": "kavējas",
+      "nextStop": "Nākamā pietura",
+      "noData": "Nav transportlīdzekļu datu",
+      "minutes": "min"
+    },
+    "mobile": {
+      "tableTab": "Tabula",
+      "mapTab": "Karte",
+      "showFilters": "Filtri"
     }
   }
 }
