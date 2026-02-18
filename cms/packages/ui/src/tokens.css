@@ -49,8 +49,8 @@
   --color-red-600: oklch(0.55 0.22 25);
 
   /* Typography — Lexend + Source Sans 3 (Corporate Trust pairing) */
-  --font-heading: "Lexend", system-ui, sans-serif;
-  --font-body: "Source Sans 3", system-ui, sans-serif;
+  --font-heading: var(--font-lexend), system-ui, sans-serif;
+  --font-body: var(--font-source-sans-3), system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   /* Font size scale — atomic tokens for all text sizing */

@@ -1,6 +1,21 @@
 import type { Metadata } from "next";
+import { Lexend, Source_Sans_3 } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
+
+const lexend = Lexend({
+  subsets: ["latin", "latin-ext"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-lexend",
+});
+
+const sourceSans3 = Source_Sans_3({
+  subsets: ["latin", "latin-ext"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-source-sans-3",
+});
 
 export const metadata: Metadata = {
   title: "VTV — Rīgas Satiksme",
@@ -21,7 +36,7 @@ export default async function RootLayout({
   const locale = store.get("locale")?.value ?? "lv";
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning className={`${lexend.variable} ${sourceSans3.variable}`}>
       <body className="min-h-screen font-body antialiased">
         <a href="#main-content" className="skip-link">
           {skipLinkText[locale] ?? skipLinkText.lv}

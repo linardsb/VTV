@@ -1,6 +1,4 @@
-"use client";
-
-import { useTranslations, useLocale } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Bus, Clock, AlertTriangle, Gauge, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +11,8 @@ import {
 } from "@/components/ui/resizable";
 import { MOCK_METRICS, MOCK_EVENTS } from "@/lib/mock-dashboard-data";
 
+export const revalidate = 3600; // 1 hour — dashboard uses mock data
+
 const METRIC_ICONS = [Bus, Clock, AlertTriangle, Gauge] as const;
 const METRIC_KEYS = [
   "activeVehicles",
@@ -21,9 +21,13 @@ const METRIC_KEYS = [
   "fleetUtilization",
 ] as const;
 
-export default function DashboardPage() {
-  const t = useTranslations("dashboard");
-  const locale = useLocale();
+export default async function DashboardPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslations("dashboard");
 
   return (
     <div className="space-y-(--spacing-section)">

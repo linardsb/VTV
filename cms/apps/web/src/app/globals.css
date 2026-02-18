@@ -1,7 +1,6 @@
 /* VTV Transit CMS — Global Styles
  * Uses Tailwind v4 @theme for CSS-native token system
  */
-@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 @import "@vtv/ui/tokens.css";
 @import "tw-animate-css";
