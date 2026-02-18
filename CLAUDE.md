@@ -119,7 +119,7 @@ uv run uvicorn app.main:app --reload --port 8123
 ### Testing
 
 ```bash
-# Run unit tests (205 tests, ~5s execution)
+# Run unit tests (284 tests, ~5s execution)
 uv run pytest -v -m "not integration"
 
 # Run all tests including integration (182 tests, requires Docker)
@@ -194,7 +194,8 @@ VTV/
 │   │   └── agents/     # AI agent module (see Agent Module below)
 │   │       ├── quota.py     # Daily per-IP query quota tracker (50/day default)
 │   │       ├── tools/
-│   │       │   └── transit/  # Transit tools (5/5 implemented ✅)
+│   │       │   ├── transit/  # Transit tools (5/5 implemented ✅)
+│   │       │   └── obsidian/ # Obsidian vault tools (4/4 implemented ✅)
 │   │       └── tests/
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── transit/        # Transit REST API (real-time vehicle positions for CMS frontend)
@@ -342,21 +343,21 @@ Agent tool docstrings guide **when to use the tool and how** for LLM reasoning.
 
 ### Agent Module
 
-VTV's primary feature is a Pydantic AI agent (`Agent[TransitDeps, str]`). It follows the feature slice pattern with a `tools/` subdirectory:
+VTV's primary feature is a Pydantic AI agent (`Agent[UnifiedDeps, str]`). It follows the feature slice pattern with a `tools/` subdirectory:
 
 ```
 app/core/agents/
-├── agent.py           # Agent creation with TransitDeps, tool registration
+├── agent.py           # Agent creation with UnifiedDeps, 9 tool registrations
 ├── routes.py          # /v1/chat/completions, /v1/models (rate limited + quota enforced)
 ├── service.py         # Agent orchestration, deps injection, model building (singleton)
 ├── schemas.py         # OpenAI-compatible request/response schemas (size-constrained)
 ├── config.py          # LLM provider settings (model names, tokens, timeouts)
 ├── quota.py           # Daily per-IP query quota tracker (50/day, auto-reset)
-├── exceptions.py      # Agent-specific exceptions (incl. TransitDataError → HTTP 503)
+├── exceptions.py      # Agent-specific exceptions (TransitDataError, ObsidianError → HTTP 503)
 ├── tools/
 │   ├── transit/       # Transit tools (see below)
 │   │   ├── schemas.py         # Response models (BusStatus, RouteOverview, StopDepartures, RouteSchedule, StopResult, AdherenceReport, DriverAvailabilityReport, etc.)
-│   │   ├── deps.py            # TransitDeps dataclass + factory
+│   │   ├── deps.py            # UnifiedDeps dataclass + factory (transit + obsidian HTTP clients)
 │   │   ├── client.py          # GTFS-RT protobuf client with 20s cache
 │   │   ├── static_cache.py    # Static GTFS ZIP parser (routes/stops/trips/calendar/stop_times, 24h TTL)
 │   │   ├── query_bus_status.py # Tool 1: 3 actions (status, route_overview, stop_departures)
@@ -366,7 +367,14 @@ app/core/agents/
 │   │   ├── check_driver_availability.py # Tool 5: driver staffing queries by shift/date/route
 │   │   ├── driver_data.py     # Mock driver data provider (Phase 2: replaced by CMS API client)
 │   │   └── tests/             # 104 unit tests
-│   └── obsidian/      # 4 vault tools (planned)
+│   └── obsidian/      # Obsidian vault tools (see below)
+│       ├── schemas.py         # Response models (VaultSearchResponse, NoteContent, FolderListResponse, BulkOperationResult, etc.)
+│       ├── client.py          # Obsidian Local REST API client (httpx, SSL verify=False)
+│       ├── query_vault.py     # Tool 6: 5 actions (search, find_by_tags, list, recent, glob)
+│       ├── manage_notes.py    # Tool 7: 5 actions (create, read, update, delete, move) + frontmatter/section helpers
+│       ├── manage_folders.py  # Tool 8: 4 actions (create, delete, list, move)
+│       ├── bulk_operations.py # Tool 9: 5 actions (move, tag, delete, update_frontmatter, create) with dry_run
+│       └── tests/             # 68 unit tests
 └── tests/             # 22 agent-level tests
 ```
 
@@ -379,11 +387,11 @@ app/core/agents/
 - `get_adherence_report` ✅ — On-time performance metrics for routes or network. Compares GTFS-RT delays against static schedules. Data source: GTFS-RT trip updates + GTFS static ZIP.
 - `check_driver_availability` ✅ — Driver availability by shift/date/route with per-shift summaries. Data source: Mock provider (Phase 2: VTV CMS tRPC API).
 
-**Obsidian Vault Tools (4):**
-- `obsidian_query_vault` — Search and discover (search, find_by_tags, list, recent, glob)
-- `obsidian_manage_notes` — Individual note CRUD (create, read, update, delete, move)
-- `obsidian_manage_folders` — Folder operations (create, delete, list, move)
-- `obsidian_bulk_operations` — Batch operations (move, tag, delete, update_frontmatter, create)
+**Obsidian Vault Tools (4, read-write with safety guards):**
+- `obsidian_query_vault` ✅ — Search and discover (search, find_by_tags, list, recent, glob). Data source: Obsidian Local REST API.
+- `obsidian_manage_notes` ✅ — Individual note CRUD (create, read, update, delete, move) with frontmatter parsing and section editing. Data source: Obsidian Local REST API.
+- `obsidian_manage_folders` ✅ — Folder operations (create, delete, list, move). Delete requires `confirm=true`. Data source: Obsidian Local REST API.
+- `obsidian_bulk_operations` ✅ — Batch operations (move, tag, delete, update_frontmatter, create) with `dry_run` preview. Data source: Obsidian Local REST API.
 
 **Agent Safety Constraints:**
 - Transit tools: read-only, no write operations
@@ -404,6 +412,7 @@ app/core/agents/
 - Settings singleton: `get_settings()` from `app.core.config`
 - Rate limit settings: `RATE_LIMIT_CHAT`, `RATE_LIMIT_TRANSIT`, `RATE_LIMIT_HEALTH`, `RATE_LIMIT_DEFAULT`
 - Query quota: `AGENT_DAILY_QUOTA` (default: 50)
+- Obsidian vault: `OBSIDIAN_API_KEY` (Local REST API key), `OBSIDIAN_VAULT_URL` (default: `https://127.0.0.1:27124`)
 - Auth: `AUTH_SECRET` required in Docker (generate with `openssl rand -base64 32`)
 
 ## Frontend (CMS)
