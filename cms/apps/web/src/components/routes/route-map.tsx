@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer } from "react-leaflet";
 import { useTranslations } from "next-intl";
@@ -14,8 +15,7 @@ interface RouteMapProps {
 
 export function RouteMap({ buses, selectedRouteId, onSelectRoute }: RouteMapProps) {
   const t = useTranslations("routes.map");
-  const hasSelection = selectedRouteId !== null;
-
+  const [mapInstance] = useState(() => `map-${Date.now()}`);
   return (
     <div className="relative h-full min-h-[50vh] w-full bg-surface">
       <div className="absolute left-3 top-3 z-[1000] rounded-md bg-surface/90 px-3 py-1.5 text-sm font-medium shadow-sm backdrop-blur-sm">
@@ -23,6 +23,7 @@ export function RouteMap({ buses, selectedRouteId, onSelectRoute }: RouteMapProp
       </div>
 
       <MapContainer
+        key={mapInstance}
         center={[56.9496, 24.1052]}
         zoom={13}
         className="h-full w-full"
@@ -38,7 +39,7 @@ export function RouteMap({ buses, selectedRouteId, onSelectRoute }: RouteMapProp
             key={bus.vehicleId}
             bus={bus}
             isHighlighted={selectedRouteId === bus.routeId}
-            isDimmed={hasSelection && selectedRouteId !== bus.routeId}
+            isDimmed={false}
             onSelect={onSelectRoute}
           />
         ))}

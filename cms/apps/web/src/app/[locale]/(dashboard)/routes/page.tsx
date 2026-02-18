@@ -318,7 +318,7 @@ export default function RoutesPage() {
       <RouteDetail
         route={selectedRoute}
         isOpen={detailOpen}
-        onClose={() => setDetailOpen(false)}
+        onClose={() => { setDetailOpen(false); setSelectedRouteId(null); }}
         onEdit={handleEdit}
         onDelete={handleDeleteRequest}
         isReadOnly={IS_READ_ONLY}
