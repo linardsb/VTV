@@ -69,6 +69,12 @@ export default function RoutesPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
+  // Filter live vehicles by transport type when a type filter is active
+  const filteredVehicles = useMemo(() => {
+    if (typeFilter === null) return liveVehicles;
+    return liveVehicles.filter((v) => v.routeType === typeFilter);
+  }, [liveVehicles, typeFilter]);
+
   // UI state
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -263,7 +269,7 @@ export default function RoutesPage() {
             </TabsContent>
             <TabsContent value="map" className="min-h-[50vh] flex-1 overflow-hidden rounded-lg border border-border mt-(--spacing-tight)">
               <RouteMap
-                buses={liveVehicles}
+                buses={filteredVehicles}
                 selectedRouteId={selectedRouteId}
                 onSelectRoute={handleSelectRoute}
               />
@@ -300,7 +306,7 @@ export default function RoutesPage() {
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize={40} minSize={25}>
             <RouteMap
-              buses={liveVehicles}
+              buses={filteredVehicles}
               selectedRouteId={selectedRouteId}
               onSelectRoute={handleSelectRoute}
             />

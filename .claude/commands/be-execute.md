@@ -60,6 +60,7 @@ Follow the plan's implementation steps in exact order. For each step:
   8. **No EN DASH in strings** — Ruff RUF001 forbids ambiguous Unicode characters like `–` (EN DASH, U+2013). LLMs naturally generate these in time ranges ("05:00–13:00") and prose. Always use `-` (HYPHEN-MINUS, U+002D) instead: `"05:00-13:00"`, `"trainee - supervised only"`
   9. **Pydantic AI `ctx` parameter must be referenced** — Ruff ARG001 flags unused function arguments. Tool functions require `ctx: RunContext[TransitDeps]` even when mock implementations don't need it. Always reference it: `_settings = ctx.deps.settings` and use `_settings` in logging or guards
   10. **Narrow dict value types before passing to Pydantic** — When extracting values from `dict[str, str | list[str] | None]`, the union type is too broad for Pydantic fields expecting `str | None`. Use isinstance narrowing with walrus operator: `phone=str(val) if isinstance(val := d.get("phone"), str) else None`
+  11. **Schema field additions break ALL consumers** — When adding a required field to a Pydantic `BaseModel` (e.g., `route_type: int` on `VehiclePosition`), you MUST update every file that constructs that model: test helpers, mock factories, route tests. Search with `Grep` for `ModelName(` across the codebase before editing. Also update mock objects that return the model's source data — if production code does `static.routes.get(id).route_type`, the test mock for `static.routes` must return an object with a real `route_type` int, not a generic `MagicMock`.
 
 ### 3. Run database migrations (if needed)
 

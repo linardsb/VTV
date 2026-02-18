@@ -41,6 +41,7 @@ export interface BusPosition {
   vehicleId: string;
   routeId: string;
   routeShortName: string;
+  routeType: RouteType;
   routeColor: string;
   latitude: number;
   longitude: number;

@@ -16,6 +16,7 @@ class VehiclePosition(BaseModel):
         vehicle_id: Fleet vehicle identifier (e.g., "4521").
         route_id: GTFS route identifier.
         route_short_name: Human-readable route number (e.g., "22").
+        route_type: GTFS route type (0=tram, 3=bus, 11=trolleybus).
         latitude: WGS84 latitude.
         longitude: WGS84 longitude.
         bearing: Compass heading in degrees (0-360), if available.
@@ -32,6 +33,7 @@ class VehiclePosition(BaseModel):
     vehicle_id: str
     route_id: str
     route_short_name: str
+    route_type: int
     latitude: float
     longitude: float
     bearing: float | None = None

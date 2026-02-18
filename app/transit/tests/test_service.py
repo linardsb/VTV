@@ -73,6 +73,9 @@ def _make_static_cache() -> MagicMock:
     cache.get_route_name.return_value = "22"
     cache.get_stop_name.return_value = "Centraltirgus"
     cache.get_trip_route_id.return_value = "22"
+    route_info = MagicMock()
+    route_info.route_type = 3
+    cache.routes = {"22": route_info, "15": route_info}
     return cache
 
 

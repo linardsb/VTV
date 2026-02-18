@@ -361,6 +361,7 @@ The executing agent MUST follow these rules to avoid common errors:
 8. **No EN DASH in strings** — Ruff RUF001 forbids ambiguous Unicode characters like `–` (EN DASH, U+2013). LLMs naturally generate these in time ranges ("05:00–13:00") and prose. Always use `-` (HYPHEN-MINUS, U+002D): `"05:00-13:00"`, `"trainee - supervised only"`.
 9. **Pydantic AI `ctx` parameter must be referenced** — Ruff ARG001 flags unused function arguments. Tool functions require `ctx: RunContext[TransitDeps]` even when mock implementations don't need it. Always reference it: `_settings = ctx.deps.settings` and use in logging or guards.
 10. **Narrow dict value types before passing to Pydantic** — When extracting values from `dict[str, str | list[str] | None]`, the union type is too broad for Pydantic fields expecting `str | None`. Use isinstance narrowing with walrus operator: `phone=str(val) if isinstance(val := d.get("phone"), str) else None`.
+11. **Schema field additions break ALL consumers** — When adding a required field to a Pydantic `BaseModel`, the plan MUST include tasks to update every file that constructs that model (test helpers, mock factories, route tests). Search for `ModelName(` across the codebase during planning. Also ensure test mocks return realistic objects — if production code accesses `mock.routes.get(id).route_type`, the mock must have a real dict with proper objects, not a generic `MagicMock`.
 
 ## Notes
 

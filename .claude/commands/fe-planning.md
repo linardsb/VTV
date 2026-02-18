@@ -42,6 +42,7 @@ You are creating a detailed implementation plan that ANOTHER AGENT will execute 
 - Read `cms/apps/web/messages/lv.json` and `en.json` for existing i18n key structure
 - Read `cms/apps/web/src/app/[locale]/layout.tsx` for sidebar nav structure
 - Check `cms/apps/web/package.json` for installed dependencies; note any new packages needed
+- **Verify component prop APIs from installed versions**: When the plan includes code snippets using third-party component props, check the actual TypeScript definitions in `node_modules/{pkg}/dist/*.d.ts` — not from memory or external docs. Package major versions rename props (e.g., `react-resizable-panels` v4 uses `orientation` not `direction`). Run `grep` on the `.d.ts` files to confirm prop names before writing code snippets.
 
 ### 3. Check design system overrides
 
@@ -171,6 +172,8 @@ The executor MUST follow these rules to avoid lint/type errors on first pass:
 - **No component definitions inside components** — extract all sub-components to module scope or separate files
 - **No `Math.random()` in render** — use `useId()` or generate outside render
 - **Const placeholders for runtime values** (e.g. `const ROLE = "admin"`) must be annotated as `string` to avoid TS2367
+- **Hook ordering: `useMemo`/`useCallback` MUST come AFTER their dependencies** — If a memo depends on `typeFilter` from `useState`, the `useState` line must appear first in the component body. TypeScript enforces block-scoped variable ordering (TS2448/TS2454). Plan tasks must respect declaration order.
+- **Shared type changes require ripple-effect tasks** — When adding a field to a shared interface (e.g., `BusPosition`), the plan MUST include tasks to update ALL files that construct objects of that type (mock data files, test factories, etc.). Search for all usages with `Grep` before finalizing the plan.
 
 See `cms/apps/web/CLAUDE.md` → "React 19 Anti-Patterns" for full examples.
 

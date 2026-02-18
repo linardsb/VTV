@@ -60,6 +60,9 @@ Follow the plan's implementation steps in exact order. For each step:
   - **Never** define component functions inside other components — extract to module scope
   - **Never** use `Math.random()` in render paths
   - When using const placeholders for runtime values (e.g. `const ROLE = "admin"`), annotate as `string` to avoid TS2367 literal narrowing errors
+- CRITICAL — Hook ordering and shared type ripple effects:
+  - **`useMemo`/`useCallback` MUST come AFTER the `useState` declarations they depend on** — TypeScript enforces block-scoped variable ordering (TS2448). If a new memo depends on state like `typeFilter`, place it AFTER the `useState<...>(null)` line, not before.
+  - **When adding a field to a shared interface** (e.g., adding `routeType` to `BusPosition`), you MUST update ALL files that construct objects of that type — mock data files, test factories, inline literals. Search with `Grep` for the type name constructor pattern (e.g., `BusPosition`) to find all consumers before editing.
 
 ### 3. Run per-task validation
 

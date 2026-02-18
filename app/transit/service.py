@@ -112,6 +112,8 @@ def _enrich_vehicles(
             v.route_id or (static.get_trip_route_id(v.trip_id) if v.trip_id else None) or ""
         )
         route_short_name = static.get_route_name(resolved_route_id)
+        route_info = static.routes.get(resolved_route_id)
+        route_type = route_info.route_type if route_info else 3
 
         # Get delay and next stop from trip updates
         delay_seconds = 0
@@ -146,6 +148,7 @@ def _enrich_vehicles(
                 vehicle_id=v.vehicle_id,
                 route_id=resolved_route_id,
                 route_short_name=route_short_name,
+                route_type=route_type,
                 latitude=v.latitude,
                 longitude=v.longitude,
                 bearing=v.bearing,

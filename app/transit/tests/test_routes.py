@@ -17,6 +17,7 @@ def _make_response(count: int = 2) -> VehiclePositionsResponse:
             vehicle_id=f"v{i}",
             route_id="22",
             route_short_name="22",
+            route_type=3,
             latitude=56.9496,
             longitude=24.1052,
             bearing=180.0,

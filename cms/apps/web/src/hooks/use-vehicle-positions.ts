@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { BusPosition } from "@/types/route";
+import type { BusPosition, RouteType } from "@/types/route";
 
 /** Raw vehicle from backend API (snake_case). */
 interface ApiVehicle {
   vehicle_id: string;
   route_id: string;
   route_short_name: string;
+  route_type: number;
   latitude: number;
   longitude: number;
   bearing: number | null;
@@ -53,6 +54,7 @@ function mapVehicle(
     vehicleId: v.vehicle_id,
     routeId: v.route_id,
     routeShortName: v.route_short_name,
+    routeType: v.route_type as RouteType,
     routeColor: colorMap[v.route_id] ?? routeColor(v.route_short_name),
     latitude: v.latitude,
     longitude: v.longitude,
