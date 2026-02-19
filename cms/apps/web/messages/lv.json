@@ -194,5 +194,25 @@
       "mapTab": "Karte",
       "showFilters": "Filtri"
     }
+  },
+  "chat": {
+    "title": "AI paligs",
+    "placeholder": "Jautajiet par marsrutiem, grafikiem, transportlidzekliem...",
+    "send": "Nosutit",
+    "clear": "Notirit sarunu",
+    "thinking": "Domaju...",
+    "error": "Radas kluda. Ludzu, meginiet velreiz.",
+    "rateLimitError": "Vaicajumu limits sasniegts. Meginiet velreiz velak.",
+    "emptyTitle": "Ka es varu palidzet?",
+    "emptyDescription": "Jautajiet par autobusu marsrutiem, kavesanos, vaditaju grafikiem vai transporta operacijam.",
+    "suggestion1": "Kuri marsruti sodiena kave?",
+    "suggestion2": "Paradiet 22. marsruta grafiku",
+    "suggestion3": "Cik autobusu ir aktivie?",
+    "suggestion4": "Atrast pieturas netalu no centra",
+    "you": "Jus",
+    "assistant": "VTV asistents",
+    "retry": "Meginat velreiz",
+    "copied": "Nokopets",
+    "copy": "Kopet"
   }
 }

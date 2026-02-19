@@ -8,6 +8,14 @@ agent, and constructing OpenAI-compatible responses.
 import time
 import uuid
 
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    UserPromptPart,
+)
+
 from app.core.agents.agent import agent
 from app.core.agents.exceptions import AgentExecutionError
 from app.core.agents.schemas import (
@@ -22,6 +30,28 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _build_message_history(messages: list[ChatMessage]) -> list[ModelMessage]:
+    """Convert OpenAI-format chat messages to Pydantic AI ModelMessage objects.
+
+    Converts prior conversation messages (excluding the final user message)
+    into the format expected by agent.run(message_history=...).
+
+    Args:
+        messages: Prior messages to include as history (user + assistant).
+
+    Returns:
+        List of ModelMessage objects for Pydantic AI.
+    """
+    history: list[ModelMessage] = []
+    for msg in messages:
+        if msg.role == "user":
+            history.append(ModelRequest(parts=[UserPromptPart(content=msg.content)]))
+        elif msg.role == "assistant":
+            history.append(ModelResponse(parts=[TextPart(content=msg.content)]))
+        # system messages are handled by the agent's system_prompt config
+    return history
 
 
 class AgentService:
@@ -50,18 +80,24 @@ class AgentService:
         Raises:
             AgentExecutionError: If the agent fails to generate a response.
         """
-        # Extract last user message
-        user_messages = [m for m in request.messages if m.role == "user"]
-        user_prompt = user_messages[-1].content if user_messages else request.messages[-1].content
+        # Split into history (all but last) and current user prompt (last message)
+        current_prompt = request.messages[-1].content
+        prior_messages = request.messages[:-1]
+        message_history = _build_message_history(prior_messages) if prior_messages else None
 
         logger.info(
             "agent.chat_started",
             message_count=len(request.messages),
-            user_prompt_length=len(user_prompt),
+            history_count=len(prior_messages),
+            user_prompt_length=len(current_prompt),
         )
 
         try:
-            result = await agent.run(user_prompt, deps=self._deps)
+            result = await agent.run(
+                current_prompt,
+                deps=self._deps,
+                message_history=message_history,
+            )
         except Exception as e:
             logger.error(
                 "agent.chat_failed",

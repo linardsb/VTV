@@ -3,6 +3,7 @@
 import os
 from unittest.mock import patch
 
+from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.models.test import TestModel
 
 from app.core.agents.config import build_model_string, get_agent_model
@@ -41,15 +42,15 @@ def test_get_agent_model_test_provider():
 def test_get_agent_model_no_fallback():
     settings = create_settings(LLM_PROVIDER="anthropic", LLM_MODEL="claude-sonnet-4-5")
     result = get_agent_model(settings)
-    assert isinstance(result, str)
-    assert result == "anthropic:claude-sonnet-4-5"
+    assert isinstance(result, AnthropicModel)
 
 
 def test_get_agent_model_with_fallback():
-    """Test that fallback config triggers FallbackModel creation.
+    """Test that fallback config with anthropic primary still returns AnthropicModel.
 
-    We mock FallbackModel because it eagerly validates provider API keys
-    at construction time, which requires real credentials.
+    When the primary provider is anthropic, it returns an AnthropicModel directly
+    (with explicit api_key), regardless of fallback configuration.
+    Fallback is only used for generic string-based providers.
     """
     settings = create_settings(
         LLM_PROVIDER="anthropic",
@@ -57,12 +58,6 @@ def test_get_agent_model_with_fallback():
         LLM_FALLBACK_PROVIDER="ollama",
         LLM_FALLBACK_MODEL="llama3.1:70b",
     )
-    with patch("app.core.agents.config.FallbackModel") as mock_fallback:
-        mock_fallback.return_value = mock_fallback
-        result = get_agent_model(settings)
-
-    mock_fallback.assert_called_once_with(
-        "anthropic:claude-sonnet-4-5",
-        "ollama:llama3.1:70b",
-    )
-    assert result is mock_fallback
+    result = get_agent_model(settings)
+    # Anthropic provider takes priority — returns AnthropicModel directly
+    assert isinstance(result, AnthropicModel)

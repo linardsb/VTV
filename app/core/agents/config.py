@@ -5,8 +5,12 @@ the appropriate Pydantic AI model instance based on application settings.
 """
 
 from pydantic_ai.models import Model
+from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.models.fallback import FallbackModel
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.models.test import TestModel
+from pydantic_ai.providers.anthropic import AnthropicProvider
+from pydantic_ai.providers.ollama import OllamaProvider
 
 from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
@@ -58,6 +62,16 @@ def get_agent_model(settings: Settings | None = None) -> str | Model:
     # TestModel for testing — pydantic-ai rejects "test:test-model" as unknown provider
     if provider == "test":
         return TestModel()
+
+    # Anthropic needs explicit api_key since env var may not be set at import time
+    if provider == "anthropic":
+        anthropic_provider = AnthropicProvider(api_key=settings.anthropic_api_key)
+        return AnthropicModel(model, provider=anthropic_provider)
+
+    # Ollama needs explicit base_url since env var may not be set at import time
+    if provider == "ollama":
+        ollama_provider = OllamaProvider(base_url=settings.ollama_base_url)
+        return OpenAIChatModel(model, provider=ollama_provider)
 
     primary = build_model_string(settings)
 

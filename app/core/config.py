@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     llm_fallback_provider: str | None = None
     llm_fallback_model: str | None = None
 
+    # LLM API keys
+    anthropic_api_key: str | None = None
+
+    # Ollama (local LLM)
+    ollama_base_url: str = "http://localhost:11434/v1"
+
     # Transit GTFS-RT feeds (Rigas Satiksme public endpoints)
     gtfs_rt_vehicle_positions_url: str = "https://saraksti.rigassatiksme.lv/vehicle_positions.pb"
     gtfs_rt_trip_updates_url: str = "https://saraksti.rigassatiksme.lv/trip_updates.pb"

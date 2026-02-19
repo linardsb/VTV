@@ -194,5 +194,25 @@
       "mapTab": "Map",
       "showFilters": "Filters"
     }
+  },
+  "chat": {
+    "title": "AI Assistant",
+    "placeholder": "Ask about routes, schedules, vehicles...",
+    "send": "Send",
+    "clear": "Clear conversation",
+    "thinking": "Thinking...",
+    "error": "Something went wrong. Please try again.",
+    "rateLimitError": "Query limit reached. Please try again later.",
+    "emptyTitle": "How can I help?",
+    "emptyDescription": "Ask about bus routes, live delays, driver schedules, or transit operations.",
+    "suggestion1": "Which routes are delayed today?",
+    "suggestion2": "Show schedule for route 22",
+    "suggestion3": "How many buses are active?",
+    "suggestion4": "Find stops near the center",
+    "you": "You",
+    "assistant": "VTV Assistant",
+    "retry": "Try again",
+    "copied": "Copied",
+    "copy": "Copy"
   }
 }

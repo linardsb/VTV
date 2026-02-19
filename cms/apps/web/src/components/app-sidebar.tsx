@@ -23,7 +23,7 @@ const navItems = [
   { key: "schedules", href: "/schedules", enabled: false },
   { key: "gtfs", href: "/gtfs", enabled: false },
   { key: "users", href: "/users", enabled: false },
-  { key: "chat", href: "/chat", enabled: false },
+  { key: "chat", href: "/chat", enabled: true },
 ] as const;
 
 interface AppSidebarProps {
