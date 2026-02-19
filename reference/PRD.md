@@ -41,8 +41,8 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 - Schedule management — timetable grid, service calendar, trip CRUD
 - GTFS import/export — parse and generate GTFS ZIP files
 - Authentication — Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer)
-- Internationalization — Latvian (primary) + English
-- Responsive dashboard layout (✅ dashboard + routes pages are mobile responsive)
+- Internationalization — Latvian (primary) + English ✅ (proper diacritics, 142+ i18n keys per locale)
+- Responsive dashboard layout (✅ dashboard + routes + chat pages are mobile responsive)
 
 **AI Agent Service (FastAPI + Pydantic AI)**
 - Single unified agent with transit + vault + knowledge tools
@@ -51,7 +51,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 - 4 Obsidian vault tools (query, notes, folders, bulk)
 - 5 read-only transit tools (bus status, schedules, stops, adherence, drivers)
 - 1 knowledge base tool (RAG search over uploaded documents via pgvector) ✅
-- Chat UI embedded in CMS sidebar
+- Chat UI embedded in CMS ✅ (dedicated `/chat` page with streaming SSE, bilingual LV/EN)
 
 **Infrastructure**
 - Local Docker Compose deployment (agent service + Ollama + PostgreSQL)
@@ -94,13 +94,13 @@ Provide RS dispatchers and administrators with a single platform to manage trans
                           │  Unified Pydantic AI   │
                           │  Agent with all tools  │
                           │                       │
-                          │  Transit    Obsidian   │
-                          │  Tools      Tools      │
-                          │  (5)        (4)        │
-                          │       │          │     │
-                          │  VTV tRPC   Obsidian   │
-                          │  API via    REST API   │
-                          │  httpx      via httpx  │
+                          │  Transit  Obsidian  KB │
+                          │  Tools    Tools    Tool │
+                          │  (5)      (4)     (1)  │
+                          │     │        │     │   │
+                          │  GTFS-RT  Obsidian  pg │
+                          │  + GTFS   REST API  vector│
+                          │  feeds    via httpx    │
                           └────────────────────────┘
 ```
 
@@ -342,12 +342,13 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ✅ 26 realistic mock routes (ATD intercity, RS urban, 5 operators)
 - ✅ Bilingual i18n (142 keys each for LV/EN)
 
-### 7.2 Stop Management
+### 7.2 Stop Management ✅ (Backend implemented — CRUD + proximity search)
 
-- Stop list with search and proximity filter (PostGIS `ST_DWithin`)
-- Map-based stop placement with coordinate picker
-- Stop hierarchy support (station > stop)
-- Bulk import from GTFS stops.txt
+- ✅ Stop list with search and proximity filter (PostGIS `ST_DWithin`)
+- ✅ Backend CRUD endpoints (create, read, update, delete, list, nearby)
+- ⬜ Map-based stop placement with coordinate picker (frontend page not yet built)
+- ⬜ Stop hierarchy support (station > stop)
+- ⬜ Bulk import from GTFS stops.txt
 
 ### 7.3 Schedule Management
 

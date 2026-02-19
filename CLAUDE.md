@@ -219,6 +219,14 @@ VTV/
 │   │   ├── reranker.py     # Cross-encoder reranking (local/noop)
 │   │   ├── routes.py       # 5 REST endpoints under /api/v1/knowledge
 │   │   └── tests/          # 20 unit tests
+│   ├── stops/          # Stop management (CRUD with PostGIS proximity search)
+│   │   ├── schemas.py      # StopCreate, StopUpdate, StopResponse, NearbyStopQuery
+│   │   ├── models.py       # Stop model with lat/lon spatial columns
+│   │   ├── repository.py   # Async CRUD + ST_DWithin proximity search
+│   │   ├── service.py      # Business logic + structured logging
+│   │   ├── exceptions.py   # StopNotFoundError, DuplicateStopError
+│   │   ├── routes.py       # 5 REST endpoints under /api/v1/stops
+│   │   └── tests/          # Unit tests (repository, service, routes)
 │   ├── transit/        # Transit REST API (real-time vehicle positions for CMS frontend)
 │   │   ├── schemas.py      # VehiclePosition, VehiclePositionsResponse
 │   │   ├── service.py      # TransitService — enriches GTFS-RT with static data
@@ -501,8 +509,9 @@ cms/apps/web/src/
 │   ├── layout.tsx              # Root locale layout with sidebar nav
 │   ├── (dashboard)/
 │   │   ├── page.tsx            # Dashboard (default authenticated page)
+│   │   ├── chat/page.tsx       # AI assistant chat (streaming SSE, bilingual)
 │   │   ├── routes/page.tsx     # Route management (CRUD, filters, resizable map panel; mobile: tab layout)
-│   │   └── {page}/page.tsx     # Future feature pages (stops, schedules, etc.)
+│   │   └── {page}/page.tsx     # Future feature pages (stops, schedules, documents, etc.)
 │   ├── login/page.tsx          # Login page (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect page
 ├── components/
@@ -635,7 +644,12 @@ Use `/be-create-feature {name}` to scaffold, or follow these steps manually:
 - `reference/feature-readme-template.md` — Template for documenting feature slices
 - `reference/PRD.md` — Product requirements and vision
 - `reference/mvp-tool-designs.md` — Agent tool specifications and composition chains
-- `.claude/commands/CLAUDE.md` — Full documentation for all 21 slash commands with usage, behavior, and workflows
+- `.claude/commands/CLAUDE.md` — Full documentation for all 23 slash commands with usage, behavior, and workflows
+- `docs/TODO.md` — Planned features with effort estimates and links to planning docs
+- `docs/PLANNING/Implementation-Plan.md` — Full Latvia transit platform roadmap (4 phases, live tracking, journey planning, ML)
+- `docs/PLANNING/rag-improvements.md` — RAG knowledge base enhancement plan (10 improvements)
+- `docs/PLANNING/sop-file-automation.md` — Automated document ingestion and SOP generation plan
+- `docs/PLANNING/latvian-language-and-model-research.md` — Model benchmarks, embedding selection, DMS architecture decisions
 
 
 <claude-mem-context>
