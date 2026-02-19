@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-VTV is a unified transit operations platform for Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 9 tools (5 transit + 4 Obsidian vault). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright.
+VTV is a unified transit operations platform for Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 10 tools (5 transit + 4 Obsidian vault + 1 knowledge base). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright.
 
 ## Core Principles
 
@@ -56,6 +56,15 @@ VTV is a unified transit operations platform for Riga's municipal bus system. Th
 12. **No `type: ignore` in test files** — mypy relaxes tests. `# type: ignore[arg-type]` becomes "unused ignore". Use pyright file-level `# pyright: reportArgumentType=false` instead.
 13. **Pydantic constraints on shared models affect all paths** — `max_length` on a shared model blocks both input AND output. Put input-only validation in a `field_validator` on the REQUEST model.
 14. **Singleton close must catch RuntimeError** — TestClient closes event loop before lifespan cleanup. Wrap `await client.aclose()` in `try/except RuntimeError: pass`.
+15. **`verify=False` needs `# noqa: S501`** — Ruff S501 flags `httpx.AsyncClient(verify=False)`. Add `# noqa: S501` with comment explaining why.
+16. **ARG001 applies to ALL unused params** — Not just `ctx`. Use `_ = param_name` for intentionally unused params.
+17. **`dict.get()` returns full union - use walrus** — `isinstance(d.get("k"), int)` doesn't narrow `d["k"]`. Use `val if isinstance(val := d.get("k"), int) else None`.
+18. **Dict literal invariance in tests** — `{"k": "v"}` inferred as `dict[str, str]` not compatible with `dict[str, str | None]`. Add explicit annotations.
+19. **Lazy-loaded untyped lib models use `Any`, not `object`** — `object` blocks `.encode()/.predict()` (mypy `attr-defined`). Use `Any | None` + `# noqa: ANN401` on `-> Any` helpers.
+20. **Dataclass `field(default_factory=dict)` needs typed lambda** — Pyright infers `dict[Unknown, Unknown]`. Use `field(default_factory=lambda: dict[str, str | int | None]())`.
+21. **Untyped lib method returns need `str()` wrapping** — `page.get_text()`, `pytesseract.image_to_string()` return `Unknown`. Wrap in `str()`.
+22. **Partially annotated test functions need `-> None`** — Adding param type (e.g., `tmp_path: Path`) without return type triggers mypy `no-untyped-def`. Always: `def test_foo(param: Type) -> None:`.
+23. **Pydantic `Field(None)` confuses pyright about defaults** — Pass defaulted fields explicitly in tests: `Model(required="x", optional=None)`.
 
 **AI-Optimized Patterns**
 
@@ -119,7 +128,7 @@ uv run uvicorn app.main:app --reload --port 8123
 ### Testing
 
 ```bash
-# Run unit tests (284 tests, ~5s execution)
+# Run unit tests (337 tests, ~5s execution)
 uv run pytest -v -m "not integration"
 
 # Run all tests including integration (182 tests, requires Docker)
@@ -195,9 +204,21 @@ VTV/
 │   │       ├── quota.py     # Daily per-IP query quota tracker (50/day default)
 │   │       ├── tools/
 │   │       │   ├── transit/  # Transit tools (5/5 implemented ✅)
-│   │       │   └── obsidian/ # Obsidian vault tools (4/4 implemented ✅)
+│   │       │   ├── obsidian/ # Obsidian vault tools (4/4 implemented ✅)
+│   │       │   └── knowledge/# Knowledge base search tool (1/1 implemented ✅)
 │   │       └── tests/
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
+│   ├── knowledge/      # RAG knowledge base (document ingestion, hybrid search, pgvector)
+│   │   ├── models.py       # Document, DocumentChunk (pgvector Vector(1024))
+│   │   ├── schemas.py      # DocumentUpload, SearchRequest/Result/Response
+│   │   ├── repository.py   # CRUD + vector search + fulltext search
+│   │   ├── service.py      # Ingest pipeline + hybrid search with RRF fusion
+│   │   ├── embedding.py    # Configurable embedding provider (OpenAI/Jina/local)
+│   │   ├── processing.py   # Multi-format text extraction (PDF, DOCX, email, image, text)
+│   │   ├── chunking.py     # Recursive text chunking with overlap
+│   │   ├── reranker.py     # Cross-encoder reranking (local/noop)
+│   │   ├── routes.py       # 5 REST endpoints under /api/v1/knowledge
+│   │   └── tests/          # 20 unit tests
 │   ├── transit/        # Transit REST API (real-time vehicle positions for CMS frontend)
 │   │   ├── schemas.py      # VehiclePosition, VehiclePositionsResponse
 │   │   ├── service.py      # TransitService — enriches GTFS-RT with static data
@@ -278,7 +299,7 @@ VTV/
 **Rate Limiting (slowapi)**
 
 - Per-IP rate limiting via `app.core.rate_limit.limiter`
-- Endpoint-specific limits: `/v1/chat/completions` (10/min), `/api/v1/transit/vehicles` (30/min), `/health/*` (60/min)
+- Endpoint-specific limits: `/v1/chat/completions` (10/min), `/api/v1/transit/vehicles` (30/min), `/api/v1/knowledge/*` (10-30/min), `/health/*` (60/min)
 - X-Forwarded-For aware for nginx proxy compatibility
 - Disable in tests: `limiter.enabled = False`
 
@@ -347,7 +368,7 @@ VTV's primary feature is a Pydantic AI agent (`Agent[UnifiedDeps, str]`). It fol
 
 ```
 app/core/agents/
-├── agent.py           # Agent creation with UnifiedDeps, 9 tool registrations
+├── agent.py           # Agent creation with UnifiedDeps, 10 tool registrations
 ├── routes.py          # /v1/chat/completions, /v1/models (rate limited + quota enforced)
 ├── service.py         # Agent orchestration, deps injection, model building (singleton)
 ├── schemas.py         # OpenAI-compatible request/response schemas (size-constrained)
@@ -367,14 +388,17 @@ app/core/agents/
 │   │   ├── check_driver_availability.py # Tool 5: driver staffing queries by shift/date/route
 │   │   ├── driver_data.py     # Mock driver data provider (Phase 2: replaced by CMS API client)
 │   │   └── tests/             # 104 unit tests
-│   └── obsidian/      # Obsidian vault tools (see below)
-│       ├── schemas.py         # Response models (VaultSearchResponse, NoteContent, FolderListResponse, BulkOperationResult, etc.)
-│       ├── client.py          # Obsidian Local REST API client (httpx, SSL verify=False)
-│       ├── query_vault.py     # Tool 6: 5 actions (search, find_by_tags, list, recent, glob)
-│       ├── manage_notes.py    # Tool 7: 5 actions (create, read, update, delete, move) + frontmatter/section helpers
-│       ├── manage_folders.py  # Tool 8: 4 actions (create, delete, list, move)
-│       ├── bulk_operations.py # Tool 9: 5 actions (move, tag, delete, update_frontmatter, create) with dry_run
-│       └── tests/             # 68 unit tests
+│   ├── obsidian/      # Obsidian vault tools (see below)
+│   │   ├── schemas.py         # Response models (VaultSearchResponse, NoteContent, FolderListResponse, BulkOperationResult, etc.)
+│   │   ├── client.py          # Obsidian Local REST API client (httpx, SSL verify=False)
+│   │   ├── query_vault.py     # Tool 6: 5 actions (search, find_by_tags, list, recent, glob)
+│   │   ├── manage_notes.py    # Tool 7: 5 actions (create, read, update, delete, move) + frontmatter/section helpers
+│   │   ├── manage_folders.py  # Tool 8: 4 actions (create, delete, list, move)
+│   │   ├── bulk_operations.py # Tool 9: 5 actions (move, tag, delete, update_frontmatter, create) with dry_run
+│   │   └── tests/             # 68 unit tests
+│   └── knowledge/     # Knowledge base search tool (see below)
+│       ├── schemas.py         # Response models (KnowledgeSearchResult, KnowledgeSearchResponse)
+│       └── search_knowledge.py # Tool 10: RAG search over uploaded documents
 └── tests/             # 22 agent-level tests
 ```
 
@@ -392,6 +416,9 @@ app/core/agents/
 - `obsidian_manage_notes` ✅ — Individual note CRUD (create, read, update, delete, move) with frontmatter parsing and section editing. Data source: Obsidian Local REST API.
 - `obsidian_manage_folders` ✅ — Folder operations (create, delete, list, move). Delete requires `confirm=true`. Data source: Obsidian Local REST API.
 - `obsidian_bulk_operations` ✅ — Batch operations (move, tag, delete, update_frontmatter, create) with `dry_run` preview. Data source: Obsidian Local REST API.
+
+**Knowledge Base Tool (1, read-only search):**
+- `search_knowledge_base` ✅ — RAG-powered search over uploaded documents (PDF, DOCX, email, image, text). Hybrid vector + fulltext search with RRF fusion and cross-encoder reranking. Data source: PostgreSQL + pgvector via `app/knowledge/` feature slice.
 
 **Agent Safety Constraints:**
 - Transit tools: read-only, no write operations
@@ -413,6 +440,9 @@ app/core/agents/
 - Rate limit settings: `RATE_LIMIT_CHAT`, `RATE_LIMIT_TRANSIT`, `RATE_LIMIT_HEALTH`, `RATE_LIMIT_DEFAULT`
 - Query quota: `AGENT_DAILY_QUOTA` (default: 50)
 - Obsidian vault: `OBSIDIAN_API_KEY` (Local REST API key), `OBSIDIAN_VAULT_URL` (default: `https://127.0.0.1:27124`)
+- Knowledge base embedding: `EMBEDDING_PROVIDER` (openai/jina/local), `EMBEDDING_MODEL`, `EMBEDDING_DIMENSION` (1024), `EMBEDDING_API_KEY`, `EMBEDDING_BASE_URL`
+- Knowledge base reranker: `RERANKER_PROVIDER` (local/none), `RERANKER_MODEL`, `RERANKER_TOP_K` (10)
+- Knowledge base tuning: `KNOWLEDGE_CHUNK_SIZE` (512), `KNOWLEDGE_CHUNK_OVERLAP` (50), `KNOWLEDGE_SEARCH_LIMIT` (50)
 - Auth: `AUTH_SECRET` required in Docker (generate with `openssl rand -base64 32`)
 
 ## Frontend (CMS)

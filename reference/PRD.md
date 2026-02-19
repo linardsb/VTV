@@ -45,11 +45,12 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 - Responsive dashboard layout (✅ dashboard + routes pages are mobile responsive)
 
 **AI Agent Service (FastAPI + Pydantic AI)**
-- Single unified agent with transit + vault tools
+- Single unified agent with transit + vault + knowledge tools
 - OpenAI-compatible `/v1/chat/completions` endpoint
 - Streaming (SSE) and non-streaming support
 - 4 Obsidian vault tools (query, notes, folders, bulk)
 - 5 read-only transit tools (bus status, schedules, stops, adherence, drivers)
+- 1 knowledge base tool (RAG search over uploaded documents via pgvector) ✅
 - Chat UI embedded in CMS sidebar
 
 **Infrastructure**
@@ -139,7 +140,7 @@ All services run locally via Docker Compose. LLM is fully configurable — run 1
 
 ### 6.1 Design Philosophy
 
-One agent, all tools. The LLM decides which tools to use based on the user's query. No routing logic, no agent registry — the agent has access to 9 tools and selects the appropriate ones per request.
+One agent, all tools. The LLM decides which tools to use based on the user's query. No routing logic, no agent registry — the agent has access to 10 tools and selects the appropriate ones per request.
 
 ```python
 agent = Agent(
@@ -159,6 +160,8 @@ agent = Agent(
         obsidian_manage_notes,
         obsidian_manage_folders,
         obsidian_bulk_operations,
+        # Knowledge base (1 RAG search)
+        search_knowledge_base,
     ]
 )
 ```
@@ -315,6 +318,7 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 ### 6.6 Safety Constraints
 
 - Transit tools: read-only, no write operations
+- Knowledge base tool: read-only search, no document management via agent
 - Vault delete operations: require `confirm: true`
 - Bulk operations: support `dry_run` for preview
 - Path sandboxing: prevents directory traversal (`../`)

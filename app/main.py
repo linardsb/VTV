@@ -30,6 +30,7 @@ from app.core.health import router as health_router
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import setup_middleware
 from app.core.rate_limit import limiter
+from app.knowledge.routes import router as knowledge_router
 from app.stops.routes import router as stops_router
 from app.transit.routes import router as transit_router
 from app.transit.service import close_transit_service
@@ -96,6 +97,7 @@ app.include_router(health_router)
 app.include_router(agent_router)
 app.include_router(transit_router)
 app.include_router(stops_router)
+app.include_router(knowledge_router)
 
 
 @app.get("/")
