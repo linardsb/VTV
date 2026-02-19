@@ -36,8 +36,8 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 ### 4.1 What's In (MVP)
 
 **CMS (Next.js 16 Turborepo Monorepo)**
-- Route management — CRUD with map visualization (MapLibre)
-- Stop management — CRUD with geolocation, PostGIS spatial queries
+- Route management — CRUD with map visualization (react-leaflet v5 + OpenStreetMap)
+- Stop management — CRUD with geolocation, Haversine proximity search (PostGIS planned for Phase 1 completion)
 - Schedule management — timetable grid, service calendar, trip CRUD
 - GTFS import/export — parse and generate GTFS ZIP files
 - Authentication — Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer)
@@ -59,7 +59,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 
 ### 4.2 What's Out (Post-MVP)
 
-- Live GPS tracking and real-time map (Phase 2)
+- ~~Live GPS tracking and real-time map~~ ✅ **Implemented** — Live map with GTFS-RT vehicle positions (Riga), react-leaflet v5, HTTP polling. Full Latvia multi-feed coverage planned in [Implementation-Plan.md](../docs/PLANNING/Implementation-Plan.md)
 - Vehicle and driver management (Phase 2)
 - NeTEx/SIRI compliance exports (Phase 3)
 - Public-facing passenger information (out of scope)
@@ -81,11 +81,11 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 │  │  GTFS     │  │ Trips    │  │              │  │
 │  └────┬─────┘  └────┬─────┘  └──────┬───────┘  │
 │       │              │               │          │
-│       └──── tRPC v11 API ────────────┘          │
+│       └── REST API + @vtv/sdk ───────┘          │
 │              │                       │          │
-│     Drizzle ORM + PostGIS    POST /v1/chat/     │
+│     Next.js API routes       POST /v1/chat/     │
 │              │               completions        │
-│     PostgreSQL (Supabase)            │          │
+│     PostgreSQL (self-hosted + pgvector)  │      │
 └──────────────────────────────────────┼──────────┘
                                        │
                           ┌────────────▼──────────┐
@@ -112,27 +112,32 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 | CMS Framework | Next.js 16 (App Router) | Full-stack, production-ready, enterprise patterns via implementation |
 | UI | Shadcn/ui + Tailwind v4 | No framework lock-in, CSS variable theming |
 | Data Tables | TanStack Table v8 | Server-side filtering/pagination |
-| API | tRPC v11 | Type-safe, SSE subscriptions |
-| ORM | Drizzle ORM | Native PostGIS support |
-| Database | PostgreSQL 18 + PostGIS | Spatial indexes, Supabase managed |
-| Maps | MapLibre GL JS 4.x | Open-source, self-hosted tiles |
+| API | REST + @vtv/sdk (OpenAPI-generated) | Type-safe client from FastAPI spec; tRPC v11 planned for CMS-native routes |
+| ORM | SQLAlchemy 2.0 (async) | Backend ORM with pgvector; Drizzle planned for CMS PostGIS layer |
+| Database | PostgreSQL 18 + pgvector | Vector search for RAG; PostGIS planned for spatial queries |
+| Maps | react-leaflet v5 + Leaflet 1.9 | OpenStreetMap tiles, marker clustering planned |
 | Auth | Auth.js v5 | Self-hosted RBAC, data sovereignty |
 | Agent Framework | Pydantic AI 1.58+ | Strongest Python agent framework |
 | Agent API | FastAPI | OpenAI-compatible endpoints |
 | Agent LLM | Swappable (Ollama / Anthropic / OpenAI / any) | Single env var switch; zero-cost local or cloud API |
 
-### 5.3 Deployment (MVP)
+### 5.3 Deployment (Current)
 
 ```yaml
-# docker-compose.yml
+# docker-compose.yml (actual)
 services:
-  cms:          # Next.js 16 — port 3000
-  agent:        # FastAPI + Pydantic AI — port 8123
-  db:           # PostgreSQL 18 + PostGIS
-  ollama:       # Local LLM (fallback/dev)
+  db:           # pgvector/pgvector:pg18 (PostgreSQL 18 + pgvector) — port 5433
+  app:          # FastAPI + Pydantic AI (non-root) — internal only
+  cms:          # Next.js 16 — internal only
+  nginx:        # Reverse proxy — port 80 (rate limiting, security headers)
+
+# Planned additions (see docs/PLANNING/Implementation-Plan.md):
+  redis:        # redis:7-alpine — real-time vehicle position cache
+  # PostGIS extension — spatial queries (switch db image)
+  # Ollama — local LLM (fallback/dev)
 ```
 
-All services run locally via Docker Compose. LLM is fully configurable — run 100% local with Ollama (zero API cost) or connect to any cloud provider via env vars. See Section 6.4 for LLM provider strategy.
+All services run locally via Docker Compose with resource limits. LLM is fully configurable — currently using cloud Anthropic (Claude Sonnet 4.5), switchable to Ollama for zero API cost or any provider via env vars. See Section 6.4 for LLM provider strategy.
 
 ---
 
@@ -344,11 +349,12 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 
 ### 7.2 Stop Management ✅ (Backend implemented — CRUD + proximity search)
 
-- ✅ Stop list with search and proximity filter (PostGIS `ST_DWithin`)
-- ✅ Backend CRUD endpoints (create, read, update, delete, list, nearby)
+- ✅ Stop list with search and Haversine proximity filter (plain Float columns, PostGIS planned)
+- ✅ Backend CRUD endpoints (create, read, update, delete, list, nearby) — 6 endpoints
 - ⬜ Map-based stop placement with coordinate picker (frontend page not yet built)
 - ⬜ Stop hierarchy support (station > stop)
 - ⬜ Bulk import from GTFS stops.txt
+- ⬜ Migrate to PostGIS `ST_DWithin` for sub-ms spatial queries (see [Implementation-Plan.md](../docs/PLANNING/Implementation-Plan.md))
 
 ### 7.3 Schedule Management
 
@@ -402,7 +408,7 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 ```
 agencies        → Transit operators (RS)
 routes          → Bus/tram/trolleybus lines
-stops           → Stops with PostGIS geometry
+stops           → Stops with lat/lon floats (PostGIS geometry planned)
 calendar        → Weekly service patterns
 calendar_dates  → Holiday/exception overrides
 trips           → Individual journeys on routes
@@ -505,6 +511,7 @@ GET    /health                 — Health check
 
 ## 13. References
 
+- [Implementation Plan](../docs/PLANNING/Implementation-Plan.md) — Full Latvia transit platform roadmap (4 phases: foundation, full Latvia coverage, intercity gap-fill, ML intelligence)
 - [Master Plan](./PLANNING/plan.md) — Full 71KB planning document
 - [MVP Tool Designs](./mvp-tool-designs.md) — Detailed Obsidian tool specifications
 - [Architecture Diagrams](./diagrams/architecture-diagrams.md) — C4 model and data flows

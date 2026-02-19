@@ -39,7 +39,7 @@ Planned features and improvements. Each item links to its detailed planning docu
 
 ### CMS Pages (from PRD MVP scope)
 
-- [ ] **Stop Management Page** - CMS page for stops with map-based placement, proximity filter (PostGIS), bulk import from GTFS stops.txt. Backend CRUD exists, frontend page needed.
+- [ ] **Stop Management Page** - CMS page for stops with map-based placement, proximity filter (currently Haversine, PostGIS after Phase 1 infra), bulk import from GTFS stops.txt. Backend CRUD exists, frontend page needed.
 - [ ] **Schedule Management Page** - Timetable grid view, service calendar, trip CRUD, schedule validation against GTFS spec.
 - [ ] **GTFS Import/Export Page** - Upload GTFS ZIP, parse/validate, bulk insert. Export GTFS-compliant ZIP from database.
 
@@ -52,7 +52,7 @@ Planned features and improvements. Each item links to its detailed planning docu
 - [x] **Latvian Language Support** - Rewritten agent system prompt with Latvian language rules, 30+ transit term glossary, diacriticless input understanding. LLM upgraded to Claude Sonnet 4.5, embeddings switched to Jina v3 for explicit Latvian support. Frontend i18n diacritics fixed. (commit 17ce1a9)
   - Research: [docs/PLANNING/latvian-language-and-model-research.md](PLANNING/latvian-language-and-model-research.md)
 
-- [x] **Stop Management CRUD** - Backend vertical slice with SQLAlchemy models, proximity search (PostGIS ST_DWithin), Pydantic schemas, async repository, REST endpoints. (commit f88efc5)
+- [x] **Stop Management CRUD** - Backend vertical slice with SQLAlchemy models, Haversine proximity search (plain Float columns), Pydantic schemas, async repository, 6 REST endpoints. (commit f88efc5)
 
 - [x] **AI Chat Page** - CMS chat page with real LLM integration via agent service /v1/chat/completions endpoint, streaming SSE responses, bilingual i18n. (commit 3dad10b)
 

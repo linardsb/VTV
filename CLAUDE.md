@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-VTV is a unified transit operations platform for Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 10 tools (5 transit + 4 Obsidian vault + 1 knowledge base). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright.
+VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 10 tools (5 transit + 4 Obsidian vault + 1 knowledge base). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. The platform roadmap extends to multi-feed real-time tracking, Redis caching, PostGIS spatial queries, and ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
 
 ## Core Principles
 
@@ -190,7 +190,7 @@ docker-compose logs -f app
 docker-compose down
 ```
 
-**Docker services:** `db` (PostgreSQL), `app` (FastAPI, non-root user), `cms` (Next.js), `nginx` (reverse proxy on port 80). App and CMS are internal-only (expose, not ports) — nginx proxies all external traffic. Resource limits enforced per service.
+**Docker services:** `db` (PostgreSQL + pgvector), `app` (FastAPI, non-root user), `cms` (Next.js), `nginx` (reverse proxy on port 80). App and CMS are internal-only (expose, not ports) — nginx proxies all external traffic. Resource limits enforced per service. **Planned additions:** Redis (real-time cache), PostGIS extension (spatial queries) — see `docs/PLANNING/Implementation-Plan.md`.
 
 ## Architecture
 
@@ -219,19 +219,20 @@ VTV/
 │   │   ├── reranker.py     # Cross-encoder reranking (local/noop)
 │   │   ├── routes.py       # 5 REST endpoints under /api/v1/knowledge
 │   │   └── tests/          # 20 unit tests
-│   ├── stops/          # Stop management (CRUD with PostGIS proximity search)
-│   │   ├── schemas.py      # StopCreate, StopUpdate, StopResponse, NearbyStopQuery
-│   │   ├── models.py       # Stop model with lat/lon spatial columns
-│   │   ├── repository.py   # Async CRUD + ST_DWithin proximity search
+│   ├── stops/          # Stop management (CRUD with Haversine proximity search)
+│   │   ├── schemas.py      # StopCreate, StopUpdate, StopResponse, StopNearbyParams
+│   │   ├── models.py       # Stop model with plain Float lat/lon columns
+│   │   ├── repository.py   # Async CRUD + Haversine proximity search
 │   │   ├── service.py      # Business logic + structured logging
 │   │   ├── exceptions.py   # StopNotFoundError, DuplicateStopError
-│   │   ├── routes.py       # 5 REST endpoints under /api/v1/stops
+│   │   ├── routes.py       # 6 REST endpoints under /api/v1/stops
 │   │   └── tests/          # Unit tests (repository, service, routes)
 │   ├── transit/        # Transit REST API (real-time vehicle positions for CMS frontend)
 │   │   ├── schemas.py      # VehiclePosition, VehiclePositionsResponse
-│   │   ├── service.py      # TransitService — enriches GTFS-RT with static data
+│   │   ├── service.py      # TransitService — enriches GTFS-RT with static data (in-memory cache)
 │   │   ├── routes.py       # GET /api/v1/transit/vehicles (rate limited: 30/min)
 │   │   └── tests/          # 9 unit tests
+│   │   # Planned: GTFS importer, GTFS-RT poller, Redis pipeline, WebSocket — see Implementation-Plan.md
 │   ├── main.py         # FastAPI application entry point
 │   ├── {feature}/      # Feature slices (e.g., products/, orders/)
 │   └── tests/          # Integration tests spanning multiple features

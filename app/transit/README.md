@@ -42,6 +42,24 @@ Real-time vehicle position endpoint for the CMS frontend map. Bridges the existi
 |--------|------|-------------|
 | GET | `/api/v1/transit/vehicles` | Real-time vehicle positions (optional `?route_id=X` filter) |
 
+## Planned Upgrades (Implementation-Plan.md)
+
+This feature will expand significantly as part of the full Latvia transit platform:
+
+| Upgrade | Phase | Description |
+|---------|-------|-------------|
+| Multi-feed support | Phase 1 | Add Jurmala, Pieriga, ATD intercity GTFS-RT feeds alongside Riga |
+| Redis cache | Phase 1 | Move from in-memory 20s cache to Redis for sub-ms reads and pub/sub |
+| GTFS database import | Phase 1 | Persist GTFS static data to PostgreSQL tables (currently in-memory only) |
+| New REST endpoints | Phase 1 | `/vehicles/{id}`, `/stops/{id}/departures`, `/routes/{id}/vehicles` |
+| WebSocket streaming | Phase 1 | `WS /api/v1/transit/vehicles/stream` with subscription filtering |
+| Additional city feeds | Phase 2 | Daugavpils, Liepaja, Rezekne GPS text feeds |
+| Train positions | Phase 2 | WebSocket listener for `wss://trainmap.pv.lv/ws` |
+| ETA calculator | Phase 2 | Valhalla map-matching + distance-to-stop / speed calculation |
+| GTFS-RT publisher | Phase 2 | Serve combined GTFS-RT feed at `/api/v1/transit/gtfs-rt/*.pb` |
+
+See `docs/PLANNING/Implementation-Plan.md` for the complete 4-phase roadmap.
+
 ### Response Schema
 
 ```json
