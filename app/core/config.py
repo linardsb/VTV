@@ -74,6 +74,23 @@ class Settings(BaseSettings):
     # Query quota (daily per IP)
     agent_daily_quota: int = 50
 
+    # Embedding provider (mirrors LLM provider pattern)
+    embedding_provider: str = "jina"  # jina, openai, local
+    embedding_model: str = "jina-embeddings-v3"
+    embedding_dimension: int = 1024
+    embedding_api_key: str | None = None
+    embedding_base_url: str | None = None  # Custom endpoint for local/Jina
+
+    # Reranker
+    reranker_provider: str = "local"  # local, none
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_top_k: int = 10
+
+    # Knowledge base
+    knowledge_chunk_size: int = 512
+    knowledge_chunk_overlap: int = 50
+    knowledge_search_limit: int = 50  # Candidates before reranking
+
 
 @lru_cache
 def get_settings() -> Settings:

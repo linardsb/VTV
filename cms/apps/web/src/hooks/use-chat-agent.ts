@@ -44,7 +44,7 @@ export function useChatAgent(): UseChatAgentReturn {
         const response = await sendChatMessage(apiMessages);
 
         const assistantContent =
-          response.choices[0]?.message?.content ?? "No response received.";
+          response.choices[0]?.message?.content ?? "...";
 
         const assistantMessage: ChatMessage = {
           id: response.id,
@@ -98,7 +98,7 @@ export function useChatAgent(): UseChatAgentReturn {
       }));
       const response = await sendChatMessage(apiMessages);
       const assistantContent =
-        response.choices[0]?.message?.content ?? "No response received.";
+        response.choices[0]?.message?.content ?? "...";
       const assistantMessage: ChatMessage = {
         id: response.id,
         role: "assistant",
