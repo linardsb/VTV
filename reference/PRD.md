@@ -51,6 +51,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 - 4 Obsidian vault tools (query, notes, folders, bulk)
 - 5 read-only transit tools (bus status, schedules, stops, adherence, drivers)
 - 1 knowledge base tool (RAG search over uploaded documents via pgvector) ✅
+- Document management system (upload, metadata edit, download, content preview, Excel/CSV support) ✅
 - Chat UI embedded in CMS ✅ (dedicated `/chat` page with streaming SSE, bilingual LV/EN)
 
 **Infrastructure**

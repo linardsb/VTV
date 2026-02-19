@@ -54,8 +54,8 @@ async def test_extract_image_uses_latvian_ocr():
 
 async def test_unsupported_type_raises():
     """Unknown document types should raise UnsupportedDocumentTypeError."""
-    with pytest.raises(UnsupportedDocumentTypeError, match="Unsupported document type: xlsx"):
-        await extract_text("/tmp/test.xlsx", "xlsx")  # noqa: S108
+    with pytest.raises(UnsupportedDocumentTypeError, match="Unsupported document type: unknown"):
+        await extract_text("/tmp/test.bin", "unknown")  # noqa: S108
 
 
 async def test_email_extraction():

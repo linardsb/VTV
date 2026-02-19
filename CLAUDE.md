@@ -128,7 +128,7 @@ uv run uvicorn app.main:app --reload --port 8123
 ### Testing
 
 ```bash
-# Run unit tests (337 tests, ~5s execution)
+# Run unit tests (354 tests, ~7s execution)
 uv run pytest -v -m "not integration"
 
 # Run all tests including integration (182 tests, requires Docker)
@@ -208,17 +208,17 @@ VTV/
 │   │       │   └── knowledge/# Knowledge base search tool (1/1 implemented ✅)
 │   │       └── tests/
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
-│   ├── knowledge/      # RAG knowledge base (document ingestion, hybrid search, pgvector)
-│   │   ├── models.py       # Document, DocumentChunk (pgvector Vector(1024))
-│   │   ├── schemas.py      # DocumentUpload, SearchRequest/Result/Response
-│   │   ├── repository.py   # CRUD + vector search + fulltext search
-│   │   ├── service.py      # Ingest pipeline + hybrid search with RRF fusion
+│   ├── knowledge/      # RAG knowledge base + document management system (DMS)
+│   │   ├── models.py       # Document (title, description, file_path), DocumentChunk (pgvector Vector(1024))
+│   │   ├── schemas.py      # DocumentUpload/Update/Response, DocumentContentResponse, DomainListResponse, Search*
+│   │   ├── repository.py   # CRUD + vector search + fulltext search + domain listing
+│   │   ├── service.py      # Ingest pipeline + hybrid search + DMS operations (update, download, content)
 │   │   ├── embedding.py    # Configurable embedding provider (OpenAI/Jina/local)
-│   │   ├── processing.py   # Multi-format text extraction (PDF, DOCX, email, image, text)
+│   │   ├── processing.py   # Multi-format text extraction (PDF, DOCX, Excel, CSV, email, image, text)
 │   │   ├── chunking.py     # Recursive text chunking with overlap
 │   │   ├── reranker.py     # Cross-encoder reranking (local/noop)
-│   │   ├── routes.py       # 5 REST endpoints under /api/v1/knowledge
-│   │   └── tests/          # 20 unit tests
+│   │   ├── routes.py       # 9 REST endpoints under /api/v1/knowledge (CRUD + download + content + domains + search)
+│   │   └── tests/          # 30 unit tests
 │   ├── stops/          # Stop management (CRUD with Haversine proximity search)
 │   │   ├── schemas.py      # StopCreate, StopUpdate, StopResponse, StopNearbyParams
 │   │   ├── models.py       # Stop model with plain Float lat/lon columns
@@ -407,7 +407,8 @@ app/core/agents/
 │   │   └── tests/             # 68 unit tests
 │   └── knowledge/     # Knowledge base search tool (see below)
 │       ├── schemas.py         # Response models (KnowledgeSearchResult, KnowledgeSearchResponse)
-│       └── search_knowledge.py # Tool 10: RAG search over uploaded documents
+│       ├── search_knowledge.py # Tool 10: RAG search over uploaded documents (with citation support)
+│       └── tests/             # 7 unit tests
 └── tests/             # 22 agent-level tests
 ```
 
@@ -427,7 +428,7 @@ app/core/agents/
 - `obsidian_bulk_operations` ✅ — Batch operations (move, tag, delete, update_frontmatter, create) with `dry_run` preview. Data source: Obsidian Local REST API.
 
 **Knowledge Base Tool (1, read-only search):**
-- `search_knowledge_base` ✅ — RAG-powered search over uploaded documents (PDF, DOCX, email, image, text). Hybrid vector + fulltext search with RRF fusion and cross-encoder reranking. Data source: PostgreSQL + pgvector via `app/knowledge/` feature slice.
+- `search_knowledge_base` ✅ — RAG-powered search over uploaded documents (PDF, DOCX, Excel, CSV, email, image, text). Hybrid vector + fulltext search with RRF fusion and cross-encoder reranking. Returns `document_id` for citation links. Agent system prompt includes CITATION RULES for formatting `[title](/{locale}/documents/{id})` links. Data source: PostgreSQL + pgvector via `app/knowledge/` feature slice. DMS features: file persistence at `data/documents/{id}/`, metadata editing (PATCH), file download, content preview, domain listing.
 
 **Agent Safety Constraints:**
 - Transit tools: read-only, no write operations
@@ -449,6 +450,7 @@ app/core/agents/
 - Rate limit settings: `RATE_LIMIT_CHAT`, `RATE_LIMIT_TRANSIT`, `RATE_LIMIT_HEALTH`, `RATE_LIMIT_DEFAULT`
 - Query quota: `AGENT_DAILY_QUOTA` (default: 50)
 - Obsidian vault: `OBSIDIAN_API_KEY` (Local REST API key), `OBSIDIAN_VAULT_URL` (default: `https://127.0.0.1:27124`)
+- Document storage: `DOCUMENT_STORAGE_PATH` (default: `data/documents`) — persistent file storage for uploaded documents
 - Knowledge base embedding: `EMBEDDING_PROVIDER` (openai/jina/local), `EMBEDDING_MODEL`, `EMBEDDING_DIMENSION` (1024), `EMBEDDING_API_KEY`, `EMBEDDING_BASE_URL`
 - Knowledge base reranker: `RERANKER_PROVIDER` (local/none), `RERANKER_MODEL`, `RERANKER_TOP_K` (10)
 - Knowledge base tuning: `KNOWLEDGE_CHUNK_SIZE` (512), `KNOWLEDGE_CHUNK_OVERLAP` (50), `KNOWLEDGE_SEARCH_LIMIT` (50)
@@ -511,18 +513,20 @@ cms/apps/web/src/
 │   ├── (dashboard)/
 │   │   ├── page.tsx            # Dashboard (default authenticated page)
 │   │   ├── chat/page.tsx       # AI assistant chat (streaming SSE, bilingual)
+│   │   ├── documents/page.tsx  # Document management (upload, table, filters, detail panel)
 │   │   ├── routes/page.tsx     # Route management (CRUD, filters, resizable map panel; mobile: tab layout)
-│   │   └── {page}/page.tsx     # Future feature pages (stops, schedules, documents, etc.)
+│   │   └── {page}/page.tsx     # Future feature pages (stops, schedules, etc.)
 │   ├── login/page.tsx          # Login page (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect page
 ├── components/
 │   ├── ui/                     # shadcn/ui components (button, table, dialog, tabs, etc.)
 │   ├── app-sidebar.tsx         # Responsive sidebar (desktop aside + mobile hamburger Sheet)
 │   ├── dashboard/              # Dashboard-specific components (metric-card, calendar)
+│   ├── documents/              # Document management (table, filters, upload, detail, delete dialog)
 │   └── routes/                 # Route management components (table, filters, form, detail, map)
 ├── hooks/                      # Custom React hooks (use-mobile, use-vehicle-positions)
-├── types/                      # TypeScript types (route.ts with BusPosition, dashboard.ts)
-├── lib/                        # Utilities (cn, agent-client, mock data, mock bus positions)
+├── types/                      # TypeScript types (route.ts, dashboard.ts, document.ts)
+├── lib/                        # Utilities (cn, agent-client, documents-client, mock data)
 └── i18n/                       # next-intl configuration
 ```
 

@@ -16,6 +16,7 @@
     "schedules": "Grafiki",
     "gtfs": "GTFS",
     "users": "Lietotāji",
+    "documents": "Dokumenti",
     "chat": "AI palīgs",
     "menu": "Izvēlne"
   },
@@ -192,6 +193,104 @@
     "mobile": {
       "tableTab": "Tabula",
       "mapTab": "Karte",
+      "showFilters": "Filtri"
+    }
+  },
+  "documents": {
+    "title": "Dokumentu pārvaldība",
+    "description": "Augšupielādēt un pārvaldīt zināšanu bāzes dokumentus",
+    "search": "Meklēt dokumentus...",
+    "filters": {
+      "allTypes": "Visi tipi",
+      "pdf": "PDF",
+      "docx": "Word",
+      "xlsx": "Excel",
+      "csv": "CSV",
+      "image": "Attēls",
+      "text": "Teksts",
+      "email": "E-pasts",
+      "allStatuses": "Visi statusi",
+      "completed": "Pabeigts",
+      "processing": "Apstrādē",
+      "failed": "Kļūda",
+      "pending": "Gaida",
+      "allLanguages": "Visas valodas",
+      "lv": "Latviešu",
+      "en": "Angļu",
+      "allDomains": "Visi domēni",
+      "type": "Tips",
+      "domain": "Domēns",
+      "status": "Statuss",
+      "language": "Valoda"
+    },
+    "table": {
+      "name": "Nosaukums",
+      "type": "Tips",
+      "size": "Izmērs",
+      "domain": "Domēns",
+      "status": "Statuss",
+      "language": "Valoda",
+      "uploaded": "Augšupielādēts",
+      "actions": "Darbības",
+      "noResults": "Dokumenti nav atrasti",
+      "noResultsDescription": "Augšupielādējiet pirmo dokumentu, lai sāktu darbu.",
+      "showing": "Rāda {from}-{to} no {total}"
+    },
+    "detail": {
+      "title": "Dokumenta detaļas",
+      "fileName": "Faila nosaukums",
+      "fileType": "Faila tips",
+      "fileSize": "Faila izmērs",
+      "chunkCount": "Fragmenti",
+      "domain": "Domēns",
+      "language": "Valoda",
+      "uploaded": "Augšupielādēts",
+      "updated": "Atjaunināts",
+      "description": "Apraksts",
+      "noDescription": "Nav apraksta",
+      "contentPreview": "Satura priekšskatījums",
+      "showAllChunks": "Rādīt visus {count} fragmentus",
+      "chunk": "Fragments {index}"
+    },
+    "actions": {
+      "upload": "Augšupielādēt dokumentu",
+      "delete": "Dzēst",
+      "download": "Lejupielādēt",
+      "close": "Aizvērt"
+    },
+    "upload": {
+      "title": "Augšupielādēt dokumentu",
+      "dropzone": "Ievelciet failus šeit vai noklikšķiniet",
+      "dropzoneHint": "Atbalsta PDF, DOCX, XLSX, CSV, TXT, attēlus līdz 50MB",
+      "dropzoneActive": "Nometiet failu šeit",
+      "dropzoneReject": "Faila tips netiek atbalstīts",
+      "selectedFile": "Izvēlētais fails",
+      "titleLabel": "Nosaukums",
+      "titlePlaceholder": "Dokumenta nosaukums (neobligāts)",
+      "descriptionLabel": "Apraksts",
+      "descriptionPlaceholder": "Īss dokumenta apraksts...",
+      "domainLabel": "Domēns",
+      "domainPlaceholder": "Izvēlieties vai ierakstiet domēnu",
+      "languageLabel": "Valoda",
+      "uploading": "Augšupielādē...",
+      "processing": "Apstrādā dokumentu...",
+      "submit": "Augšupielādēt"
+    },
+    "delete": {
+      "title": "Dzēst dokumentu",
+      "confirmation": "Vai tiešām vēlaties dzēst \"{name}\"?",
+      "warning": "Dokuments un visi iegūtie fragmenti tiks neatgriezeniski noņemti no zināšanu bāzes.",
+      "confirm": "Dzēst",
+      "cancel": "Atcelt"
+    },
+    "toast": {
+      "uploaded": "Dokuments veiksmīgi augšupielādēts",
+      "deleted": "Dokuments dzēsts",
+      "uploadError": "Augšupielāde neizdevās. Mēģiniet vēlreiz.",
+      "deleteError": "Dzēšana neizdevās. Mēģiniet vēlreiz.",
+      "downloadError": "Lejupielāde neizdevās. Mēģiniet vēlreiz."
+    },
+    "mobile": {
       "showFilters": "Filtri"
     }
   },

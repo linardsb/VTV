@@ -23,6 +23,7 @@ const navItems = [
   { key: "schedules", href: "/schedules", enabled: false },
   { key: "gtfs", href: "/gtfs", enabled: false },
   { key: "users", href: "/users", enabled: false },
+  { key: "documents", href: "/documents", enabled: true },
   { key: "chat", href: "/chat", enabled: true },
 ] as const;
 

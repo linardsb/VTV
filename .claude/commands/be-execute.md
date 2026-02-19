@@ -82,15 +82,26 @@ Follow the plan's implementation steps in exact order. For each step:
   26. **Partially annotated test functions need `-> None`** — Adding a type annotation to a pytest fixture parameter (e.g., `tmp_path: Path`) without a return type triggers mypy `no-untyped-def` because the function becomes "partially typed". Always add both: `def test_foo(tmp_path: Path) -> None:`. This applies to ANY test function where you annotate even one parameter.
   27. **Pydantic `Field(None, ...)` confuses pyright about required params** — Pyright doesn't understand that `Field(None, description="...")` sets a default of `None`. When constructing models in tests, explicitly pass all `Field(None)` params: `MyModel(required_field="x", optional_field=None)` instead of relying on the Pydantic default.
   28. **Bare `[]` list literals inferred as `list[Unknown]`** — Pyright `reportUnknownMemberType` fires on `.append()` when the list has no type annotation. Always annotate: `items: list[MagicMock] = []` not `items = []`. Same pattern as rule #24 for dicts.
+  29. **Adding optional fields to existing Pydantic schemas breaks ALL constructors** — When adding `Field(None, ...)` fields to an existing schema (e.g., adding `title: str | None = Field(None)` to `DocumentUpload`), pyright treats `Field(None)` as NOT having a default. You MUST immediately grep for `SchemaName(` across the ENTIRE codebase and update ALL constructors to pass the new fields explicitly — including test fixtures in `conftest.py`, route handlers, service calls, and inline test constructions. This is rule #27 applied proactively: don't wait for pyright to catch it, fix every constructor in the SAME step that adds the field.
+  30. **Existing tests break when new types are added** — When adding support for a new document type, file format, or enum value, grep for tests that assert on "unsupported" or "unknown" types. Tests like `test_unsupported_type_raises("xlsx")` will fail after xlsx becomes supported. Update these tests in the SAME step that adds the new type support.
 
 ### 3. Run database migrations (if needed)
 
 If the plan includes new models or schema changes:
 
+**Try autogenerate first (requires running database):**
 ```bash
-uv run alembic revision --autogenerate -m "[description from plan]"
-uv run alembic upgrade head
+docker-compose ps 2>/dev/null && uv run alembic revision --autogenerate -m "[description from plan]"
 ```
+
+**If the database is not running (connection refused, Docker not started):** Create the migration file manually instead of failing. Use the plan's model changes to write explicit `op.add_column()`, `op.create_table()`, etc. calls:
+1. Find the latest revision ID in `alembic/versions/`
+2. Create a new file `alembic/versions/{id}_{description}.py` with `down_revision` pointing to the latest
+3. Write `upgrade()` with `op.add_column()` / `op.create_table()` calls matching the model changes
+4. Write `downgrade()` with matching `op.drop_column()` / `op.drop_table()` calls
+5. Document in the output that migration was created manually due to no database connection
+
+**Do NOT** treat a missing database as a blocking failure — manual migration creation is standard practice.
 
 ### 4. Validate — ALL must pass
 

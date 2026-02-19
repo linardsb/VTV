@@ -6,13 +6,17 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from fastapi.requests import Request
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.knowledge.schemas import (
+    DocumentContentResponse,
     DocumentResponse,
+    DocumentUpdate,
     DocumentUpload,
+    DomainListResponse,
     SearchRequest,
     SearchResponse,
 )
@@ -30,10 +34,11 @@ def get_service(db: AsyncSession = Depends(get_db)) -> KnowledgeService:  # noqa
 _CONTENT_TYPE_MAP: dict[str, str] = {
     "application/pdf": "pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
     "message/rfc822": "email",
     "text/plain": "text",
     "text/markdown": "text",
-    "text/csv": "text",
+    "text/csv": "csv",
 }
 
 
@@ -44,7 +49,7 @@ def _detect_source_type(content_type: str | None) -> str:
         content_type: MIME type string from upload.
 
     Returns:
-        Source type string (pdf, docx, email, image, text).
+        Source type string (pdf, docx, email, image, text, xlsx, csv).
     """
     if content_type is None:
         return "text"
@@ -65,11 +70,19 @@ async def upload_document(
     domain: str = Form(...),
     language: str = Form(default="lv"),
     metadata_json: str | None = Form(default=None),
+    title: str | None = Form(default=None),
+    description: str | None = Form(default=None),
     service: KnowledgeService = Depends(get_service),  # noqa: B008
 ) -> DocumentResponse:
     """Upload and ingest a document into the knowledge base."""
     _ = request
-    upload = DocumentUpload(domain=domain, language=language, metadata_json=metadata_json)
+    upload = DocumentUpload(
+        domain=domain,
+        language=language,
+        metadata_json=metadata_json,
+        title=title,
+        description=description,
+    )
     source_type = _detect_source_type(file.content_type)
 
     # Save to temp file
@@ -118,6 +131,48 @@ async def get_document(
     return await service.get_document(document_id)
 
 
+@router.patch("/documents/{document_id}", response_model=DocumentResponse)
+@limiter.limit("10/minute")
+async def update_document(
+    request: Request,
+    document_id: int,
+    body: DocumentUpdate,
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+) -> DocumentResponse:
+    """Update document metadata (title, description, domain, language)."""
+    _ = request
+    return await service.update_document(document_id, body)
+
+
+@router.get("/documents/{document_id}/download")
+@limiter.limit("30/minute")
+async def download_document(
+    request: Request,
+    document_id: int,
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+) -> FileResponse:
+    """Download the original uploaded file."""
+    _ = request
+    file_path, filename = await service.get_document_file_path(document_id)
+    return FileResponse(
+        path=Path(file_path).resolve(),
+        filename=filename,
+        media_type="application/octet-stream",
+    )
+
+
+@router.get("/documents/{document_id}/content", response_model=DocumentContentResponse)
+@limiter.limit("30/minute")
+async def get_document_content(
+    request: Request,
+    document_id: int,
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+) -> DocumentContentResponse:
+    """Get extracted text chunks for a document."""
+    _ = request
+    return await service.get_document_content(document_id)
+
+
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("10/minute")
 async def delete_document(
@@ -128,6 +183,17 @@ async def delete_document(
     """Delete a document and its chunks."""
     _ = request
     await service.delete_document(document_id)
+
+
+@router.get("/domains", response_model=DomainListResponse)
+@limiter.limit("30/minute")
+async def list_domains(
+    request: Request,
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+) -> DomainListResponse:
+    """List all unique document domains."""
+    _ = request
+    return await service.list_domains()
 
 
 @router.post("/search", response_model=SearchResponse)

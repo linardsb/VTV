@@ -6,18 +6,12 @@ Planned features and improvements. Each item links to its detailed planning docu
 
 ### Document Management System (DMS)
 
-- [ ] **DMS Backend** - Scanned PDF OCR detection, Excel/CSV extraction, LLM auto-tagging on upload, tag CRUD endpoints, document download endpoint, document content endpoint. ~4 days effort.
+- [ ] **DMS Enhancements** - Scanned PDF OCR detection, LLM auto-tagging on upload, tag CRUD endpoints. ~2 days remaining effort.
   - Plan: [docs/PLANNING/latvian-language-and-model-research.md](PLANNING/latvian-language-and-model-research.md) (see "Unified DMS" section)
-
-- [ ] **DMS Frontend Pages** - Three new CMS pages: document list with filters/search/pagination, document upload with drag-and-drop and auto-tag preview, document viewer with rendered content and metadata sidebar. ~6 days effort.
-  - Plan: [docs/PLANNING/latvian-language-and-model-research.md](PLANNING/latvian-language-and-model-research.md) (see "Frontend CMS pages" section)
-
-- [ ] **Agent Document Citations** - Update agent prompt to include clickable document links (`[title](/lv/documents/{id})`) when citing knowledge base results. ~0.5 days effort.
-  - Plan: [docs/PLANNING/latvian-language-and-model-research.md](PLANNING/latvian-language-and-model-research.md) (see "Document Viewer UX Decision" section)
 
 ### Knowledge Base
 
-- [ ] **RAG Knowledge Base Improvements** - Expand document type support (Excel/CSV, HTML, PPTX), add Latvian lemmatizer, parent-child chunking, temporal metadata, auto-domain tagging, cross-lingual search, document versioning, search feedback loop, and knowledge graph overlay. ~14-16 days total effort, ~$0.65/month added cost.
+- [ ] **RAG Knowledge Base Improvements** - Expand document type support (HTML, PPTX — Excel/CSV done), add Latvian lemmatizer, parent-child chunking, temporal metadata, auto-domain tagging, cross-lingual search, document versioning, search feedback loop, and knowledge graph overlay. ~12-14 days remaining effort, ~$0.65/month added cost.
   - Plan: [docs/PLANNING/rag-improvements.md](PLANNING/rag-improvements.md)
 
 - [ ] **SOP & File Automation** - Automated document ingestion (folder watcher, email monitor, web scraper, GTFS sync) and LLM-powered SOP generation (incident-to-SOP pipeline, regulation change detection, shift handover notes, template scaffolding). ~13 days total effort, ~$4.50/month LLM cost, saves ~47 hrs/month human time.
@@ -46,6 +40,15 @@ Planned features and improvements. Each item links to its detailed planning docu
 ## Completed
 
 ### Backend Features
+
+- [x] **DMS Backend** - Document management system: file persistence at `data/documents/{id}/`, metadata editing (PATCH), file download, content preview, domain listing, Excel/CSV extraction via openpyxl. 4 new API endpoints, 3 new Document model columns (title, description, file_path). 10 new unit tests.
+  - Plan: [.agents/plans/dms-backend.md](../.agents/plans/dms-backend.md)
+
+- [x] **DMS Frontend** - Documents management page with upload form (drag-and-drop, react-dropzone), filterable table (search, type, domain, status, language), document detail panel with lazy-loaded chunk viewer, download/delete actions, responsive design. 8 new files, 5 modified files, ~70 i18n keys per locale.
+  - Plan: [.agents/plans/dms-frontend.md](../.agents/plans/dms-frontend.md)
+
+- [x] **Agent Document Citations** - Agent system prompt includes CITATION RULES for clickable document links (`[title](/{locale}/documents/{id})`), knowledge search tool passes `document_id` through results. 7 unit tests. (commit bf0889f)
+  - Plan: [.agents/plans/agent-document-citations.md](../.agents/plans/agent-document-citations.md)
 
 - [x] **RAG Knowledge Base** - Hybrid search (pgvector + fulltext + RRF), multi-format ingestion (PDF, DOCX, email, image OCR, text), configurable embeddings (OpenAI/Jina/local), cross-encoder reranking, agent tool integration. 20 unit tests. (commit 8544237)
 

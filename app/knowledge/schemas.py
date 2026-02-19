@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class DocumentUpload(BaseModel):
@@ -11,6 +11,17 @@ class DocumentUpload(BaseModel):
     domain: str = Field(..., min_length=1, max_length=50, description="Knowledge domain")
     language: str = Field(default="lv", pattern="^(lv|en)$", description="Document language")
     metadata_json: str | None = Field(None, description="Optional JSON metadata string")
+    title: str | None = Field(None, max_length=200, description="Human-readable document title")
+    description: str | None = Field(None, description="Optional document description")
+
+
+class DocumentUpdate(BaseModel):
+    """Schema for updating document metadata (PATCH semantics)."""
+
+    title: str | None = None
+    description: str | None = None
+    domain: str | None = Field(None, min_length=1, max_length=50)
+    language: str | None = Field(None, pattern="^(lv|en)$")
 
 
 class DocumentResponse(BaseModel):
@@ -18,6 +29,9 @@ class DocumentResponse(BaseModel):
 
     id: int
     filename: str
+    title: str | None
+    description: str | None
+    file_path: str | None
     domain: str
     source_type: str
     language: str
@@ -30,6 +44,38 @@ class DocumentResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def has_file(self) -> bool:
+        """Whether the original file is stored on disk."""
+        return self.file_path is not None
+
+
+class DocumentChunkResponse(BaseModel):
+    """Schema for a single document chunk."""
+
+    chunk_index: int
+    content: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentContentResponse(BaseModel):
+    """Schema wrapping document metadata with its text chunks."""
+
+    document_id: int
+    filename: str
+    title: str | None
+    total_chunks: int
+    chunks: list[DocumentChunkResponse]
+
+
+class DomainListResponse(BaseModel):
+    """Schema for listing unique knowledge domains."""
+
+    domains: list[str]
+    total: int
 
 
 class SearchRequest(BaseModel):

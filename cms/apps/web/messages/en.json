@@ -16,6 +16,7 @@
     "schedules": "Schedules",
     "gtfs": "GTFS",
     "users": "Users",
+    "documents": "Documents",
     "chat": "AI Assistant",
     "menu": "Menu"
   },
@@ -192,6 +193,104 @@
     "mobile": {
       "tableTab": "Table",
       "mapTab": "Map",
+      "showFilters": "Filters"
+    }
+  },
+  "documents": {
+    "title": "Document Management",
+    "description": "Upload and manage knowledge base documents",
+    "search": "Search documents...",
+    "filters": {
+      "allTypes": "All Types",
+      "pdf": "PDF",
+      "docx": "Word",
+      "xlsx": "Excel",
+      "csv": "CSV",
+      "image": "Image",
+      "text": "Text",
+      "email": "Email",
+      "allStatuses": "All Statuses",
+      "completed": "Completed",
+      "processing": "Processing",
+      "failed": "Failed",
+      "pending": "Pending",
+      "allLanguages": "All Languages",
+      "lv": "Latvian",
+      "en": "English",
+      "allDomains": "All Domains",
+      "type": "Type",
+      "domain": "Domain",
+      "status": "Status",
+      "language": "Language"
+    },
+    "table": {
+      "name": "Name",
+      "type": "Type",
+      "size": "Size",
+      "domain": "Domain",
+      "status": "Status",
+      "language": "Language",
+      "uploaded": "Uploaded",
+      "actions": "Actions",
+      "noResults": "No documents found",
+      "noResultsDescription": "Upload your first document to get started.",
+      "showing": "Showing {from}-{to} of {total}"
+    },
+    "detail": {
+      "title": "Document Details",
+      "fileName": "File Name",
+      "fileType": "File Type",
+      "fileSize": "File Size",
+      "chunkCount": "Chunks",
+      "domain": "Domain",
+      "language": "Language",
+      "uploaded": "Uploaded",
+      "updated": "Updated",
+      "description": "Description",
+      "noDescription": "No description",
+      "contentPreview": "Content Preview",
+      "showAllChunks": "Show all {count} chunks",
+      "chunk": "Chunk {index}"
+    },
+    "actions": {
+      "upload": "Upload Document",
+      "delete": "Delete",
+      "download": "Download",
+      "close": "Close"
+    },
+    "upload": {
+      "title": "Upload Document",
+      "dropzone": "Drop files here or click to browse",
+      "dropzoneHint": "Supports PDF, DOCX, XLSX, CSV, TXT, images up to 50MB",
+      "dropzoneActive": "Drop the file here",
+      "dropzoneReject": "File type not supported",
+      "selectedFile": "Selected file",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Document title (optional)",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Brief description of the document...",
+      "domainLabel": "Domain",
+      "domainPlaceholder": "Select or type domain",
+      "languageLabel": "Language",
+      "uploading": "Uploading...",
+      "processing": "Processing document...",
+      "submit": "Upload"
+    },
+    "delete": {
+      "title": "Delete Document",
+      "confirmation": "Are you sure you want to delete \"{name}\"?",
+      "warning": "This will permanently remove the document and all extracted chunks from the knowledge base.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "uploaded": "Document uploaded successfully",
+      "deleted": "Document deleted",
+      "uploadError": "Upload failed. Please try again.",
+      "deleteError": "Delete failed. Please try again.",
+      "downloadError": "Download failed. Please try again."
+    },
+    "mobile": {
       "showFilters": "Filters"
     }
   },

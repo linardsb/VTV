@@ -86,6 +86,9 @@ class Settings(BaseSettings):
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_top_k: int = 10
 
+    # Document storage
+    document_storage_path: str = "data/documents"
+
     # Knowledge base
     knowledge_chunk_size: int = 512
     knowledge_chunk_overlap: int = 50

@@ -6,7 +6,9 @@ and hybrid search (vector + fulltext + RRF fusion + reranking).
 
 from __future__ import annotations
 
+import shutil
 import time
+from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,13 +16,17 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.knowledge import chunking, processing
 from app.knowledge.embedding import EmbeddingProvider, get_embedding_provider
-from app.knowledge.exceptions import DocumentNotFoundError
+from app.knowledge.exceptions import DocumentNotFoundError, ProcessingError
 from app.knowledge.models import DocumentChunk
 from app.knowledge.repository import KnowledgeRepository
 from app.knowledge.reranker import RerankerProvider, get_reranker_provider
 from app.knowledge.schemas import (
+    DocumentChunkResponse,
+    DocumentContentResponse,
     DocumentResponse,
+    DocumentUpdate,
     DocumentUpload,
+    DomainListResponse,
     SearchRequest,
     SearchResponse,
     SearchResult,
@@ -75,9 +81,9 @@ class KnowledgeService:
 
         Args:
             file_path: Absolute path to the uploaded file on disk.
-            upload: Upload metadata (domain, language).
+            upload: Upload metadata (domain, language, title, description).
             filename: Original filename.
-            source_type: Detected file type (pdf, docx, email, image, text).
+            source_type: Detected file type (pdf, docx, email, image, text, xlsx, csv).
             file_size: File size in bytes.
 
         Returns:
@@ -88,9 +94,11 @@ class KnowledgeService:
         """
         settings = get_settings()
         start = time.monotonic()
+        title = upload.title if upload.title else Path(filename).stem
         logger.info(
             "knowledge.ingest.started",
             filename=filename,
+            title=title,
             domain=upload.domain,
             source_type=source_type,
         )
@@ -102,12 +110,26 @@ class KnowledgeService:
             language=upload.language,
             file_size_bytes=file_size,
             metadata_json=upload.metadata_json,
+            title=title,
+            description=upload.description,
             status="processing",
         )
 
         try:
             # Extract text
             text = await processing.extract_text(file_path, source_type)
+
+            # Store original file on disk
+            storage_dir = Path(settings.document_storage_path) / str(doc.id)
+            storage_dir.mkdir(parents=True, exist_ok=True)
+            stored_path = storage_dir / filename
+            shutil.copy2(file_path, stored_path)
+            await self.repository.update_document_file_path(doc.id, str(stored_path))
+            logger.info(
+                "knowledge.document.file_stored",
+                document_id=doc.id,
+                file_path=str(stored_path),
+            )
 
             # Chunk
             chunks = chunking.chunk_text(
@@ -164,6 +186,91 @@ class KnowledgeService:
 
         await self.db.refresh(doc)
         return DocumentResponse.model_validate(doc)
+
+    async def update_document(self, document_id: int, data: DocumentUpdate) -> DocumentResponse:
+        """Update document metadata.
+
+        Args:
+            document_id: The document's database ID.
+            data: Fields to update (only non-None fields are applied).
+
+        Returns:
+            Updated DocumentResponse.
+
+        Raises:
+            DocumentNotFoundError: If document does not exist.
+        """
+        logger.info("knowledge.document.update_started", document_id=document_id)
+        updated = await self.repository.update_document(
+            document_id, **data.model_dump(exclude_unset=True)
+        )
+        if not updated:
+            raise DocumentNotFoundError(f"Document {document_id} not found")
+        logger.info("knowledge.document.update_completed", document_id=document_id)
+        return DocumentResponse.model_validate(updated)
+
+    async def get_document_content(self, document_id: int) -> DocumentContentResponse:
+        """Get document metadata and extracted text chunks.
+
+        Args:
+            document_id: The document's database ID.
+
+        Returns:
+            DocumentContentResponse with chunks ordered by index.
+
+        Raises:
+            DocumentNotFoundError: If document does not exist.
+        """
+        doc = await self.repository.get_document(document_id)
+        if not doc:
+            raise DocumentNotFoundError(f"Document {document_id} not found")
+
+        chunks = await self.repository.get_chunks_by_document(document_id)
+        logger.info(
+            "knowledge.document.content_retrieved",
+            document_id=document_id,
+            chunk_count=len(chunks),
+        )
+
+        return DocumentContentResponse(
+            document_id=doc.id,
+            filename=doc.filename,
+            title=doc.title,
+            total_chunks=len(chunks),
+            chunks=[
+                DocumentChunkResponse(chunk_index=c.chunk_index, content=c.content) for c in chunks
+            ],
+        )
+
+    async def get_document_file_path(self, document_id: int) -> tuple[str, str]:
+        """Get the stored file path and filename for download.
+
+        Args:
+            document_id: The document's database ID.
+
+        Returns:
+            Tuple of (file_path, filename).
+
+        Raises:
+            DocumentNotFoundError: If document does not exist.
+            ProcessingError: If file is not stored (legacy document).
+        """
+        doc = await self.repository.get_document(document_id)
+        if not doc:
+            raise DocumentNotFoundError(f"Document {document_id} not found")
+        if not doc.file_path:
+            raise ProcessingError(f"Document {document_id} has no stored file (legacy upload)")
+        return (doc.file_path, doc.filename)
+
+    async def list_domains(self) -> DomainListResponse:
+        """List all unique document domains.
+
+        Returns:
+            DomainListResponse with sorted domain names.
+        """
+        domains = await self.repository.list_domains()
+        logger.info("knowledge.domains.list_completed", domain_count=len(domains))
+        return DomainListResponse(domains=domains, total=len(domains))
 
     async def search(self, request: SearchRequest) -> SearchResponse:
         """Hybrid search: vector + fulltext + RRF fusion + reranking.
@@ -305,7 +412,7 @@ class KnowledgeService:
         )
 
     async def delete_document(self, document_id: int) -> None:
-        """Delete a document and its chunks.
+        """Delete a document, its chunks, and stored file.
 
         Args:
             document_id: The document's database ID.
@@ -316,5 +423,16 @@ class KnowledgeService:
         doc = await self.repository.get_document(document_id)
         if not doc:
             raise DocumentNotFoundError(f"Document {document_id} not found")
+
+        # Clean up stored file if present
+        if doc.file_path:
+            file_dir = Path(doc.file_path).parent
+            shutil.rmtree(file_dir, ignore_errors=True)
+            logger.info(
+                "knowledge.document.file_deleted",
+                document_id=document_id,
+                file_dir=str(file_dir),
+            )
+
         await self.repository.delete_document(document_id)
         logger.info("knowledge.delete.completed", document_id=document_id)

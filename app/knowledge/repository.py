@@ -1,7 +1,7 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
 """Data access layer for knowledge base with pgvector hybrid search."""
 
-from sqlalchemy import func, select, text
+from sqlalchemy import distinct, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.knowledge.models import Document, DocumentChunk
@@ -27,6 +27,8 @@ class KnowledgeRepository:
         language: str,
         file_size_bytes: int | None,
         metadata_json: str | None,
+        title: str | None = None,
+        description: str | None = None,
         status: str = "pending",
     ) -> Document:
         """Create a new document record.
@@ -38,6 +40,8 @@ class KnowledgeRepository:
             language: Document language (lv, en).
             file_size_bytes: File size in bytes.
             metadata_json: Optional JSON metadata string.
+            title: Human-readable document title.
+            description: Optional document description.
             status: Processing status.
 
         Returns:
@@ -50,6 +54,8 @@ class KnowledgeRepository:
             language=language,
             file_size_bytes=file_size_bytes,
             metadata_json=metadata_json,
+            title=title,
+            description=description,
             status=status,
         )
         self.db.add(doc)
@@ -76,6 +82,7 @@ class KnowledgeRepository:
         limit: int = 100,
         domain: str | None = None,
         status: str | None = None,
+        language: str | None = None,
     ) -> list[Document]:
         """List documents with pagination and optional filtering.
 
@@ -84,6 +91,7 @@ class KnowledgeRepository:
             limit: Maximum records to return.
             domain: Filter by domain.
             status: Filter by processing status.
+            language: Filter by language.
 
         Returns:
             List of Document instances.
@@ -93,6 +101,8 @@ class KnowledgeRepository:
             query = query.where(Document.domain == domain)
         if status:
             query = query.where(Document.status == status)
+        if language:
+            query = query.where(Document.language == language)
         query = query.order_by(Document.created_at.desc()).offset(offset).limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -154,6 +164,69 @@ class KnowledgeRepository:
         if doc:
             await self.db.delete(doc)
             await self.db.commit()
+
+    async def update_document(
+        self,
+        document_id: int,
+        **kwargs: str | None,
+    ) -> Document | None:
+        """Update document metadata fields.
+
+        Args:
+            document_id: The document's database ID.
+            **kwargs: Fields to update (title, description, domain, language).
+
+        Returns:
+            Updated Document or None if not found.
+        """
+        result = await self.db.execute(select(Document).where(Document.id == document_id))
+        doc = result.scalar_one_or_none()
+        if not doc:
+            return None
+        for key, value in kwargs.items():
+            if value is not None:
+                setattr(doc, key, value)
+        await self.db.commit()
+        await self.db.refresh(doc)
+        return doc
+
+    async def update_document_file_path(self, document_id: int, file_path: str) -> None:
+        """Set the stored file path for a document.
+
+        Args:
+            document_id: The document's database ID.
+            file_path: Path to the stored file on disk.
+        """
+        result = await self.db.execute(select(Document).where(Document.id == document_id))
+        doc = result.scalar_one_or_none()
+        if doc:
+            doc.file_path = file_path
+            await self.db.commit()
+
+    async def get_chunks_by_document(self, document_id: int) -> list[DocumentChunk]:
+        """Get all chunks for a document ordered by index.
+
+        Args:
+            document_id: The document's database ID.
+
+        Returns:
+            List of DocumentChunk instances ordered by chunk_index.
+        """
+        result = await self.db.execute(
+            select(DocumentChunk)
+            .where(DocumentChunk.document_id == document_id)
+            .order_by(DocumentChunk.chunk_index)
+        )
+        return list(result.scalars().all())
+
+    async def list_domains(self) -> list[str]:
+        """List all unique document domains.
+
+        Returns:
+            Sorted list of unique domain strings.
+        """
+        result = await self.db.execute(select(distinct(Document.domain)).order_by(Document.domain))
+        return list(result.scalars().all())
 
     async def bulk_create_chunks(self, chunks: list[DocumentChunk]) -> None:
         """Bulk insert document chunks.

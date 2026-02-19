@@ -255,10 +255,15 @@ app.include_router([feature]_router)
 
 ## Migration (if applicable)
 
+**If database is running:**
 ```bash
 uv run alembic revision --autogenerate -m "[description]"
 uv run alembic upgrade head
 ```
+
+**If database is NOT running (fallback):** Create migration manually. Specify column types, nullable flags, and foreign keys below so the executing agent can write `op.add_column()` / `op.create_table()` calls by hand:
+- [Column 1]: `type`, nullable=[yes/no], default=[value]
+- [Column 2]: `type`, nullable=[yes/no]
 
 ## Logging Events
 
@@ -379,6 +384,18 @@ The executing agent MUST follow these rules to avoid common errors:
 26. **Partially annotated test functions need `-> None`** — Adding a type annotation to a pytest fixture parameter (e.g., `tmp_path: Path`) without a return type triggers mypy `no-untyped-def` (partially typed function). Plan must always specify both param type AND `-> None` return type when any test function parameter is annotated.
 27. **Pydantic `Field(None, ...)` confuses pyright about required params** — Pyright doesn't understand that `Field(None, description="...")` sets a default. Plan must specify explicitly passing all `Field(None)` params in test fixtures: `MyModel(required="x", optional=None)`.
 28. **Bare `[]` list literals inferred as `list[Unknown]`** — Pyright `reportUnknownMemberType` fires on `.append()` when the list has no type annotation. Plan must specify explicit type annotations on list variables: `items: list[MagicMock] = []` not `items = []`. Same pattern as rule #24 for dicts.
+29. **Adding optional fields to existing Pydantic schemas breaks ALL constructors** — When the plan adds `Field(None, ...)` to an existing schema, the plan MUST include a task to grep for `SchemaName(` across the entire codebase and update ALL constructors — test fixtures in `conftest.py`, route handlers, service calls, and inline test constructions. Pyright treats `Field(None)` as NOT providing a default, so every call site needs explicit params. This is rule #27 applied proactively at the planning stage. The task that adds the schema field and the task that updates all consumers MUST be the same task or immediately adjacent.
+30. **Existing tests break when new types are added** — When the plan adds support for a new document type, file format, or enum value, the plan MUST include updating any tests that assert on "unsupported" or "unknown" types. Example: adding xlsx support breaks `test_unsupported_type_raises("xlsx")`. Include these test updates in the same task that adds the new type.
+
+## Migration (if applicable)
+
+**Prefer autogenerate when database is running:**
+```bash
+uv run alembic revision --autogenerate -m "[description]"
+uv run alembic upgrade head
+```
+
+**When database may not be running:** The plan MUST note that manual migration creation is an acceptable fallback. Include the column types, nullable flags, and foreign keys needed so the executing agent can write the migration by hand if `--autogenerate` fails due to no database connection.
 
 ## Notes
 

@@ -8,7 +8,9 @@ from app.knowledge.schemas import DocumentUpload
 @pytest.fixture
 def sample_upload() -> DocumentUpload:
     """Provide a sample document upload schema."""
-    return DocumentUpload(domain="transit", language="lv", metadata_json=None)
+    return DocumentUpload(
+        domain="transit", language="lv", metadata_json=None, title=None, description=None
+    )
 
 
 @pytest.fixture

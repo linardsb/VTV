@@ -42,6 +42,8 @@ async def extract_text(file_path: str, source_type: str) -> str:
         "email": _extract_email_sync,
         "image": _extract_image_sync,
         "text": _extract_text_sync,
+        "xlsx": _extract_excel_sync,
+        "csv": _extract_csv_sync,
     }
 
     extractor = extractors.get(source_type)
@@ -159,3 +161,53 @@ def _extract_text_sync(file_path: str) -> str:
         File content as string.
     """
     return Path(file_path).read_text(encoding="utf-8")
+
+
+def _extract_excel_sync(file_path: str) -> str:
+    """Extract text from an Excel (.xlsx) file using openpyxl.
+
+    Args:
+        file_path: Path to the .xlsx file.
+
+    Returns:
+        Tab-separated text from all sheets.
+    """
+    import openpyxl
+
+    wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+    sheets: list[str] = []
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        rows: list[str] = []
+        for row in ws.iter_rows():
+            cells: list[str] = []
+            for cell in row:
+                cells.append(str(cell.value) if cell.value is not None else "")
+            rows.append("\t".join(cells))
+        sheet_text = f"--- Sheet: {sheet_name} ---\n" + "\n".join(rows)
+        sheets.append(sheet_text)
+    wb.close()
+    return "\n\n".join(sheets)
+
+
+def _extract_csv_sync(file_path: str) -> str:
+    """Extract text from a CSV file.
+
+    Args:
+        file_path: Path to the CSV file.
+
+    Returns:
+        Tab-separated text from all rows.
+    """
+    import csv
+
+    try:
+        with Path(file_path).open(encoding="utf-8") as f:
+            reader = csv.reader(f)
+            rows: list[str] = []
+            for row in reader:
+                rows.append("\t".join(row))
+            return "\n".join(rows)
+    except csv.Error:
+        logger.warning("knowledge.extraction.csv_fallback", file_path=file_path)
+        return Path(file_path).read_text(encoding="utf-8")

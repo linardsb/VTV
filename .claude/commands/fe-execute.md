@@ -56,7 +56,11 @@ Follow the plan's implementation steps in exact order. For each step:
   - Accessibility: ARIA labels, alt text, keyboard navigation
   - Follow MASTER.md design system rules (spacing, typography, color)
 - CRITICAL — React 19 anti-patterns (see `cms/apps/web/CLAUDE.md` for full details):
-  - **Never** use `setState` inside `useEffect` — use `key` prop remount pattern instead
+  - **NEVER use `setState` inside `useEffect`** — This is the #1 most common error. React 19's `react-hooks/set-state-in-effect` rule WILL fail the lint check. Instead of loading data in useEffect and calling setState with the result, use one of these patterns:
+    - **Event handler pattern** (preferred): Load data on user action (button click, expand toggle) rather than on mount
+    - **Key prop remount pattern**: Pass a `key` prop that changes when you want to re-initialize, and compute initial state from props
+    - **useSWR/useQuery pattern**: Use a data-fetching library that manages state externally
+    - If you write `useEffect(() => { fetch(...).then(data => setData(data)) }, [])` — STOP and refactor to an event handler or key pattern BEFORE proceeding
   - **Never** define component functions inside other components — extract to module scope
   - **Never** use `Math.random()` in render paths
   - When using const placeholders for runtime values (e.g. `const ROLE = "admin"`), annotate as `string` to avoid TS2367 literal narrowing errors
