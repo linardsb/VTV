@@ -62,7 +62,8 @@ async def search_knowledge_base(
         limit: Maximum results to return (1-20, default 5).
 
     Returns:
-        JSON string with search results or actionable error message.
+        JSON string with search results including document_id for citation links.
+        Each result has document_id - use it to link: [title](/{locale}/documents/{id}).
     """
     _settings = ctx.deps.settings
     start_time = time.monotonic()
@@ -97,6 +98,7 @@ async def search_knowledge_base(
         # Map to agent-optimized schema (truncate content for token efficiency)
         results = [
             KnowledgeSearchResult(
+                document_id=r.document_id,
                 content=r.chunk_content[:_MAX_CONTENT_CHARS],
                 source=r.document_filename,
                 domain=r.domain,

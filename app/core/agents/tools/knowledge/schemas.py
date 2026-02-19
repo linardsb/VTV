@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class KnowledgeSearchResult(BaseModel):
     """Single search result for agent consumption."""
 
+    document_id: int
     content: str
     source: str
     domain: str

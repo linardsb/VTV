@@ -81,6 +81,7 @@ Follow the plan's implementation steps in exact order. For each step:
   25. **Untyped lib method returns need `str()` wrapping** — Methods on objects from untyped libs (e.g., `page.get_text()` from fitz, `pytesseract.image_to_string()`) return `Unknown` type. Always wrap in `str()`: `text = str(page.get_text())`. This satisfies pyright without needing `reportUnknownArgumentType=false`.
   26. **Partially annotated test functions need `-> None`** — Adding a type annotation to a pytest fixture parameter (e.g., `tmp_path: Path`) without a return type triggers mypy `no-untyped-def` because the function becomes "partially typed". Always add both: `def test_foo(tmp_path: Path) -> None:`. This applies to ANY test function where you annotate even one parameter.
   27. **Pydantic `Field(None, ...)` confuses pyright about required params** — Pyright doesn't understand that `Field(None, description="...")` sets a default of `None`. When constructing models in tests, explicitly pass all `Field(None)` params: `MyModel(required_field="x", optional_field=None)` instead of relying on the Pydantic default.
+  28. **Bare `[]` list literals inferred as `list[Unknown]`** — Pyright `reportUnknownMemberType` fires on `.append()` when the list has no type annotation. Always annotate: `items: list[MagicMock] = []` not `items = []`. Same pattern as rule #24 for dicts.
 
 ### 3. Run database migrations (if needed)
 

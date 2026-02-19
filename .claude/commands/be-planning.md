@@ -378,6 +378,7 @@ The executing agent MUST follow these rules to avoid common errors:
 25. **Untyped lib method returns need `str()` wrapping** — Methods on objects from untyped libs (fitz `page.get_text()`, pytesseract `image_to_string()`) return `Unknown`. Plan must specify `str()` wrapping: `text = str(page.get_text())` to satisfy pyright.
 26. **Partially annotated test functions need `-> None`** — Adding a type annotation to a pytest fixture parameter (e.g., `tmp_path: Path`) without a return type triggers mypy `no-untyped-def` (partially typed function). Plan must always specify both param type AND `-> None` return type when any test function parameter is annotated.
 27. **Pydantic `Field(None, ...)` confuses pyright about required params** — Pyright doesn't understand that `Field(None, description="...")` sets a default. Plan must specify explicitly passing all `Field(None)` params in test fixtures: `MyModel(required="x", optional=None)`.
+28. **Bare `[]` list literals inferred as `list[Unknown]`** — Pyright `reportUnknownMemberType` fires on `.append()` when the list has no type annotation. Plan must specify explicit type annotations on list variables: `items: list[MagicMock] = []` not `items = []`. Same pattern as rule #24 for dicts.
 
 ## Notes
 
