@@ -17,7 +17,7 @@ def create_settings() -> Settings:
     Returns:
         Settings instance loaded from environment variables.
     """
-    return Settings()  # type: ignore[call-arg]
+    return Settings()  # pyright: ignore[reportCallIssue]
 
 
 def test_settings_defaults() -> None:

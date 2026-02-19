@@ -85,9 +85,4 @@ def get_settings() -> Settings:
     Returns:
         The application settings instance.
     """
-    # pydantic-settings automatically loads required fields (like database_url)
-    # from environment variables at runtime. Mypy's static analysis doesn't understand
-    # this behavior and expects all required fields as constructor arguments. This is
-    # a known limitation of mypy with pydantic-settings. The call-arg error is suppressed
-    # as the runtime behavior is correct and type-safe.
-    return Settings()  # type: ignore[call-arg]
+    return Settings()  # pyright: ignore[reportCallIssue]

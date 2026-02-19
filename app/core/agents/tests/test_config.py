@@ -18,7 +18,7 @@ def create_settings(**overrides: str) -> Settings:
     }
     with patch.dict(os.environ, env):
         get_settings.cache_clear()
-        return Settings()  # type: ignore[call-arg]
+        return Settings()  # pyright: ignore[reportCallIssue]
 
 
 def test_build_model_string():
