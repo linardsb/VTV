@@ -51,7 +51,7 @@ export function ChatMessageList({
         )}
 
         {error && (
-          <div className="mx-(--spacing-sm) flex items-center gap-(--spacing-sm) rounded-lg border border-red-200 bg-red-50 px-(--spacing-card) py-(--spacing-sm) text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+          <div className="mx-(--spacing-sm) flex items-center gap-(--spacing-sm) rounded-lg border border-error-border bg-error-bg px-(--spacing-card) py-(--spacing-sm) text-sm text-error">
             <AlertCircle className="size-4 shrink-0" />
             <span className="flex-1">
               {error === "rate_limit" ? t("rateLimitError") : t("error")}
@@ -59,7 +59,7 @@ export function ChatMessageList({
             <Button
               variant="ghost"
               size="xs"
-              className="cursor-pointer text-red-700 hover:text-red-900 dark:text-red-300 dark:hover:text-red-100"
+              className="cursor-pointer text-error hover:text-error/80"
               onClick={onRetry}
             >
               <RotateCcw className="mr-1 size-3" />

@@ -98,6 +98,7 @@
   /* Interactive */
   --color-interactive: var(--color-blue-600);
   --color-interactive-hover: var(--color-blue-700);
+  --color-interactive-foreground: oklch(1 0 0);
 
   /* Surface */
   --color-background: oklch(1 0 0);
@@ -114,6 +115,22 @@
   --color-status-ontime: var(--color-emerald-500);
   --color-status-delayed: var(--color-amber-500);
   --color-status-critical: var(--color-red-600);
+
+  /* Calendar event categories */
+  --color-category-maintenance: var(--color-blue-400);
+  --color-category-route-change: var(--color-amber-400);
+  --color-category-driver-shift: var(--color-emerald-500);
+  --color-category-service-alert: var(--color-red-500);
+
+  /* Route transport types */
+  --color-transport-bus: var(--color-blue-600);
+  --color-transport-trolleybus: var(--color-emerald-500);
+  --color-transport-tram: var(--color-purple-600);
+
+  /* Error state */
+  --color-error: var(--color-red-600);
+  --color-error-bg: var(--color-red-50);
+  --color-error-border: var(--color-red-200);
 
   /* Focus ring — 3px for WCAG AAA compliance */
   --color-focus-ring: var(--color-blue-500);

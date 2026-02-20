@@ -31,11 +31,13 @@ Read all files in the target path. For each file, check against VTV's frontend s
 ### 2. Design System Compliance (CRITICAL)
 
 - No hardcoded colors (hex `#xxx`, `rgb()`, `hsl()`, `oklch()`) in style attributes or className strings
-- Semantic tokens used from `tokens.css` (`--color-surface-*`, `--color-text-*`, `--color-border-*`)
+- **No Tailwind primitive color classes** — scan for ALL color families: `text-gray-`, `text-slate-`, `text-blue-`, `text-red-`, `text-amber-`, `text-emerald-`, `text-purple-`, `bg-blue-`, `bg-red-`, `bg-green-`, `bg-amber-`, `bg-emerald-`, `bg-purple-`, `bg-gray-`, `bg-slate-`, `text-white` (on colored backgrounds), `border-gray-`, `border-slate-`, `border-blue-`, `border-red-`. Must use semantic alternatives: `text-foreground-*`, `text-interactive-foreground`, `text-error`, `text-transport-*`, `text-category-*`, `bg-primary`, `bg-destructive`, `bg-error-bg`, `bg-transport-*`, `bg-category-*`, `border-border`, `border-error-border`
+- Semantic tokens used from `tokens.css` (`--color-surface-*`, `--color-text-*`, `--color-border-*`, `--color-transport-*`, `--color-category-*`, `--color-error-*`)
 - Spacing follows the design system scale (not arbitrary pixel values)
 - Typography follows MASTER.md rules (font sizes, weights, line heights)
 - Component tokens used where available (`--button-bg`, etc.)
 - Third-party/shadcn primitive files are exempt from token checks
+- GTFS route color data values (hex stored in DB) are acceptable
 
 ### 3. Component Patterns
 

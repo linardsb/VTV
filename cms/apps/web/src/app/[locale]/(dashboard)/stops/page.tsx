@@ -53,8 +53,9 @@ export default function StopsPage() {
   const t = useTranslations("stops");
   const isMobile = useIsMobile();
 
-  // Data state
+  // Data state — table (paginated) and map (all stops)
   const [stops, setStops] = useState<Stop[]>([]);
+  const [allStops, setAllStops] = useState<Stop[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,6 +77,10 @@ export default function StopsPage() {
   const [placementMode, setPlacementMode] = useState(false);
   const [defaultCoords, setDefaultCoords] = useState<{ lat: number; lon: number } | null>(null);
 
+  // Editing state — map-form coordinate sync
+  const [editingStopId, setEditingStopId] = useState<number | null>(null);
+  const [editingCoords, setEditingCoords] = useState<{ lat: number; lon: number } | null>(null);
+
   // Debounced search
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -88,13 +93,13 @@ export default function StopsPage() {
   }, [search]);
 
   // Derived: active_only param from statusFilter
+  // "all" sends false to override backend default (active_only=True)
   const activeOnlyParam = useMemo(() => {
     if (statusFilter === "active") return true;
-    if (statusFilter === "inactive") return false;
-    return undefined;
+    return false;
   }, [statusFilter]);
 
-  // Fetch stops
+  // Fetch paginated stops for the table
   const loadStops = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -114,9 +119,45 @@ export default function StopsPage() {
     }
   }, [page, debouncedSearch, activeOnlyParam]);
 
+  // Fetch all stops for the map (paginated in batches of 100 — API max)
+  const loadAllStops = useCallback(async () => {
+    try {
+      const first = await fetchStops({
+        page: 1,
+        page_size: 100,
+        active_only: false,
+      });
+
+      const totalPages = Math.ceil(first.total / 100);
+
+      if (totalPages <= 1) {
+        setAllStops(first.items);
+        return;
+      }
+
+      // Fetch remaining pages in parallel
+      const remaining = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, i) =>
+          fetchStops({ page: i + 2, page_size: 100, active_only: false }),
+        ),
+      );
+
+      setAllStops([
+        ...first.items,
+        ...remaining.flatMap((r) => r.items),
+      ]);
+    } catch {
+      setAllStops([]);
+    }
+  }, []);
+
   useEffect(() => {
     void loadStops();
   }, [loadStops]);
+
+  useEffect(() => {
+    void loadAllStops();
+  }, [loadAllStops]);
 
   // Client-side location type filter
   const displayStops = useMemo(() => {
@@ -144,6 +185,12 @@ export default function StopsPage() {
   const handleEdit = useCallback(() => {
     if (!selectedStop) return;
     setFormMode("edit");
+    setEditingStopId(selectedStop.id);
+    setEditingCoords(
+      selectedStop.stop_lat !== null && selectedStop.stop_lon !== null
+        ? { lat: selectedStop.stop_lat, lon: selectedStop.stop_lon }
+        : null,
+    );
     setDetailOpen(false);
     setFormKey((k) => k + 1);
     setFormOpen(true);
@@ -152,6 +199,12 @@ export default function StopsPage() {
   const handleEditFromTable = useCallback((stop: Stop) => {
     setSelectedStop(stop);
     setFormMode("edit");
+    setEditingStopId(stop.id);
+    setEditingCoords(
+      stop.stop_lat !== null && stop.stop_lon !== null
+        ? { lat: stop.stop_lat, lon: stop.stop_lon }
+        : null,
+    );
     setDetailOpen(false);
     setFormKey((k) => k + 1);
     setFormOpen(true);
@@ -180,14 +233,17 @@ export default function StopsPage() {
           toast.success(t("toast.updated"));
         }
         setFormOpen(false);
+        setEditingStopId(null);
+        setEditingCoords(null);
         void loadStops();
+        void loadAllStops();
       } catch {
         toast.error(
           formMode === "create" ? t("toast.createError") : t("toast.updateError"),
         );
       }
     },
-    [formMode, selectedStop, t, loadStops],
+    [formMode, selectedStop, t, loadStops, loadAllStops],
   );
 
   const handleDeleteConfirm = useCallback(async () => {
@@ -200,10 +256,11 @@ export default function StopsPage() {
         setDetailOpen(false);
       }
       void loadStops();
+      void loadAllStops();
     } catch {
       toast.error(t("toast.deleteError"));
     }
-  }, [deleteTarget, selectedStop, t, loadStops]);
+  }, [deleteTarget, selectedStop, t, loadStops, loadAllStops]);
 
   const handlePageChange = useCallback((newPage: number) => {
     setPage(newPage);
@@ -213,6 +270,8 @@ export default function StopsPage() {
   const handleMapClick = useCallback(
     (lat: number, lon: number) => {
       setDefaultCoords({ lat, lon });
+      setEditingCoords({ lat, lon });
+      setEditingStopId(null);
       setPlacementMode(false);
       setFormKey((k) => k + 1);
       setFormOpen(true);
@@ -220,20 +279,49 @@ export default function StopsPage() {
     [],
   );
 
-  // Drag-to-reposition: update stop coordinates via API
-  const handleStopMoved = useCallback(
-    async (stopId: number, lat: number, lon: number) => {
-      try {
-        await updateStop(stopId, { stop_lat: lat, stop_lon: lon });
-        toast.success(t("toast.moved"));
-        void loadStops();
-      } catch {
-        toast.error(t("toast.updateError"));
-        void loadStops(); // reload to revert marker position
+  // Map editing marker dragged — update form coords (NOT the API)
+  const handleEditingCoordsChange = useCallback(
+    (lat: number, lon: number) => {
+      setEditingCoords({ lat, lon });
+    },
+    [],
+  );
+
+  // Form coordinate fields changed — update map marker
+  const handleFormCoordsChange = useCallback(
+    (lat: number, lon: number) => {
+      setEditingCoords({ lat, lon });
+    },
+    [],
+  );
+
+  // Clear editing state when form closes
+  const handleFormOpenChange = useCallback(
+    (open: boolean) => {
+      setFormOpen(open);
+      if (!open) {
+        setPlacementMode(false);
+        setDefaultCoords(null);
+        setEditingStopId(null);
+        setEditingCoords(null);
       }
     },
-    [t, loadStops],
+    [],
   );
+
+  // Shared StopMap props — map shows ALL stops, not just the current page
+  const mapProps = {
+    stops: allStops,
+    selectedStopId,
+    onSelectStop: handleSelectStop,
+    onEditStop: IS_READ_ONLY ? undefined : handleEditFromTable,
+    placementMode,
+    onMapClick: handleMapClick,
+    editingStopId,
+    editingCoords,
+    onEditingCoordsChange: handleEditingCoordsChange,
+    locationTypeFilter,
+  };
 
   return (
     <div className="flex h-[calc(100vh-var(--spacing-page)*2)] flex-col gap-(--spacing-grid)">
@@ -308,62 +396,77 @@ export default function StopsPage() {
               />
             </TabsContent>
             <TabsContent value="map" className="min-h-[50vh] flex-1 overflow-hidden rounded-lg border border-border mt-(--spacing-tight)">
-              <StopMap
-                stops={displayStops}
-                selectedStopId={selectedStopId}
-                onSelectStop={handleSelectStop}
-                editable={!IS_READ_ONLY}
-                onStopMoved={handleStopMoved}
-                placementMode={placementMode}
-                onMapClick={handleMapClick}
-              />
+              <StopMap {...mapProps} />
             </TabsContent>
           </Tabs>
+
+          {/* Mobile: Form as Sheet overlay */}
+          <StopForm
+            key={formKey}
+            mode={formMode}
+            stop={selectedStop}
+            open={formOpen}
+            onOpenChange={handleFormOpenChange}
+            onSubmit={handleFormSubmit}
+            defaultCoords={defaultCoords}
+            onCoordsChange={handleFormCoordsChange}
+            externalCoords={editingCoords}
+          />
         </>
       ) : (
-        <ResizablePanelGroup
-          orientation="horizontal"
-          className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border"
-        >
-          <ResizablePanel defaultSize={60} minSize={40}>
-            <div className="flex h-full">
-              <StopFilters
-                search={search}
-                onSearchChange={setSearch}
-                statusFilter={statusFilter}
-                onStatusFilterChange={setStatusFilter}
-                locationTypeFilter={locationTypeFilter}
-                onLocationTypeFilterChange={setLocationTypeFilter}
-                resultCount={displayStops.length}
-              />
-              <StopTable
-                stops={displayStops}
-                total={totalItems}
-                page={page}
-                pageSize={PAGE_SIZE}
-                onPageChange={handlePageChange}
-                selectedStopId={selectedStopId}
-                onSelectStop={handleSelectStop}
-                onEditStop={handleEditFromTable}
-                onDeleteStop={handleDeleteRequest}
-                isReadOnly={IS_READ_ONLY}
-                isLoading={isLoading}
-              />
-            </div>
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={40} minSize={25}>
-            <StopMap
-              stops={displayStops}
-              selectedStopId={selectedStopId}
-              onSelectStop={handleSelectStop}
-              editable={!IS_READ_ONLY}
-              onStopMoved={handleStopMoved}
-              placementMode={placementMode}
-              onMapClick={handleMapClick}
-            />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        <>
+          {/* Desktop: Resizable panels — no key change to keep Leaflet map alive */}
+          <ResizablePanelGroup
+            orientation="horizontal"
+            className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border"
+          >
+            <ResizablePanel defaultSize={55} minSize={25}>
+              {formOpen ? (
+                <StopForm
+                  key={formKey}
+                  mode={formMode}
+                  stop={selectedStop}
+                  open={formOpen}
+                  onOpenChange={handleFormOpenChange}
+                  onSubmit={handleFormSubmit}
+                  defaultCoords={defaultCoords}
+                  onCoordsChange={handleFormCoordsChange}
+                  externalCoords={editingCoords}
+                  inline
+                />
+              ) : (
+                <div className="flex h-full">
+                  <StopFilters
+                    search={search}
+                    onSearchChange={setSearch}
+                    statusFilter={statusFilter}
+                    onStatusFilterChange={setStatusFilter}
+                    locationTypeFilter={locationTypeFilter}
+                    onLocationTypeFilterChange={setLocationTypeFilter}
+                    resultCount={displayStops.length}
+                  />
+                  <StopTable
+                    stops={displayStops}
+                    total={totalItems}
+                    page={page}
+                    pageSize={PAGE_SIZE}
+                    onPageChange={handlePageChange}
+                    selectedStopId={selectedStopId}
+                    onSelectStop={handleSelectStop}
+                    onEditStop={handleEditFromTable}
+                    onDeleteStop={handleDeleteRequest}
+                    isReadOnly={IS_READ_ONLY}
+                    isLoading={isLoading}
+                  />
+                </div>
+              )}
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={45} minSize={25}>
+              <StopMap {...mapProps} />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </>
       )}
 
       {/* Detail Sheet */}
@@ -377,23 +480,6 @@ export default function StopsPage() {
         onEdit={handleEdit}
         onDelete={handleDeleteFromDetail}
         isReadOnly={IS_READ_ONLY}
-      />
-
-      {/* Form Sheet */}
-      <StopForm
-        key={formKey}
-        mode={formMode}
-        stop={selectedStop}
-        open={formOpen}
-        onOpenChange={(open) => {
-          setFormOpen(open);
-          if (!open) {
-            setPlacementMode(false);
-            setDefaultCoords(null);
-          }
-        }}
-        onSubmit={handleFormSubmit}
-        defaultCoords={defaultCoords}
       />
 
       {/* Delete Dialog */}

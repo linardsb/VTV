@@ -41,7 +41,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           className={cn(
             "text-xs font-medium",
             isUser
-              ? "bg-interactive text-white"
+              ? "bg-interactive text-interactive-foreground"
               : "bg-surface text-foreground-muted border border-border"
           )}
         >
@@ -53,7 +53,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
         className={cn(
           "relative max-w-[80%] rounded-xl px-(--spacing-card) py-(--spacing-sm) text-sm leading-relaxed",
           isUser
-            ? "bg-interactive text-white rounded-br-sm"
+            ? "bg-interactive text-interactive-foreground rounded-br-sm"
             : "bg-surface-raised border border-border-subtle text-foreground rounded-bl-sm shadow-(--shadow-sm)"
         )}
       >

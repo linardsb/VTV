@@ -9,10 +9,10 @@ interface CalendarEventCardProps {
 }
 
 const categoryStyles = {
-  maintenance: "bg-blue-400/10 border-l-2 border-l-blue-400",
-  "route-change": "bg-amber-400/10 border-l-2 border-l-amber-400",
-  "driver-shift": "bg-emerald-500/10 border-l-2 border-l-emerald-500",
-  "service-alert": "bg-red-500/10 border-l-2 border-l-red-500",
+  maintenance: "bg-category-maintenance/10 border-l-2 border-l-category-maintenance",
+  "route-change": "bg-category-route-change/10 border-l-2 border-l-category-route-change",
+  "driver-shift": "bg-category-driver-shift/10 border-l-2 border-l-category-driver-shift",
+  "service-alert": "bg-category-service-alert/10 border-l-2 border-l-category-service-alert",
 } as const;
 
 const priorityStyles = {

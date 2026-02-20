@@ -225,7 +225,7 @@
     "detail": {
       "stopName": "Stop Name",
       "gtfsStopId": "GTFS Stop ID",
-      "description": "Description",
+      "description": "Direction / Description",
       "locationType": "Location Type",
       "coordinates": "Coordinates",
       "latitude": "Latitude",
@@ -261,7 +261,7 @@
       "editTitle": "Edit Stop",
       "stopNamePlaceholder": "e.g., Brivibas iela",
       "gtfsStopIdPlaceholder": "e.g., 0001",
-      "descriptionPlaceholder": "Stop description...",
+      "descriptionPlaceholder": "e.g., Towards center, Opposite side...",
       "latitudePlaceholder": "56.9496",
       "longitudePlaceholder": "24.1052",
       "required": "Required field",
@@ -289,7 +289,9 @@
       "noData": "No stops to display",
       "clickStop": "Click a stop to view details",
       "placementHint": "Click on the map to place the stop",
-      "dragHint": "Drag a stop marker to reposition it"
+      "dragHint": "Drag a stop marker to reposition it",
+      "zoomHint": "Zoom in for precise placement",
+      "edit": "Edit"
     },
     "mobile": {
       "tableTab": "Table",

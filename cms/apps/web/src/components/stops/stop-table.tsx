@@ -89,8 +89,6 @@ export function StopTable({
           <TableHeader>
             <TableRow>
               <TableHead>{t("table.name")}</TableHead>
-              <TableHead className="hidden sm:table-cell w-28">{t("table.gtfsId")}</TableHead>
-              <TableHead className="hidden md:table-cell w-36">{t("table.location")}</TableHead>
               <TableHead className="hidden lg:table-cell w-28">{t("table.type")}</TableHead>
               <TableHead className="hidden lg:table-cell w-28">{t("table.wheelchair")}</TableHead>
               <TableHead className="w-24">{t("table.status")}</TableHead>
@@ -112,17 +110,12 @@ export function StopTable({
                 onClick={() => onSelectStop(stop)}
               >
                 <TableCell>
-                  <span className="font-medium">{stop.stop_name}</span>
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  <span className="font-mono text-xs text-foreground-muted">
-                    {stop.gtfs_stop_id}
-                  </span>
-                </TableCell>
-                <TableCell className="hidden md:table-cell text-foreground-muted text-xs">
-                  {stop.stop_lat !== null && stop.stop_lon !== null
-                    ? `${stop.stop_lat.toFixed(4)}, ${stop.stop_lon.toFixed(4)}`
-                    : "-"}
+                  <div className="flex flex-col">
+                    <span className="font-medium">{stop.stop_name}</span>
+                    <span className="text-xs text-foreground-muted">
+                      {stop.stop_desc || stop.gtfs_stop_id}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">
                   <Badge variant="outline" className="text-xs">

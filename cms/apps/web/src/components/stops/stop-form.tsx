@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { X } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -36,6 +37,9 @@ interface StopFormProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: StopCreate | StopUpdate) => void;
   defaultCoords?: { lat: number; lon: number } | null;
+  onCoordsChange?: (lat: number, lon: number) => void;
+  externalCoords?: { lat: number; lon: number } | null;
+  inline?: boolean;
 }
 
 interface FormState {
@@ -93,6 +97,9 @@ export function StopForm({
   onOpenChange,
   onSubmit,
   defaultCoords,
+  onCoordsChange,
+  externalCoords,
+  inline = false,
 }: StopFormProps) {
   const t = useTranslations("stops");
   const tLoc = useTranslations("stops.locationTypes");
@@ -101,8 +108,38 @@ export function StopForm({
     getInitialState(mode, stop, defaultCoords),
   );
 
+  // Adjust form state during render when external coords change (React 19 pattern).
+  // This avoids calling setState in useEffect, which is forbidden by react-hooks/set-state-in-effect.
+  const [prevExtCoords, setPrevExtCoords] = useState<{ lat: number; lon: number } | null>(null);
+
+  if (
+    externalCoords &&
+    (prevExtCoords?.lat !== externalCoords.lat ||
+      prevExtCoords?.lon !== externalCoords.lon)
+  ) {
+    setPrevExtCoords(externalCoords);
+    setForm((prev) => ({
+      ...prev,
+      stop_lat: externalCoords.lat.toFixed(6),
+      stop_lon: externalCoords.lon.toFixed(6),
+    }));
+  }
+
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [key]: value };
+      if (
+        onCoordsChange &&
+        (key === "stop_lat" || key === "stop_lon")
+      ) {
+        const lat = parseFloat(key === "stop_lat" ? String(value) : next.stop_lat);
+        const lon = parseFloat(key === "stop_lon" ? String(value) : next.stop_lon);
+        if (!isNaN(lat) && !isNaN(lon)) {
+          queueMicrotask(() => onCoordsChange(lat, lon));
+        }
+      }
+      return next;
+    });
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -141,188 +178,216 @@ export function StopForm({
     onOpenChange(false);
   }
 
+  const title = mode === "create" ? t("form.createTitle") : t("form.editTitle");
+
+  const formBody = (
+    <form onSubmit={handleSubmit} className="space-y-(--spacing-card)">
+      {/* Stop Name */}
+      <div className="space-y-(--spacing-tight)">
+        <Label htmlFor="stop_name">{t("detail.stopName")} *</Label>
+        <Input
+          id="stop_name"
+          value={form.stop_name}
+          onChange={(e) => updateField("stop_name", e.target.value)}
+          placeholder={t("form.stopNamePlaceholder")}
+          maxLength={200}
+          required
+        />
+      </div>
+
+      {/* GTFS Stop ID */}
+      <div className="space-y-(--spacing-tight)">
+        <Label htmlFor="gtfs_stop_id">{t("detail.gtfsStopId")} *</Label>
+        {mode === "edit" ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Input
+                  id="gtfs_stop_id"
+                  value={form.gtfs_stop_id}
+                  readOnly
+                  className="font-mono text-xs opacity-60 cursor-not-allowed"
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t("form.gtfsIdReadonly")}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <Input
+            id="gtfs_stop_id"
+            value={form.gtfs_stop_id}
+            onChange={(e) => updateField("gtfs_stop_id", e.target.value)}
+            placeholder={t("form.gtfsStopIdPlaceholder")}
+            maxLength={50}
+            className="font-mono text-xs"
+            required
+          />
+        )}
+      </div>
+
+      {/* Description */}
+      <div className="space-y-(--spacing-tight)">
+        <Label htmlFor="stop_desc">{t("detail.description")}</Label>
+        <Textarea
+          id="stop_desc"
+          value={form.stop_desc}
+          onChange={(e) => updateField("stop_desc", e.target.value)}
+          placeholder={t("form.descriptionPlaceholder")}
+          maxLength={500}
+          rows={3}
+        />
+      </div>
+
+      <Separator />
+
+      {/* Coordinates */}
+      <div className="grid grid-cols-2 gap-(--spacing-grid)">
+        <div className="space-y-(--spacing-tight)">
+          <Label htmlFor="stop_lat">{t("detail.latitude")}</Label>
+          <Input
+            id="stop_lat"
+            type="number"
+            step="any"
+            min={-90}
+            max={90}
+            value={form.stop_lat}
+            onChange={(e) => updateField("stop_lat", e.target.value)}
+            placeholder={t("form.latitudePlaceholder")}
+          />
+        </div>
+        <div className="space-y-(--spacing-tight)">
+          <Label htmlFor="stop_lon">{t("detail.longitude")}</Label>
+          <Input
+            id="stop_lon"
+            type="number"
+            step="any"
+            min={-180}
+            max={180}
+            value={form.stop_lon}
+            onChange={(e) => updateField("stop_lon", e.target.value)}
+            placeholder={t("form.longitudePlaceholder")}
+          />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Location Type */}
+      <div className="space-y-(--spacing-tight)">
+        <Label>{t("detail.locationType")}</Label>
+        <Select
+          value={String(form.location_type)}
+          onValueChange={(v) => updateField("location_type", Number(v))}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[0, 1, 2, 3, 4].map((val) => (
+              <SelectItem key={val} value={String(val)}>
+                {tLoc(String(val))}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Wheelchair Boarding */}
+      <div className="space-y-(--spacing-tight)">
+        <Label>{t("detail.wheelchairBoarding")}</Label>
+        <Select
+          value={String(form.wheelchair_boarding)}
+          onValueChange={(v) => updateField("wheelchair_boarding", Number(v))}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[0, 1, 2].map((val) => (
+              <SelectItem key={val} value={String(val)}>
+                {tWheelchair(String(val))}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Parent Station ID */}
+      <div className="space-y-(--spacing-tight)">
+        <Label htmlFor="parent_station_id">{t("detail.parentStation")}</Label>
+        <Input
+          id="parent_station_id"
+          type="number"
+          value={form.parent_station_id}
+          onChange={(e) => updateField("parent_station_id", e.target.value)}
+        />
+      </div>
+
+      {/* Active toggle (edit mode only) */}
+      {mode === "edit" && (
+        <div className="flex items-center justify-between">
+          <Label htmlFor="is_active">{t("detail.isActive")}</Label>
+          <Switch
+            id="is_active"
+            checked={form.is_active}
+            onCheckedChange={(checked) => updateField("is_active", checked)}
+          />
+        </div>
+      )}
+
+      <Separator />
+
+      {/* Actions */}
+      <div className="flex gap-(--spacing-inline)">
+        <Button
+          type="button"
+          variant="outline"
+          className="flex-1 cursor-pointer"
+          onClick={() => onOpenChange(false)}
+        >
+          {t("actions.cancel")}
+        </Button>
+        <Button type="submit" className="flex-1 cursor-pointer">
+          {t("actions.save")}
+        </Button>
+      </div>
+    </form>
+  );
+
+  // Inline mode: render form directly (no Sheet wrapper) for desktop side-by-side
+  if (inline) {
+    if (!open) return null;
+    return (
+      <div className="flex h-full flex-col overflow-y-auto p-(--spacing-page)">
+        <div className="mb-(--spacing-grid) flex items-center justify-between">
+          <h2 className="font-heading text-heading font-semibold">{title}</h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="size-8 cursor-pointer p-0"
+            onClick={() => onOpenChange(false)}
+            aria-label={t("actions.close")}
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
+        {formBody}
+      </div>
+    );
+  }
+
+  // Sheet mode: wrap form in Sheet overlay (mobile)
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:w-[400px]">
         <SheetHeader>
           <SheetTitle className="font-heading text-heading font-semibold">
-            {mode === "create" ? t("form.createTitle") : t("form.editTitle")}
+            {title}
           </SheetTitle>
         </SheetHeader>
-
-        <form onSubmit={handleSubmit} className="mt-(--spacing-grid) space-y-(--spacing-card)">
-          {/* Stop Name */}
-          <div className="space-y-(--spacing-tight)">
-            <Label htmlFor="stop_name">{t("detail.stopName")} *</Label>
-            <Input
-              id="stop_name"
-              value={form.stop_name}
-              onChange={(e) => updateField("stop_name", e.target.value)}
-              placeholder={t("form.stopNamePlaceholder")}
-              maxLength={200}
-              required
-            />
-          </div>
-
-          {/* GTFS Stop ID */}
-          <div className="space-y-(--spacing-tight)">
-            <Label htmlFor="gtfs_stop_id">{t("detail.gtfsStopId")} *</Label>
-            {mode === "edit" ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Input
-                      id="gtfs_stop_id"
-                      value={form.gtfs_stop_id}
-                      readOnly
-                      className="font-mono text-xs opacity-60 cursor-not-allowed"
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{t("form.gtfsIdReadonly")}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : (
-              <Input
-                id="gtfs_stop_id"
-                value={form.gtfs_stop_id}
-                onChange={(e) => updateField("gtfs_stop_id", e.target.value)}
-                placeholder={t("form.gtfsStopIdPlaceholder")}
-                maxLength={50}
-                className="font-mono text-xs"
-                required
-              />
-            )}
-          </div>
-
-          {/* Description */}
-          <div className="space-y-(--spacing-tight)">
-            <Label htmlFor="stop_desc">{t("detail.description")}</Label>
-            <Textarea
-              id="stop_desc"
-              value={form.stop_desc}
-              onChange={(e) => updateField("stop_desc", e.target.value)}
-              placeholder={t("form.descriptionPlaceholder")}
-              maxLength={500}
-              rows={3}
-            />
-          </div>
-
-          <Separator />
-
-          {/* Coordinates */}
-          <div className="grid grid-cols-2 gap-(--spacing-grid)">
-            <div className="space-y-(--spacing-tight)">
-              <Label htmlFor="stop_lat">{t("detail.latitude")}</Label>
-              <Input
-                id="stop_lat"
-                type="number"
-                step="any"
-                min={-90}
-                max={90}
-                value={form.stop_lat}
-                onChange={(e) => updateField("stop_lat", e.target.value)}
-                placeholder={t("form.latitudePlaceholder")}
-              />
-            </div>
-            <div className="space-y-(--spacing-tight)">
-              <Label htmlFor="stop_lon">{t("detail.longitude")}</Label>
-              <Input
-                id="stop_lon"
-                type="number"
-                step="any"
-                min={-180}
-                max={180}
-                value={form.stop_lon}
-                onChange={(e) => updateField("stop_lon", e.target.value)}
-                placeholder={t("form.longitudePlaceholder")}
-              />
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Location Type */}
-          <div className="space-y-(--spacing-tight)">
-            <Label>{t("detail.locationType")}</Label>
-            <Select
-              value={String(form.location_type)}
-              onValueChange={(v) => updateField("location_type", Number(v))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[0, 1, 2, 3, 4].map((val) => (
-                  <SelectItem key={val} value={String(val)}>
-                    {tLoc(String(val))}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Wheelchair Boarding */}
-          <div className="space-y-(--spacing-tight)">
-            <Label>{t("detail.wheelchairBoarding")}</Label>
-            <Select
-              value={String(form.wheelchair_boarding)}
-              onValueChange={(v) => updateField("wheelchair_boarding", Number(v))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[0, 1, 2].map((val) => (
-                  <SelectItem key={val} value={String(val)}>
-                    {tWheelchair(String(val))}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Parent Station ID */}
-          <div className="space-y-(--spacing-tight)">
-            <Label htmlFor="parent_station_id">{t("detail.parentStation")}</Label>
-            <Input
-              id="parent_station_id"
-              type="number"
-              value={form.parent_station_id}
-              onChange={(e) => updateField("parent_station_id", e.target.value)}
-            />
-          </div>
-
-          {/* Active toggle (edit mode only) */}
-          {mode === "edit" && (
-            <div className="flex items-center justify-between">
-              <Label htmlFor="is_active">{t("detail.isActive")}</Label>
-              <Switch
-                id="is_active"
-                checked={form.is_active}
-                onCheckedChange={(checked) => updateField("is_active", checked)}
-              />
-            </div>
-          )}
-
-          <Separator />
-
-          {/* Actions */}
-          <div className="flex gap-(--spacing-inline)">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1 cursor-pointer"
-              onClick={() => onOpenChange(false)}
-            >
-              {t("actions.cancel")}
-            </Button>
-            <Button type="submit" className="flex-1 cursor-pointer">
-              {t("actions.save")}
-            </Button>
-          </div>
-        </form>
+        <div className="mt-(--spacing-grid)">{formBody}</div>
       </SheetContent>
     </Sheet>
   );

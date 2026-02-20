@@ -12,6 +12,8 @@ import {
   useMap,
   useMapEvents,
 } from "react-leaflet";
+// Note: Marker is only used by EditingMarker (single draggable marker).
+// Bulk stops use lightweight CircleMarker (SVG) to avoid DOM crash with 1600+ markers.
 import { useTranslations } from "next-intl";
 import type { Stop } from "@/types/stop";
 
@@ -19,28 +21,48 @@ interface StopMapProps {
   stops: Stop[];
   selectedStopId: number | null;
   onSelectStop: (stop: Stop) => void;
-  editable?: boolean;
-  onStopMoved?: (stopId: number, lat: number, lon: number) => void;
+  onEditStop?: (stop: Stop) => void;
   placementMode?: boolean;
   onMapClick?: (lat: number, lon: number) => void;
+  editingStopId?: number | null;
+  editingCoords?: { lat: number; lon: number } | null;
+  onEditingCoordsChange?: (lat: number, lon: number) => void;
+  /** "all" | "0" (stop) | "1" (station) — grays out non-matching markers */
+  locationTypeFilter?: string;
 }
 
-function createDragIcon(selected: boolean): L.DivIcon {
-  const size = selected ? 20 : 16;
-  const color = selected ? "#0F172A" : "#0369A1";
+function createEditingIcon(): L.DivIcon {
   return L.divIcon({
     className: "",
     html: `<div style="
-      width:${size}px;height:${size}px;
+      width:24px;height:24px;
       border-radius:50%;
-      background:${color};
-      border:2px solid white;
-      box-shadow:0 2px 6px rgba(0,0,0,0.3);
+      background:#0369A1;
+      border:3px solid white;
+      box-shadow:0 0 0 2px #0369A1, 0 4px 12px rgba(0,0,0,0.4);
       cursor:grab;
     "></div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   });
+}
+
+/** Watches for container resize and recalculates tile positions. */
+function InvalidateSize() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(container);
+    const timer = setTimeout(() => map.invalidateSize(), 200);
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+    };
+  }, [map]);
+  return null;
 }
 
 /** Imperatively fly the map to the selected stop (no setState). */
@@ -67,6 +89,47 @@ function FlyToSelected({
   return null;
 }
 
+/** Imperatively zoom the map to editing coordinates at street level. */
+function ZoomToEditing({
+  coords,
+  editingStopId,
+}: {
+  coords: { lat: number; lon: number } | null;
+  editingStopId: number | null;
+}) {
+  const map = useMap();
+  const hasZoomed = useRef(false);
+
+  useEffect(() => {
+    if (coords && !hasZoomed.current) {
+      map.flyTo([coords.lat, coords.lon], 18, { duration: 0.8 });
+      hasZoomed.current = true;
+    }
+    if (!coords && !editingStopId) {
+      hasZoomed.current = false;
+    }
+  }, [map, coords, editingStopId]);
+
+  return null;
+}
+
+/** Sets crosshair cursor directly on the Leaflet container when in placement mode. */
+function PlacementCursor({ active }: { active: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    if (active) {
+      container.style.cursor = "crosshair";
+    } else {
+      container.style.cursor = "";
+    }
+    return () => {
+      container.style.cursor = "";
+    };
+  }, [map, active]);
+  return null;
+}
+
 /** Handles click-to-place when in placement mode. */
 function MapClickHandler({
   active,
@@ -85,14 +148,43 @@ function MapClickHandler({
   return null;
 }
 
+/** Draggable marker shown while the form is open for create/edit. */
+function EditingMarker({
+  coords,
+  onDragEnd,
+}: {
+  coords: { lat: number; lon: number };
+  onDragEnd: (lat: number, lon: number) => void;
+}) {
+  const icon = useMemo(() => createEditingIcon(), []);
+
+  return (
+    <Marker
+      position={[coords.lat, coords.lon]}
+      icon={icon}
+      draggable={true}
+      eventHandlers={{
+        dragend: (e) => {
+          const marker = e.target as L.Marker;
+          const pos = marker.getLatLng();
+          onDragEnd(pos.lat, pos.lng);
+        },
+      }}
+    />
+  );
+}
+
 export function StopMap({
   stops,
   selectedStopId,
   onSelectStop,
-  editable = false,
-  onStopMoved,
+  onEditStop,
   placementMode = false,
   onMapClick,
+  editingStopId,
+  editingCoords,
+  onEditingCoordsChange,
+  locationTypeFilter = "all",
 }: StopMapProps) {
   const t = useTranslations("stops.map");
 
@@ -105,14 +197,17 @@ export function StopMap({
     [stops],
   );
 
-  const dragIconSelected = useMemo(() => createDragIcon(true), []);
-  const dragIconNormal = useMemo(() => createDragIcon(false), []);
+  const visibleStopCount = useMemo(() => {
+    if (locationTypeFilter === "all") return stopsWithCoords.length;
+    const typeNum = Number(locationTypeFilter);
+    return stopsWithCoords.filter((s) => s.location_type === typeNum).length;
+  }, [stopsWithCoords, locationTypeFilter]);
 
   return (
     <div className="relative h-full min-h-[50vh] w-full bg-surface">
       {/* Overlay label */}
       <div className="absolute left-3 top-3 z-[1000] rounded-md bg-surface/90 px-3 py-1.5 text-sm font-medium shadow-sm backdrop-blur-sm">
-        {t("title")} - {stopsWithCoords.length} {t("stops")}
+        {t("title")} - {visibleStopCount} {t("stops")}
       </div>
 
       {/* Placement mode hint */}
@@ -122,56 +217,63 @@ export function StopMap({
         </div>
       )}
 
+      {/* Drag hint when editing */}
+      {editingCoords && !placementMode && (
+        <div className="absolute left-1/2 top-3 z-[1000] -translate-x-1/2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg">
+          {t("dragHint")}
+        </div>
+      )}
+
       <MapContainer
         center={[56.9496, 24.1052]}
-        zoom={12}
-        className={`h-full w-full ${placementMode ? "cursor-crosshair" : ""}`}
+        zoom={13}
+        maxZoom={19}
+        className="h-full w-full"
         zoomControl={true}
         attributionControl={true}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          subdomains="abcd"
         />
+        <InvalidateSize />
         <FlyToSelected stops={stops} selectedStopId={selectedStopId} />
+        <PlacementCursor active={placementMode} />
 
         {onMapClick && (
           <MapClickHandler active={placementMode} onMapClick={onMapClick} />
         )}
 
-        {stopsWithCoords.map((stop) => {
-          const isSelected = selectedStopId === stop.id;
+        {/* Zoom to editing location */}
+        {editingCoords && (
+          <ZoomToEditing coords={editingCoords} editingStopId={editingStopId ?? null} />
+        )}
 
-          // Editable mode: render draggable Markers
-          if (editable && onStopMoved) {
-            return (
-              <Marker
-                key={stop.id}
-                position={[stop.stop_lat, stop.stop_lon]}
-                icon={isSelected ? dragIconSelected : dragIconNormal}
-                draggable={true}
-                eventHandlers={{
-                  click: () => onSelectStop(stop),
-                  dragend: (e) => {
-                    const marker = e.target as L.Marker;
-                    const pos = marker.getLatLng();
-                    onStopMoved(stop.id, pos.lat, pos.lng);
-                  },
-                }}
-              >
-                <Popup>
-                  <div className="text-sm">
-                    <p className="font-semibold">{stop.stop_name}</p>
-                    <p className="font-mono text-xs text-foreground-muted">
-                      {stop.gtfs_stop_id}
-                    </p>
-                  </div>
-                </Popup>
-              </Marker>
-            );
+        {/* Draggable editing marker (visible during form open) */}
+        {editingCoords && onEditingCoordsChange && (
+          <EditingMarker
+            coords={editingCoords}
+            onDragEnd={onEditingCoordsChange}
+          />
+        )}
+
+        {/* All stops as lightweight SVG CircleMarkers (clickable, not draggable).
+            Only the EditingMarker above is draggable — avoids 1600+ DOM Marker crash. */}
+        {stopsWithCoords.map((stop) => {
+          // Skip the stop being edited — it's rendered by EditingMarker above
+          if (editingStopId === stop.id) return null;
+
+          // Hide stops that don't match the active location type filter
+          if (
+            locationTypeFilter !== "all" &&
+            stop.location_type !== Number(locationTypeFilter)
+          ) {
+            return null;
           }
 
-          // Read-only mode: CircleMarkers
+          const isSelected = selectedStopId === stop.id;
+
           return (
             <CircleMarker
               key={stop.id}
@@ -179,10 +281,10 @@ export function StopMap({
               radius={isSelected ? 8 : 6}
               pathOptions={{
                 fillColor: isSelected ? "#0F172A" : "#0369A1",
-                color: isSelected ? "#0F172A" : "#0369A1",
-                weight: isSelected ? 2 : 1,
+                color: "#FFFFFF",
+                weight: 2,
                 opacity: 1,
-                fillOpacity: 0.8,
+                fillOpacity: 0.9,
               }}
               eventHandlers={{
                 click: () => onSelectStop(stop),
@@ -194,6 +296,18 @@ export function StopMap({
                   <p className="font-mono text-xs text-foreground-muted">
                     {stop.gtfs_stop_id}
                   </p>
+                  {onEditStop && (
+                    <button
+                      type="button"
+                      className="mt-1.5 w-full rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditStop(stop);
+                      }}
+                    >
+                      {t("edit")}
+                    </button>
+                  )}
                 </div>
               </Popup>
             </CircleMarker>
@@ -201,11 +315,6 @@ export function StopMap({
         })}
       </MapContainer>
 
-      {stopsWithCoords.length === 0 && !placementMode && (
-        <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-surface/80">
-          <p className="text-foreground-muted">{t("noData")}</p>
-        </div>
-      )}
     </div>
   );
 }

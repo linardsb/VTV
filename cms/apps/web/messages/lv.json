@@ -225,7 +225,7 @@
     "detail": {
       "stopName": "Pieturas nosaukums",
       "gtfsStopId": "GTFS pieturas ID",
-      "description": "Apraksts",
+      "description": "Virziens / Apraksts",
       "locationType": "Atrašanās vietas tips",
       "coordinates": "Koordinātas",
       "latitude": "Platums",
@@ -261,7 +261,7 @@
       "editTitle": "Rediģēt pieturu",
       "stopNamePlaceholder": "piem., Brīvības iela",
       "gtfsStopIdPlaceholder": "piem., 0001",
-      "descriptionPlaceholder": "Pieturas apraksts...",
+      "descriptionPlaceholder": "piem., Uz centru, Pretējā puse...",
       "latitudePlaceholder": "56.9496",
       "longitudePlaceholder": "24.1052",
       "required": "Obligāts lauks",
@@ -289,7 +289,9 @@
       "noData": "Nav rādāmo pieturvietu",
       "clickStop": "Noklikšķiniet uz pieturas, lai skatītu informāciju",
       "placementHint": "Noklikšķiniet uz kartes, lai novietotu pieturu",
-      "dragHint": "Velciet pieturas marķieri, lai pārvietotu to"
+      "dragHint": "Velciet pieturas marķieri, lai pārvietotu to",
+      "zoomHint": "Tuviniet precīzai novietošanai",
+      "edit": "Rediģēt"
     },
     "mobile": {
       "tableTab": "Tabula",

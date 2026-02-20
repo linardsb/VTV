@@ -46,11 +46,15 @@ Scan all `.tsx` files under `cms/apps/web/src/` for design system violations:
 
 - **Hardcoded colors**: Search for hex colors (`#[0-9a-fA-F]{3,8}`), `rgb(`, `hsl(`, `oklch(` in style attributes and className strings
 - **Tailwind primitive color classes** (most common violation — LLMs default to these):
-  - Search for `text-gray-`, `text-slate-`, `text-zinc-`, `text-neutral-` → should be `text-foreground`, `text-foreground-muted`, `text-foreground-subtle`
-  - Search for `bg-blue-`, `bg-red-`, `bg-green-`, `bg-yellow-`, `bg-gray-`, `bg-slate-` → should be `bg-primary`, `bg-destructive`, `bg-success`, `bg-warning`, `bg-surface-*`, `bg-muted`
-  - Search for `text-white` in className (on colored backgrounds) → should be `text-primary-foreground`, `text-destructive-foreground`, etc.
-  - Search for `border-gray-`, `border-slate-` → should be `border-border`
-  - Exceptions: shadcn/ui primitive files in `components/ui/`, inline HTML strings for Leaflet icons
+  - **Text colors**: Search for `text-gray-`, `text-slate-`, `text-zinc-`, `text-neutral-` → `text-foreground`, `text-foreground-muted`, `text-foreground-subtle`
+  - **Text colors (domain)**: Search for `text-blue-`, `text-red-`, `text-green-`, `text-amber-`, `text-emerald-`, `text-purple-`, `text-orange-` → `text-primary`, `text-error`, `text-success`, `text-transport-bus`, `text-transport-trolleybus`, `text-transport-tram`, `text-category-*`
+  - **Text white**: Search for `text-white` in className → `text-interactive-foreground`, `text-primary-foreground`, `text-destructive-foreground`
+  - **Backgrounds**: Search for `bg-blue-`, `bg-red-`, `bg-green-`, `bg-yellow-`, `bg-gray-`, `bg-slate-` → `bg-primary`, `bg-destructive`, `bg-success`, `bg-warning`, `bg-surface-*`, `bg-muted`
+  - **Backgrounds (domain)**: Search for `bg-amber-`, `bg-emerald-`, `bg-purple-`, `bg-orange-` → `bg-category-route-change`, `bg-category-driver-shift`, `bg-transport-tram`, `bg-category-service-alert`
+  - **Borders**: Search for `border-gray-`, `border-slate-` → `border-border`, `border-border-subtle`
+  - **Borders (domain)**: Search for `border-blue-`, `border-red-`, `border-amber-`, `border-emerald-`, `border-purple-` → `border-error-border`, `border-transport-*`, `border-category-*`
+  - **Error states**: Search for `bg-red-50`, `border-red-200`, `text-red-700` → `bg-error-bg`, `border-error-border`, `text-error`
+  - Exceptions: shadcn/ui primitive files in `components/ui/`, inline HTML strings for Leaflet icons, GTFS route color data values (hex stored in DB)
 - **Hardcoded spacing**: Search for inline `style` with pixel values for margin/padding that should use design tokens
 - **Token usage**: Verify pages use semantic tokens (`--color-surface-*`, `--color-text-*`, `--color-border-*`, `--spacing-*`) from `cms/packages/ui/src/tokens.css`
 

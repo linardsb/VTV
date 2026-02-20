@@ -9,15 +9,15 @@ import { ROUTE_TYPE_MAP, type RouteType } from "@/types/route";
 const typeConfig = {
   bus: {
     icon: Bus,
-    className: "bg-blue-600/10 text-blue-600 border-blue-600/20",
+    className: "bg-transport-bus/10 text-transport-bus border-transport-bus/20",
   },
   trolleybus: {
     icon: Zap,
-    className: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+    className: "bg-transport-trolleybus/10 text-transport-trolleybus border-transport-trolleybus/20",
   },
   tram: {
     icon: Train,
-    className: "bg-purple-600/10 text-purple-600 border-purple-600/20",
+    className: "bg-transport-tram/10 text-transport-tram border-transport-tram/20",
   },
 } as const;
 

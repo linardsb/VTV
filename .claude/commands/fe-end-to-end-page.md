@@ -86,7 +86,7 @@ cd cms && pnpm --filter @vtv/web build
 
 **Soft gate checks (warnings, don't block commit):**
 
-- **Design system compliance**: Grep for hardcoded hex colors, `rgb()`, `hsl()` in new `.tsx` files. Replace with semantic tokens if found.
+- **Design system compliance**: Grep for hardcoded hex colors, `rgb()`, `hsl()` in new `.tsx` files. Also scan for ALL Tailwind primitive color classes (`text-gray-`, `text-slate-`, `text-blue-`, `text-red-`, `text-amber-`, `text-emerald-`, `text-purple-`, `bg-blue-`, `bg-red-`, `bg-green-`, `bg-amber-`, `bg-emerald-`, `bg-purple-`, `bg-gray-`, `bg-slate-`, `text-white`, `border-gray-`, `border-slate-`, `border-blue-`, `border-red-`, `border-amber-`). Replace with semantic tokens from `tokens.css` if found.
 - **i18n completeness**: Compare keys in `lv.json` and `en.json` — flag any mismatches.
 - **Accessibility spot-check**: Check for `<img` without `alt`, `<button` without `aria-label` (when no visible text), `<input` without `<label` or `aria-label`.
 

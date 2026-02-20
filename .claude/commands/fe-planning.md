@@ -173,15 +173,29 @@ The executor MUST use semantic Tailwind classes, NEVER primitive color utilities
 |----------------|-------------|
 | `text-gray-500`, `text-slate-500` | `text-foreground-muted` |
 | `text-gray-400`, `text-slate-400` | `text-foreground-subtle` |
-| `text-white` (on colored bg) | `text-primary-foreground` / `text-destructive-foreground` |
-| `bg-blue-600`, `bg-blue-500` | `bg-primary` |
-| `bg-red-500` | `bg-destructive` |
-| `bg-green-500` | `bg-success` |
-| `bg-gray-100`, `bg-slate-100` | `bg-surface-secondary` / `bg-muted` |
+| `text-white` (on colored bg) | `text-interactive-foreground` / `text-primary-foreground` |
+| `text-blue-*`, `text-red-*`, `text-green-*` | `text-primary`, `text-error`, `text-success` |
+| `text-amber-*`, `text-emerald-*`, `text-purple-*` | `text-category-*`, `text-transport-*` |
+| `bg-blue-600`, `bg-blue-500` | `bg-primary` or `bg-interactive` |
+| `bg-red-500`, `bg-red-600` | `bg-destructive` |
+| `bg-red-50` | `bg-error-bg` |
+| `bg-green-500`, `bg-emerald-500` | `bg-success` or `bg-status-ontime` |
+| `bg-amber-400`, `bg-amber-500` | `bg-category-route-change` or `bg-status-delayed` |
+| `bg-purple-600` | `bg-transport-tram` |
+| `bg-gray-100`, `bg-slate-100` | `bg-surface` / `bg-muted` |
 | `border-gray-200` | `border-border` |
+| `border-red-200` | `border-error-border` |
+| `border-blue-*`, `border-amber-*`, `border-emerald-*`, `border-purple-*` | `border-transport-*`, `border-category-*` |
 
-If unsure, check `cms/packages/ui/src/tokens.css` for the correct semantic token.
-Exception: Inline HTML strings (e.g., Leaflet `L.divIcon`) may use hex colors since Tailwind classes don't work there.
+**Full semantic token reference** (check `cms/packages/ui/src/tokens.css`):
+- **Surface**: `bg-surface`, `bg-surface-raised`, `bg-background`
+- **Interactive**: `bg-interactive`, `text-interactive`, `text-interactive-foreground`
+- **Error**: `bg-error-bg`, `border-error-border`, `text-error`
+- **Status**: `text-status-ontime`, `text-status-delayed`, `text-status-critical`
+- **Transport**: `bg-transport-bus`, `bg-transport-trolleybus`, `bg-transport-tram` (+ `text-` and `border-` variants)
+- **Calendar**: `bg-category-maintenance`, `bg-category-route-change`, `bg-category-driver-shift`, `bg-category-service-alert`
+
+Exception: Inline HTML strings (e.g., Leaflet `L.divIcon`) may use hex colors since Tailwind classes don't work there. GTFS route color data values (hex stored in DB) are also acceptable.
 
 ## React 19 Coding Rules
 

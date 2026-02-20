@@ -17,10 +17,10 @@ const MONTH_KEYS = [
 ] as const;
 
 const categoryDotColors: Record<string, string> = {
-  maintenance: "bg-blue-400",
-  "route-change": "bg-amber-400",
-  "driver-shift": "bg-emerald-500",
-  "service-alert": "bg-red-500",
+  maintenance: "bg-category-maintenance",
+  "route-change": "bg-category-route-change",
+  "driver-shift": "bg-category-driver-shift",
+  "service-alert": "bg-category-service-alert",
 };
 
 function isSameDay(a: Date, b: Date): boolean {
