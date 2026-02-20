@@ -45,6 +45,12 @@ cd cms && pnpm --filter @vtv/web build
 Scan all `.tsx` files under `cms/apps/web/src/` for design system violations:
 
 - **Hardcoded colors**: Search for hex colors (`#[0-9a-fA-F]{3,8}`), `rgb(`, `hsl(`, `oklch(` in style attributes and className strings
+- **Tailwind primitive color classes** (most common violation — LLMs default to these):
+  - Search for `text-gray-`, `text-slate-`, `text-zinc-`, `text-neutral-` → should be `text-foreground`, `text-foreground-muted`, `text-foreground-subtle`
+  - Search for `bg-blue-`, `bg-red-`, `bg-green-`, `bg-yellow-`, `bg-gray-`, `bg-slate-` → should be `bg-primary`, `bg-destructive`, `bg-success`, `bg-warning`, `bg-surface-*`, `bg-muted`
+  - Search for `text-white` in className (on colored backgrounds) → should be `text-primary-foreground`, `text-destructive-foreground`, etc.
+  - Search for `border-gray-`, `border-slate-` → should be `border-border`
+  - Exceptions: shadcn/ui primitive files in `components/ui/`, inline HTML strings for Leaflet icons
 - **Hardcoded spacing**: Search for inline `style` with pixel values for margin/padding that should use design tokens
 - **Token usage**: Verify pages use semantic tokens (`--color-surface-*`, `--color-text-*`, `--color-border-*`, `--spacing-*`) from `cms/packages/ui/src/tokens.css`
 

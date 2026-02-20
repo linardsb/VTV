@@ -196,6 +196,107 @@
       "showFilters": "Filtri"
     }
   },
+  "stops": {
+    "title": "Pieturvietu pārvaldība",
+    "description": "Pārvaldiet tranzīta pieturas un stacijas",
+    "search": "Meklēt pieturas...",
+    "filters": {
+      "allStatuses": "Visi statusi",
+      "active": "Aktīvs",
+      "inactive": "Neaktīvs",
+      "allTypes": "Visi veidi",
+      "stop": "Pietura",
+      "station": "Stacija",
+      "status": "Statuss",
+      "locationType": "Atrašanās vietas tips"
+    },
+    "table": {
+      "name": "Nosaukums",
+      "gtfsId": "GTFS ID",
+      "location": "Atrašanās vieta",
+      "type": "Tips",
+      "wheelchair": "Ratiņkrēsls",
+      "status": "Statuss",
+      "actions": "Darbības",
+      "noResults": "Pieturas nav atrastas",
+      "noResultsDescription": "Izveidojiet pirmo pieturu, lai sāktu.",
+      "showing": "Rāda {from}-{to} no {total}"
+    },
+    "detail": {
+      "stopName": "Pieturas nosaukums",
+      "gtfsStopId": "GTFS pieturas ID",
+      "description": "Apraksts",
+      "locationType": "Atrašanās vietas tips",
+      "coordinates": "Koordinātas",
+      "latitude": "Platums",
+      "longitude": "Garums",
+      "wheelchairBoarding": "Ratiņkrēsla piekļuve",
+      "parentStation": "Vecākstacija",
+      "isActive": "Aktīvs",
+      "createdAt": "Izveidots",
+      "updatedAt": "Atjaunināts"
+    },
+    "locationTypes": {
+      "0": "Pietura",
+      "1": "Stacija",
+      "2": "Ieeja/Izeja",
+      "3": "Vispārīgs mezgls",
+      "4": "Iekāpšanas zona"
+    },
+    "wheelchairOptions": {
+      "0": "Nezināms",
+      "1": "Pieejams",
+      "2": "Nav pieejams"
+    },
+    "actions": {
+      "create": "Jauna pietura",
+      "edit": "Rediģēt",
+      "delete": "Dzēst",
+      "save": "Saglabāt",
+      "cancel": "Atcelt",
+      "close": "Aizvērt"
+    },
+    "form": {
+      "createTitle": "Izveidot jaunu pieturu",
+      "editTitle": "Rediģēt pieturu",
+      "stopNamePlaceholder": "piem., Brīvības iela",
+      "gtfsStopIdPlaceholder": "piem., 0001",
+      "descriptionPlaceholder": "Pieturas apraksts...",
+      "latitudePlaceholder": "56.9496",
+      "longitudePlaceholder": "24.1052",
+      "required": "Obligāts lauks",
+      "gtfsIdReadonly": "GTFS ID nevar mainīt pēc izveidošanas"
+    },
+    "delete": {
+      "title": "Dzēst pieturu",
+      "confirmation": "Vai tiešām vēlaties dzēst pieturu \"{name}\"?",
+      "warning": "Šī darbība ir neatgriezeniska.",
+      "confirm": "Dzēst",
+      "cancel": "Atcelt"
+    },
+    "toast": {
+      "created": "Pietura veiksmīgi izveidota",
+      "updated": "Pietura veiksmīgi atjaunināta",
+      "deleted": "Pietura dzēsta",
+      "createError": "Pieturas izveide neizdevās",
+      "updateError": "Pieturas atjaunināšana neizdevās",
+      "deleteError": "Dzēšana neizdevās",
+      "moved": "Pietura veiksmīgi pārvietota"
+    },
+    "map": {
+      "title": "Pieturvietu karte",
+      "stops": "pieturas",
+      "noData": "Nav rādāmo pieturvietu",
+      "clickStop": "Noklikšķiniet uz pieturas, lai skatītu informāciju",
+      "placementHint": "Noklikšķiniet uz kartes, lai novietotu pieturu",
+      "dragHint": "Velciet pieturas marķieri, lai pārvietotu to"
+    },
+    "mobile": {
+      "tableTab": "Tabula",
+      "mapTab": "Karte",
+      "showFilters": "Filtri"
+    }
+  },
   "documents": {
     "title": "Dokumentu pārvaldība",
     "description": "Augšupielādēt un pārvaldīt zināšanu bāzes dokumentus",

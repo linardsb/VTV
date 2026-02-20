@@ -515,7 +515,8 @@ cms/apps/web/src/
 │   │   ├── chat/page.tsx       # AI assistant chat (streaming SSE, bilingual)
 │   │   ├── documents/page.tsx  # Document management (upload, table, filters, detail panel)
 │   │   ├── routes/page.tsx     # Route management (CRUD, filters, resizable map panel; mobile: tab layout)
-│   │   └── {page}/page.tsx     # Future feature pages (stops, schedules, etc.)
+│   │   ├── stops/page.tsx      # Stop management (CRUD, Leaflet map with drag-to-reposition, click-to-place; mobile: tab layout)
+│   │   └── {page}/page.tsx     # Future feature pages (schedules, etc.)
 │   ├── login/page.tsx          # Login page (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect page
 ├── components/
@@ -523,10 +524,11 @@ cms/apps/web/src/
 │   ├── app-sidebar.tsx         # Responsive sidebar (desktop aside + mobile hamburger Sheet)
 │   ├── dashboard/              # Dashboard-specific components (metric-card, calendar)
 │   ├── documents/              # Document management (table, filters, upload, detail, delete dialog)
-│   └── routes/                 # Route management components (table, filters, form, detail, map)
+│   ├── routes/                 # Route management components (table, filters, form, detail, map)
+│   └── stops/                  # Stop management (table, filters, form, detail, delete-dialog, map with draggable markers)
 ├── hooks/                      # Custom React hooks (use-mobile, use-vehicle-positions)
-├── types/                      # TypeScript types (route.ts, dashboard.ts, document.ts)
-├── lib/                        # Utilities (cn, agent-client, documents-client, mock data)
+├── types/                      # TypeScript types (route.ts, dashboard.ts, document.ts, stop.ts)
+├── lib/                        # Utilities (cn, agent-client, documents-client, stops-client, mock data)
 └── i18n/                       # next-intl configuration
 ```
 

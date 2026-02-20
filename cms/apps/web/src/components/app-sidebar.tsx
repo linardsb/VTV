@@ -19,7 +19,7 @@ import {
 const navItems = [
   { key: "dashboard", href: "", enabled: true },
   { key: "routes", href: "/routes", enabled: true },
-  { key: "stops", href: "/stops", enabled: false },
+  { key: "stops", href: "/stops", enabled: true },
   { key: "schedules", href: "/schedules", enabled: false },
   { key: "gtfs", href: "/gtfs", enabled: false },
   { key: "users", href: "/users", enabled: false },

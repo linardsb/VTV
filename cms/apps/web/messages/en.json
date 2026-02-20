@@ -196,6 +196,107 @@
       "showFilters": "Filters"
     }
   },
+  "stops": {
+    "title": "Stop Management",
+    "description": "Manage transit stops and stations",
+    "search": "Search stops...",
+    "filters": {
+      "allStatuses": "All Statuses",
+      "active": "Active",
+      "inactive": "Inactive",
+      "allTypes": "All Types",
+      "stop": "Stop",
+      "station": "Station",
+      "status": "Status",
+      "locationType": "Location Type"
+    },
+    "table": {
+      "name": "Name",
+      "gtfsId": "GTFS ID",
+      "location": "Location",
+      "type": "Type",
+      "wheelchair": "Wheelchair",
+      "status": "Status",
+      "actions": "Actions",
+      "noResults": "No stops found",
+      "noResultsDescription": "Create your first stop to get started.",
+      "showing": "Showing {from}-{to} of {total}"
+    },
+    "detail": {
+      "stopName": "Stop Name",
+      "gtfsStopId": "GTFS Stop ID",
+      "description": "Description",
+      "locationType": "Location Type",
+      "coordinates": "Coordinates",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "wheelchairBoarding": "Wheelchair Boarding",
+      "parentStation": "Parent Station",
+      "isActive": "Active",
+      "createdAt": "Created",
+      "updatedAt": "Updated"
+    },
+    "locationTypes": {
+      "0": "Stop",
+      "1": "Station",
+      "2": "Entrance/Exit",
+      "3": "Generic Node",
+      "4": "Boarding Area"
+    },
+    "wheelchairOptions": {
+      "0": "Unknown",
+      "1": "Accessible",
+      "2": "Not Accessible"
+    },
+    "actions": {
+      "create": "New Stop",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel",
+      "close": "Close"
+    },
+    "form": {
+      "createTitle": "Create New Stop",
+      "editTitle": "Edit Stop",
+      "stopNamePlaceholder": "e.g., Brivibas iela",
+      "gtfsStopIdPlaceholder": "e.g., 0001",
+      "descriptionPlaceholder": "Stop description...",
+      "latitudePlaceholder": "56.9496",
+      "longitudePlaceholder": "24.1052",
+      "required": "Required field",
+      "gtfsIdReadonly": "GTFS ID cannot be changed after creation"
+    },
+    "delete": {
+      "title": "Delete Stop",
+      "confirmation": "Are you sure you want to delete stop \"{name}\"?",
+      "warning": "This action cannot be undone.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "created": "Stop created successfully",
+      "updated": "Stop updated successfully",
+      "deleted": "Stop deleted",
+      "createError": "Failed to create stop",
+      "updateError": "Failed to update stop",
+      "deleteError": "Failed to delete stop",
+      "moved": "Stop repositioned successfully"
+    },
+    "map": {
+      "title": "Stop Map",
+      "stops": "stops",
+      "noData": "No stops to display",
+      "clickStop": "Click a stop to view details",
+      "placementHint": "Click on the map to place the stop",
+      "dragHint": "Drag a stop marker to reposition it"
+    },
+    "mobile": {
+      "tableTab": "Table",
+      "mapTab": "Map",
+      "showFilters": "Filters"
+    }
+  },
   "documents": {
     "title": "Document Management",
     "description": "Upload and manage knowledge base documents",

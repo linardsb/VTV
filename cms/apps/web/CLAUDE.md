@@ -20,7 +20,8 @@ src/
 │   │   ├── page.tsx            # Dashboard (default authenticated page)
 │   │   ├── documents/page.tsx  # Document management (upload, table, filters, detail)
 │   │   ├── routes/page.tsx     # Route management (CRUD, filters, resizable map; mobile: tab layout)
-│   │   └── {page}/page.tsx     # Future feature pages (stops, schedules, etc.)
+│   │   ├── stops/page.tsx      # Stop management (CRUD, Leaflet map with drag-to-reposition + click-to-place; mobile: tab layout)
+│   │   └── {page}/page.tsx     # Future feature pages (schedules, etc.)
 │   ├── login/page.tsx          # Login (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect
 ├── components/
@@ -28,15 +29,17 @@ src/
 │   ├── app-sidebar.tsx         # Responsive sidebar (desktop: w-60 aside; mobile: hamburger + Sheet)
 │   ├── dashboard/              # Dashboard components (metric-card, calendar-grid)
 │   ├── documents/              # Document management (table, filters, upload-form, detail, delete-dialog)
-│   └── routes/                 # Route management (table, filters, form, detail, type-badge, map, bus-marker)
+│   ├── routes/                 # Route management (table, filters, form, detail, type-badge, map, bus-marker)
+│   └── stops/                  # Stop management (table, filters, form, detail, delete-dialog, map with draggable markers)
 ├── hooks/
 │   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
 │   └── use-vehicle-positions.ts # useVehiclePositions() hook (polls backend every 15s)
-├── types/                      # TypeScript types (route.ts, dashboard.ts, document.ts)
+├── types/                      # TypeScript types (route.ts, dashboard.ts, document.ts, stop.ts)
 ├── lib/
 │   ├── utils.ts                # cn() class merge utility
 │   ├── agent-client.ts         # FastAPI agent API client
 │   ├── documents-client.ts     # Knowledge base API client (upload, list, delete, download)
+│   ├── stops-client.ts         # Stops API client (CRUD, nearby search)
 │   ├── mock-dashboard-data.ts  # Mock dashboard metrics and events
 │   └── mock-routes-data.ts     # Mock Latvian transit routes (26 routes)
 └── i18n/
@@ -64,6 +67,13 @@ Use `/fe-create-page {name}` or manually:
 ## Conventions
 
 - Use semantic tokens (`var(--color-surface-primary)`) not hardcoded colors
+- **Never use Tailwind primitive color classes** — use semantic alternatives:
+  - `text-gray-*` / `text-slate-*` → `text-foreground`, `text-foreground-muted`, `text-foreground-subtle`
+  - `bg-blue-*` / `bg-red-*` / `bg-green-*` → `bg-primary`, `bg-destructive`, `bg-success`
+  - `text-white` (on colored bg) → `text-primary-foreground`, `text-destructive-foreground`
+  - `border-gray-*` → `border-border`
+  - `bg-gray-*` → `bg-surface`, `bg-surface-secondary`, `bg-muted`
+  - Check `cms/packages/ui/src/tokens.css` when unsure
 - Server components by default; `'use client'` only for forms/interactivity
 - All text via `useTranslations()` — never hardcode user-visible strings
 - `cn()` from `lib/utils.ts` for conditional Tailwind class merging

@@ -49,6 +49,24 @@ Follow the plan's implementation steps in exact order. For each step:
 - Follow VTV frontend conventions:
   - Use semantic design tokens from `tokens.css` (no hardcoded colors)
   - Use `useTranslations` from `next-intl` for all user-visible text
+- CRITICAL — Forbidden Tailwind primitive classes (use semantic alternatives):
+  - **NEVER use `text-gray-*`, `text-slate-*`, `text-zinc-*`** → use `text-foreground`, `text-foreground-muted`, or `text-foreground-subtle`
+  - **NEVER use `bg-blue-*`, `bg-red-*`, `bg-green-*`, `bg-yellow-*`** → use `bg-primary`, `bg-destructive`, `bg-success`, `bg-warning` (or their `-foreground` variants for text on those backgrounds)
+  - **NEVER use `text-white` on colored backgrounds** → use `text-primary-foreground`, `text-destructive-foreground`, etc.
+  - **NEVER use `border-gray-*`, `border-slate-*`** → use `border-border` or `border-border-subtle`
+  - **NEVER use `bg-gray-*`, `bg-slate-*`** → use `bg-surface`, `bg-surface-secondary`, `bg-muted`, `bg-selected-bg`
+  - **Common mapping table:**
+    | Forbidden | Use Instead |
+    |-----------|-------------|
+    | `text-gray-500` | `text-foreground-muted` |
+    | `text-gray-400` | `text-foreground-subtle` |
+    | `text-white` (on colored bg) | `text-primary-foreground` |
+    | `bg-blue-600` | `bg-primary` |
+    | `bg-red-500` | `bg-destructive` |
+    | `border-gray-200` | `border-border` |
+    | `bg-gray-100` | `bg-surface-secondary` |
+  - If unsure about the correct semantic token, check `cms/packages/ui/src/tokens.css` before writing the class
+  - Exception: Inline HTML strings (e.g., Leaflet `L.divIcon` html) may use hex colors since Tailwind classes don't work there — but prefer CSS variables when possible
   - Server components by default, client components only when needed (`'use client'`)
   - shadcn/ui components with CVA variants where appropriate
   - `cn()` utility for conditional class merging
@@ -117,14 +135,19 @@ Verify:
 
 ### 6. Design system compliance scan
 
-Grep for common violations:
+Grep for common violations in new/modified `.tsx` files:
 
-- Search for hardcoded hex colors (`#[0-9a-fA-F]{3,8}`) in new/modified `.tsx` files
+- Search for hardcoded hex colors (`#[0-9a-fA-F]{3,8}`) — except inside inline HTML strings for Leaflet icons
 - Search for hardcoded `rgb()` or `hsl()` values
 - Search for `style={{ color:` with string literals (should use `var(--color-*)`)
+- **Search for Tailwind primitive color classes** — this is the most common violation:
+  - `text-gray-`, `text-slate-`, `text-zinc-`, `text-neutral-` → should be `text-foreground-*`
+  - `bg-blue-`, `bg-red-`, `bg-green-`, `bg-yellow-`, `bg-gray-`, `bg-slate-` → should be `bg-primary`, `bg-destructive`, `bg-success`, `bg-warning`, `bg-surface-*`, `bg-muted`
+  - `text-white` paired with colored backgrounds → should be `text-{color}-foreground`
+  - `border-gray-`, `border-slate-` → should be `border-border`
 - Verify semantic tokens are used: `--color-surface-*`, `--color-text-*`, `--color-border-*`
 
-If violations found, fix them by replacing with the appropriate design token.
+If violations found, fix them by replacing with the appropriate semantic class. Use the mapping table from Step 2.
 
 ## OUTPUT
 

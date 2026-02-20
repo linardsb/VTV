@@ -165,6 +165,24 @@ The executing agent MUST read these files before starting implementation.
 - `cms/apps/web/middleware.ts` — Add route matcher
 - `cms/apps/web/src/app/[locale]/layout.tsx` — Add sidebar nav entry
 
+## Design System Color Rules
+
+The executor MUST use semantic Tailwind classes, NEVER primitive color utilities. Common violations and their fixes:
+
+| Forbidden Class | Use Instead |
+|----------------|-------------|
+| `text-gray-500`, `text-slate-500` | `text-foreground-muted` |
+| `text-gray-400`, `text-slate-400` | `text-foreground-subtle` |
+| `text-white` (on colored bg) | `text-primary-foreground` / `text-destructive-foreground` |
+| `bg-blue-600`, `bg-blue-500` | `bg-primary` |
+| `bg-red-500` | `bg-destructive` |
+| `bg-green-500` | `bg-success` |
+| `bg-gray-100`, `bg-slate-100` | `bg-surface-secondary` / `bg-muted` |
+| `border-gray-200` | `border-border` |
+
+If unsure, check `cms/packages/ui/src/tokens.css` for the correct semantic token.
+Exception: Inline HTML strings (e.g., Leaflet `L.divIcon`) may use hex colors since Tailwind classes don't work there.
+
 ## React 19 Coding Rules
 
 The executor MUST follow these rules to avoid lint/type errors on first pass:
