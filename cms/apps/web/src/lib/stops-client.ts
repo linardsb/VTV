@@ -43,6 +43,7 @@ export async function fetchStops(params: {
   page_size?: number;
   search?: string;
   active_only?: boolean;
+  location_type?: number;
 }): Promise<PaginatedStops> {
   const searchParams = new URLSearchParams();
   if (params.page !== undefined) searchParams.set("page", String(params.page));
@@ -51,6 +52,8 @@ export async function fetchStops(params: {
   if (params.search) searchParams.set("search", params.search);
   if (params.active_only !== undefined)
     searchParams.set("active_only", String(params.active_only));
+  if (params.location_type !== undefined)
+    searchParams.set("location_type", String(params.location_type));
 
   const response = await fetch(
     `${BASE_URL}${API_PREFIX}/?${searchParams.toString()}`,

@@ -63,7 +63,7 @@ export default function StopsPage() {
   // Filter state
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [locationTypeFilter, setLocationTypeFilter] = useState("all");
+  const [locationTypeFilter, setLocationTypeFilterRaw] = useState("all");
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
   // UI state
@@ -82,6 +82,12 @@ export default function StopsPage() {
   const [editingCoords, setEditingCoords] = useState<{ lat: number; lon: number } | null>(null);
 
   // Debounced search
+  // Wrap filter setters to reset page on filter change
+  const setLocationTypeFilter = useCallback((value: string) => {
+    setLocationTypeFilterRaw(value);
+    setPage(1);
+  }, []);
+
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   useEffect(() => {
@@ -99,6 +105,12 @@ export default function StopsPage() {
     return false;
   }, [statusFilter]);
 
+  // Derived: location_type param from locationTypeFilter
+  const locationTypeParam = useMemo(() => {
+    if (locationTypeFilter === "all") return undefined;
+    return Number(locationTypeFilter);
+  }, [locationTypeFilter]);
+
   // Fetch paginated stops for the table
   const loadStops = useCallback(async () => {
     setIsLoading(true);
@@ -108,6 +120,7 @@ export default function StopsPage() {
         page_size: PAGE_SIZE,
         search: debouncedSearch || undefined,
         active_only: activeOnlyParam,
+        location_type: locationTypeParam,
       });
       setStops(result.items);
       setTotalItems(result.total);
@@ -117,7 +130,7 @@ export default function StopsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, debouncedSearch, activeOnlyParam]);
+  }, [page, debouncedSearch, activeOnlyParam, locationTypeParam]);
 
   // Fetch all stops for the map (paginated in batches of 100 — API max)
   const loadAllStops = useCallback(async () => {
@@ -135,17 +148,25 @@ export default function StopsPage() {
         return;
       }
 
-      // Fetch remaining pages in parallel
-      const remaining = await Promise.all(
-        Array.from({ length: totalPages - 1 }, (_, i) =>
-          fetchStops({ page: i + 2, page_size: 100, active_only: false }),
-        ),
-      );
+      // Fetch remaining pages in sequential batches of 5 to avoid rate limits
+      const collected = [...first.items];
+      const batchSize = 5;
 
-      setAllStops([
-        ...first.items,
-        ...remaining.flatMap((r) => r.items),
-      ]);
+      for (let start = 2; start <= totalPages; start += batchSize) {
+        const end = Math.min(start + batchSize, totalPages + 1);
+        const results = await Promise.allSettled(
+          Array.from({ length: end - start }, (_, i) =>
+            fetchStops({ page: start + i, page_size: 100, active_only: false }),
+          ),
+        );
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            collected.push(...r.value.items);
+          }
+        }
+      }
+
+      setAllStops(collected);
     } catch {
       setAllStops([]);
     }
@@ -158,13 +179,6 @@ export default function StopsPage() {
   useEffect(() => {
     void loadAllStops();
   }, [loadAllStops]);
-
-  // Client-side location type filter
-  const displayStops = useMemo(() => {
-    if (locationTypeFilter === "all") return stops;
-    const typeNum = Number(locationTypeFilter);
-    return stops.filter((s) => s.location_type === typeNum);
-  }, [stops, locationTypeFilter]);
 
   // Selected stop ID for map sync
   const selectedStopId = selectedStop?.id ?? null;
@@ -304,6 +318,7 @@ export default function StopsPage() {
         setDefaultCoords(null);
         setEditingStopId(null);
         setEditingCoords(null);
+        setDetailOpen(false);
       }
     },
     [],
@@ -365,7 +380,7 @@ export default function StopsPage() {
             onStatusFilterChange={setStatusFilter}
             locationTypeFilter={locationTypeFilter}
             onLocationTypeFilterChange={setLocationTypeFilter}
-            resultCount={displayStops.length}
+            resultCount={stops.length}
             asSheet
             sheetOpen={filterSheetOpen}
             onSheetOpenChange={setFilterSheetOpen}
@@ -382,7 +397,7 @@ export default function StopsPage() {
             </TabsList>
             <TabsContent value="table" className="flex-1 overflow-hidden rounded-lg border border-border mt-(--spacing-tight)">
               <StopTable
-                stops={displayStops}
+                stops={stops}
                 total={totalItems}
                 page={page}
                 pageSize={PAGE_SIZE}
@@ -443,10 +458,10 @@ export default function StopsPage() {
                     onStatusFilterChange={setStatusFilter}
                     locationTypeFilter={locationTypeFilter}
                     onLocationTypeFilterChange={setLocationTypeFilter}
-                    resultCount={displayStops.length}
+                    resultCount={stops.length}
                   />
                   <StopTable
-                    stops={displayStops}
+                    stops={stops}
                     total={totalItems}
                     page={page}
                     pageSize={PAGE_SIZE}
@@ -469,10 +484,10 @@ export default function StopsPage() {
         </>
       )}
 
-      {/* Detail Sheet */}
+      {/* Detail Sheet — hidden when edit form is open to prevent overlap */}
       <StopDetail
         stop={selectedStop}
-        open={detailOpen}
+        open={detailOpen && !formOpen}
         onOpenChange={(open) => {
           setDetailOpen(open);
           if (!open) setSelectedStop(null);

@@ -49,6 +49,7 @@ class StopRepository:
         limit: int = 100,
         active_only: bool = True,
         search: str | None = None,
+        location_type: int | None = None,
     ) -> list[Stop]:
         """List stops with pagination, filtering, and search.
 
@@ -57,6 +58,7 @@ class StopRepository:
             limit: Maximum records to return.
             active_only: If True, only return active stops.
             search: Case-insensitive substring filter on stop_name.
+            location_type: GTFS location_type filter (0=stop, 1=terminus).
 
         Returns:
             List of Stop instances.
@@ -66,6 +68,8 @@ class StopRepository:
             query = query.where(Stop.is_active.is_(True))
         if search:
             query = query.where(Stop.stop_name.ilike(f"%{search}%"))
+        if location_type is not None:
+            query = query.where(Stop.location_type == location_type)
         query = query.order_by(Stop.stop_name).offset(offset).limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -75,12 +79,14 @@ class StopRepository:
         *,
         active_only: bool = True,
         search: str | None = None,
+        location_type: int | None = None,
     ) -> int:
         """Count stops matching the given filters.
 
         Args:
             active_only: If True, only count active stops.
             search: Case-insensitive substring filter on stop_name.
+            location_type: GTFS location_type filter (0=stop, 1=terminus).
 
         Returns:
             Total number of matching stops.
@@ -90,6 +96,8 @@ class StopRepository:
             query = query.where(Stop.is_active.is_(True))
         if search:
             query = query.where(Stop.stop_name.ilike(f"%{search}%"))
+        if location_type is not None:
+            query = query.where(Stop.location_type == location_type)
         result = await self.db.execute(query)
         return result.scalar_one()
 

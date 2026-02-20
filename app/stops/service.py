@@ -86,6 +86,7 @@ class StopService:
         *,
         search: str | None = None,
         active_only: bool = True,
+        location_type: int | None = None,
     ) -> PaginatedResponse[StopResponse]:
         """List stops with pagination and optional filtering.
 
@@ -93,6 +94,7 @@ class StopService:
             pagination: Page and page_size parameters.
             search: Case-insensitive substring filter on stop_name.
             active_only: If True, only return active stops.
+            location_type: GTFS location_type filter (0=stop, 1=terminus).
 
         Returns:
             Paginated list of StopResponse items.
@@ -103,6 +105,7 @@ class StopService:
             page_size=pagination.page_size,
             search=search,
             active_only=active_only,
+            location_type=location_type,
         )
 
         stops = await self.repository.list(
@@ -110,8 +113,13 @@ class StopService:
             limit=pagination.page_size,
             active_only=active_only,
             search=search,
+            location_type=location_type,
         )
-        total = await self.repository.count(active_only=active_only, search=search)
+        total = await self.repository.count(
+            active_only=active_only,
+            search=search,
+            location_type=location_type,
+        )
 
         items = [StopResponse.model_validate(s) for s in stops]
 

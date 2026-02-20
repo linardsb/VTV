@@ -127,6 +127,9 @@
   --color-transport-trolleybus: var(--color-emerald-500);
   --color-transport-tram: var(--color-purple-600);
 
+  /* Stop location types */
+  --color-stop-terminus: var(--color-emerald-500);
+
   /* Error state */
   --color-error: var(--color-red-600);
   --color-error-bg: var(--color-red-50);

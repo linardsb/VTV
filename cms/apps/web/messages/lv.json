@@ -206,7 +206,7 @@
       "inactive": "Neaktīvs",
       "allTypes": "Visi veidi",
       "stop": "Pietura",
-      "station": "Stacija",
+      "station": "Galapunkts",
       "status": "Statuss",
       "locationType": "Atrašanās vietas tips"
     },
@@ -220,7 +220,9 @@
       "actions": "Darbības",
       "noResults": "Pieturas nav atrastas",
       "noResultsDescription": "Izveidojiet pirmo pieturu, lai sāktu.",
-      "showing": "Rāda {from}-{to} no {total}"
+      "showing": "Rāda {from}-{to} no {total}",
+      "copyGtfsId": "Kopēt GTFS ID",
+      "copied": "Nokopēts!"
     },
     "detail": {
       "stopName": "Pieturas nosaukums",
@@ -238,7 +240,7 @@
     },
     "locationTypes": {
       "0": "Pietura",
-      "1": "Stacija",
+      "1": "Galapunkts",
       "2": "Ieeja/Izeja",
       "3": "Vispārīgs mezgls",
       "4": "Iekāpšanas zona"

@@ -1,7 +1,9 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Check, Copy, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -28,6 +30,39 @@ import {
 } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import type { Stop } from "@/types/stop";
+
+function CopyGtfsButton({ gtfsId, label, copiedLabel }: { gtfsId: string; label: string; copiedLabel: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      void navigator.clipboard.writeText(gtfsId).then(() => {
+        setCopied(true);
+        toast.success(copiedLabel);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    },
+    [gtfsId, copiedLabel],
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1 rounded px-1 py-0.5 font-mono text-xs text-foreground-muted transition-colors hover:bg-surface hover:text-foreground"
+      title={label}
+      aria-label={`${label}: ${gtfsId}`}
+    >
+      {gtfsId}
+      {copied ? (
+        <Check className="size-3 text-status-ontime" />
+      ) : (
+        <Copy className="size-3 opacity-0 transition-opacity group-hover/row:opacity-100" />
+      )}
+    </button>
+  );
+}
 
 interface StopTableProps {
   stops: Stop[];
@@ -104,17 +139,24 @@ export function StopTable({
               <TableRow
                 key={stop.id}
                 className={cn(
-                  "cursor-pointer transition-colors",
+                  "group/row cursor-pointer transition-colors",
                   selectedStopId === stop.id && "bg-selected-bg",
                 )}
                 onClick={() => onSelectStop(stop)}
               >
                 <TableCell>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col gap-0.5">
                     <span className="font-medium">{stop.stop_name}</span>
-                    <span className="text-xs text-foreground-muted">
-                      {stop.stop_desc || stop.gtfs_stop_id}
-                    </span>
+                    {stop.stop_desc && (
+                      <span className="text-xs text-foreground-muted">
+                        {stop.stop_desc}
+                      </span>
+                    )}
+                    <CopyGtfsButton
+                      gtfsId={stop.gtfs_stop_id}
+                      label={t("table.copyGtfsId")}
+                      copiedLabel={t("table.copied")}
+                    />
                   </div>
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">

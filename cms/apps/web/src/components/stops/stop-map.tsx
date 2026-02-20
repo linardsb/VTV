@@ -31,6 +31,17 @@ interface StopMapProps {
   locationTypeFilter?: string;
 }
 
+/**
+ * Marker hex colors — must use raw hex because Leaflet renders via SVG/Canvas.
+ * These correspond to semantic tokens in tokens.css:
+ * - MARKER_BLUE = --color-interactive = --color-blue-600
+ * - MARKER_GREEN = --color-stop-terminus = --color-emerald-500
+ * - MARKER_DARK = --color-brand = --color-navy-800
+ */
+const MARKER_BLUE = "#0369A1";
+const MARKER_GREEN = "#16a34a";
+const MARKER_DARK = "#0F172A";
+
 function createEditingIcon(): L.DivIcon {
   return L.divIcon({
     className: "",
@@ -41,7 +52,14 @@ function createEditingIcon(): L.DivIcon {
       border:3px solid white;
       box-shadow:0 0 0 2px #0369A1, 0 4px 12px rgba(0,0,0,0.4);
       cursor:grab;
-    "></div>`,
+      animation: vtv-pulse 1.5s ease-in-out infinite;
+    "></div>
+    <style>
+      @keyframes vtv-pulse {
+        0%, 100% { box-shadow: 0 0 0 2px #0369A1, 0 4px 12px rgba(0,0,0,0.4); }
+        50% { box-shadow: 0 0 0 6px rgba(3,105,161,0.3), 0 4px 12px rgba(0,0,0,0.4); }
+      }
+    </style>`,
     iconSize: [24, 24],
     iconAnchor: [12, 12],
   });
@@ -280,7 +298,11 @@ export function StopMap({
               center={[stop.stop_lat, stop.stop_lon]}
               radius={isSelected ? 8 : 6}
               pathOptions={{
-                fillColor: isSelected ? "#0F172A" : "#0369A1",
+                fillColor: isSelected
+                  ? MARKER_DARK
+                  : stop.location_type === 1
+                    ? MARKER_GREEN
+                    : MARKER_BLUE,
                 color: "#FFFFFF",
                 weight: 2,
                 opacity: 1,
@@ -293,6 +315,9 @@ export function StopMap({
               <Popup>
                 <div className="text-sm">
                   <p className="font-semibold">{stop.stop_name}</p>
+                  {stop.stop_desc && (
+                    <p className="text-xs text-foreground-muted">{stop.stop_desc}</p>
+                  )}
                   <p className="font-mono text-xs text-foreground-muted">
                     {stop.gtfs_stop_id}
                   </p>

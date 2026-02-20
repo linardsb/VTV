@@ -74,7 +74,7 @@ async def test_list_stops_with_search(service):
 
     assert len(result.items) == 1
     service.repository.list.assert_awaited_once_with(
-        offset=0, limit=20, active_only=True, search="Centr"
+        offset=0, limit=20, active_only=True, search="Centr", location_type=None
     )
 
 

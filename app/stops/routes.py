@@ -31,11 +31,14 @@ async def list_stops(
     pagination: PaginationParams = Depends(),  # noqa: B008
     search: str | None = Query(None, max_length=200),
     active_only: bool = Query(default=True),
+    location_type: int | None = Query(None, ge=0, le=4),
     service: StopService = Depends(get_service),  # noqa: B008
 ) -> PaginatedResponse[StopResponse]:
     """List stops with pagination and optional search filter."""
     _ = request
-    return await service.list_stops(pagination, search=search, active_only=active_only)
+    return await service.list_stops(
+        pagination, search=search, active_only=active_only, location_type=location_type
+    )
 
 
 @router.get("/nearby", response_model=list[StopResponse])
