@@ -18,15 +18,18 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { RouteType } from "@/types/route";
+import type { Agency } from "@/types/schedule";
 
 interface FilterContentProps {
   search: string;
   onSearchChange: (value: string) => void;
-  typeFilter: RouteType | null;
-  onTypeFilterChange: (type: RouteType | null) => void;
+  typeFilter: number | null;
+  onTypeFilterChange: (type: number | null) => void;
   statusFilter: "all" | "active" | "inactive";
   onStatusFilterChange: (status: "all" | "active" | "inactive") => void;
+  agencyFilter: number | null;
+  onAgencyFilterChange: (agencyId: number | null) => void;
+  agencies: Agency[];
   resultCount: number;
 }
 
@@ -37,6 +40,9 @@ function FilterContent({
   onTypeFilterChange,
   statusFilter,
   onStatusFilterChange,
+  agencyFilter,
+  onAgencyFilterChange,
+  agencies,
   resultCount,
 }: FilterContentProps) {
   const t = useTranslations("routes");
@@ -74,7 +80,7 @@ function FilterContent({
               if (value === "all" || value === "") {
                 onTypeFilterChange(null);
               } else {
-                onTypeFilterChange(Number(value) as RouteType);
+                onTypeFilterChange(Number(value));
               }
             }}
             className="flex flex-col gap-1"
@@ -95,6 +101,37 @@ function FilterContent({
         </div>
 
         <Separator />
+
+        {/* Agency Filter */}
+        {agencies.length > 0 && (
+          <>
+            <div className="space-y-(--spacing-tight)">
+              <p className="text-xs font-medium text-label-text uppercase tracking-wide">
+                {t("filters.agency")}
+              </p>
+              <Select
+                value={agencyFilter === null ? "all" : String(agencyFilter)}
+                onValueChange={(v) =>
+                  onAgencyFilterChange(v === "all" ? null : Number(v))
+                }
+              >
+                <SelectTrigger aria-label={t("filters.agency")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("filters.allAgencies")}</SelectItem>
+                  {agencies.map((a) => (
+                    <SelectItem key={a.id} value={String(a.id)}>
+                      {a.agency_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator />
+          </>
+        )}
 
         {/* Status Filter */}
         <div className="space-y-(--spacing-tight)">
@@ -127,10 +164,13 @@ function FilterContent({
 interface RouteFiltersProps {
   search: string;
   onSearchChange: (value: string) => void;
-  typeFilter: RouteType | null;
-  onTypeFilterChange: (type: RouteType | null) => void;
+  typeFilter: number | null;
+  onTypeFilterChange: (type: number | null) => void;
   statusFilter: "all" | "active" | "inactive";
   onStatusFilterChange: (status: "all" | "active" | "inactive") => void;
+  agencyFilter: number | null;
+  onAgencyFilterChange: (agencyId: number | null) => void;
+  agencies: Agency[];
   resultCount: number;
   asSheet?: boolean;
   sheetOpen?: boolean;
@@ -144,6 +184,9 @@ export function RouteFilters({
   onTypeFilterChange,
   statusFilter,
   onStatusFilterChange,
+  agencyFilter,
+  onAgencyFilterChange,
+  agencies,
   resultCount,
   asSheet,
   sheetOpen,
@@ -167,6 +210,9 @@ export function RouteFilters({
             onTypeFilterChange={onTypeFilterChange}
             statusFilter={statusFilter}
             onStatusFilterChange={onStatusFilterChange}
+            agencyFilter={agencyFilter}
+            onAgencyFilterChange={onAgencyFilterChange}
+            agencies={agencies}
             resultCount={resultCount}
           />
         </SheetContent>
@@ -183,6 +229,9 @@ export function RouteFilters({
         onTypeFilterChange={onTypeFilterChange}
         statusFilter={statusFilter}
         onStatusFilterChange={onStatusFilterChange}
+        agencyFilter={agencyFilter}
+        onAgencyFilterChange={onAgencyFilterChange}
+        agencies={agencies}
         resultCount={resultCount}
       />
     </aside>

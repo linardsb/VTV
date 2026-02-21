@@ -158,7 +158,7 @@ def _enrich_vehicles(
         current_stop_name = static.get_stop_name(v.stop_id) if v.stop_id else None
 
         # Convert speed m/s -> km/h
-        speed_kmh = round(v.speed * 3.6, 1) if v.speed else None
+        speed_kmh = round(v.speed * 3.6, 1) if v.speed is not None else None
 
         # Convert timestamp
         timestamp = datetime.fromtimestamp(v.timestamp, tz=UTC).isoformat() if v.timestamp else ""

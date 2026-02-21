@@ -29,8 +29,8 @@ async def test_get_db_yields_session():
             # Verify the session is accessible
             assert session == mock_session
 
-        # Verify close was called
-        mock_session.close.assert_called_once()
+        # Verify context manager cleanup was called (async with handles close)
+        mock_session.__aexit__.assert_called_once()
 
 
 def test_base_class_is_declarative_base():

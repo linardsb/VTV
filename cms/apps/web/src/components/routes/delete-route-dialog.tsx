@@ -17,7 +17,7 @@ interface DeleteRouteDialogProps {
   route: Route | null;
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (routeId: string) => void;
+  onConfirm: (routeId: number) => void;
 }
 
 export function DeleteRouteDialog({
@@ -44,7 +44,7 @@ export function DeleteRouteDialog({
             <DialogTitle>{t("title")}</DialogTitle>
           </div>
           <DialogDescription className="pt-(--spacing-inline)">
-            {t("confirmation", { name: `${route.shortName} ${route.longName}` })}
+            {t("confirmation", { name: `${route.route_short_name} ${route.route_long_name}` })}
           </DialogDescription>
         </DialogHeader>
         <p className="text-sm text-foreground-muted">{t("warning")}</p>

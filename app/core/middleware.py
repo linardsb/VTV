@@ -51,11 +51,23 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
         Returns:
             Response from the next handler, or 413 if body too large.
         """
+        # Allow larger uploads for specific file-based endpoints
+        path = request.url.path
+        upload_paths = (
+            "/api/v1/schedules/import",
+            "/api/v1/schedules/validate",
+            "/api/v1/knowledge",
+        )
+        if any(path.startswith(p) for p in upload_paths):
+            max_size = 10_485_760  # 10MB for file uploads
+        else:
+            max_size = self._max_body_size
+
         content_length = request.headers.get("content-length")
-        if content_length is not None and int(content_length) > self._max_body_size:
+        if content_length is not None and int(content_length) > max_size:
             return JSONResponse(
                 status_code=413,
-                content={"error": "Request body too large", "max_bytes": self._max_body_size},
+                content={"error": "Request body too large", "max_bytes": max_size},
             )
         return await call_next(request)
 

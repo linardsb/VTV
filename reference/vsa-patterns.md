@@ -158,10 +158,10 @@ Feature exceptions inherit from `app.core.exceptions` base classes so the global
 
 ```python
 # {feature}/exceptions.py
-from app.core.exceptions import DatabaseError, NotFoundError, ValidationError
+from app.core.exceptions import AppError, NotFoundError, ValidationError
 
 
-class ThingError(DatabaseError):
+class ThingError(AppError):
     """Base exception for thing-related errors."""
     pass
 
@@ -176,7 +176,7 @@ class ThingAlreadyExistsError(ValidationError):
     pass
 ```
 
-**Why inherit from core exceptions:** The global handler in `app/main.py` already maps `NotFoundError → 404`, `ValidationError → 422`, `DatabaseError → 500`. Feature exceptions get HTTP status codes for free.
+**Why inherit from core exceptions:** The global handler in `app/main.py` already maps `NotFoundError → 404`, `ValidationError → 422`, `AppError → 500`. Feature exceptions get HTTP status codes for free.
 
 ---
 

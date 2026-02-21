@@ -132,6 +132,18 @@ class StopService:
             page_size=pagination.page_size,
         )
 
+    async def list_all_stops(self) -> list[StopResponse]:
+        """Return all stops without pagination (for map display).
+
+        Returns:
+            List of all StopResponse items.
+        """
+        logger.info("stops.list_all_started")
+        stops = await self.repository.list_all()
+        items = [StopResponse.model_validate(s) for s in stops]
+        logger.info("stops.list_all_completed", count=len(items))
+        return items
+
     async def create_stop(self, data: StopCreate) -> StopResponse:
         """Create a new stop.
 

@@ -10,12 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.schedules.exceptions import (
+    AgencyAlreadyExistsError,
     CalendarAlreadyExistsError,
+    CalendarDateNotFoundError,
     CalendarNotFoundError,
     GTFSImportError,
     RouteAlreadyExistsError,
     RouteNotFoundError,
-    StopTimeNotFoundError,
     TripAlreadyExistsError,
     TripNotFoundError,
 )
@@ -47,6 +48,7 @@ from app.schedules.schemas import (
     ValidationResult,
 )
 from app.shared.schemas import PaginatedResponse, PaginationParams
+from app.stops.models import Stop
 from app.stops.repository import StopRepository
 
 logger = get_logger(__name__)
@@ -93,7 +95,7 @@ class ScheduleService:
 
         existing = await self.repository.get_agency_by_gtfs_id(data.gtfs_agency_id)
         if existing:
-            raise RouteAlreadyExistsError(
+            raise AgencyAlreadyExistsError(
                 f"Agency with gtfs_agency_id '{data.gtfs_agency_id}' already exists"
             )
 
@@ -363,11 +365,11 @@ class ScheduleService:
             exception_id: The exception's database ID.
 
         Raises:
-            StopTimeNotFoundError: If exception does not exist.
+            CalendarDateNotFoundError: If exception does not exist.
         """
         cal_date = await self.repository.get_calendar_date(exception_id)
         if not cal_date:
-            raise StopTimeNotFoundError(f"Calendar exception {exception_id} not found")
+            raise CalendarDateNotFoundError(f"Calendar exception {exception_id} not found")
         await self.repository.delete_calendar_date(cal_date)
         logger.info("schedules.calendar_date.delete_completed", exception_id=exception_id)
 
@@ -539,6 +541,7 @@ class ScheduleService:
         """Import schedule data from a GTFS ZIP file.
 
         Replaces all existing schedule data with the contents of the ZIP.
+        If no stops exist in the DB, also imports stops from stops.txt.
 
         Args:
             zip_data: Raw bytes of a GTFS ZIP file.
@@ -558,40 +561,54 @@ class ScheduleService:
             all_stops = await stop_repo.list(offset=0, limit=100000, active_only=False)
             stop_map: dict[str, int] = {s.gtfs_stop_id: s.id for s in all_stops}
 
-            # Parse GTFS ZIP
+            # Parse GTFS ZIP (if stop_map empty, parser also parses stops.txt)
             importer = GTFSImporter(zip_data)
             result = importer.parse(stop_map=stop_map)
 
-            # Clear existing data
+            # Clear existing schedule data
             await self.repository.clear_all_schedule_data()
 
-            # Interleaved insert: agencies
+            # If stops were parsed from GTFS (fresh DB), create them first
+            if result.stops:
+                await self._bulk_create_stops(result.stops)
+
+            # 1. Insert agencies, then resolve route.agency_id from parent refs
             if result.agencies:
                 await self.repository.bulk_create_agencies(result.agencies)
-                agency_map = {a.gtfs_agency_id: a.id for a in result.agencies}
-            else:
-                agency_map = {}
+            for i, route in enumerate(result.routes):
+                route.agency_id = result.route_agency_refs[i].id
 
-            # Resolve route agency_ids and insert
-            for route in result.routes:
-                if agency_map:
-                    route.agency_id = next(iter(agency_map.values()))
+            # 2. Insert routes (now with correct agency_id)
             if result.routes:
                 await self.repository.bulk_create_routes(result.routes)
 
-            # Insert calendars
+            # 3. Insert calendars, then resolve calendar_date.calendar_id
             if result.calendars:
                 await self.repository.bulk_create_calendars(result.calendars)
+            for i, cd in enumerate(result.calendar_dates):
+                cd.calendar_id = result.calendar_date_calendar_refs[i].id
 
-            # Insert calendar dates
+            # 4. Insert calendar dates (now with correct calendar_id)
             if result.calendar_dates:
                 await self.repository.bulk_create_calendar_dates(result.calendar_dates)
 
-            # Insert trips
+            # 5. Resolve trip.route_id and trip.calendar_id from parent refs
+            for i, trip in enumerate(result.trips):
+                trip.route_id = result.trip_route_refs[i].id
+                trip.calendar_id = result.trip_calendar_refs[i].id
+
+            # 6. Insert trips (now with correct route_id and calendar_id)
             if result.trips:
                 await self.repository.bulk_create_trips(result.trips)
 
-            # Insert stop times
+            # 7. Resolve stop_time.trip_id and stop_time.stop_id from parent refs
+            for i, st in enumerate(result.stop_times):
+                st.trip_id = result.stop_time_trip_refs[i].id
+                stop_ref = result.stop_time_stop_refs[i]
+                if stop_ref is not None:
+                    st.stop_id = stop_ref.id
+
+            # 8. Insert stop times (now with correct trip_id and stop_id)
             if result.stop_times:
                 await self.repository.bulk_create_stop_times(result.stop_times)
 
@@ -606,6 +623,7 @@ class ScheduleService:
                 calendar_dates=len(result.calendar_dates),
                 trips=len(result.trips),
                 stop_times=len(result.stop_times),
+                stops=len(result.stops),
                 skipped_stop_times=result.skipped_stop_times,
                 duration_seconds=round(duration, 2),
             )
@@ -628,6 +646,15 @@ class ScheduleService:
                 error_type=type(e).__name__,
             )
             raise GTFSImportError(f"GTFS import failed: {e}") from e
+
+    async def _bulk_create_stops(self, stops: list[Stop]) -> None:
+        """Bulk create stops from GTFS data (flush only, no commit).
+
+        Args:
+            stops: List of Stop model instances parsed from stops.txt.
+        """
+        self.db.add_all(stops)
+        await self.db.flush()
 
     # --- Validation ---
 
@@ -693,3 +720,53 @@ class ScheduleService:
             warning_count=len(warnings),
         )
         return ValidationResult(valid=valid, errors=errors, warnings=warnings)
+
+    # --- GTFS Export ---
+
+    async def export_gtfs(self, agency_id: int | None = None) -> bytes:
+        """Export schedule data as a GTFS-compliant ZIP file.
+
+        Args:
+            agency_id: Optional agency ID to filter export to a single agency.
+
+        Returns:
+            ZIP file bytes.
+        """
+        from app.schedules.gtfs_export import GTFSExporter
+
+        agencies = await self.repository.list_all_agencies()
+        routes = await self.repository.list_all_routes(agency_id=agency_id)
+        calendars = await self.repository.list_all_calendars()
+        calendar_dates = await self.repository.list_all_calendar_dates()
+
+        route_ids = [r.id for r in routes] if agency_id is not None else None
+        trips = await self.repository.list_all_trips(route_ids=route_ids)
+
+        trip_ids = [t.id for t in trips]
+        stop_times = await self.repository.list_all_stop_times(
+            trip_ids=trip_ids if trip_ids else None
+        )
+
+        # Cross-feature read: get stops referenced by stop_times
+        stop_repo = StopRepository(self.db)
+        stops = await stop_repo.list_all()
+
+        exporter = GTFSExporter(
+            agencies=agencies,
+            routes=routes,
+            calendars=calendars,
+            calendar_dates=calendar_dates,
+            trips=trips,
+            stop_times=stop_times,
+            stops=stops,
+        )
+
+        logger.info(
+            "schedules.export_completed",
+            agency_count=len(agencies),
+            route_count=len(routes),
+            trip_count=len(trips),
+            stop_count=len(stops),
+        )
+
+        return exporter.export()

@@ -2,7 +2,8 @@
 
 from datetime import date
 
-from sqlalchemy import delete, func, select
+import sqlalchemy as sa
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schedules.models import (
@@ -21,6 +22,26 @@ from app.schedules.schemas import (
     StopTimeCreate,
     TripUpdate,
 )
+
+# Basic GTFS type → extended GTFS type range mapping.
+# Riga's GTFS feed uses extended types (800=trolleybus, 900=tram).
+# When filtering by basic type (e.g. 0=tram), also match extended range (900-999).
+_BASIC_TO_EXTENDED: dict[int, tuple[int, int]] = {
+    0: (900, 999),  # tram → 900-999
+    3: (700, 799),  # bus → 700-799
+    11: (800, 899),  # trolleybus → 800-899
+}
+
+
+def _route_type_filter(route_type: int) -> sa.ColumnElement[bool]:
+    """Build a SQLAlchemy filter matching both basic and extended GTFS route types."""
+    extended_range = _BASIC_TO_EXTENDED.get(route_type)
+    if extended_range:
+        return or_(
+            Route.route_type == route_type,
+            Route.route_type.between(extended_range[0], extended_range[1]),
+        )
+    return Route.route_type == route_type
 
 
 class ScheduleRepository:
@@ -154,7 +175,7 @@ class ScheduleRepository:
                 Route.route_short_name.ilike(pattern) | Route.route_long_name.ilike(pattern)
             )
         if route_type is not None:
-            query = query.where(Route.route_type == route_type)
+            query = query.where(_route_type_filter(route_type))
         if agency_id is not None:
             query = query.where(Route.agency_id == agency_id)
         query = query.order_by(Route.route_short_name).offset(offset).limit(limit)
@@ -185,7 +206,7 @@ class ScheduleRepository:
                 Route.route_short_name.ilike(pattern) | Route.route_long_name.ilike(pattern)
             )
         if route_type is not None:
-            query = query.where(Route.route_type == route_type)
+            query = query.where(_route_type_filter(route_type))
         if agency_id is not None:
             query = query.where(Route.agency_id == agency_id)
         result = await self.db.execute(query)
@@ -580,6 +601,50 @@ class ScheduleRepository:
         for st in new_stop_times:
             await self.db.refresh(st)
         return new_stop_times
+
+    # --- Export helpers (unpaginated) ---
+
+    async def list_all_agencies(self) -> list[Agency]:
+        """List all agencies without pagination (for GTFS export)."""
+        result = await self.db.execute(select(Agency).order_by(Agency.id))
+        return list(result.scalars().all())
+
+    async def list_all_routes(self, agency_id: int | None = None) -> list[Route]:
+        """List all routes without pagination (for GTFS export)."""
+        query = select(Route)
+        if agency_id is not None:
+            query = query.where(Route.agency_id == agency_id)
+        query = query.order_by(Route.id)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def list_all_calendars(self) -> list[Calendar]:
+        """List all calendars without pagination (for GTFS export)."""
+        result = await self.db.execute(select(Calendar).order_by(Calendar.id))
+        return list(result.scalars().all())
+
+    async def list_all_calendar_dates(self) -> list[CalendarDate]:
+        """List all calendar date exceptions without pagination (for GTFS export)."""
+        result = await self.db.execute(select(CalendarDate).order_by(CalendarDate.id))
+        return list(result.scalars().all())
+
+    async def list_all_trips(self, route_ids: list[int] | None = None) -> list[Trip]:
+        """List all trips without pagination (for GTFS export)."""
+        query = select(Trip)
+        if route_ids is not None:
+            query = query.where(Trip.route_id.in_(route_ids))
+        query = query.order_by(Trip.id)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def list_all_stop_times(self, trip_ids: list[int] | None = None) -> list[StopTime]:
+        """List all stop times without pagination (for GTFS export)."""
+        query = select(StopTime)
+        if trip_ids is not None:
+            query = query.where(StopTime.trip_id.in_(trip_ids))
+        query = query.order_by(StopTime.trip_id, StopTime.stop_sequence)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
 
     # --- Bulk operations (for GTFS import) ---
 

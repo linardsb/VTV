@@ -19,6 +19,7 @@ from app.schedules.models import (
     StopTime,
     Trip,
 )
+from app.stops.models import Stop
 
 
 @dataclass
@@ -31,8 +32,17 @@ class GTFSParseResult:
     calendar_dates: list[CalendarDate] = field(default_factory=lambda: list[CalendarDate]())
     trips: list[Trip] = field(default_factory=lambda: list[Trip]())
     stop_times: list[StopTime] = field(default_factory=lambda: list[StopTime]())
+    stops: list[Stop] = field(default_factory=lambda: list[Stop]())
     skipped_stop_times: int = 0
     warnings: list[str] = field(default_factory=lambda: list[str]())
+    # Parallel parent-reference lists for FK resolution after flush.
+    # route_agency_refs[i] is the Agency ORM object for routes[i].
+    route_agency_refs: list[Agency] = field(default_factory=lambda: list[Agency]())
+    calendar_date_calendar_refs: list[Calendar] = field(default_factory=lambda: list[Calendar]())
+    trip_route_refs: list[Route] = field(default_factory=lambda: list[Route]())
+    trip_calendar_refs: list[Calendar] = field(default_factory=lambda: list[Calendar]())
+    stop_time_trip_refs: list[Trip] = field(default_factory=lambda: list[Trip]())
+    stop_time_stop_refs: list[Stop | None] = field(default_factory=lambda: list[Stop | None]())
 
 
 class GTFSImporter:
@@ -57,6 +67,8 @@ class GTFSImporter:
 
         Args:
             stop_map: Mapping of GTFS stop_id strings to database stop.id integers.
+                If empty, stops.txt will be parsed and returned in the result
+                for the service to create before linking stop_times.
 
         Returns:
             GTFSParseResult with all parsed entities.
@@ -64,27 +76,43 @@ class GTFSImporter:
         with zipfile.ZipFile(io.BytesIO(self.zip_data)) as zf:
             file_names = zf.namelist()
 
+            # Parse stops if stop_map is empty (fresh DB)
+            stops: list[Stop] = []
+            if not stop_map:
+                stops = self._parse_stops(zf, file_names)
+                # Build a temporary stop_map using GTFS IDs and Stop objects.
+                # After flush, these objects will have real DB IDs.
+                # For now, use index+1 as placeholder since stop_times need int IDs.
+                # The service will resolve these after flushing stops.
+                stop_map = {s.gtfs_stop_id: i for i, s in enumerate(stops)}
+
             # Parse agencies (create default if missing)
             agencies = self._parse_agencies(zf, file_names)
             agency_map = {a.gtfs_agency_id: a for a in agencies}
 
-            # Parse routes
-            routes = self._parse_routes(zf, file_names, agency_map)
+            # Parse routes (with agency references for FK resolution)
+            routes, route_agency_refs = self._parse_routes(zf, file_names, agency_map)
             route_map = {r.gtfs_route_id: r for r in routes}
 
             # Parse calendars
             calendars = self._parse_calendars(zf, file_names)
             calendar_map = {c.gtfs_service_id: c for c in calendars}
 
-            # Parse calendar dates
-            calendar_dates = self._parse_calendar_dates(zf, file_names, calendar_map)
+            # Parse calendar dates (with calendar references)
+            calendar_dates, cd_calendar_refs = self._parse_calendar_dates(
+                zf, file_names, calendar_map
+            )
 
-            # Parse trips
-            trips = self._parse_trips(zf, file_names, route_map, calendar_map)
+            # Parse trips (with route and calendar references)
+            trips, trip_route_refs, trip_calendar_refs = self._parse_trips(
+                zf, file_names, route_map, calendar_map
+            )
             trip_map = {t.gtfs_trip_id: t for t in trips}
 
-            # Parse stop times
-            stop_times, skipped = self._parse_stop_times(zf, file_names, trip_map, stop_map)
+            # Parse stop times (with trip and stop references)
+            stop_times, stop_time_trip_refs, stop_time_stop_refs, skipped = self._parse_stop_times(
+                zf, file_names, trip_map, stop_map, stops
+            )
 
         return GTFSParseResult(
             agencies=agencies,
@@ -93,8 +121,15 @@ class GTFSImporter:
             calendar_dates=calendar_dates,
             trips=trips,
             stop_times=stop_times,
+            stops=stops,
             skipped_stop_times=skipped,
             warnings=self.warnings,
+            route_agency_refs=route_agency_refs,
+            calendar_date_calendar_refs=cd_calendar_refs,
+            trip_route_refs=trip_route_refs,
+            trip_calendar_refs=trip_calendar_refs,
+            stop_time_trip_refs=stop_time_trip_refs,
+            stop_time_stop_refs=stop_time_stop_refs,
         )
 
     def _read_csv(self, zf: zipfile.ZipFile, filename: str) -> csv.DictReader[str] | None:
@@ -160,7 +195,7 @@ class GTFSImporter:
         zf: zipfile.ZipFile,
         file_names: list[str],
         agency_map: dict[str, Agency],
-    ) -> list[Route]:
+    ) -> tuple[list[Route], list[Agency]]:
         """Parse routes.txt.
 
         Args:
@@ -169,14 +204,15 @@ class GTFSImporter:
             agency_map: Mapping of GTFS agency_id to Agency instances.
 
         Returns:
-            List of Route model instances.
+            Tuple of (routes list, parallel agency refs list).
         """
         reader = self._read_csv(zf, "routes.txt")
         if reader is None:
             self.warnings.append("routes.txt not found")
-            return []
+            return [], []
         _ = file_names
         routes: list[Route] = []
+        agency_refs: list[Agency] = []
         default_agency = next(iter(agency_map.values())) if agency_map else None
         for row in reader:
             agency_id_str = row.get("agency_id", "")
@@ -203,7 +239,8 @@ class GTFSImporter:
                     route_sort_order=sort_order,
                 )
             )
-        return routes
+            agency_refs.append(agency)
+        return routes, agency_refs
 
     def _parse_calendars(self, zf: zipfile.ZipFile, file_names: list[str]) -> list[Calendar]:
         """Parse calendar.txt.
@@ -253,7 +290,7 @@ class GTFSImporter:
         zf: zipfile.ZipFile,
         file_names: list[str],
         calendar_map: dict[str, Calendar],
-    ) -> list[CalendarDate]:
+    ) -> tuple[list[CalendarDate], list[Calendar]]:
         """Parse calendar_dates.txt.
 
         Args:
@@ -262,13 +299,14 @@ class GTFSImporter:
             calendar_map: Mapping of GTFS service_id to Calendar instances.
 
         Returns:
-            List of CalendarDate model instances.
+            Tuple of (calendar_dates list, parallel calendar refs list).
         """
         reader = self._read_csv(zf, "calendar_dates.txt")
         if reader is None:
-            return []
+            return [], []
         _ = file_names
         dates: list[CalendarDate] = []
+        calendar_refs: list[Calendar] = []
         for row in reader:
             service_id = row.get("service_id", "")
             if service_id not in calendar_map:
@@ -286,7 +324,8 @@ class GTFSImporter:
                     exception_type=exc_type,
                 )
             )
-        return dates
+            calendar_refs.append(calendar_map[service_id])
+        return dates, calendar_refs
 
     def _parse_trips(
         self,
@@ -294,7 +333,7 @@ class GTFSImporter:
         file_names: list[str],
         route_map: dict[str, Route],
         calendar_map: dict[str, Calendar],
-    ) -> list[Trip]:
+    ) -> tuple[list[Trip], list[Route], list[Calendar]]:
         """Parse trips.txt.
 
         Args:
@@ -304,14 +343,16 @@ class GTFSImporter:
             calendar_map: Mapping of GTFS service_id to Calendar instances.
 
         Returns:
-            List of Trip model instances.
+            Tuple of (trips list, parallel route refs, parallel calendar refs).
         """
         reader = self._read_csv(zf, "trips.txt")
         if reader is None:
             self.warnings.append("trips.txt not found")
-            return []
+            return [], [], []
         _ = file_names
         trips: list[Trip] = []
+        route_refs: list[Route] = []
+        calendar_refs: list[Calendar] = []
         for row in reader:
             route_id_str = row.get("route_id", "")
             service_id = row.get("service_id", "")
@@ -339,7 +380,9 @@ class GTFSImporter:
                     block_id=row.get("block_id") or None,
                 )
             )
-        return trips
+            route_refs.append(route_map[route_id_str])
+            calendar_refs.append(calendar_map[service_id])
+        return trips, route_refs, calendar_refs
 
     def _parse_stop_times(
         self,
@@ -347,24 +390,32 @@ class GTFSImporter:
         file_names: list[str],
         trip_map: dict[str, Trip],
         stop_map: dict[str, int],
-    ) -> tuple[list[StopTime], int]:
+        stops: list[Stop],
+    ) -> tuple[list[StopTime], list[Trip], list[Stop | None], int]:
         """Parse stop_times.txt.
 
         Args:
             zf: Open ZipFile instance.
             file_names: List of files in the ZIP.
             trip_map: Mapping of GTFS trip_id to Trip instances.
-            stop_map: Mapping of GTFS stop_id to database stop.id integers.
+            stop_map: Mapping of GTFS stop_id to index in stops list (if fresh DB)
+                or database stop.id integers (if stops exist).
+            stops: List of parsed Stop objects (empty if stops already in DB).
 
         Returns:
-            Tuple of (stop_times list, skipped count).
+            Tuple of (stop_times list, parallel trip refs, skipped count).
         """
         reader = self._read_csv(zf, "stop_times.txt")
         if reader is None:
             self.warnings.append("stop_times.txt not found")
-            return [], 0
+            return [], [], [], 0
         _ = file_names
         stop_times: list[StopTime] = []
+        trip_refs: list[Trip] = []
+        # If stops were parsed from GTFS, stop_map values are list indices.
+        # We store the Stop object reference; the service will resolve after flush.
+        uses_stop_objects = len(stops) > 0
+        stop_refs: list[Stop | None] = []
         skipped = 0
         for row in reader:
             trip_id_str = row.get("trip_id", "")
@@ -386,10 +437,13 @@ class GTFSImporter:
             dropoff_str = row.get("drop_off_type", "0")
             dropoff = int(dropoff_str) if dropoff_str.isdigit() else 0
 
+            # stop_id: use real DB id if stops exist, otherwise placeholder (0)
+            stop_db_id = 0 if uses_stop_objects else stop_map[stop_id_str]
+
             stop_times.append(
                 StopTime(
                     trip_id=0,  # placeholder, resolved after trip flush
-                    stop_id=stop_map[stop_id_str],
+                    stop_id=stop_db_id,
                     stop_sequence=sequence,
                     arrival_time=row.get("arrival_time", "00:00:00"),
                     departure_time=row.get("departure_time", "00:00:00"),
@@ -397,9 +451,54 @@ class GTFSImporter:
                     drop_off_type=dropoff,
                 )
             )
+            trip_refs.append(trip_map[trip_id_str])
+            stop_refs.append(stops[stop_map[stop_id_str]] if uses_stop_objects else None)
         if skipped > 0:
             self.warnings.append(f"Skipped {skipped} stop_times with unknown trip or stop")
-        return stop_times, skipped
+        return stop_times, trip_refs, stop_refs, skipped
+
+    def _parse_stops(self, zf: zipfile.ZipFile, file_names: list[str]) -> list[Stop]:
+        """Parse stops.txt.
+
+        Args:
+            zf: Open ZipFile instance.
+            file_names: List of files in the ZIP.
+
+        Returns:
+            List of Stop model instances.
+        """
+        reader = self._read_csv(zf, "stops.txt")
+        if reader is None:
+            self.warnings.append("stops.txt not found")
+            return []
+        _ = file_names
+        stops: list[Stop] = []
+        for row in reader:
+            stop_id = row.get("stop_id", "")
+            if not stop_id:
+                continue
+
+            lat_str = row.get("stop_lat", "")
+            lon_str = row.get("stop_lon", "")
+            lat = float(lat_str) if lat_str else None
+            lon = float(lon_str) if lon_str else None
+
+            loc_type_str = row.get("location_type", "0")
+            location_type = int(loc_type_str) if loc_type_str.isdigit() else 0
+
+            stops.append(
+                Stop(
+                    gtfs_stop_id=stop_id,
+                    stop_name=row.get("stop_name", stop_id),
+                    stop_lat=lat,
+                    stop_lon=lon,
+                    stop_desc=row.get("stop_desc") or None,
+                    location_type=location_type,
+                    wheelchair_boarding=0,
+                    is_active=True,
+                )
+            )
+        return stops
 
 
 def _parse_gtfs_date(date_str: str) -> date | None:

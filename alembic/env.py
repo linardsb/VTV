@@ -7,8 +7,10 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import app.auth.models
 import app.knowledge.models
-import app.stops.models  # noqa: F401 — register Stop model for autogenerate
+import app.schedules.models
+import app.stops.models  # noqa: F401
 from alembic import context
 from app.core.config import get_settings
 from app.core.database import Base

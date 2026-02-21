@@ -14,8 +14,9 @@ declare module "next-auth" {
   }
 }
 
-// SECURITY: Login brute-force protection
-// 5 failed attempts per email = 15-minute lockout
+const AGENT_URL = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
+
+// SECURITY: Frontend brute-force protection (defense in depth — backend also enforces)
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -59,27 +60,45 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         const email = credentials?.email as string | undefined;
-        if (!email) return null;
+        const password = credentials?.password as string | undefined;
+        if (!email || !password) return null;
 
-        // SECURITY: Check brute-force lockout
+        // SECURITY: Frontend brute-force check (defense in depth)
         if (!checkBruteForce(email)) {
           return null;
         }
 
-        // SECURITY: Replace with Drizzle ORM query when database is set up
-        // Hardcoded demo user for development only
-        if (email === "admin@vtv.lv" && credentials?.password === "admin") {
+        try {
+          const response = await fetch(`${AGENT_URL}/api/v1/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+
+          if (!response.ok) {
+            recordFailedAttempt(email);
+            return null;
+          }
+
+          const user = (await response.json()) as {
+            id: number;
+            email: string;
+            name: string;
+            role: VTVRole;
+          };
+
           clearAttempts(email);
           return {
-            id: "1",
-            email: "admin@vtv.lv",
-            name: "VTV Admin",
-            role: "admin" as VTVRole,
+            id: String(user.id),
+            email: user.email,
+            name: user.name,
+            role: user.role,
           };
+        } catch {
+          // Backend unreachable — treat as failed attempt
+          recordFailedAttempt(email);
+          return null;
         }
-
-        recordFailedAttempt(email);
-        return null;
       },
     }),
   ],

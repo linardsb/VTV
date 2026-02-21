@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { Pencil, Trash2, X } from "lucide-react";
@@ -13,8 +14,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { toHexColor } from "@/lib/color-utils";
 import { RouteTypeBadge } from "./route-type-badge";
 import type { Route } from "@/types/route";
+import type { Agency } from "@/types/schedule";
 
 interface RouteDetailProps {
   route: Route | null;
@@ -23,6 +26,7 @@ interface RouteDetailProps {
   onEdit: (route: Route) => void;
   onDelete: (route: Route) => void;
   isReadOnly: boolean;
+  agencies: Agency[];
 }
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -43,12 +47,17 @@ export function RouteDetail({
   onEdit,
   onDelete,
   isReadOnly,
+  agencies,
 }: RouteDetailProps) {
   const t = useTranslations("routes.detail");
   const tActions = useTranslations("routes.actions");
-  const tAgencies = useTranslations("routes.agencies");
   const tFilters = useTranslations("routes.filters");
   const locale = useLocale();
+
+  const agencyName = useMemo(() => {
+    if (!route) return "-";
+    return agencies.find((a) => a.id === route.agency_id)?.agency_name ?? "-";
+  }, [route, agencies]);
 
   if (!route) return null;
 
@@ -67,9 +76,9 @@ export function RouteDetail({
           <div className="flex items-start justify-between">
             <div className="space-y-(--spacing-tight)">
               <SheetTitle className="font-heading text-heading font-semibold">
-                {route.shortName} — {route.longName}
+                {route.route_short_name} — {route.route_long_name}
               </SheetTitle>
-              <RouteTypeBadge type={route.type} />
+              <RouteTypeBadge type={route.route_type} />
             </div>
             <Button
               variant="ghost"
@@ -88,12 +97,12 @@ export function RouteDetail({
           <div className="flex items-center gap-(--spacing-inline)">
             <span
               className="inline-block size-8 rounded-md border border-border"
-              style={{ backgroundColor: route.color }}
+              style={{ backgroundColor: toHexColor(route.route_color) }}
               aria-hidden="true"
             />
             <div>
               <p className="text-xs text-foreground-muted">{t("routeColor")}</p>
-              <p className="font-mono text-sm">{route.color}</p>
+              <p className="font-mono text-sm">{toHexColor(route.route_color)}</p>
             </div>
           </div>
 
@@ -101,30 +110,35 @@ export function RouteDetail({
 
           {/* Info grid */}
           <div className="space-y-(--spacing-card)">
-            <DetailRow label={t("description")}>
-              {route.description || "—"}
+            <DetailRow label={t("gtfsRouteId")}>
+              <span className="font-mono">{route.gtfs_route_id}</span>
             </DetailRow>
             <DetailRow label={t("agency")}>
-              {tAgencies(route.agencyId)}
+              {agencyName}
             </DetailRow>
+            {route.route_sort_order !== null && (
+              <DetailRow label={t("sortOrder")}>
+                {route.route_sort_order}
+              </DetailRow>
+            )}
             <DetailRow label={t("isActive")}>
               <Badge
                 variant="outline"
                 className={cn(
                   "text-xs",
-                  route.isActive
+                  route.is_active
                     ? "border-status-ontime/30 bg-status-ontime/10 text-status-ontime"
                     : "border-status-delayed/30 bg-status-delayed/10 text-status-delayed"
                 )}
               >
-                {route.isActive ? tFilters("active") : tFilters("inactive")}
+                {route.is_active ? tFilters("active") : tFilters("inactive")}
               </Badge>
             </DetailRow>
             <DetailRow label={t("createdAt")}>
-              {dateFormatter.format(new Date(route.createdAt))}
+              {dateFormatter.format(new Date(route.created_at))}
             </DetailRow>
             <DetailRow label={t("updatedAt")}>
-              {dateFormatter.format(new Date(route.updatedAt))}
+              {dateFormatter.format(new Date(route.updated_at))}
             </DetailRow>
           </div>
 

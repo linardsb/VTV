@@ -1,5 +1,9 @@
 """Data access layer for stop management."""
 
+from __future__ import annotations
+
+import builtins
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -100,6 +104,11 @@ class StopRepository:
             query = query.where(Stop.location_type == location_type)
         result = await self.db.execute(query)
         return result.scalar_one()
+
+    async def list_all(self) -> builtins.list[Stop]:
+        """List all stops without pagination (for GTFS export)."""
+        result = await self.db.execute(select(Stop).order_by(Stop.id))
+        return builtins.list(result.scalars().all())
 
     async def create(self, data: StopCreate) -> Stop:
         """Create a new stop record.

@@ -20,6 +20,7 @@ from fastapi import FastAPI
 from slowapi import _rate_limit_exceeded_handler  # pyright: ignore[reportMissingTypeStubs]
 from slowapi.errors import RateLimitExceeded  # pyright: ignore[reportMissingTypeStubs]
 
+from app.auth.routes import router as auth_router
 from app.core.agents.exceptions import setup_agent_exception_handlers
 from app.core.agents.routes import router as agent_router
 from app.core.agents.service import close_agent_service
@@ -104,6 +105,7 @@ setup_agent_exception_handlers(app)
 
 # Include routers
 app.include_router(health_router)
+app.include_router(auth_router)
 app.include_router(agent_router)
 app.include_router(transit_router)
 app.include_router(stops_router)

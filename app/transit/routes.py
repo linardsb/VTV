@@ -45,8 +45,10 @@ async def get_vehicles(
 
 
 @router.get("/feeds")
-async def get_feeds() -> list[dict[str, object]]:
+@limiter.limit("30/minute")
+async def get_feeds(request: Request) -> list[dict[str, object]]:
     """List configured transit feeds and their status."""
+    _ = request
     settings = get_settings()
     return [
         {

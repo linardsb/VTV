@@ -36,11 +36,11 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 ### 4.1 What's In (MVP)
 
 **CMS (Next.js 16 Turborepo Monorepo)**
-- Route management — CRUD with map visualization (react-leaflet v5 + OpenStreetMap)
+- Route management — CRUD with map visualization (react-leaflet v5 + OpenStreetMap) ✅ (full-stack: real API with server pagination, all GTFS route types 0-12, route color mapping for live vehicle markers)
 - Stop management — CRUD with geolocation, Haversine proximity search, Leaflet map with click-to-place and terminus markers ✅ (PostGIS planned for Phase 1 completion)
-- Schedule management — timetable grid, service calendar, trip CRUD ✅ (backend API: 22 endpoints, GTFS ZIP import, schedule validation)
-- GTFS import/export — parse and generate GTFS ZIP files
-- Authentication — Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer)
+- Schedule management — service calendar, trip CRUD, GTFS import ✅ (full-stack: backend 22 endpoints + frontend CMS page with 3 tabs)
+- GTFS import/export — parse and generate GTFS ZIP files ✅ (import via POST + export via GET, 7 CSV files each)
+- Authentication — Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer) ✅ (DB-backed via `POST /api/v1/auth/login`, bcrypt, brute-force lockout)
 - Internationalization — Latvian (primary) + English ✅ (proper diacritics, 142+ i18n keys per locale)
 - Responsive dashboard layout (✅ dashboard + routes + chat pages are mobile responsive)
 
@@ -127,13 +127,14 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 ```yaml
 # docker-compose.yml (actual)
 services:
-  db:           # pgvector/pgvector:pg18 (PostgreSQL 18 + pgvector) — port 5433
-  app:          # FastAPI + Pydantic AI (non-root) — internal only
-  cms:          # Next.js 16 — internal only
-  nginx:        # Reverse proxy — port 80 (rate limiting, security headers)
+  db:           # pgvector/pgvector:pg18 (PostgreSQL 18 + pgvector) — port 5433, healthcheck
+  redis:        # redis:7-alpine — real-time vehicle position cache, healthcheck
+  migrate:      # Alembic auto-migration (runs once, service_completed_successfully)
+  app:          # FastAPI + Pydantic AI (non-root) — internal only, healthcheck
+  cms:          # Next.js 16 — internal only, healthcheck
+  nginx:        # Reverse proxy — port 80 (rate limiting, granular body size limits, security headers)
 
-# Implemented:
-  redis:        # redis:7-alpine — real-time vehicle position cache ✅
+# All services have healthchecks and dependency ordering via depends_on conditions.
 # Planned additions (see docs/PLANNING/Implementation-Plan.md):
   # PostGIS extension — spatial queries (switch db image)
   # Ollama — local LLM (fallback/dev)
@@ -337,17 +338,17 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 
 ## 7. CMS Core Features (MVP)
 
-### 7.1 Route Management ✅ (Implemented — mock data, no backend)
+### 7.1 Route Management ✅ (Full-stack — Backend API + Frontend CMS page)
 
-- ✅ Filterable route list with search, type filter, status filter
-- ✅ Route detail view (Sheet panel)
-- ✅ Live bus map panel (Leaflet/OSM, live vehicle positions from backend, resizable 60/40 split, bidirectional route selection sync)
+- ✅ Filterable route list with search, type filter, agency filter — real API with server-side pagination
+- ✅ Route detail view (Sheet panel) with GTFS route ID, sort order, agency lookup
+- ✅ Live bus map panel (Leaflet/OSM, live vehicle positions from backend, resizable 60/40 split, bidirectional route selection sync, route color map from API)
 - ✅ Mobile responsive layout (tab-based Table/Map switching, collapsible filter Sheet, hamburger sidebar)
-- ✅ CRUD operations (create, edit, duplicate, delete) with role-based visibility
+- ✅ CRUD operations (create, edit, delete) with role-based visibility — real API via `/api/v1/schedules/routes`
 - ⬜ Route shape display on map from GTFS shapes.txt (deferred — requires polyline layer)
-- ✅ Route type support: bus (3), trolleybus (11), tram (0) with selectable filter
-- ✅ 26 realistic mock routes (ATD intercity, RS urban, 5 operators)
-- ✅ Bilingual i18n (142 keys each for LV/EN)
+- ✅ Route type support: all GTFS types 0-12 (tram, subway, rail, bus, ferry, cable tram, gondola, funicular, trolleybus, monorail) with selectable filter
+- ✅ Color utility: backend hex conversion ("FF7043" ↔ "#FF7043") for route color dots and vehicle markers
+- ✅ Bilingual i18n (LV/EN) — expanded with all transport types and schedule-related keys
 
 ### 7.2 Stop Management ✅ (Full-stack — Backend CRUD + Frontend CMS page)
 
@@ -363,20 +364,22 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ⬜ Bulk import from GTFS stops.txt
 - ⬜ Migrate to PostGIS `ST_DWithin` for sub-ms spatial queries (see [Implementation-Plan.md](../docs/PLANNING/Implementation-Plan.md))
 
-### 7.3 Schedule Management ✅ (Backend API)
+### 7.3 Schedule Management ✅ (Full-stack — Backend API + Frontend CMS page)
 
 - ✅ Service calendar CRUD with weekday/weekend/holiday patterns (7 day flags + date range)
 - ✅ Calendar exception management (calendar_dates: add/remove service on specific dates)
 - ✅ Trip CRUD with stop_times bulk replace (atomic PUT operation)
 - ✅ Schedule validation against GTFS spec (date ranges, references, time format, sequence ordering)
 - ✅ GTFS ZIP import (parse 6 CSV files, bulk insert with FK resolution, skip unknown stops)
+- ✅ Frontend CMS page with 3 tabs: Calendars (table, form, detail with exceptions), Trips (filterable table, form, detail with stop times), Import (ZIP upload + validation)
+- ✅ Frontend API client (22 endpoints: agencies, routes, calendars, trips, import, validate)
 - ⬜ Timetable grid view (frontend — rows = trips, columns = stops)
-- ⬜ GTFS export (generate ZIP from database)
+- ✅ GTFS export (generate ZIP from database — `GET /api/v1/schedules/export`)
 
 ### 7.4 GTFS Import/Export
 
 - ✅ Import: upload GTFS ZIP, parse 6 core CSV files, validate references, bulk insert (via `/api/v1/schedules/import`)
-- ⬜ Export: generate GTFS-compliant ZIP from database
+- ✅ Export: generate GTFS-compliant ZIP from database (7 CSV files: agency, routes, calendar, calendar_dates, trips, stop_times, stops — via `GET /api/v1/schedules/export`)
 - ✅ Validation: check referential integrity, time consistency, required fields (via `/api/v1/schedules/validate`)
 - ⬜ Seed database from RS public feed (`https://saraksti.rigassatiksme.lv/gtfs.zip`)
 
@@ -428,8 +431,8 @@ shapes          → Route geometry (linestring + encoded polyline)
 ### Auth Tables
 
 ```
-users           → Email, hashed password, role enum
-sessions        → Auth.js session management
+users           → Email, bcrypt hashed password, role (admin/dispatcher/editor/viewer), brute-force lockout ✅
+sessions        → Auth.js session management (JWT-based, no server sessions table needed)
 ```
 
 ---

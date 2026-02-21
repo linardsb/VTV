@@ -19,9 +19,10 @@ src/
 │   ├── (dashboard)/
 │   │   ├── page.tsx            # Dashboard (default authenticated page)
 │   │   ├── documents/page.tsx  # Document management (upload, table, filters, detail)
-│   │   ├── routes/page.tsx     # Route management (CRUD, filters, resizable map; mobile: tab layout)
+│   │   ├── routes/page.tsx     # Route management (real API CRUD, server pagination, search, resizable map; mobile: tab layout)
+│   │   ├── schedules/page.tsx  # Schedule management (calendars/trips/import tabs, GTFS ZIP upload)
 │   │   ├── stops/page.tsx      # Stop management (CRUD, Leaflet map with terminus markers, direction display, GTFS copy; mobile: tab layout)
-│   │   └── {page}/page.tsx     # Future feature pages (schedules, etc.)
+│   │   └── {page}/page.tsx     # Future feature pages
 │   ├── login/page.tsx          # Login (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect
 ├── components/
@@ -30,18 +31,20 @@ src/
 │   ├── dashboard/              # Dashboard components (metric-card, calendar-grid)
 │   ├── documents/              # Document management (table, filters, upload-form, detail, delete-dialog)
 │   ├── routes/                 # Route management (table, filters, form, detail, type-badge, map, bus-marker)
+│   ├── schedules/              # Schedule management (calendar-table/form/detail, trip-table/form/detail/filters, gtfs-import, delete dialogs)
 │   └── stops/                  # Stop management (table, filters, form, detail, delete-dialog, map with draggable markers)
 ├── hooks/
 │   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
 │   └── use-vehicle-positions.ts # useVehiclePositions() hook (polls backend every 15s)
-├── types/                      # TypeScript types (route.ts, dashboard.ts, document.ts, stop.ts)
+├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts)
 ├── lib/
 │   ├── utils.ts                # cn() class merge utility
 │   ├── agent-client.ts         # FastAPI agent API client
 │   ├── documents-client.ts     # Knowledge base API client (upload, list, delete, download)
 │   ├── stops-client.ts         # Stops API client (CRUD, nearby search)
-│   ├── mock-dashboard-data.ts  # Mock dashboard metrics and events
-│   └── mock-routes-data.ts     # Mock Latvian transit routes (26 routes)
+│   ├── schedules-client.ts     # Schedules API client (22 endpoints: agencies, routes, calendars, trips, import, validate)
+│   ├── color-utils.ts          # Hex color conversion (backend "FF7043" ↔ frontend "#FF7043")
+│   └── mock-dashboard-data.ts  # Mock dashboard metrics and events
 └── i18n/
     └── request.ts              # next-intl configuration
 ```

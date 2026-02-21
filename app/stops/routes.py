@@ -41,6 +41,17 @@ async def list_stops(
     )
 
 
+@router.get("/map", response_model=list[StopResponse])
+@limiter.limit("10/minute")
+async def list_all_stops_for_map(
+    request: Request,
+    service: StopService = Depends(get_service),  # noqa: B008
+) -> list[StopResponse]:
+    """Return all stops in a single response (for map display)."""
+    _ = request
+    return await service.list_all_stops()
+
+
 @router.get("/nearby", response_model=list[StopResponse])
 @limiter.limit("30/minute")
 async def nearby_stops(

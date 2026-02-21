@@ -61,6 +61,12 @@ export async function fetchStops(params: {
   return handleResponse<PaginatedStops>(response);
 }
 
+/** Fetch all stops for map display (single unpaginated request). */
+export async function fetchAllStopsForMap(): Promise<Stop[]> {
+  const response = await fetch(`${BASE_URL}${API_PREFIX}/map`);
+  return handleResponse<Stop[]>(response);
+}
+
 /** Fetch a single stop by ID. */
 export async function fetchStop(id: number): Promise<Stop> {
   const response = await fetch(`${BASE_URL}${API_PREFIX}/${id}`);

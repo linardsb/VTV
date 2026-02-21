@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import {
@@ -192,6 +192,17 @@ function EditingMarker({
   );
 }
 
+/** Close all open popups when the edit button is clicked. */
+function ClosePopupOnEdit({ trigger }: { trigger: number }) {
+  const map = useMap();
+  useEffect(() => {
+    if (trigger > 0) {
+      map.closePopup();
+    }
+  }, [map, trigger]);
+  return null;
+}
+
 export function StopMap({
   stops,
   selectedStopId,
@@ -205,6 +216,7 @@ export function StopMap({
   locationTypeFilter = "all",
 }: StopMapProps) {
   const t = useTranslations("stops.map");
+  const [editTrigger, setEditTrigger] = useState(0);
 
   const stopsWithCoords = useMemo(
     () =>
@@ -258,6 +270,7 @@ export function StopMap({
         <InvalidateSize />
         <FlyToSelected stops={stops} selectedStopId={selectedStopId} />
         <PlacementCursor active={placementMode} />
+        <ClosePopupOnEdit trigger={editTrigger} />
 
         {onMapClick && (
           <MapClickHandler active={placementMode} onMapClick={onMapClick} />
@@ -309,11 +322,13 @@ export function StopMap({
                 fillOpacity: 0.9,
               }}
               eventHandlers={{
-                click: () => onSelectStop(stop),
+                click: () => {
+                  /* Popup opens automatically — detail panel opens via buttons inside */
+                },
               }}
             >
-              <Popup>
-                <div className="text-sm">
+              <Popup closeButton={false}>
+                <div className="text-sm min-w-[160px]">
                   <p className="font-semibold">{stop.stop_name}</p>
                   {stop.stop_desc && (
                     <p className="text-xs text-foreground-muted">{stop.stop_desc}</p>
@@ -321,18 +336,32 @@ export function StopMap({
                   <p className="font-mono text-xs text-foreground-muted">
                     {stop.gtfs_stop_id}
                   </p>
-                  {onEditStop && (
+                  <div className="mt-2 flex gap-1.5">
                     <button
                       type="button"
-                      className="mt-1.5 w-full rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                      className="flex-1 rounded border border-border bg-surface px-2 py-1 text-xs font-medium hover:bg-surface-raised cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onEditStop(stop);
+                        setEditTrigger((n) => n + 1);
+                        onSelectStop(stop);
                       }}
                     >
-                      {t("edit")}
+                      {t("details")}
                     </button>
-                  )}
+                    {onEditStop && (
+                      <button
+                        type="button"
+                        className="flex-1 rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditTrigger((n) => n + 1);
+                          onEditStop(stop);
+                        }}
+                      >
+                        {t("edit")}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </Popup>
             </CircleMarker>

@@ -53,9 +53,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 # SECURITY: Run as non-root user
 USER vtv
 
-# Expose port (adjust if your app uses a different port)
 EXPOSE 8123
 
-# Run the application
-# Adjust the module/script name based on your entry point
-CMD ["python", "-m", "app.main"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8123"]

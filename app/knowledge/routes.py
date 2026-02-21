@@ -85,8 +85,14 @@ async def upload_document(
     )
     source_type = _detect_source_type(file.content_type)
 
+    # Sanitize filename: strip path components, limit to basename
+    raw_filename = file.filename or "unknown"
+    safe_filename = Path(raw_filename).name.replace("\x00", "")
+    if not safe_filename or safe_filename.startswith("."):
+        safe_filename = "upload" + Path(raw_filename).suffix
+
     # Save to temp file
-    suffix = Path(file.filename or "upload").suffix
+    suffix = Path(safe_filename).suffix
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
     try:
         content = await file.read()
@@ -97,7 +103,7 @@ async def upload_document(
         return await service.ingest_document(
             file_path=tmp.name,
             upload=upload,
-            filename=file.filename or "unknown",
+            filename=safe_filename,
             source_type=source_type,
             file_size=len(content),
         )
@@ -154,8 +160,16 @@ async def download_document(
     """Download the original uploaded file."""
     _ = request
     file_path, filename = await service.get_document_file_path(document_id)
+    resolved = Path(file_path).resolve()
+    from app.core.config import get_settings
+
+    storage_root = Path(get_settings().document_storage_path).resolve()
+    if not resolved.is_relative_to(storage_root):
+        from app.knowledge.exceptions import ProcessingError
+
+        raise ProcessingError("File path outside storage directory")
     return FileResponse(
-        path=Path(file_path).resolve(),
+        path=resolved,
         filename=filename,
         media_type="application/octet-stream",
     )

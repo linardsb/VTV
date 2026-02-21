@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
+import { useSession } from "next-auth/react";
 import { Plus, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,15 +22,12 @@ import { StopForm } from "@/components/stops/stop-form";
 import { DeleteStopDialog } from "@/components/stops/delete-stop-dialog";
 import {
   fetchStops,
+  fetchAllStopsForMap,
   createStop,
   updateStop,
   deleteStop,
 } from "@/lib/stops-client";
 import type { Stop, StopCreate, StopUpdate } from "@/types/stop";
-
-// Simulated role — in production, read from session
-const USER_ROLE: string = "admin";
-const IS_READ_ONLY = USER_ROLE === "viewer";
 
 const PAGE_SIZE = 20;
 
@@ -52,6 +50,9 @@ const StopMap = dynamic(
 export default function StopsPage() {
   const t = useTranslations("stops");
   const isMobile = useIsMobile();
+  const { data: session } = useSession();
+  const userRole = session?.user?.role ?? "viewer";
+  const IS_READ_ONLY = userRole === "viewer";
 
   // Data state — table (paginated) and map (all stops)
   const [stops, setStops] = useState<Stop[]>([]);
@@ -132,41 +133,11 @@ export default function StopsPage() {
     }
   }, [page, debouncedSearch, activeOnlyParam, locationTypeParam]);
 
-  // Fetch all stops for the map (paginated in batches of 100 — API max)
+  // Fetch all stops for the map (single unpaginated request)
   const loadAllStops = useCallback(async () => {
     try {
-      const first = await fetchStops({
-        page: 1,
-        page_size: 100,
-        active_only: false,
-      });
-
-      const totalPages = Math.ceil(first.total / 100);
-
-      if (totalPages <= 1) {
-        setAllStops(first.items);
-        return;
-      }
-
-      // Fetch remaining pages in sequential batches of 5 to avoid rate limits
-      const collected = [...first.items];
-      const batchSize = 5;
-
-      for (let start = 2; start <= totalPages; start += batchSize) {
-        const end = Math.min(start + batchSize, totalPages + 1);
-        const results = await Promise.allSettled(
-          Array.from({ length: end - start }, (_, i) =>
-            fetchStops({ page: start + i, page_size: 100, active_only: false }),
-          ),
-        );
-        for (const r of results) {
-          if (r.status === "fulfilled") {
-            collected.push(...r.value.items);
-          }
-        }
-      }
-
-      setAllStops(collected);
+      const stops = await fetchAllStopsForMap();
+      setAllStops(stops);
     } catch {
       setAllStops([]);
     }

@@ -6,10 +6,10 @@ Inherits from core exceptions for automatic HTTP status code mapping:
 - StopError -> 500
 """
 
-from app.core.exceptions import DatabaseError, NotFoundError, ValidationError
+from app.core.exceptions import AppError, NotFoundError, ValidationError
 
 
-class StopError(DatabaseError):
+class StopError(AppError):
     """Base exception for stop-related errors."""
 
 

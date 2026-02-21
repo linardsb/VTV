@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { useSession } from "next-auth/react";
 import { Plus, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,15 +20,14 @@ import {
 } from "@/lib/documents-client";
 import type { DocumentItem } from "@/types/document";
 
-// Simulated role — in production, read from session
-const USER_ROLE: string = "admin";
-const IS_READ_ONLY = USER_ROLE === "viewer" || USER_ROLE === "dispatcher";
-
 const PAGE_SIZE = 10;
 
 export default function DocumentsPage() {
   const t = useTranslations("documents");
   const isMobile = useIsMobile();
+  const { data: session } = useSession();
+  const userRole = session?.user?.role ?? "viewer";
+  const IS_READ_ONLY = userRole === "viewer" || userRole === "dispatcher";
 
   // Data state
   const [documents, setDocuments] = useState<DocumentItem[]>([]);

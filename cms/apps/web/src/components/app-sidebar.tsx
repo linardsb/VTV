@@ -20,7 +20,7 @@ const navItems = [
   { key: "dashboard", href: "", enabled: true },
   { key: "routes", href: "/routes", enabled: true },
   { key: "stops", href: "/stops", enabled: true },
-  { key: "schedules", href: "/schedules", enabled: false },
+  { key: "schedules", href: "/schedules", enabled: true },
   { key: "gtfs", href: "/gtfs", enabled: false },
   { key: "users", href: "/users", enabled: false },
   { key: "documents", href: "/documents", enabled: true },

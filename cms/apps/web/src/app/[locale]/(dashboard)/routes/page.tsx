@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
+import { useSession } from "next-auth/react";
 import { Plus, Filter } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   ResizablePanelGroup,
@@ -19,12 +21,18 @@ import { RouteTable } from "@/components/routes/route-table";
 import { RouteDetail } from "@/components/routes/route-detail";
 import { RouteForm } from "@/components/routes/route-form";
 import { DeleteRouteDialog } from "@/components/routes/delete-route-dialog";
-import { MOCK_ROUTES } from "@/lib/mock-routes-data";
-import type { Route, RouteFormData, RouteType } from "@/types/route";
+import {
+  fetchRoutes,
+  fetchAgencies,
+  createRoute,
+  updateRoute,
+  deleteRoute,
+} from "@/lib/schedules-client";
+import { toHexColor } from "@/lib/color-utils";
+import type { Route, RouteCreate, RouteUpdate } from "@/types/route";
+import type { Agency } from "@/types/schedule";
 
-// Simulated role — in production, read from session
-const USER_ROLE: string = "admin";
-const IS_READ_ONLY = USER_ROLE === "viewer" || USER_ROLE === "dispatcher";
+const PAGE_SIZE = 20;
 
 function MapSkeleton() {
   return (
@@ -45,18 +53,28 @@ const RouteMap = dynamic(
 export default function RoutesPage() {
   const t = useTranslations("routes");
   const isMobile = useIsMobile();
+  const { data: session } = useSession();
+  const userRole = session?.user?.role ?? "viewer";
+  const IS_READ_ONLY = userRole === "viewer" || userRole === "dispatcher";
 
   // Data state
-  const [routes, setRoutes] = useState<Route[]>(MOCK_ROUTES);
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [allRoutes, setAllRoutes] = useState<Route[]>([]);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Build route color lookup for live vehicle markers
+  // Build route color lookup for live vehicle markers: gtfs_route_id → #hex
   const routeColorMap = useMemo(() => {
     const map: Record<string, string> = {};
-    for (const r of routes) {
-      map[r.id] = r.color;
+    for (const r of allRoutes) {
+      if (r.route_color) {
+        map[r.gtfs_route_id] = toHexColor(r.route_color);
+      }
     }
     return map;
-  }, [routes]);
+  }, [allRoutes]);
 
   // Live vehicle positions from backend (polls every 15s)
   const { vehicles: liveVehicles } = useVehiclePositions({
@@ -65,22 +83,32 @@ export default function RoutesPage() {
 
   // Filter state
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<RouteType | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [agencyFilter, setAgencyFilter] = useState<number | null>(null);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
-  // Filter live vehicles by transport type when a type filter is active
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Filter live vehicles by transport type
   const filteredVehicles = useMemo(() => {
     if (typeFilter === null) return liveVehicles;
     return liveVehicles.filter((v) => v.routeType === typeFilter);
   }, [liveVehicles, typeFilter]);
 
   // UI state
-  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
-  const [formInitialData, setFormInitialData] = useState<RouteFormData | undefined>();
   const [formKey, setFormKey] = useState(0);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Route | null>(null);
@@ -91,29 +119,76 @@ export default function RoutesPage() {
     [routes, selectedRouteId],
   );
 
-  const filtered = useMemo(() => {
-    return routes.filter((route) => {
-      // Search filter
-      if (search) {
-        const q = search.toLowerCase();
-        const matchesSearch =
-          route.shortName.toLowerCase().includes(q) ||
-          route.longName.toLowerCase().includes(q) ||
-          route.description.toLowerCase().includes(q);
-        if (!matchesSearch) return false;
+  // Selected route → GTFS ID for map highlight
+  const selectedGtfsRouteId = useMemo(() => {
+    if (!selectedRouteId) return null;
+    const r = routes.find((r) => r.id === selectedRouteId);
+    return r?.gtfs_route_id ?? null;
+  }, [routes, selectedRouteId]);
+
+  // Load agencies on mount
+  const loadAgencies = useCallback(async () => {
+    try {
+      const data = await fetchAgencies();
+      setAgencies(data);
+    } catch {
+      // Agencies are non-critical — degrade gracefully
+    }
+  }, []);
+
+  // Fetch paginated routes for the table
+  const loadRoutes = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await fetchRoutes({
+        page,
+        page_size: PAGE_SIZE,
+        search: debouncedSearch || undefined,
+        route_type: typeFilter ?? undefined,
+        agency_id: agencyFilter ?? undefined,
+      });
+      setRoutes(result.items);
+      setTotalItems(result.total);
+    } catch {
+      setRoutes([]);
+      setTotalItems(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [page, debouncedSearch, typeFilter, agencyFilter]);
+
+  // Fetch all routes for color map (needed for vehicle markers)
+  const loadAllRoutes = useCallback(async () => {
+    try {
+      const first = await fetchRoutes({ page: 1, page_size: 100 });
+      const totalPages = Math.ceil(first.total / 100);
+      if (totalPages <= 1) {
+        setAllRoutes(first.items);
+        return;
       }
-      // Type filter
-      if (typeFilter !== null && route.type !== typeFilter) return false;
-      // Status filter
-      if (statusFilter === "active" && !route.isActive) return false;
-      if (statusFilter === "inactive" && route.isActive) return false;
-      return true;
-    });
-  }, [routes, search, typeFilter, statusFilter]);
+      const collected = [...first.items];
+      for (let p = 2; p <= totalPages; p++) {
+        const result = await fetchRoutes({ page: p, page_size: 100 });
+        collected.push(...result.items);
+      }
+      setAllRoutes(collected);
+    } catch {
+      setAllRoutes([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAgencies();
+    void loadAllRoutes();
+  }, [loadAgencies, loadAllRoutes]);
+
+  useEffect(() => {
+    void loadRoutes();
+  }, [loadRoutes]);
 
   // Handlers
   const handleSelectRoute = useCallback(
-    (routeId: string) => {
+    (routeId: number) => {
       setSelectedRouteId(routeId);
       setDetailOpen(true);
     },
@@ -122,80 +197,64 @@ export default function RoutesPage() {
 
   const handleCreate = useCallback(() => {
     setFormMode("create");
-    setFormInitialData(undefined);
+    setSelectedRouteId(null);
     setFormKey((k) => k + 1);
     setFormOpen(true);
   }, []);
 
   const handleEdit = useCallback((route: Route) => {
     setFormMode("edit");
-    setFormInitialData({
-      shortName: route.shortName,
-      longName: route.longName,
-      type: route.type,
-      agencyId: route.agencyId,
-      color: route.color,
-      textColor: route.textColor,
-      description: route.description,
-      isActive: route.isActive,
-    });
     setSelectedRouteId(route.id);
     setDetailOpen(false);
     setFormKey((k) => k + 1);
     setFormOpen(true);
   }, []);
 
-  const handleDuplicate = useCallback(
-    (route: Route) => {
-      const now = new Date().toISOString();
-      const newRoute: Route = {
-        ...route,
-        id: `route-dup-${Date.now()}`,
-        shortName: `${route.shortName}-copy`,
-        createdAt: now,
-        updatedAt: now,
-      };
-      setRoutes((prev) => [...prev, newRoute]);
-    },
-    [],
-  );
-
   const handleDeleteRequest = useCallback((route: Route) => {
     setDeleteTarget(route);
     setDeleteOpen(true);
   }, []);
 
-  const handleDeleteConfirm = useCallback((routeId: string) => {
-    setRoutes((prev) => prev.filter((r) => r.id !== routeId));
-    if (selectedRouteId === routeId) {
-      setSelectedRouteId(null);
-      setDetailOpen(false);
+  const handleDeleteConfirm = useCallback(async (routeId: number) => {
+    try {
+      await deleteRoute(routeId);
+      toast.success(t("toast.deleted"));
+      if (selectedRouteId === routeId) {
+        setSelectedRouteId(null);
+        setDetailOpen(false);
+      }
+      void loadRoutes();
+      void loadAllRoutes();
+    } catch {
+      toast.error(t("toast.deleteError"));
     }
-  }, [selectedRouteId]);
+  }, [selectedRouteId, t, loadRoutes, loadAllRoutes]);
 
   const handleFormSubmit = useCallback(
-    (data: RouteFormData) => {
-      if (formMode === "create") {
-        const now = new Date().toISOString();
-        const newRoute: Route = {
-          ...data,
-          id: `route-new-${Date.now()}`,
-          createdAt: now,
-          updatedAt: now,
-        };
-        setRoutes((prev) => [...prev, newRoute]);
-      } else if (selectedRouteId) {
-        setRoutes((prev) =>
-          prev.map((r) =>
-            r.id === selectedRouteId
-              ? { ...r, ...data, updatedAt: new Date().toISOString() }
-              : r,
-          ),
+    async (data: RouteCreate | RouteUpdate) => {
+      try {
+        if (formMode === "create") {
+          await createRoute(data as RouteCreate);
+          toast.success(t("toast.created"));
+        } else if (selectedRouteId) {
+          await updateRoute(selectedRouteId, data as RouteUpdate);
+          toast.success(t("toast.updated"));
+        }
+        setFormOpen(false);
+        void loadRoutes();
+        void loadAllRoutes();
+      } catch {
+        toast.error(
+          formMode === "create" ? t("toast.createError") : t("toast.updateError"),
         );
       }
     },
-    [formMode, selectedRouteId],
+    [formMode, selectedRouteId, t, loadRoutes, loadAllRoutes],
   );
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setPage(newPage);
+  }, []);
 
   return (
     <div className="flex h-[calc(100vh-var(--spacing-page)*2)] flex-col gap-(--spacing-grid)">
@@ -237,10 +296,13 @@ export default function RoutesPage() {
             search={search}
             onSearchChange={setSearch}
             typeFilter={typeFilter}
-            onTypeFilterChange={setTypeFilter}
+            onTypeFilterChange={(type) => { setTypeFilter(type); setPage(1); }}
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
-            resultCount={filtered.length}
+            agencyFilter={agencyFilter}
+            onAgencyFilterChange={(id) => { setAgencyFilter(id); setPage(1); }}
+            agencies={agencies}
+            resultCount={totalItems}
             asSheet
             sheetOpen={filterSheetOpen}
             onSheetOpenChange={setFilterSheetOpen}
@@ -258,20 +320,28 @@ export default function RoutesPage() {
             </TabsList>
             <TabsContent value="table" className="flex-1 overflow-hidden rounded-lg border border-border mt-(--spacing-tight)">
               <RouteTable
-                routes={filtered}
+                routes={routes}
                 selectedRouteId={selectedRouteId}
                 onSelectRoute={handleSelectRoute}
                 onEditRoute={handleEdit}
                 onDeleteRoute={handleDeleteRequest}
-                onDuplicateRoute={handleDuplicate}
                 isReadOnly={IS_READ_ONLY}
+                agencies={agencies}
+                total={totalItems}
+                page={page}
+                pageSize={PAGE_SIZE}
+                onPageChange={handlePageChange}
+                isLoading={isLoading}
               />
             </TabsContent>
             <TabsContent value="map" className="min-h-[50vh] flex-1 overflow-hidden rounded-lg border border-border mt-(--spacing-tight)">
               <RouteMap
                 buses={filteredVehicles}
-                selectedRouteId={selectedRouteId}
-                onSelectRoute={handleSelectRoute}
+                selectedRouteId={selectedGtfsRouteId}
+                onSelectRoute={(gtfsId) => {
+                  const route = allRoutes.find((r) => r.gtfs_route_id === gtfsId);
+                  if (route) handleSelectRoute(route.id);
+                }}
               />
             </TabsContent>
           </Tabs>
@@ -287,19 +357,27 @@ export default function RoutesPage() {
                 search={search}
                 onSearchChange={setSearch}
                 typeFilter={typeFilter}
-                onTypeFilterChange={setTypeFilter}
+                onTypeFilterChange={(type) => { setTypeFilter(type); setPage(1); }}
                 statusFilter={statusFilter}
                 onStatusFilterChange={setStatusFilter}
-                resultCount={filtered.length}
+                agencyFilter={agencyFilter}
+                onAgencyFilterChange={(id) => { setAgencyFilter(id); setPage(1); }}
+                agencies={agencies}
+                resultCount={totalItems}
               />
               <RouteTable
-                routes={filtered}
+                routes={routes}
                 selectedRouteId={selectedRouteId}
                 onSelectRoute={handleSelectRoute}
                 onEditRoute={handleEdit}
                 onDeleteRoute={handleDeleteRequest}
-                onDuplicateRoute={handleDuplicate}
                 isReadOnly={IS_READ_ONLY}
+                agencies={agencies}
+                total={totalItems}
+                page={page}
+                pageSize={PAGE_SIZE}
+                onPageChange={handlePageChange}
+                isLoading={isLoading}
               />
             </div>
           </ResizablePanel>
@@ -307,8 +385,11 @@ export default function RoutesPage() {
           <ResizablePanel defaultSize={40} minSize={25}>
             <RouteMap
               buses={filteredVehicles}
-              selectedRouteId={selectedRouteId}
-              onSelectRoute={handleSelectRoute}
+              selectedRouteId={selectedGtfsRouteId}
+              onSelectRoute={(gtfsId) => {
+                const route = allRoutes.find((r) => r.gtfs_route_id === gtfsId);
+                if (route) handleSelectRoute(route.id);
+              }}
             />
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -322,13 +403,15 @@ export default function RoutesPage() {
         onEdit={handleEdit}
         onDelete={handleDeleteRequest}
         isReadOnly={IS_READ_ONLY}
+        agencies={agencies}
       />
 
       {/* Form Sheet */}
       <RouteForm
         key={formKey}
         mode={formMode}
-        initialData={formInitialData}
+        route={selectedRoute}
+        agencies={agencies}
         isOpen={formOpen}
         onClose={() => setFormOpen(false)}
         onSubmit={handleFormSubmit}

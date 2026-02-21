@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { MoreHorizontal, Pencil, Copy, Trash2, ArrowUpDown } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, ArrowUpDown } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,12 +29,12 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
+import { toHexColor } from "@/lib/color-utils";
 import { RouteTypeBadge } from "./route-type-badge";
 import type { Route } from "@/types/route";
+import type { Agency } from "@/types/schedule";
 
-const PAGE_SIZE = 10;
-
-type SortField = "shortName" | "longName" | "type" | "agencyId";
+type SortField = "route_short_name" | "route_long_name" | "route_type" | "agency_id";
 type SortDir = "asc" | "desc";
 
 function SortableHeader({
@@ -60,12 +61,17 @@ function SortableHeader({
 
 interface RouteTableProps {
   routes: Route[];
-  selectedRouteId: string | null;
-  onSelectRoute: (routeId: string) => void;
+  selectedRouteId: number | null;
+  onSelectRoute: (routeId: number) => void;
   onEditRoute: (route: Route) => void;
   onDeleteRoute: (route: Route) => void;
-  onDuplicateRoute: (route: Route) => void;
   isReadOnly: boolean;
+  agencies: Agency[];
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  isLoading: boolean;
 }
 
 export function RouteTable({
@@ -74,13 +80,25 @@ export function RouteTable({
   onSelectRoute,
   onEditRoute,
   onDeleteRoute,
-  onDuplicateRoute,
   isReadOnly,
+  agencies,
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  isLoading,
 }: RouteTableProps) {
   const t = useTranslations("routes");
-  const [page, setPage] = useState(0);
-  const [sortField, setSortField] = useState<SortField>("shortName");
+  const [sortField, setSortField] = useState<SortField>("route_short_name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const agencyMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const a of agencies) {
+      map[a.id] = a.agency_name;
+    }
+    return map;
+  }, [agencies]);
 
   const sorted = useMemo(() => {
     const copy = [...routes];
@@ -96,9 +114,7 @@ export function RouteTable({
     return copy;
   }, [routes, sortField, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages - 1);
-  const paginated = sorted.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -109,7 +125,7 @@ export function RouteTable({
     }
   }
 
-  if (routes.length === 0) {
+  if (!isLoading && routes.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-(--spacing-grid) py-20">
         <p className="text-lg font-medium text-foreground">{t("table.noResults")}</p>
@@ -118,8 +134,8 @@ export function RouteTable({
     );
   }
 
-  const from = safePage * PAGE_SIZE + 1;
-  const to = Math.min((safePage + 1) * PAGE_SIZE, sorted.length);
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -128,16 +144,16 @@ export function RouteTable({
           <TableHeader>
             <TableRow>
               <TableHead className="w-20">
-                <SortableHeader onToggle={toggleSort} field="shortName">{t("table.routeNumber")}</SortableHeader>
+                <SortableHeader onToggle={toggleSort} field="route_short_name">{t("table.routeNumber")}</SortableHeader>
               </TableHead>
               <TableHead>
-                <SortableHeader onToggle={toggleSort} field="longName">{t("table.name")}</SortableHeader>
+                <SortableHeader onToggle={toggleSort} field="route_long_name">{t("table.name")}</SortableHeader>
               </TableHead>
               <TableHead className="hidden sm:table-cell w-32">
-                <SortableHeader onToggle={toggleSort} field="type">{t("table.type")}</SortableHeader>
+                <SortableHeader onToggle={toggleSort} field="route_type">{t("table.type")}</SortableHeader>
               </TableHead>
               <TableHead className="hidden md:table-cell w-44">
-                <SortableHeader onToggle={toggleSort} field="agencyId">{t("table.agency")}</SortableHeader>
+                <SortableHeader onToggle={toggleSort} field="agency_id">{t("table.agency")}</SortableHeader>
               </TableHead>
               <TableHead className="w-24">{t("table.status")}</TableHead>
               {!isReadOnly && (
@@ -148,81 +164,88 @@ export function RouteTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginated.map((route) => (
-              <TableRow
-                key={route.id}
-                className={cn(
-                  "cursor-pointer transition-colors",
-                  selectedRouteId === route.id && "bg-selected-bg"
-                )}
-                onClick={() => onSelectRoute(route.id)}
-              >
-                <TableCell>
-                  <div className="flex items-center gap-(--spacing-tight)">
-                    <span
-                      className="inline-block size-3 shrink-0 rounded-full"
-                      style={{ backgroundColor: route.color }}
-                      aria-hidden="true"
-                    />
-                    <span className="font-semibold">{route.shortName}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-foreground">{route.longName}</TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  <RouteTypeBadge type={route.type} />
-                </TableCell>
-                <TableCell className="hidden md:table-cell text-foreground-muted">
-                  {t(`agencies.${route.agencyId}`)}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant="outline"
+            {isLoading
+              ? Array.from({ length: 5 }, (_, i) => (
+                  <TableRow key={`skeleton-${i}`}>
+                    <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                    {!isReadOnly && <TableCell><Skeleton className="h-5 w-8" /></TableCell>}
+                  </TableRow>
+                ))
+              : sorted.map((route) => (
+                  <TableRow
+                    key={route.id}
                     className={cn(
-                      "text-xs",
-                      route.isActive
-                        ? "border-status-ontime/30 bg-status-ontime/10 text-status-ontime"
-                        : "border-status-delayed/30 bg-status-delayed/10 text-status-delayed"
+                      "cursor-pointer transition-colors",
+                      selectedRouteId === route.id && "bg-selected-bg"
                     )}
+                    onClick={() => onSelectRoute(route.id)}
                   >
-                    {route.isActive ? t("filters.active") : t("filters.inactive")}
-                  </Badge>
-                </TableCell>
-                {!isReadOnly && (
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="size-8 p-0"
-                          aria-label={t("table.actions")}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEditRoute(route)}>
-                          <Pencil className="mr-2 size-4" />
-                          {t("actions.edit")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onDuplicateRoute(route)}>
-                          <Copy className="mr-2 size-4" />
-                          {t("actions.duplicate")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-status-critical"
-                          onClick={() => onDeleteRoute(route)}
-                        >
-                          <Trash2 className="mr-2 size-4" />
-                          {t("actions.delete")}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
+                    <TableCell>
+                      <div className="flex items-center gap-(--spacing-tight)">
+                        <span
+                          className="inline-block size-3 shrink-0 rounded-full"
+                          style={{ backgroundColor: toHexColor(route.route_color) }}
+                          aria-hidden="true"
+                        />
+                        <span className="font-semibold">{route.route_short_name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-foreground">{route.route_long_name}</TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <RouteTypeBadge type={route.route_type} />
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-foreground-muted">
+                      {agencyMap[route.agency_id] ?? "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-xs",
+                          route.is_active
+                            ? "border-status-ontime/30 bg-status-ontime/10 text-status-ontime"
+                            : "border-status-delayed/30 bg-status-delayed/10 text-status-delayed"
+                        )}
+                      >
+                        {route.is_active ? t("filters.active") : t("filters.inactive")}
+                      </Badge>
+                    </TableCell>
+                    {!isReadOnly && (
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="size-8 p-0"
+                              aria-label={t("table.actions")}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => onEditRoute(route)}>
+                              <Pencil className="mr-2 size-4" />
+                              {t("actions.edit")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-status-critical"
+                              onClick={() => onDeleteRoute(route)}
+                            >
+                              <Trash2 className="mr-2 size-4" />
+                              {t("actions.delete")}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
           </TableBody>
         </Table>
       </div>
@@ -230,33 +253,38 @@ export function RouteTable({
       {/* Pagination */}
       <div className="flex items-center justify-between border-t border-border px-(--spacing-card) py-(--spacing-tight)">
         <p className="hidden sm:block text-xs text-foreground-muted">
-          {t("table.showing", { from, to, total: sorted.length })}
+          {total > 0
+            ? t("table.showing", { from, to, total })
+            : ""}
         </p>
         {totalPages > 1 && (
           <Pagination>
             <PaginationContent>
               <PaginationItem>
                 <PaginationPrevious
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  aria-disabled={safePage === 0}
-                  className={cn(safePage === 0 && "pointer-events-none opacity-50")}
+                  onClick={() => onPageChange(Math.max(1, page - 1))}
+                  aria-disabled={page === 1}
+                  className={cn(page === 1 && "pointer-events-none opacity-50")}
                 />
               </PaginationItem>
-              {Array.from({ length: totalPages }, (_, i) => (
-                <PaginationItem key={i} className="hidden sm:inline-flex">
-                  <PaginationLink
-                    isActive={i === safePage}
-                    onClick={() => setPage(i)}
-                  >
-                    {i + 1}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                const pageNum = i + 1;
+                return (
+                  <PaginationItem key={pageNum} className="hidden sm:inline-flex">
+                    <PaginationLink
+                      isActive={pageNum === page}
+                      onClick={() => onPageChange(pageNum)}
+                    >
+                      {pageNum}
+                    </PaginationLink>
+                  </PaginationItem>
+                );
+              })}
               <PaginationItem>
                 <PaginationNext
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  aria-disabled={safePage === totalPages - 1}
-                  className={cn(safePage === totalPages - 1 && "pointer-events-none opacity-50")}
+                  onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+                  aria-disabled={page === totalPages}
+                  className={cn(page === totalPages && "pointer-events-none opacity-50")}
                 />
               </PaginationItem>
             </PaginationContent>

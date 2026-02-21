@@ -7,10 +7,10 @@ Inherits from core exceptions for automatic HTTP status code mapping:
 - UnsupportedDocumentTypeError -> 500
 """
 
-from app.core.exceptions import DatabaseError, NotFoundError
+from app.core.exceptions import AppError, NotFoundError
 
 
-class KnowledgeBaseError(DatabaseError):
+class KnowledgeBaseError(AppError):
     """Base exception for knowledge base errors."""
 
 

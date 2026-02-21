@@ -5,6 +5,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Query, UploadFile, status
 from fastapi.requests import Request
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -75,7 +76,7 @@ async def list_routes(
     request: Request,
     pagination: PaginationParams = Depends(),  # noqa: B008
     search: str | None = Query(None, max_length=200),
-    route_type: int | None = Query(None, ge=0, le=12),
+    route_type: int | None = Query(None, ge=0),
     agency_id: int | None = Query(None),
     service: ScheduleService = Depends(get_service),  # noqa: B008
 ) -> PaginatedResponse[RouteResponse]:
@@ -312,6 +313,23 @@ async def replace_stop_times(
 
 
 # --- Import & Validation ---
+
+
+@router.get("/export")
+@limiter.limit("5/minute")
+async def export_gtfs(
+    request: Request,
+    agency_id: int | None = Query(None),
+    service: ScheduleService = Depends(get_service),  # noqa: B008
+) -> Response:
+    """Export schedule data as a GTFS-compliant ZIP file."""
+    _ = request
+    zip_bytes = await service.export_gtfs(agency_id=agency_id)
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=gtfs.zip"},
+    )
 
 
 @router.post("/import", response_model=GTFSImportResponse)

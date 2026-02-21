@@ -40,7 +40,7 @@ export function BusMarker({ bus, isHighlighted, isDimmed, onSelect }: BusMarkerP
   const t = useTranslations("routes.map");
 
   const icon = useMemo(() => {
-    const size = isHighlighted ? 36 : 28;
+    const size = isHighlighted ? 26 : 20;
     return L.divIcon({
       className: "",
       iconSize: [size, size],
@@ -55,10 +55,10 @@ export function BusMarker({ bus, isHighlighted, isDimmed, onSelect }: BusMarkerP
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: ${isHighlighted ? 13 : 11}px;
+        font-size: ${isHighlighted ? 10 : 8}px;
         font-weight: 700;
-        border: 2px solid white;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        border: 1.5px solid white;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.3);
         opacity: ${isDimmed ? 0.4 : 1};
         transition: all 200ms ease;
         font-family: 'Source Sans 3', system-ui, sans-serif;

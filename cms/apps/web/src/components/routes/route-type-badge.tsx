@@ -1,12 +1,15 @@
 "use client";
 
-import { Bus, Zap, Train } from "lucide-react";
+import { Bus, Zap, Train, Ship, Cable, Mountain } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { ROUTE_TYPE_MAP, type RouteType } from "@/types/route";
+import { getRouteTypeLabel } from "@/types/route";
 
-const typeConfig = {
+const typeConfig: Record<
+  string,
+  { icon: typeof Bus; className: string }
+> = {
   bus: {
     icon: Bus,
     className: "bg-transport-bus/10 text-transport-bus border-transport-bus/20",
@@ -19,17 +22,49 @@ const typeConfig = {
     icon: Train,
     className: "bg-transport-tram/10 text-transport-tram border-transport-tram/20",
   },
-} as const;
+  subway: {
+    icon: Train,
+    className: "bg-primary/10 text-primary border-primary/20",
+  },
+  rail: {
+    icon: Train,
+    className: "bg-primary/10 text-primary border-primary/20",
+  },
+  ferry: {
+    icon: Ship,
+    className: "bg-info/10 text-info border-info/20",
+  },
+  cableTram: {
+    icon: Cable,
+    className: "bg-primary/10 text-primary border-primary/20",
+  },
+  gondola: {
+    icon: Cable,
+    className: "bg-primary/10 text-primary border-primary/20",
+  },
+  funicular: {
+    icon: Mountain,
+    className: "bg-primary/10 text-primary border-primary/20",
+  },
+  monorail: {
+    icon: Train,
+    className: "bg-primary/10 text-primary border-primary/20",
+  },
+  other: {
+    icon: Bus,
+    className: "bg-muted text-foreground-muted border-border",
+  },
+};
 
 interface RouteTypeBadgeProps {
-  type: RouteType;
+  type: number;
   className?: string;
 }
 
 export function RouteTypeBadge({ type, className }: RouteTypeBadgeProps) {
   const t = useTranslations("routes.filters");
-  const label = ROUTE_TYPE_MAP[type];
-  const config = typeConfig[label];
+  const label = getRouteTypeLabel(type);
+  const config = typeConfig[label] ?? typeConfig.other;
   const Icon = config.icon;
 
   return (

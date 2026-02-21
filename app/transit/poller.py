@@ -150,7 +150,7 @@ class FeedPoller:
             "delay_seconds": delay_seconds,
             "current_status": vp.current_status,
             "next_stop_name": next_stop,
-            "current_stop_name": None,
+            "current_stop_name": static.get_stop_name(vp.stop_id) if vp.stop_id else None,
             "timestamp": timestamp,
             "feed_id": self.feed_config.feed_id,
             "operator_name": self.feed_config.operator_name,
