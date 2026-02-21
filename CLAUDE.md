@@ -79,6 +79,8 @@ VTV is a unified transit operations platform targeting all of Latvia's public tr
 35. **Lazy imports break `@patch` targets** — Patch the ORIGINAL module, not the lazily-importing module.
 36. **Bare `except: pass` violates Ruff S110** — Always log in except blocks. Only `CancelledError: pass` is allowed.
 37. **Background tasks: `stop_*()` must catch ALL exceptions** — Failed tasks re-raise their error, not `CancelledError`. Also wrap `start_*()` connections in try/except.
+38. **`from datetime import date` shadows field names** — In models/schemas with a field called `date` (e.g., `CalendarDate.date`), `from datetime import date` causes pyright to confuse the field with the type. Use `import datetime` and reference as `datetime.date`/`datetime.datetime`.
+39. **FastAPI `Query(None)` needs `# noqa: B008`** — Same as `Depends()`, `Query()` is a function call in argument defaults. Add `# noqa: B008` on Query lines in route signatures.
 
 **AI-Optimized Patterns**
 
@@ -142,7 +144,7 @@ uv run uvicorn app.main:app --reload --port 8123
 ### Testing
 
 ```bash
-# Run unit tests (377 tests, ~7s execution)
+# Run unit tests (425 tests, ~7s execution)
 uv run pytest -v -m "not integration"
 
 # Run all tests including integration (182 tests, requires Docker)
@@ -241,6 +243,15 @@ VTV/
 │   │   ├── exceptions.py   # StopNotFoundError, StopAlreadyExistsError
 │   │   ├── routes.py       # 6 REST endpoints under /api/v1/stops (with location_type query param)
 │   │   └── tests/          # 33 unit tests (repository, service, routes)
+│   ├── schedules/      # GTFS schedule management (timetable, service calendar, trip CRUD, GTFS ZIP import)
+│   │   ├── schemas.py      # 17 Pydantic schemas (Agency/Route/Calendar/Trip/StopTime CRUD + GTFSImportResponse)
+│   │   ├── models.py       # 6 SQLAlchemy models (Agency, Route, Calendar, CalendarDate, Trip, StopTime)
+│   │   ├── repository.py   # Async CRUD + bulk operations + clear_all for GTFS import
+│   │   ├── service.py      # Business logic + GTFS import orchestration + schedule validation
+│   │   ├── gtfs_import.py  # GTFS ZIP parser (agency/routes/calendars/trips/stop_times CSV parsing)
+│   │   ├── exceptions.py   # 10 exceptions (NotFound, AlreadyExists, GTFSImportError)
+│   │   ├── routes.py       # 22 REST endpoints under /api/v1/schedules (CRUD + import + validate)
+│   │   └── tests/          # 48 unit tests (service, routes, GTFS parser)
 │   ├── transit/        # Multi-feed GTFS-RT tracking with Redis caching
 │   │   ├── schemas.py      # VehiclePosition (feed_id, operator_name), VehiclePositionsResponse, FeedStatusResponse
 │   │   ├── service.py      # TransitService — dual-mode: Redis reads (poller) or direct GTFS-RT fetch (legacy)
@@ -323,7 +334,7 @@ VTV/
 **Rate Limiting (slowapi)**
 
 - Per-IP rate limiting via `app.core.rate_limit.limiter`
-- Endpoint-specific limits: `/v1/chat/completions` (10/min), `/api/v1/transit/vehicles` (30/min), `/api/v1/knowledge/*` (10-30/min), `/health/*` (60/min)
+- Endpoint-specific limits: `/v1/chat/completions` (10/min), `/api/v1/transit/vehicles` (30/min), `/api/v1/knowledge/*` (10-30/min), `/api/v1/schedules/*` (5-30/min), `/health/*` (60/min)
 - X-Forwarded-For aware for nginx proxy compatibility
 - Disable in tests: `limiter.enabled = False`
 

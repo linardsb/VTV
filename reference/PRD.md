@@ -38,7 +38,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 **CMS (Next.js 16 Turborepo Monorepo)**
 - Route management — CRUD with map visualization (react-leaflet v5 + OpenStreetMap)
 - Stop management — CRUD with geolocation, Haversine proximity search, Leaflet map with click-to-place and terminus markers ✅ (PostGIS planned for Phase 1 completion)
-- Schedule management — timetable grid, service calendar, trip CRUD
+- Schedule management — timetable grid, service calendar, trip CRUD ✅ (backend API: 22 endpoints, GTFS ZIP import, schedule validation)
 - GTFS import/export — parse and generate GTFS ZIP files
 - Authentication — Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer)
 - Internationalization — Latvian (primary) + English ✅ (proper diacritics, 142+ i18n keys per locale)
@@ -363,20 +363,22 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ⬜ Bulk import from GTFS stops.txt
 - ⬜ Migrate to PostGIS `ST_DWithin` for sub-ms spatial queries (see [Implementation-Plan.md](../docs/PLANNING/Implementation-Plan.md))
 
-### 7.3 Schedule Management
+### 7.3 Schedule Management ✅ (Backend API)
 
-- Timetable grid view (rows = trips, columns = stops)
-- Service calendar with weekday/weekend/holiday patterns
-- Calendar exception management (calendar_dates)
-- Trip CRUD with stop_times editing
-- Schedule validation against GTFS spec
+- ✅ Service calendar CRUD with weekday/weekend/holiday patterns (7 day flags + date range)
+- ✅ Calendar exception management (calendar_dates: add/remove service on specific dates)
+- ✅ Trip CRUD with stop_times bulk replace (atomic PUT operation)
+- ✅ Schedule validation against GTFS spec (date ranges, references, time format, sequence ordering)
+- ✅ GTFS ZIP import (parse 6 CSV files, bulk insert with FK resolution, skip unknown stops)
+- ⬜ Timetable grid view (frontend — rows = trips, columns = stops)
+- ⬜ GTFS export (generate ZIP from database)
 
 ### 7.4 GTFS Import/Export
 
-- Import: upload GTFS ZIP, parse 7 core CSV files, validate, bulk insert
-- Export: generate GTFS-compliant ZIP from database
-- Validation: check referential integrity, time consistency, required fields
-- Seed database from RS public feed (`https://saraksti.rigassatiksme.lv/gtfs.zip`)
+- ✅ Import: upload GTFS ZIP, parse 6 core CSV files, validate references, bulk insert (via `/api/v1/schedules/import`)
+- ⬜ Export: generate GTFS-compliant ZIP from database
+- ✅ Validation: check referential integrity, time consistency, required fields (via `/api/v1/schedules/validate`)
+- ⬜ Seed database from RS public feed (`https://saraksti.rigassatiksme.lv/gtfs.zip`)
 
 ### 7.5 Authentication & Authorization
 

@@ -32,6 +32,7 @@ from app.core.middleware import setup_middleware
 from app.core.rate_limit import limiter
 from app.core.redis import close_redis
 from app.knowledge.routes import router as knowledge_router
+from app.schedules.routes import router as schedules_router
 from app.stops.routes import router as stops_router
 from app.transit.poller import start_pollers, stop_pollers
 from app.transit.routes import router as transit_router
@@ -107,6 +108,7 @@ app.include_router(agent_router)
 app.include_router(transit_router)
 app.include_router(stops_router)
 app.include_router(knowledge_router)
+app.include_router(schedules_router)
 
 
 @app.get("/")

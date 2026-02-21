@@ -129,7 +129,8 @@ cd cms && pnpm --filter @vtv/web build
 ```
 
 **Error recovery rules:**
-- If a check fails, attempt to fix the issue and re-run that specific check
+- **CRITICAL: After ANY code edit to fix a validation error, re-run from Level 1 (type-check).** Code changes to fix build errors can introduce new TypeScript errors.
+- If a check fails, attempt to fix the issue, then re-run ALL checks from Level 1
 - Maximum 3 fix attempts per check before stopping
 - If you cannot fix after 3 attempts, STOP and report the failures to the user with:
   - Which check failed

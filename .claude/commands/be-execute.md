@@ -92,6 +92,8 @@ Follow the plan's implementation steps in exact order. For each step:
   36. **Lazy imports inside `if` blocks break `@patch` targets** — When a function lazily imports inside an `if` branch (e.g., `if poller_enabled: from module import func`), you CANNOT patch the importing module's namespace (`@patch("app.service.func")`) because the name doesn't exist at module level. Instead, patch the ORIGINAL module: `@patch("app.module.func")`. The lazy import will then pick up the mock.
   37. **Bare `except: pass` violates Ruff S110** — `try/except SomeError: pass` triggers Ruff S110 ("try-except-pass detected"). Always log in except blocks: `except SomeError: logger.debug("event_name", exc_info=True)`. The ONE exception is `except asyncio.CancelledError: pass` in task cleanup, which Ruff allows because CancelledError is a BaseException.
   38. **Background asyncio tasks must handle ALL exceptions in `stop_*()`** — When cancelling background tasks with `task.cancel(); await task`, only catching `CancelledError` is insufficient. If the task already failed (e.g., Redis `ConnectionError`), `await task` re-raises the original exception, NOT `CancelledError`. Fix: catch `CancelledError` and `Exception` separately: `except asyncio.CancelledError: pass` then `except Exception: logger.debug(...)`. Also wrap `start_*()` functions in try/except so service unavailability (Redis down) doesn't crash app startup.
+  39. **`from datetime import date` shadows field names named `date`** — In models/schemas with a field called `date` (e.g., `CalendarDate.date`), importing `from datetime import date` causes pyright to confuse the field name with the type. Always use `import datetime` and reference as `datetime.date` / `datetime.datetime` when ANY model/schema in the file has a field named `date` or `datetime`.
+  40. **FastAPI `Query(None)` needs `# noqa: B008`** — Just like `Depends()`, `Query()` is a function call in argument defaults. Ruff B008 flags all of these. Always add `# noqa: B008` on lines using `Query(...)` in FastAPI route function signatures, same as `Depends()`.
 
 ### 3. Run database migrations (if needed)
 
@@ -144,7 +146,8 @@ docker-compose ps 2>/dev/null && uv run pytest -v -m integration || echo "Skippe
 ```
 
 **Error recovery rules:**
-- If a check fails, attempt to fix the issue and re-run that specific check
+- **CRITICAL: After ANY code edit to fix a validation error, re-run from Level 1 (ruff format + ruff check --fix) before continuing.** Code changes made to fix type errors (mypy/pyright) frequently introduce import sorting (I001), formatting, or lint regressions. Never skip back to the level you were fixing — always restart the validation sequence from the top.
+- If a check fails, attempt to fix the issue, then re-run ALL checks from Level 1 (format → lint → mypy → pyright → pytest)
 - Maximum 3 fix attempts per check before stopping
 - If you cannot fix after 3 attempts, STOP and report the failures to the user with:
   - Which check failed

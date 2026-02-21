@@ -60,7 +60,8 @@ docker-compose ps 2>/dev/null && uv run pytest -v -m integration || echo "Skippe
 ```
 
 **Error recovery rules:**
-- If a check fails, attempt to fix the issue and re-run that specific check
+- **CRITICAL: After ANY code edit to fix a validation error, re-run from Level 1 (ruff format + ruff check --fix).** Code changes to fix type errors frequently introduce import sorting or lint regressions.
+- If a check fails, attempt to fix the issue, then re-run ALL checks from Level 1
 - Maximum 3 fix attempts per check before stopping
 - If you cannot fix after 3 attempts, STOP and report the failures to the user
 

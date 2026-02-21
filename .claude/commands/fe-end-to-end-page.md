@@ -93,7 +93,8 @@ cd cms && pnpm --filter @vtv/web build
 Fix any hard gate failures before moving on. Do not proceed to commit with failing checks.
 
 **Error recovery rules:**
-- If a check fails, attempt to fix and re-run that specific check
+- **CRITICAL: After ANY code edit to fix a validation error, re-run from Level 1 (type-check).** Code changes to fix build errors can introduce new TypeScript errors.
+- If a check fails, attempt to fix the issue, then re-run ALL checks from Level 1
 - Maximum 3 fix attempts per check
 - If still failing after 3 attempts: STOP the entire pipeline and report to the user
   - Do NOT proceed to Phase 5 (Execution Report)

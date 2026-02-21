@@ -394,6 +394,8 @@ The executing agent MUST follow these rules to avoid common errors:
 36. **Lazy imports inside `if` blocks break `@patch` targets** — When the plan uses lazy imports (e.g., `if enabled: from module import func`), the test tasks must patch the ORIGINAL module (`@patch("app.module.func")`), NOT the importing module's namespace. The name doesn't exist at module level when lazily imported.
 37. **Bare `except: pass` violates Ruff S110** — Plan must specify `logger.debug(...)` in every except block, never bare `pass`. The one exception is `except asyncio.CancelledError: pass` which Ruff allows.
 38. **Background asyncio tasks must handle ALL exceptions in `stop_*()`** — When planning background task lifecycle (`start_*/stop_*`), plan must specify: (a) `stop_*` catches both `CancelledError` and `Exception` separately when awaiting tasks, (b) `start_*` wraps service connections (Redis, DB) in try/except so unavailability doesn't crash app startup, (c) task `run()` methods wrap I/O operations in try/except to prevent unhandled exceptions from silently terminating tasks.
+39. **`from datetime import date` shadows field names named `date`** — In models/schemas with a field called `date` (e.g., `CalendarDate.date`), importing `from datetime import date` causes pyright to confuse the field name with the type. Plan must specify `import datetime` and reference as `datetime.date` / `datetime.datetime` when ANY model/schema in the file has a field named `date` or `datetime`.
+40. **FastAPI `Query(None)` needs `# noqa: B008`** — Just like `Depends()`, `Query()` is a function call in argument defaults. Ruff B008 flags all of these. Plan must specify `# noqa: B008` on lines using `Query(...)` in FastAPI route function signatures.
 
 ## Migration (if applicable)
 
