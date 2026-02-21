@@ -1,9 +1,10 @@
 """Tests for app.core.config module."""
 
+import json
 import os
 from unittest.mock import patch
 
-from app.core.config import Settings, get_settings
+from app.core.config import Settings, TransitFeedConfig, get_settings
 
 
 def create_settings() -> Settings:
@@ -108,3 +109,80 @@ def test_settings_case_insensitive() -> None:
 
         assert settings.app_name == "Lower Case App"
         assert settings.environment == "PRODUCTION"
+
+
+def test_transit_feeds_from_json() -> None:
+    """Test transit_feeds computed property parses TRANSIT_FEEDS_JSON."""
+    feeds_json = json.dumps(
+        [
+            {
+                "feed_id": "riga",
+                "operator_name": "Rigas Satiksme",
+                "rt_vehicle_positions_url": "https://example.com/vp",
+                "rt_trip_updates_url": "https://example.com/tu",
+                "static_url": "https://example.com/static.zip",
+                "poll_interval_seconds": 15,
+                "enabled": False,
+            },
+            {
+                "feed_id": "jurmala",
+                "operator_name": "Jurmala Transit",
+                "rt_vehicle_positions_url": "https://example.com/j/vp",
+                "rt_trip_updates_url": "https://example.com/j/tu",
+                "static_url": "https://example.com/j/static.zip",
+            },
+        ]
+    )
+    with patch.dict(
+        os.environ,
+        {
+            "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/test",
+            "TRANSIT_FEEDS_JSON": feeds_json,
+        },
+    ):
+        settings = create_settings()
+
+        assert len(settings.transit_feeds) == 2
+        assert settings.transit_feeds[0].feed_id == "riga"
+        assert settings.transit_feeds[0].operator_name == "Rigas Satiksme"
+        assert settings.transit_feeds[0].poll_interval_seconds == 15
+        assert settings.transit_feeds[0].enabled is False
+        assert settings.transit_feeds[1].feed_id == "jurmala"
+        assert settings.transit_feeds[1].poll_interval_seconds == 10
+        assert settings.transit_feeds[1].enabled is True
+
+
+def test_transit_feeds_legacy_fallback() -> None:
+    """Test transit_feeds falls back to legacy single-feed URLs when JSON is empty."""
+    with patch.dict(
+        os.environ,
+        {
+            "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/test",
+            "TRANSIT_FEEDS_JSON": "[]",
+            "GTFS_RT_VEHICLE_POSITIONS_URL": "https://legacy.com/vp",
+            "GTFS_RT_TRIP_UPDATES_URL": "https://legacy.com/tu",
+            "GTFS_STATIC_URL": "https://legacy.com/static.zip",
+        },
+    ):
+        settings = create_settings()
+
+        assert len(settings.transit_feeds) == 1
+        assert settings.transit_feeds[0].feed_id == "riga"
+        assert settings.transit_feeds[0].operator_name == "Rigas Satiksme"
+        assert settings.transit_feeds[0].rt_vehicle_positions_url == "https://legacy.com/vp"
+        assert settings.transit_feeds[0].rt_trip_updates_url == "https://legacy.com/tu"
+        assert settings.transit_feeds[0].static_url == "https://legacy.com/static.zip"
+
+
+def test_transit_feed_config_defaults() -> None:
+    """Test TransitFeedConfig defaults for poll_interval and enabled."""
+    config = TransitFeedConfig(
+        feed_id="test",
+        operator_name="Test Operator",
+        rt_vehicle_positions_url="https://example.com/vp",
+        rt_trip_updates_url="https://example.com/tu",
+        static_url="https://example.com/static.zip",
+    )
+
+    assert config.poll_interval_seconds == 10
+    assert config.enabled is True

@@ -20,7 +20,7 @@ src/
 │   │   ├── page.tsx            # Dashboard (default authenticated page)
 │   │   ├── documents/page.tsx  # Document management (upload, table, filters, detail)
 │   │   ├── routes/page.tsx     # Route management (CRUD, filters, resizable map; mobile: tab layout)
-│   │   ├── stops/page.tsx      # Stop management (CRUD, Leaflet map with drag-to-reposition + click-to-place; mobile: tab layout)
+│   │   ├── stops/page.tsx      # Stop management (CRUD, Leaflet map with terminus markers, direction display, GTFS copy; mobile: tab layout)
 │   │   └── {page}/page.tsx     # Future feature pages (schedules, etc.)
 │   ├── login/page.tsx          # Login (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect

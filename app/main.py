@@ -30,8 +30,10 @@ from app.core.health import router as health_router
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import setup_middleware
 from app.core.rate_limit import limiter
+from app.core.redis import close_redis
 from app.knowledge.routes import router as knowledge_router
 from app.stops.routes import router as stops_router
+from app.transit.poller import start_pollers, stop_pollers
 from app.transit.routes import router as transit_router
 from app.transit.service import close_transit_service
 
@@ -63,12 +65,19 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     )
     logger.info("database.connection_initialized")
 
+    # Start background pollers
+    await start_pollers()
+    logger.info("transit.poller.lifecycle_started")
+
     yield
 
     # Shutdown
+    await stop_pollers()
+    logger.info("transit.poller.lifecycle_stopped")
     await close_transit_service()
     await close_agent_service()
     logger.info("security.singletons_closed")
+    await close_redis()
     await engine.dispose()
     logger.info("database.connection_closed")
     logger.info("application.lifecycle_stopped", app_name=settings.app_name)

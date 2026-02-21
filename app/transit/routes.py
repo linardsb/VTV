@@ -7,6 +7,7 @@ Endpoints:
 
 from fastapi import APIRouter, Request
 
+from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.transit.schemas import VehiclePositionsResponse
@@ -22,14 +23,14 @@ router = APIRouter(prefix="/api/v1/transit", tags=["transit"])
 async def get_vehicles(
     request: Request,
     route_id: str | None = None,
+    feed_id: str | None = None,
 ) -> VehiclePositionsResponse:
-    """Get real-time vehicle positions from GTFS-RT feeds.
-
-    Returns enriched vehicle positions with route names, delay data,
-    and stop name resolution. Data is cached for 20 seconds.
+    """Get real-time vehicle positions, optionally filtered by feed and/or route.
 
     Args:
+        request: The incoming HTTP request (used for rate limiting).
         route_id: Optional GTFS route ID to filter results.
+        feed_id: Optional feed source to filter results (e.g., "riga").
 
     Returns:
         VehiclePositionsResponse with vehicle positions.
@@ -37,7 +38,22 @@ async def get_vehicles(
     Raises:
         TransitDataError: Mapped to HTTP 503 by global exception handler.
     """
-    logger.info("transit.api.vehicles_requested", route_id=route_id)
+    logger.info("transit.api.vehicles_requested", route_id=route_id, feed_id=feed_id)
 
     service = get_transit_service()
-    return await service.get_vehicle_positions(route_id=route_id)
+    return await service.get_vehicle_positions(route_id=route_id, feed_id=feed_id)
+
+
+@router.get("/feeds")
+async def get_feeds() -> list[dict[str, object]]:
+    """List configured transit feeds and their status."""
+    settings = get_settings()
+    return [
+        {
+            "feed_id": f.feed_id,
+            "operator_name": f.operator_name,
+            "enabled": f.enabled,
+            "poll_interval_seconds": f.poll_interval_seconds,
+        }
+        for f in settings.transit_feeds
+    ]

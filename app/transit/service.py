@@ -46,22 +46,49 @@ class TransitService:
     async def get_vehicle_positions(
         self,
         route_id: str | None = None,
+        feed_id: str | None = None,
     ) -> VehiclePositionsResponse:
-        """Fetch and enrich real-time vehicle positions.
+        """Get vehicle positions, from Redis (if poller active) or direct fetch.
 
         Args:
             route_id: Optional GTFS route ID to filter results.
+            feed_id: Optional feed source to filter results.
 
         Returns:
             VehiclePositionsResponse with enriched vehicle data.
 
         Raises:
-            TransitDataError: If GTFS-RT feeds are unavailable.
+            TransitDataError: If GTFS-RT feeds are unavailable (direct mode).
         """
         start_time = time.monotonic()
 
-        logger.info("transit.vehicles.fetch_started", route_filter=route_id)
+        logger.info(
+            "transit.vehicles.fetch_started",
+            route_filter=route_id,
+            feed_filter=feed_id,
+            source="redis" if self._settings.poller_enabled else "direct",
+        )
 
+        if self._settings.poller_enabled:
+            from app.transit.redis_reader import get_vehicles_from_redis
+
+            result = await get_vehicles_from_redis(feed_id=feed_id, route_id=route_id)
+        else:
+            result = await self._fetch_direct(route_id=route_id)
+
+        duration_ms = int((time.monotonic() - start_time) * 1000)
+        logger.info(
+            "transit.vehicles.fetch_completed",
+            count=result.count,
+            duration_ms=duration_ms,
+        )
+        return result
+
+    async def _fetch_direct(
+        self,
+        route_id: str | None = None,
+    ) -> VehiclePositionsResponse:
+        """Direct GTFS-RT fetch (legacy mode, used when poller is disabled)."""
         raw_vehicles = await self._rt_client.fetch_vehicle_positions()
         trip_updates = await self._rt_client.fetch_trip_updates()
         static = await get_static_cache(self._http_client, self._settings)
@@ -74,13 +101,6 @@ class TransitService:
         # Apply route filter
         if route_id is not None:
             vehicles = [v for v in vehicles if v.route_id == route_id]
-
-        duration_ms = int((time.monotonic() - start_time) * 1000)
-        logger.info(
-            "transit.vehicles.fetch_completed",
-            count=len(vehicles),
-            duration_ms=duration_ms,
-        )
 
         return VehiclePositionsResponse(
             count=len(vehicles),

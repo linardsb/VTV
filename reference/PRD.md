@@ -37,7 +37,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 
 **CMS (Next.js 16 Turborepo Monorepo)**
 - Route management — CRUD with map visualization (react-leaflet v5 + OpenStreetMap)
-- Stop management — CRUD with geolocation, Haversine proximity search (PostGIS planned for Phase 1 completion)
+- Stop management — CRUD with geolocation, Haversine proximity search, Leaflet map with click-to-place and terminus markers ✅ (PostGIS planned for Phase 1 completion)
 - Schedule management — timetable grid, service calendar, trip CRUD
 - GTFS import/export — parse and generate GTFS ZIP files
 - Authentication — Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer)
@@ -60,7 +60,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 
 ### 4.2 What's Out (Post-MVP)
 
-- ~~Live GPS tracking and real-time map~~ ✅ **Implemented** — Live map with GTFS-RT vehicle positions (Riga), react-leaflet v5, HTTP polling. Full Latvia multi-feed coverage planned in [Implementation-Plan.md](../docs/PLANNING/Implementation-Plan.md)
+- ~~Live GPS tracking and real-time map~~ ✅ **Implemented** — Multi-feed GTFS-RT tracking with Redis caching, background pollers, 3 REST endpoints. Live map with react-leaflet v5, HTTP polling. Supports Riga + configurable additional feeds (Jurmala, Pieriga, ATD)
 - Vehicle and driver management (Phase 2)
 - NeTEx/SIRI compliance exports (Phase 3)
 - Public-facing passenger information (out of scope)
@@ -132,8 +132,9 @@ services:
   cms:          # Next.js 16 — internal only
   nginx:        # Reverse proxy — port 80 (rate limiting, security headers)
 
+# Implemented:
+  redis:        # redis:7-alpine — real-time vehicle position cache ✅
 # Planned additions (see docs/PLANNING/Implementation-Plan.md):
-  redis:        # redis:7-alpine — real-time vehicle position cache
   # PostGIS extension — spatial queries (switch db image)
   # Ollama — local LLM (fallback/dev)
 ```
@@ -348,11 +349,16 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ✅ 26 realistic mock routes (ATD intercity, RS urban, 5 operators)
 - ✅ Bilingual i18n (142 keys each for LV/EN)
 
-### 7.2 Stop Management ✅ (Backend implemented — CRUD + proximity search)
+### 7.2 Stop Management ✅ (Full-stack — Backend CRUD + Frontend CMS page)
 
-- ✅ Stop list with search and Haversine proximity filter (plain Float columns, PostGIS planned)
-- ✅ Backend CRUD endpoints (create, read, update, delete, list, nearby) — 6 endpoints
-- ⬜ Map-based stop placement with coordinate picker (frontend page not yet built)
+- ✅ Stop list with search, status filter, and Haversine proximity search (plain Float columns, PostGIS planned)
+- ✅ Backend CRUD endpoints (create, read, update, delete, list, nearby) — 6 endpoints with server-side `location_type` filtering
+- ✅ Map-based stop placement with click-to-place and drag-to-reposition (Leaflet + CARTO Voyager tiles)
+- ✅ Terminus stop visualization — green markers for `location_type=1` (galapunkts), blue for regular stops
+- ✅ Direction display — `stop_desc` shown in table rows and map popups (e.g., "Uz centru")
+- ✅ Copyable GTFS stop IDs with clipboard feedback
+- ✅ Resilient batch map loading (sequential batches of 5 with `Promise.allSettled` to handle rate limits)
+- ✅ Bilingual i18n (332 keys each for LV/EN) — Galapunkts (LV) / Terminus (EN)
 - ⬜ Stop hierarchy support (station > stop)
 - ⬜ Bulk import from GTFS stops.txt
 - ⬜ Migrate to PostGIS `ST_DWithin` for sub-ms spatial queries (see [Implementation-Plan.md](../docs/PLANNING/Implementation-Plan.md))

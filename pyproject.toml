@@ -20,6 +20,7 @@ dependencies = [
     "pytesseract>=0.3.13",
     "python-docx>=1.2.0",
     "python-dotenv>=1.2.1",
+    "redis[hiredis]>=5.2.0",
     "slowapi>=0.1.9",
     "sqlalchemy[asyncio]>=2.0.44",
     "structlog>=25.5.0",
@@ -147,6 +148,11 @@ ignore_missing_imports = true
 # openpyxl lacks py.typed marker
 [[tool.mypy.overrides]]
 module = "openpyxl.*"
+ignore_missing_imports = true
+
+# redis has partial typing
+[[tool.mypy.overrides]]
+module = "redis.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

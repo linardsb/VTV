@@ -22,6 +22,24 @@ services:
           cpus: "0.5"
           memory: 256M
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    restart: unless-stopped
+
   app:
     build:
       context: .
@@ -53,6 +71,8 @@ services:
     # Wait for database to be healthy before starting app
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
     # Development configuration
@@ -123,3 +143,4 @@ services:
 # Named volumes for data persistence
 volumes:
   postgres_data:
+  redis_data:

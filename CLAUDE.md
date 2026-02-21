@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 10 tools (5 transit + 4 Obsidian vault + 1 knowledge base). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. The platform roadmap extends to multi-feed real-time tracking, Redis caching, PostGIS spatial queries, and ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
+VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 10 tools (5 transit + 4 Obsidian vault + 1 knowledge base). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. Features multi-feed GTFS-RT tracking with Redis caching for sub-ms reads. The platform roadmap extends to PostGIS spatial queries, WebSocket streaming, and ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
 
 ## Core Principles
 
@@ -65,6 +65,20 @@ VTV is a unified transit operations platform targeting all of Latvia's public tr
 21. **Untyped lib method returns need `str()` wrapping** — `page.get_text()`, `pytesseract.image_to_string()` return `Unknown`. Wrap in `str()`.
 22. **Partially annotated test functions need `-> None`** — Adding param type (e.g., `tmp_path: Path`) without return type triggers mypy `no-untyped-def`. Always: `def test_foo(param: Type) -> None:`.
 23. **Pydantic `Field(None)` confuses pyright about defaults** — Pass defaulted fields explicitly in tests: `Model(required="x", optional=None)`.
+24. **Dataclass `field(default_factory=dict)` needs typed lambda** — Pyright infers `dict[Unknown, Unknown]`. Use `field(default_factory=lambda: dict[str, str | int | None]())`.
+25. **Untyped lib method returns need `str()` wrapping** — `page.get_text()`, `pytesseract.image_to_string()` return `Unknown`. Wrap in `str()`.
+26. **Partially annotated test functions need `-> None`** — Adding param type without return type triggers mypy `no-untyped-def`. Always: `def test_foo(param: Type) -> None:`.
+27. **Bare `[]` list literals inferred as `list[Unknown]`** — Pyright fires on `.append()`. Always annotate: `items: list[X] = []`.
+28. **Adding optional fields to existing schemas breaks ALL constructors** — `Field(None)` confuses pyright. Grep for `SchemaName(` and update ALL call sites.
+29. **Existing tests break when new types are added** — Adding support makes "unsupported type" tests fail. Update in the SAME step.
+30. **`@computed_field` on `@property` needs `# type: ignore[prop-decorator]`** — mypy doesn't support decorators stacked on `@property`.
+31. **Don't guess `# type: ignore` codes** — mypy's `unused-ignore` flags wrong guesses. Write code first, run mypy, add the EXACT error code.
+32. **`dict[str, object]` fails Pydantic `**kwargs` unpacking** — Use `dict[str, Any]`, not `dict[str, object]` for dicts fed to Pydantic constructors.
+33. **Redis async stubs: `await` returns `Awaitable[T] | T`** — Needs `# type: ignore[misc]` on await calls. Add pyright file-level `reportUnknownMemberType=false, reportMissingTypeStubs=false`.
+34. **`redis.pipeline()` is SYNC** — Mock Redis with `MagicMock()`, not `AsyncMock()`. Only `pipe.execute()` is async.
+35. **Lazy imports break `@patch` targets** — Patch the ORIGINAL module, not the lazily-importing module.
+36. **Bare `except: pass` violates Ruff S110** — Always log in except blocks. Only `CancelledError: pass` is allowed.
+37. **Background tasks: `stop_*()` must catch ALL exceptions** — Failed tasks re-raise their error, not `CancelledError`. Also wrap `start_*()` connections in try/except.
 
 **AI-Optimized Patterns**
 
@@ -128,7 +142,7 @@ uv run uvicorn app.main:app --reload --port 8123
 ### Testing
 
 ```bash
-# Run unit tests (354 tests, ~7s execution)
+# Run unit tests (377 tests, ~7s execution)
 uv run pytest -v -m "not integration"
 
 # Run all tests including integration (182 tests, requires Docker)
@@ -190,7 +204,7 @@ docker-compose logs -f app
 docker-compose down
 ```
 
-**Docker services:** `db` (PostgreSQL + pgvector), `app` (FastAPI, non-root user), `cms` (Next.js), `nginx` (reverse proxy on port 80). App and CMS are internal-only (expose, not ports) — nginx proxies all external traffic. Resource limits enforced per service. **Planned additions:** Redis (real-time cache), PostGIS extension (spatial queries) — see `docs/PLANNING/Implementation-Plan.md`.
+**Docker services:** `db` (PostgreSQL + pgvector), `app` (FastAPI, non-root user), `cms` (Next.js), `nginx` (reverse proxy on port 80), `redis` (Redis 7 Alpine — real-time vehicle position cache). App and CMS are internal-only (expose, not ports) — nginx proxies all external traffic. Resource limits enforced per service. **Planned additions:** PostGIS extension (spatial queries) — see `docs/PLANNING/Implementation-Plan.md`.
 
 ## Architecture
 
@@ -199,7 +213,7 @@ docker-compose down
 ```
 VTV/
 ├── app/
-│   ├── core/           # Infrastructure (config, database, logging, middleware, health, rate_limit, exceptions)
+│   ├── core/           # Infrastructure (config, database, logging, middleware, health, rate_limit, redis, exceptions)
 │   │   └── agents/     # AI agent module (see Agent Module below)
 │   │       ├── quota.py     # Daily per-IP query quota tracker (50/day default)
 │   │       ├── tools/
@@ -219,20 +233,21 @@ VTV/
 │   │   ├── reranker.py     # Cross-encoder reranking (local/noop)
 │   │   ├── routes.py       # 9 REST endpoints under /api/v1/knowledge (CRUD + download + content + domains + search)
 │   │   └── tests/          # 30 unit tests
-│   ├── stops/          # Stop management (CRUD with Haversine proximity search)
+│   ├── stops/          # Stop management (CRUD with Haversine proximity search + location_type filtering)
 │   │   ├── schemas.py      # StopCreate, StopUpdate, StopResponse, StopNearbyParams
 │   │   ├── models.py       # Stop model with plain Float lat/lon columns
-│   │   ├── repository.py   # Async CRUD + Haversine proximity search
+│   │   ├── repository.py   # Async CRUD + Haversine proximity search + location_type filter
 │   │   ├── service.py      # Business logic + structured logging
-│   │   ├── exceptions.py   # StopNotFoundError, DuplicateStopError
-│   │   ├── routes.py       # 6 REST endpoints under /api/v1/stops
-│   │   └── tests/          # Unit tests (repository, service, routes)
-│   ├── transit/        # Transit REST API (real-time vehicle positions for CMS frontend)
-│   │   ├── schemas.py      # VehiclePosition, VehiclePositionsResponse
-│   │   ├── service.py      # TransitService — enriches GTFS-RT with static data (in-memory cache)
-│   │   ├── routes.py       # GET /api/v1/transit/vehicles (rate limited: 30/min)
-│   │   └── tests/          # 9 unit tests
-│   │   # Planned: GTFS importer, GTFS-RT poller, Redis pipeline, WebSocket — see Implementation-Plan.md
+│   │   ├── exceptions.py   # StopNotFoundError, StopAlreadyExistsError
+│   │   ├── routes.py       # 6 REST endpoints under /api/v1/stops (with location_type query param)
+│   │   └── tests/          # 33 unit tests (repository, service, routes)
+│   ├── transit/        # Multi-feed GTFS-RT tracking with Redis caching
+│   │   ├── schemas.py      # VehiclePosition (feed_id, operator_name), VehiclePositionsResponse, FeedStatusResponse
+│   │   ├── service.py      # TransitService — dual-mode: Redis reads (poller) or direct GTFS-RT fetch (legacy)
+│   │   ├── poller.py       # Background GTFS-RT poller — per-feed asyncio tasks, Redis pipeline writes
+│   │   ├── redis_reader.py # Redis batch reader — MGET + JSON deserialize for vehicle positions
+│   │   ├── routes.py       # 3 REST endpoints under /api/v1/transit (vehicles, vehicles by feed, feed status)
+│   │   └── tests/          # 37 unit tests (service, poller, redis_reader, routes, config)
 │   ├── main.py         # FastAPI application entry point
 │   ├── {feature}/      # Feature slices (e.g., products/, orders/)
 │   └── tests/          # Integration tests spanning multiple features
@@ -454,6 +469,9 @@ app/core/agents/
 - Knowledge base embedding: `EMBEDDING_PROVIDER` (openai/jina/local), `EMBEDDING_MODEL`, `EMBEDDING_DIMENSION` (1024), `EMBEDDING_API_KEY`, `EMBEDDING_BASE_URL`
 - Knowledge base reranker: `RERANKER_PROVIDER` (local/none), `RERANKER_MODEL`, `RERANKER_TOP_K` (10)
 - Knowledge base tuning: `KNOWLEDGE_CHUNK_SIZE` (512), `KNOWLEDGE_CHUNK_OVERLAP` (50), `KNOWLEDGE_SEARCH_LIMIT` (50)
+- Redis: `REDIS_URL` (default: `redis://localhost:6379/0`) — used by GTFS-RT poller and vehicle position cache
+- Transit feeds: `TRANSIT_FEEDS_JSON` (JSON array of feed configs), or legacy `GTFS_RT_VEHICLE_URL`/`GTFS_RT_TRIP_URL`/`GTFS_STATIC_URL`
+- Transit polling: `TRANSIT_POLL_INTERVAL` (default: 10s), `TRANSIT_POLLER_ENABLED` (default: `false`)
 - Auth: `AUTH_SECRET` required in Docker (generate with `openssl rand -base64 32`)
 
 ## Frontend (CMS)
@@ -515,7 +533,7 @@ cms/apps/web/src/
 │   │   ├── chat/page.tsx       # AI assistant chat (streaming SSE, bilingual)
 │   │   ├── documents/page.tsx  # Document management (upload, table, filters, detail panel)
 │   │   ├── routes/page.tsx     # Route management (CRUD, filters, resizable map panel; mobile: tab layout)
-│   │   ├── stops/page.tsx      # Stop management (CRUD, Leaflet map with drag-to-reposition, click-to-place; mobile: tab layout)
+│   │   ├── stops/page.tsx      # Stop management (CRUD, Leaflet map with terminus markers, direction display, GTFS copy; mobile: tab layout)
 │   │   └── {page}/page.tsx     # Future feature pages (schedules, etc.)
 │   ├── login/page.tsx          # Login page (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect page

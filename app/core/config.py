@@ -7,9 +7,24 @@ This module provides centralized configuration management:
 - Settings for application, CORS, and future database configuration
 """
 
+import json
 from functools import lru_cache
+from typing import Any
 
+from pydantic import BaseModel, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class TransitFeedConfig(BaseModel):
+    """Configuration for a single GTFS-RT transit feed."""
+
+    feed_id: str
+    operator_name: str
+    rt_vehicle_positions_url: str
+    rt_trip_updates_url: str
+    static_url: str
+    poll_interval_seconds: int = 10
+    enabled: bool = True
 
 
 class Settings(BaseSettings):
@@ -60,6 +75,33 @@ class Settings(BaseSettings):
     gtfs_static_url: str = "https://saraksti.rigassatiksme.lv/gtfs.zip"
     gtfs_rt_cache_ttl_seconds: int = 10
     gtfs_static_cache_ttl_hours: int = 24
+
+    # Redis
+    redis_url: str = "redis://localhost:6379/0"
+    redis_vehicle_ttl_seconds: int = 120
+
+    # Multi-feed GTFS-RT (replaces single-feed URLs)
+    transit_feeds_json: str = "[]"
+    poller_enabled: bool = True
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def transit_feeds(self) -> list[TransitFeedConfig]:
+        """Parse transit feeds from JSON config, falling back to legacy single-feed URLs."""
+        feeds_raw: list[dict[str, Any]] = json.loads(self.transit_feeds_json)
+        if feeds_raw:
+            return [TransitFeedConfig(**f) for f in feeds_raw]
+        # Backward compatibility: build from legacy single-feed settings
+        return [
+            TransitFeedConfig(
+                feed_id="riga",
+                operator_name="Rigas Satiksme",
+                rt_vehicle_positions_url=self.gtfs_rt_vehicle_positions_url,
+                rt_trip_updates_url=self.gtfs_rt_trip_updates_url,
+                static_url=self.gtfs_static_url,
+                poll_interval_seconds=self.gtfs_rt_cache_ttl_seconds,
+            )
+        ]
 
     # Obsidian Local REST API
     obsidian_api_key: str | None = None

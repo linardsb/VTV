@@ -43,6 +43,8 @@ class VehiclePosition(BaseModel):
     next_stop_name: str | None = None
     current_stop_name: str | None = None
     timestamp: str
+    feed_id: str = ""
+    operator_name: str = ""
 
 
 class VehiclePositionsResponse(BaseModel):
@@ -52,6 +54,7 @@ class VehiclePositionsResponse(BaseModel):
         count: Number of vehicles in response.
         vehicles: List of vehicle positions.
         fetched_at: ISO 8601 server time when data was assembled.
+        feed_id: Feed filter applied, if any.
     """
 
     model_config = ConfigDict(strict=True)
@@ -59,3 +62,4 @@ class VehiclePositionsResponse(BaseModel):
     count: int
     vehicles: list[VehiclePosition]
     fetched_at: str
+    feed_id: str | None = None

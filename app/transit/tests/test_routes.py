@@ -76,7 +76,78 @@ async def test_get_vehicles_with_route_filter(mock_get_service: MagicMock) -> No
         response = await client.get("/api/v1/transit/vehicles?route_id=22")
 
     assert response.status_code == 200
-    mock_service.get_vehicle_positions.assert_called_once_with(route_id="22")
+    mock_service.get_vehicle_positions.assert_called_once_with(route_id="22", feed_id=None)
+
+
+@pytest.mark.asyncio
+@patch("app.transit.routes.get_transit_service")
+async def test_get_vehicles_with_feed_id(mock_get_service: MagicMock) -> None:
+    """GET /api/v1/transit/vehicles?feed_id=riga passes feed filter to service."""
+    mock_service = MagicMock()
+    mock_service.get_vehicle_positions = AsyncMock(return_value=_make_response(1))
+    mock_get_service.return_value = mock_service
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/transit/vehicles?feed_id=riga")
+
+    assert response.status_code == 200
+    mock_service.get_vehicle_positions.assert_called_once_with(route_id=None, feed_id="riga")
+
+
+@pytest.mark.asyncio
+@patch("app.transit.routes.get_transit_service")
+async def test_get_vehicles_with_both_filters(mock_get_service: MagicMock) -> None:
+    """GET /api/v1/transit/vehicles?feed_id=riga&route_id=22 passes both filters."""
+    mock_service = MagicMock()
+    mock_service.get_vehicle_positions = AsyncMock(return_value=_make_response(1))
+    mock_get_service.return_value = mock_service
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/transit/vehicles?feed_id=riga&route_id=22")
+
+    assert response.status_code == 200
+    mock_service.get_vehicle_positions.assert_called_once_with(route_id="22", feed_id="riga")
+
+
+@pytest.mark.asyncio
+@patch("app.transit.routes.get_settings")
+async def test_get_feeds(mock_get_settings: MagicMock) -> None:
+    """GET /api/v1/transit/feeds returns configured feeds."""
+    feed1 = MagicMock()
+    feed1.feed_id = "riga"
+    feed1.operator_name = "Rigas Satiksme"
+    feed1.enabled = True
+    feed1.poll_interval_seconds = 10
+
+    feed2 = MagicMock()
+    feed2.feed_id = "jurmala"
+    feed2.operator_name = "Jurmala Transit"
+    feed2.enabled = False
+    feed2.poll_interval_seconds = 15
+
+    settings = MagicMock()
+    settings.transit_feeds = [feed1, feed2]
+    mock_get_settings.return_value = settings
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/transit/feeds")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    assert data[0]["feed_id"] == "riga"
+    assert data[0]["enabled"] is True
+    assert data[1]["feed_id"] == "jurmala"
+    assert data[1]["enabled"] is False
 
 
 @pytest.mark.asyncio

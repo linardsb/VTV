@@ -10,6 +10,7 @@ from app.core.agents.tools.transit.client import (
     TripUpdateData,
     VehiclePositionData,
 )
+from app.transit.schemas import VehiclePosition, VehiclePositionsResponse
 from app.transit.service import TransitService
 
 
@@ -103,9 +104,11 @@ async def test_get_vehicle_positions_success(
     instance.fetch_trip_updates = AsyncMock(return_value=trip_updates)
     mock_get_cache.return_value = _make_static_cache()
 
+    mock_settings = MagicMock()
+    mock_settings.poller_enabled = False
     service = TransitService(
         http_client=MagicMock(),
-        settings=MagicMock(),
+        settings=mock_settings,
     )
     response = await service.get_vehicle_positions()
 
@@ -135,7 +138,9 @@ async def test_get_vehicle_positions_with_route_filter(
     instance.fetch_trip_updates = AsyncMock(return_value=[])
     mock_get_cache.return_value = _make_static_cache()
 
-    service = TransitService(http_client=MagicMock(), settings=MagicMock())
+    mock_settings = MagicMock()
+    mock_settings.poller_enabled = False
+    service = TransitService(http_client=MagicMock(), settings=mock_settings)
     response = await service.get_vehicle_positions(route_id="22")
 
     assert response.count == 2
@@ -155,7 +160,9 @@ async def test_get_vehicle_positions_empty(
     instance.fetch_trip_updates = AsyncMock(return_value=[])
     mock_get_cache.return_value = _make_static_cache()
 
-    service = TransitService(http_client=MagicMock(), settings=MagicMock())
+    mock_settings = MagicMock()
+    mock_settings.poller_enabled = False
+    service = TransitService(http_client=MagicMock(), settings=mock_settings)
     response = await service.get_vehicle_positions()
 
     assert response.count == 0
@@ -176,7 +183,9 @@ async def test_get_vehicle_positions_transit_error(
     )
     mock_get_cache.return_value = _make_static_cache()
 
-    service = TransitService(http_client=MagicMock(), settings=MagicMock())
+    mock_settings = MagicMock()
+    mock_settings.poller_enabled = False
+    service = TransitService(http_client=MagicMock(), settings=mock_settings)
 
     with pytest.raises(TransitDataError, match="Feed unavailable"):
         await service.get_vehicle_positions()
@@ -197,7 +206,9 @@ async def test_get_vehicle_positions_speed_conversion(
     instance.fetch_trip_updates = AsyncMock(return_value=[])
     mock_get_cache.return_value = _make_static_cache()
 
-    service = TransitService(http_client=MagicMock(), settings=MagicMock())
+    mock_settings = MagicMock()
+    mock_settings.poller_enabled = False
+    service = TransitService(http_client=MagicMock(), settings=mock_settings)
     response = await service.get_vehicle_positions()
 
     assert response.vehicles[0].speed_kmh == 36.0
@@ -218,8 +229,73 @@ async def test_get_vehicle_positions_null_speed_and_bearing(
     instance.fetch_trip_updates = AsyncMock(return_value=[])
     mock_get_cache.return_value = _make_static_cache()
 
-    service = TransitService(http_client=MagicMock(), settings=MagicMock())
+    mock_settings = MagicMock()
+    mock_settings.poller_enabled = False
+    service = TransitService(http_client=MagicMock(), settings=mock_settings)
     response = await service.get_vehicle_positions()
 
     assert response.vehicles[0].speed_kmh is None
     assert response.vehicles[0].bearing is None
+
+
+@pytest.mark.asyncio
+@patch("app.transit.redis_reader.get_vehicles_from_redis")
+async def test_get_vehicle_positions_redis_mode(
+    mock_get_from_redis: AsyncMock,
+) -> None:
+    """When poller is enabled, delegates to Redis reader."""
+    mock_response = VehiclePositionsResponse(
+        count=1,
+        vehicles=[
+            VehiclePosition(
+                vehicle_id="v1",
+                route_id="22",
+                route_short_name="22",
+                route_type=3,
+                latitude=56.9496,
+                longitude=24.1052,
+                bearing=180.0,
+                speed_kmh=36.0,
+                delay_seconds=0,
+                current_status="IN_TRANSIT_TO",
+                timestamp="2023-11-14T22:13:20+00:00",
+                feed_id="riga",
+                operator_name="Rigas Satiksme",
+            )
+        ],
+        fetched_at="2023-11-14T22:13:20+00:00",
+        feed_id="riga",
+    )
+    mock_get_from_redis.return_value = mock_response
+
+    mock_settings = MagicMock()
+    mock_settings.poller_enabled = True
+    service = TransitService(http_client=MagicMock(), settings=mock_settings)
+    response = await service.get_vehicle_positions(feed_id="riga")
+
+    assert response.count == 1
+    assert response.feed_id == "riga"
+    mock_get_from_redis.assert_called_once_with(feed_id="riga", route_id=None)
+
+
+@pytest.mark.asyncio
+@patch("app.transit.redis_reader.get_vehicles_from_redis")
+async def test_get_vehicle_positions_redis_with_feed_filter(
+    mock_get_from_redis: AsyncMock,
+) -> None:
+    """Redis mode forwards both feed_id and route_id."""
+    mock_response = VehiclePositionsResponse(
+        count=0,
+        vehicles=[],
+        fetched_at="2023-11-14T22:13:20+00:00",
+        feed_id="riga",
+    )
+    mock_get_from_redis.return_value = mock_response
+
+    mock_settings = MagicMock()
+    mock_settings.poller_enabled = True
+    service = TransitService(http_client=MagicMock(), settings=mock_settings)
+    response = await service.get_vehicle_positions(feed_id="riga", route_id="22")
+
+    assert response.count == 0
+    mock_get_from_redis.assert_called_once_with(feed_id="riga", route_id="22")
