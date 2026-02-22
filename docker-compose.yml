@@ -45,12 +45,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["python", "-m", "alembic", "upgrade", "head"]
+    command: ["python", "scripts/docker-migrate.py"]
     env_file:
       - path: .env
         required: false
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/vtv_db}
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/vtv_db
+      - AUTO_IMPORT_GTFS=true
     depends_on:
       db:
         condition: service_healthy
@@ -58,7 +59,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: 256M
+          memory: 512M
 
   app:
     build:
@@ -86,10 +87,9 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      # Override URLs for Docker networking (app -> db/redis services)
-      # Defaults match the db/redis services above; override via .env for custom credentials
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/vtv_db}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      # Docker-internal URLs (hardcoded to prevent .env from overriding with localhost values)
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/vtv_db
+      - REDIS_URL=redis://redis:6379/0
 
     # Wait for database, redis, and migrations before starting app
     depends_on:
@@ -181,5 +181,7 @@ services:
 # Named volumes for data persistence
 volumes:
   postgres_data:
+    name: vtv_postgres_data
+    external: true  # Protects DB data from accidental deletion (docker compose down -v won't touch it)
   redis_data:
   document_data:
