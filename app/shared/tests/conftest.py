@@ -6,7 +6,6 @@ import pytest
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
-    async_sessionmaker,
     create_async_engine,
 )
 
@@ -31,23 +30,23 @@ async def test_db_engine() -> AsyncGenerator[AsyncEngine, None]:
 
 @pytest.fixture(scope="function")
 async def db_session(test_db_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
-    """Create database session and tables for tests."""
-    # Create tables
+    """Create database session for tests using transaction rollback.
+
+    Uses a connection-level transaction that gets rolled back after each test,
+    giving each test a clean slate WITHOUT dropping tables. This prevents the
+    destructive Base.metadata.drop_all() that previously nuked all tables while
+    leaving alembic_version intact (causing the "DB at head but no tables" bug).
+    """
+    # Ensure tables exist (idempotent — won't recreate if already present)
     async with test_db_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Create session
-    async_session = async_sessionmaker(
-        test_db_engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-        autocommit=False,
-        autoflush=False,
-    )
+    # Wrap the test in a transaction that we roll back afterward
+    async with test_db_engine.connect() as conn:
+        tx = await conn.begin()
+        session = AsyncSession(bind=conn, expire_on_commit=False)
 
-    async with async_session() as session:
         yield session
 
-    # Drop tables after test
-    async with test_db_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await session.close()
+        await tx.rollback()
