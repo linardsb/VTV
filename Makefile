@@ -17,6 +17,7 @@ dev-fe: ## Start frontend dev server
 # === Docker (integration / pre-deployment) ===
 
 docker: ## Build and start all services (db, redis, auto-migrate, app, cms, nginx on :80)
+	@docker volume create vtv_postgres_data 2>/dev/null || true
 	AUTH_SECRET=$$(openssl rand -base64 32) docker-compose up -d --build
 
 docker-down: ## Stop all Docker services
@@ -43,6 +44,7 @@ check: lint types test ## Run all checks (lint, types, tests)
 # === Database ===
 
 db: ## Start only PostgreSQL + Redis (for local dev)
+	@docker volume create vtv_postgres_data 2>/dev/null || true
 	AUTH_SECRET=dev-placeholder docker-compose up -d db redis
 
 db-migrate: ## Run database migrations
