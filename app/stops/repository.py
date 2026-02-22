@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import builtins
+from typing import Any
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.stops.models import Stop
@@ -149,3 +151,47 @@ class StopRepository:
         """
         await self.db.delete(stop)
         await self.db.commit()
+
+    async def bulk_upsert(self, values: builtins.list[dict[str, Any]]) -> tuple[int, int]:
+        """Upsert stops by gtfs_stop_id. Flush only, no commit.
+
+        Args:
+            values: List of column dicts for each stop.
+
+        Returns:
+            Tuple of (created_count, updated_count).
+        """
+        if not values:
+            return 0, 0
+        existing_result = await self.db.execute(
+            select(Stop.gtfs_stop_id).where(
+                Stop.gtfs_stop_id.in_([v["gtfs_stop_id"] for v in values])
+            )
+        )
+        existing_ids = set(existing_result.scalars().all())
+        update_cols = [
+            "stop_name",
+            "stop_lat",
+            "stop_lon",
+            "stop_desc",
+            "location_type",
+            "wheelchair_boarding",
+        ]
+        stmt = pg_insert(Stop).values(values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["gtfs_stop_id"],
+            set_={c: stmt.excluded[c] for c in update_cols},
+        )
+        await self.db.execute(stmt)
+        await self.db.flush()
+        updated = len(existing_ids & {v["gtfs_stop_id"] for v in values})
+        return len(values) - updated, updated
+
+    async def get_gtfs_map(self) -> dict[str, int]:
+        """Get mapping of gtfs_stop_id to database id for all stops.
+
+        Returns:
+            Dict mapping GTFS stop ID strings to integer database IDs.
+        """
+        result = await self.db.execute(select(Stop.gtfs_stop_id, Stop.id))
+        return {row[0]: row[1] for row in result.all()}

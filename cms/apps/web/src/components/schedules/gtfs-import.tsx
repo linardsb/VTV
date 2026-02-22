@@ -136,11 +136,11 @@ export function GTFSImport({ onImportComplete }: GTFSImportProps) {
           <div className="space-y-(--spacing-inline)">
             <h3 className="text-sm font-semibold text-foreground">{t("importResults")}</h3>
             <div className="grid grid-cols-2 gap-(--spacing-inline)">
-              <ResultBadge label={t("agencies")} count={importResult.agencies_count} />
-              <ResultBadge label={t("routes")} count={importResult.routes_count} />
-              <ResultBadge label={t("calendars")} count={importResult.calendars_count} />
+              <ResultBadge label={t("agencies")} count={importResult.agencies_count} created={importResult.agencies_created} updated={importResult.agencies_updated} />
+              <ResultBadge label={t("routes")} count={importResult.routes_count} created={importResult.routes_created} updated={importResult.routes_updated} />
+              <ResultBadge label={t("calendars")} count={importResult.calendars_count} created={importResult.calendars_created} updated={importResult.calendars_updated} />
               <ResultBadge label={t("calendarDates")} count={importResult.calendar_dates_count} />
-              <ResultBadge label={t("trips")} count={importResult.trips_count} />
+              <ResultBadge label={t("trips")} count={importResult.trips_count} created={importResult.trips_created} updated={importResult.trips_updated} />
               <ResultBadge label={t("stopTimes")} count={importResult.stop_times_count} />
             </div>
             {importResult.skipped_stop_times > 0 && (
@@ -217,11 +217,19 @@ export function GTFSImport({ onImportComplete }: GTFSImportProps) {
   );
 }
 
-function ResultBadge({ label, count }: { label: string; count: number }) {
+function ResultBadge({ label, count, created, updated }: { label: string; count: number; created?: number; updated?: number }) {
+  const hasBreakdown = created !== undefined && updated !== undefined && count > 0;
   return (
     <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
       <span className="text-xs text-foreground-muted">{label}</span>
-      <Badge variant="outline" className="font-mono">{count}</Badge>
+      <div className="flex items-center gap-1">
+        <Badge variant="outline" className="font-mono">{count}</Badge>
+        {hasBreakdown && (
+          <span className="text-[10px] text-foreground-subtle">
+            +{created} / ~{updated}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

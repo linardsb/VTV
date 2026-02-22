@@ -245,14 +245,30 @@ class StopTimesBulkUpdate(BaseModel):
 
 
 class GTFSImportResponse(BaseModel):
-    """Response schema for GTFS import operation."""
+    """Response schema for GTFS import operation.
+
+    Reports total counts and created/updated breakdown for each entity type.
+    Merge strategy: existing entities matched by GTFS ID are updated in place,
+    new entities are created, entities not in the ZIP are preserved.
+    """
 
     agencies_count: int
+    agencies_created: int = 0
+    agencies_updated: int = 0
     routes_count: int
+    routes_created: int = 0
+    routes_updated: int = 0
     calendars_count: int
+    calendars_created: int = 0
+    calendars_updated: int = 0
     calendar_dates_count: int
     trips_count: int
+    trips_created: int = 0
+    trips_updated: int = 0
     stop_times_count: int
+    stops_count: int = 0
+    stops_created: int = 0
+    stops_updated: int = 0
     skipped_stop_times: int
     warnings: list[str]
 

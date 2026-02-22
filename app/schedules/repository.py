@@ -1,10 +1,13 @@
 """Data access layer for schedule management."""
 
 from datetime import date
+from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy import delete, func, or_, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from app.schedules.models import (
     Agency,
@@ -709,6 +712,217 @@ class ScheduleRepository:
         """
         self.db.add_all(items)
         await self.db.flush()
+
+    # --- Bulk upsert operations (for GTFS merge import) ---
+
+    async def bulk_upsert_agencies(
+        self,
+        values: list[dict[str, Any]],
+    ) -> tuple[int, int]:
+        """Upsert agencies by gtfs_agency_id. Flush only, no commit.
+
+        Args:
+            values: List of column dicts for each agency.
+
+        Returns:
+            Tuple of (created_count, updated_count).
+        """
+        if not values:
+            return 0, 0
+        existing_ids = await self._existing_gtfs_ids(
+            Agency.gtfs_agency_id, [v["gtfs_agency_id"] for v in values]
+        )
+        update_cols = ["agency_name", "agency_url", "agency_timezone", "agency_lang"]
+        stmt = pg_insert(Agency).values(values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["gtfs_agency_id"],
+            set_={c: stmt.excluded[c] for c in update_cols},
+        )
+        await self.db.execute(stmt)
+        await self.db.flush()
+        updated = len(existing_ids & {v["gtfs_agency_id"] for v in values})
+        return len(values) - updated, updated
+
+    async def bulk_upsert_routes(
+        self,
+        values: list[dict[str, Any]],
+    ) -> tuple[int, int]:
+        """Upsert routes by gtfs_route_id. Flush only, no commit.
+
+        Args:
+            values: List of column dicts for each route.
+
+        Returns:
+            Tuple of (created_count, updated_count).
+        """
+        if not values:
+            return 0, 0
+        existing_ids = await self._existing_gtfs_ids(
+            Route.gtfs_route_id, [v["gtfs_route_id"] for v in values]
+        )
+        update_cols = [
+            "agency_id",
+            "route_short_name",
+            "route_long_name",
+            "route_type",
+            "route_color",
+            "route_text_color",
+            "route_sort_order",
+        ]
+        stmt = pg_insert(Route).values(values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["gtfs_route_id"],
+            set_={c: stmt.excluded[c] for c in update_cols},
+        )
+        await self.db.execute(stmt)
+        await self.db.flush()
+        updated = len(existing_ids & {v["gtfs_route_id"] for v in values})
+        return len(values) - updated, updated
+
+    async def bulk_upsert_calendars(
+        self,
+        values: list[dict[str, Any]],
+    ) -> tuple[int, int]:
+        """Upsert calendars by gtfs_service_id. Flush only, no commit.
+
+        Args:
+            values: List of column dicts for each calendar.
+
+        Returns:
+            Tuple of (created_count, updated_count).
+        """
+        if not values:
+            return 0, 0
+        existing_ids = await self._existing_gtfs_ids(
+            Calendar.gtfs_service_id, [v["gtfs_service_id"] for v in values]
+        )
+        update_cols = [
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday",
+            "start_date",
+            "end_date",
+        ]
+        stmt = pg_insert(Calendar).values(values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["gtfs_service_id"],
+            set_={c: stmt.excluded[c] for c in update_cols},
+        )
+        await self.db.execute(stmt)
+        await self.db.flush()
+        updated = len(existing_ids & {v["gtfs_service_id"] for v in values})
+        return len(values) - updated, updated
+
+    async def bulk_upsert_trips(
+        self,
+        values: list[dict[str, Any]],
+    ) -> tuple[int, int]:
+        """Upsert trips by gtfs_trip_id. Flush only, no commit.
+
+        Args:
+            values: List of column dicts for each trip.
+
+        Returns:
+            Tuple of (created_count, updated_count).
+        """
+        if not values:
+            return 0, 0
+        existing_ids = await self._existing_gtfs_ids(
+            Trip.gtfs_trip_id, [v["gtfs_trip_id"] for v in values]
+        )
+        update_cols = ["route_id", "calendar_id", "direction_id", "trip_headsign", "block_id"]
+        stmt = pg_insert(Trip).values(values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["gtfs_trip_id"],
+            set_={c: stmt.excluded[c] for c in update_cols},
+        )
+        await self.db.execute(stmt)
+        await self.db.flush()
+        updated = len(existing_ids & {v["gtfs_trip_id"] for v in values})
+        return len(values) - updated, updated
+
+    async def delete_calendar_dates_for_calendars(self, calendar_ids: list[int]) -> None:
+        """Delete all calendar_dates for the given calendar IDs.
+
+        Args:
+            calendar_ids: List of calendar primary keys.
+        """
+        if not calendar_ids:
+            return
+        await self.db.execute(
+            delete(CalendarDate).where(CalendarDate.calendar_id.in_(calendar_ids))
+        )
+        await self.db.flush()
+
+    async def delete_stop_times_for_trips(self, trip_ids: list[int]) -> None:
+        """Delete all stop_times for the given trip IDs.
+
+        Args:
+            trip_ids: List of trip primary keys.
+        """
+        if not trip_ids:
+            return
+        await self.db.execute(delete(StopTime).where(StopTime.trip_id.in_(trip_ids)))
+        await self.db.flush()
+
+    async def get_agency_gtfs_map(self) -> dict[str, int]:
+        """Get mapping of gtfs_agency_id to database id for all agencies.
+
+        Returns:
+            Dict mapping GTFS agency ID strings to integer database IDs.
+        """
+        result = await self.db.execute(select(Agency.gtfs_agency_id, Agency.id))
+        return {row[0]: row[1] for row in result.all()}
+
+    async def get_route_gtfs_map(self) -> dict[str, int]:
+        """Get mapping of gtfs_route_id to database id for all routes.
+
+        Returns:
+            Dict mapping GTFS route ID strings to integer database IDs.
+        """
+        result = await self.db.execute(select(Route.gtfs_route_id, Route.id))
+        return {row[0]: row[1] for row in result.all()}
+
+    async def get_calendar_gtfs_map(self) -> dict[str, int]:
+        """Get mapping of gtfs_service_id to database id for all calendars.
+
+        Returns:
+            Dict mapping GTFS service ID strings to integer database IDs.
+        """
+        result = await self.db.execute(select(Calendar.gtfs_service_id, Calendar.id))
+        return {row[0]: row[1] for row in result.all()}
+
+    async def get_trip_gtfs_map(self) -> dict[str, int]:
+        """Get mapping of gtfs_trip_id to database id for all trips.
+
+        Returns:
+            Dict mapping GTFS trip ID strings to integer database IDs.
+        """
+        result = await self.db.execute(select(Trip.gtfs_trip_id, Trip.id))
+        return {row[0]: row[1] for row in result.all()}
+
+    async def _existing_gtfs_ids(
+        self,
+        column: InstrumentedAttribute[str],
+        gtfs_ids: list[str],
+    ) -> set[str]:
+        """Find which GTFS IDs already exist in the database.
+
+        Args:
+            column: The GTFS ID column to filter on.
+            gtfs_ids: List of GTFS ID strings to check.
+
+        Returns:
+            Set of GTFS IDs that already exist.
+        """
+        if not gtfs_ids:
+            return set()
+        result = await self.db.execute(select(column).where(column.in_(gtfs_ids)))
+        return set(result.scalars().all())
 
     async def clear_all_schedule_data(self) -> None:
         """Delete all schedule data in reverse FK order.

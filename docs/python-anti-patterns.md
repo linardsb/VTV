@@ -61,3 +61,9 @@ Avoid these — they cause lint/type errors. Referenced from root `CLAUDE.md`.
 34. **Singleton close must catch RuntimeError** — TestClient closes event loop before lifespan cleanup. Wrap `await client.aclose()` in `try/except RuntimeError: pass`.
 35. **Background tasks: `stop_*()` must catch ALL exceptions** — Failed tasks re-raise their error, not `CancelledError`. Also wrap `start_*()` connections in try/except.
 36. **`from datetime import date` shadows field names** — In models/schemas with a field called `date`, use `import datetime` + `datetime.date`.
+
+## SQLAlchemy Type Patterns
+
+37. **`dict(result.all())` fails mypy** — `Sequence[Row[tuple[str, int]]]` is not `Iterable[tuple[str, int]]`. Use `{row[0]: row[1] for row in result.all()}`.
+38. **`InstrumentedAttribute` is not `ColumnElement`** — MyPy doesn't see `Model.column` as `sa.ColumnElement[str]`. Import `from sqlalchemy.orm.attributes import InstrumentedAttribute` and type as `InstrumentedAttribute[str]`.
+39. **`**dict[str, str | None]` unpacking into typed kwargs fails** — Dict invariance: mypy rejects `**config_dict` when constructor expects specific types. Pass keyword arguments explicitly instead of unpacking a dict.

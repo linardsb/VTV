@@ -149,11 +149,22 @@ export interface StopTimesBulkUpdate {
 /** GTFS import result */
 export interface GTFSImportResponse {
   agencies_count: number;
+  agencies_created: number;
+  agencies_updated: number;
   routes_count: number;
+  routes_created: number;
+  routes_updated: number;
   calendars_count: number;
+  calendars_created: number;
+  calendars_updated: number;
   calendar_dates_count: number;
   trips_count: number;
+  trips_created: number;
+  trips_updated: number;
   stop_times_count: number;
+  stops_count: number;
+  stops_created: number;
+  stops_updated: number;
   skipped_stop_times: number;
   warnings: string[];
 }

@@ -347,11 +347,22 @@ def test_import_gtfs_200():
     mock_svc.import_gtfs = AsyncMock(
         return_value=GTFSImportResponse(
             agencies_count=1,
+            agencies_created=1,
+            agencies_updated=0,
             routes_count=5,
+            routes_created=3,
+            routes_updated=2,
             calendars_count=2,
+            calendars_created=2,
+            calendars_updated=0,
             calendar_dates_count=3,
             trips_count=10,
+            trips_created=8,
+            trips_updated=2,
             stop_times_count=100,
+            stops_count=50,
+            stops_created=40,
+            stops_updated=10,
             skipped_stop_times=2,
             warnings=["stop_times.txt: Skipped 2 with unknown stop"],
         )
@@ -367,7 +378,13 @@ def test_import_gtfs_200():
         assert response.status_code == 200
         data = response.json()
         assert data["agencies_count"] == 1
+        assert data["agencies_created"] == 1
+        assert data["agencies_updated"] == 0
         assert data["routes_count"] == 5
+        assert data["routes_created"] == 3
+        assert data["routes_updated"] == 2
+        assert data["stops_count"] == 50
+        assert data["stops_created"] == 40
     finally:
         app.dependency_overrides.clear()
 

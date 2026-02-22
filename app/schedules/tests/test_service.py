@@ -420,13 +420,18 @@ async def test_import_gtfs_success(service):
     with patch("app.schedules.service.StopRepository") as mock_stop_repo_cls:
         mock_stop_repo = mock_stop_repo_cls.return_value
         mock_stop_repo.list = AsyncMock(return_value=[mock_stop])
+        mock_stop_repo.bulk_upsert = AsyncMock(return_value=(0, 0))
+        mock_stop_repo.get_gtfs_map = AsyncMock(return_value={"1001": 42})
 
-        service.repository.clear_all_schedule_data = AsyncMock()
-        service.repository.bulk_create_agencies = AsyncMock()
-        service.repository.bulk_create_routes = AsyncMock()
-        service.repository.bulk_create_calendars = AsyncMock()
-        service.repository.bulk_create_calendar_dates = AsyncMock()
-        service.repository.bulk_create_trips = AsyncMock()
+        service.repository.bulk_upsert_agencies = AsyncMock(return_value=(1, 0))
+        service.repository.get_agency_gtfs_map = AsyncMock(return_value={"RS": 1})
+        service.repository.bulk_upsert_routes = AsyncMock(return_value=(1, 0))
+        service.repository.get_route_gtfs_map = AsyncMock(return_value={"bus_22": 1})
+        service.repository.bulk_upsert_calendars = AsyncMock(return_value=(1, 0))
+        service.repository.get_calendar_gtfs_map = AsyncMock(return_value={"weekday_1": 1})
+        service.repository.bulk_upsert_trips = AsyncMock(return_value=(1, 0))
+        service.repository.get_trip_gtfs_map = AsyncMock(return_value={"trip_22_1": 1})
+        service.repository.delete_stop_times_for_trips = AsyncMock()
         service.repository.bulk_create_stop_times = AsyncMock()
 
         with patch("app.schedules.service.GTFSImporter") as mock_importer_cls:
@@ -434,10 +439,16 @@ async def test_import_gtfs_success(service):
             mock_result = AsyncMock()
             mock_result.agencies = [make_agency()]
             mock_result.routes = [make_route()]
+            mock_result.route_agency_refs = [make_agency()]
             mock_result.calendars = [make_calendar()]
             mock_result.calendar_dates = []
             mock_result.trips = [make_trip()]
+            mock_result.trip_route_refs = [make_route()]
+            mock_result.trip_calendar_refs = [make_calendar()]
             mock_result.stop_times = [make_stop_time()]
+            mock_result.stop_time_trip_refs = [make_trip()]
+            mock_result.stop_time_stop_refs = [None]
+            mock_result.stops = []
             mock_result.skipped_stop_times = 0
             mock_result.warnings = []
             mock_importer.parse.return_value = mock_result
@@ -445,11 +456,13 @@ async def test_import_gtfs_success(service):
             result = await service.import_gtfs(b"fake_zip")
             assert isinstance(result, GTFSImportResponse)
             assert result.agencies_count == 1
+            assert result.agencies_created == 1
             assert result.routes_count == 1
+            assert result.routes_created == 1
 
 
 @pytest.mark.asyncio
-async def test_import_clears_existing_data(service):
+async def test_import_merges_existing_data(service):
     mock_stop = AsyncMock()
     mock_stop.gtfs_stop_id = "1001"
     mock_stop.id = 42
@@ -457,13 +470,18 @@ async def test_import_clears_existing_data(service):
     with patch("app.schedules.service.StopRepository") as mock_stop_repo_cls:
         mock_stop_repo = mock_stop_repo_cls.return_value
         mock_stop_repo.list = AsyncMock(return_value=[mock_stop])
+        mock_stop_repo.bulk_upsert = AsyncMock(return_value=(0, 0))
+        mock_stop_repo.get_gtfs_map = AsyncMock(return_value={"1001": 42})
 
-        service.repository.clear_all_schedule_data = AsyncMock()
-        service.repository.bulk_create_agencies = AsyncMock()
-        service.repository.bulk_create_routes = AsyncMock()
-        service.repository.bulk_create_calendars = AsyncMock()
-        service.repository.bulk_create_calendar_dates = AsyncMock()
-        service.repository.bulk_create_trips = AsyncMock()
+        service.repository.bulk_upsert_agencies = AsyncMock(return_value=(0, 0))
+        service.repository.get_agency_gtfs_map = AsyncMock(return_value={})
+        service.repository.bulk_upsert_routes = AsyncMock(return_value=(0, 0))
+        service.repository.get_route_gtfs_map = AsyncMock(return_value={})
+        service.repository.bulk_upsert_calendars = AsyncMock(return_value=(0, 0))
+        service.repository.get_calendar_gtfs_map = AsyncMock(return_value={})
+        service.repository.bulk_upsert_trips = AsyncMock(return_value=(0, 0))
+        service.repository.get_trip_gtfs_map = AsyncMock(return_value={})
+        service.repository.delete_stop_times_for_trips = AsyncMock()
         service.repository.bulk_create_stop_times = AsyncMock()
 
         with patch("app.schedules.service.GTFSImporter") as mock_importer_cls:
@@ -475,9 +493,12 @@ async def test_import_clears_existing_data(service):
             mock_result.calendar_dates = []
             mock_result.trips = []
             mock_result.stop_times = []
+            mock_result.stops = []
             mock_result.skipped_stop_times = 0
             mock_result.warnings = []
             mock_importer.parse.return_value = mock_result
 
-            await service.import_gtfs(b"fake_zip")
-            service.repository.clear_all_schedule_data.assert_called_once()
+            result = await service.import_gtfs(b"fake_zip")
+            # Verify merge behavior: no clear_all called, upsert maps loaded
+            service.repository.get_agency_gtfs_map.assert_called_once()
+            assert result.agencies_count == 0

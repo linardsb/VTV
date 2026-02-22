@@ -48,7 +48,6 @@ from app.schedules.schemas import (
     ValidationResult,
 )
 from app.shared.schemas import PaginatedResponse, PaginationParams
-from app.stops.models import Stop
 from app.stops.repository import StopRepository
 
 logger = get_logger(__name__)
@@ -542,16 +541,18 @@ class ScheduleService:
     # --- GTFS Import ---
 
     async def import_gtfs(self, zip_data: bytes) -> GTFSImportResponse:
-        """Import schedule data from a GTFS ZIP file.
+        """Import schedule data from a GTFS ZIP file using merge/upsert.
 
-        Replaces all existing schedule data with the contents of the ZIP.
-        If no stops exist in the DB, also imports stops from stops.txt.
+        Entities with matching GTFS IDs are updated in place, new entities are
+        created, and existing entities not in the ZIP are preserved. This allows
+        partial ZIP uploads to update only the included entity types without
+        wiping unrelated data.
 
         Args:
             zip_data: Raw bytes of a GTFS ZIP file.
 
         Returns:
-            GTFSImportResponse with entity counts and warnings.
+            GTFSImportResponse with entity counts and created/updated breakdown.
 
         Raises:
             GTFSImportError: If import fails critically.
@@ -569,51 +570,149 @@ class ScheduleService:
             importer = GTFSImporter(zip_data)
             result = importer.parse(stop_map=stop_map)
 
-            # Clear existing schedule data
-            await self.repository.clear_all_schedule_data()
+            # --- Merge/upsert flow (no clear_all) ---
 
-            # If stops were parsed from GTFS (fresh DB), create them first
+            # 1. Upsert stops if parsed from ZIP (fresh DB or stops.txt present)
+            stops_created = 0
+            stops_updated = 0
             if result.stops:
-                await self._bulk_create_stops(result.stops)
+                stop_values = [
+                    {
+                        "gtfs_stop_id": s.gtfs_stop_id,
+                        "stop_name": s.stop_name,
+                        "stop_lat": s.stop_lat,
+                        "stop_lon": s.stop_lon,
+                        "stop_desc": s.stop_desc,
+                        "location_type": s.location_type,
+                        "wheelchair_boarding": s.wheelchair_boarding,
+                        "is_active": True,
+                    }
+                    for s in result.stops
+                ]
+                stops_created, stops_updated = await stop_repo.bulk_upsert(stop_values)
 
-            # 1. Insert agencies, then resolve route.agency_id from parent refs
+            # 2. Upsert agencies
+            agencies_created = 0
+            agencies_updated = 0
             if result.agencies:
-                await self.repository.bulk_create_agencies(result.agencies)
-            for i, route in enumerate(result.routes):
-                route.agency_id = result.route_agency_refs[i].id
+                agency_values = [
+                    {
+                        "gtfs_agency_id": a.gtfs_agency_id,
+                        "agency_name": a.agency_name,
+                        "agency_url": a.agency_url,
+                        "agency_timezone": a.agency_timezone,
+                        "agency_lang": a.agency_lang,
+                    }
+                    for a in result.agencies
+                ]
+                agencies_created, agencies_updated = await self.repository.bulk_upsert_agencies(
+                    agency_values
+                )
 
-            # 2. Insert routes (now with correct agency_id)
+            # Reload agency map: gtfs_agency_id -> DB id
+            agency_map = await self.repository.get_agency_gtfs_map()
+
+            # 3. Upsert routes (resolve agency_id via map)
+            routes_created = 0
+            routes_updated = 0
             if result.routes:
-                await self.repository.bulk_create_routes(result.routes)
+                route_values = [
+                    {
+                        "gtfs_route_id": r.gtfs_route_id,
+                        "agency_id": agency_map[result.route_agency_refs[i].gtfs_agency_id],
+                        "route_short_name": r.route_short_name,
+                        "route_long_name": r.route_long_name,
+                        "route_type": r.route_type,
+                        "route_color": r.route_color,
+                        "route_text_color": r.route_text_color,
+                        "route_sort_order": r.route_sort_order,
+                        "is_active": True,
+                    }
+                    for i, r in enumerate(result.routes)
+                ]
+                routes_created, routes_updated = await self.repository.bulk_upsert_routes(
+                    route_values
+                )
 
-            # 3. Insert calendars, then resolve calendar_date.calendar_id
+            # 4. Upsert calendars
+            calendars_created = 0
+            calendars_updated = 0
             if result.calendars:
-                await self.repository.bulk_create_calendars(result.calendars)
-            for i, cd in enumerate(result.calendar_dates):
-                cd.calendar_id = result.calendar_date_calendar_refs[i].id
+                calendar_values = [
+                    {
+                        "gtfs_service_id": c.gtfs_service_id,
+                        "monday": c.monday,
+                        "tuesday": c.tuesday,
+                        "wednesday": c.wednesday,
+                        "thursday": c.thursday,
+                        "friday": c.friday,
+                        "saturday": c.saturday,
+                        "sunday": c.sunday,
+                        "start_date": c.start_date,
+                        "end_date": c.end_date,
+                    }
+                    for c in result.calendars
+                ]
+                calendars_created, calendars_updated = await self.repository.bulk_upsert_calendars(
+                    calendar_values
+                )
 
-            # 4. Insert calendar dates (now with correct calendar_id)
+            # Reload calendar map: gtfs_service_id -> DB id
+            calendar_map = await self.repository.get_calendar_gtfs_map()
+
+            # 5. Delete + re-insert calendar_dates for affected calendars
             if result.calendar_dates:
+                affected_cal_ids = list(
+                    {
+                        calendar_map[result.calendar_date_calendar_refs[i].gtfs_service_id]
+                        for i in range(len(result.calendar_dates))
+                    }
+                )
+                await self.repository.delete_calendar_dates_for_calendars(affected_cal_ids)
+                for i, cd in enumerate(result.calendar_dates):
+                    cd.calendar_id = calendar_map[
+                        result.calendar_date_calendar_refs[i].gtfs_service_id
+                    ]
                 await self.repository.bulk_create_calendar_dates(result.calendar_dates)
 
-            # 5. Resolve trip.route_id and trip.calendar_id from parent refs
-            for i, trip in enumerate(result.trips):
-                trip.route_id = result.trip_route_refs[i].id
-                trip.calendar_id = result.trip_calendar_refs[i].id
+            # Reload route map: gtfs_route_id -> DB id
+            route_map = await self.repository.get_route_gtfs_map()
 
-            # 6. Insert trips (now with correct route_id and calendar_id)
+            # 6. Upsert trips (resolve route_id + calendar_id via maps)
+            trips_created = 0
+            trips_updated = 0
             if result.trips:
-                await self.repository.bulk_create_trips(result.trips)
+                trip_values = [
+                    {
+                        "gtfs_trip_id": t.gtfs_trip_id,
+                        "route_id": route_map[result.trip_route_refs[i].gtfs_route_id],
+                        "calendar_id": calendar_map[result.trip_calendar_refs[i].gtfs_service_id],
+                        "direction_id": t.direction_id,
+                        "trip_headsign": t.trip_headsign,
+                        "block_id": t.block_id,
+                    }
+                    for i, t in enumerate(result.trips)
+                ]
+                trips_created, trips_updated = await self.repository.bulk_upsert_trips(trip_values)
 
-            # 7. Resolve stop_time.trip_id and stop_time.stop_id from parent refs
-            for i, st in enumerate(result.stop_times):
-                st.trip_id = result.stop_time_trip_refs[i].id
-                stop_ref = result.stop_time_stop_refs[i]
-                if stop_ref is not None:
-                    st.stop_id = stop_ref.id
+            # Reload trip + stop maps for stop_time FK resolution
+            trip_map = await self.repository.get_trip_gtfs_map()
+            stop_id_map = await stop_repo.get_gtfs_map()
 
-            # 8. Insert stop times (now with correct trip_id and stop_id)
+            # 7. Delete + re-insert stop_times for affected trips
             if result.stop_times:
+                affected_trip_ids = list(
+                    {
+                        trip_map[result.stop_time_trip_refs[i].gtfs_trip_id]
+                        for i in range(len(result.stop_times))
+                    }
+                )
+                await self.repository.delete_stop_times_for_trips(affected_trip_ids)
+                for i, st in enumerate(result.stop_times):
+                    st.trip_id = trip_map[result.stop_time_trip_refs[i].gtfs_trip_id]
+                    stop_ref = result.stop_time_stop_refs[i]
+                    if stop_ref is not None:
+                        st.stop_id = stop_id_map.get(stop_ref.gtfs_stop_id, st.stop_id)
                 await self.repository.bulk_create_stop_times(result.stop_times)
 
             await self.db.commit()
@@ -634,11 +733,22 @@ class ScheduleService:
 
             return GTFSImportResponse(
                 agencies_count=len(result.agencies),
+                agencies_created=agencies_created,
+                agencies_updated=agencies_updated,
                 routes_count=len(result.routes),
+                routes_created=routes_created,
+                routes_updated=routes_updated,
                 calendars_count=len(result.calendars),
+                calendars_created=calendars_created,
+                calendars_updated=calendars_updated,
                 calendar_dates_count=len(result.calendar_dates),
                 trips_count=len(result.trips),
+                trips_created=trips_created,
+                trips_updated=trips_updated,
                 stop_times_count=len(result.stop_times),
+                stops_count=len(result.stops),
+                stops_created=stops_created,
+                stops_updated=stops_updated,
                 skipped_stop_times=result.skipped_stop_times,
                 warnings=result.warnings,
             )
@@ -650,15 +760,6 @@ class ScheduleService:
                 error_type=type(e).__name__,
             )
             raise GTFSImportError(f"GTFS import failed: {e}") from e
-
-    async def _bulk_create_stops(self, stops: list[Stop]) -> None:
-        """Bulk create stops from GTFS data (flush only, no commit).
-
-        Args:
-            stops: List of Stop model instances parsed from stops.txt.
-        """
-        self.db.add_all(stops)
-        await self.db.flush()
 
     # --- Validation ---
 
