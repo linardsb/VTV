@@ -1,0 +1,72 @@
+# Production overrides — merge with base:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Or use: make docker-prod
+#
+# Requires .env.production (copy from .env.production.example)
+
+services:
+  db:
+    ports: !reset []
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      POSTGRES_DB: vtv_db
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+
+  redis:
+    ports: !reset []
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-}"]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  migrate:
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db:5432/vtv_db
+      - AUTO_IMPORT_GTFS=true
+
+  app:
+    volumes: !reset
+      - document_data:/app/data/documents
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=${LOG_LEVEL:-WARNING}
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db:5432/vtv_db
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      - ENVIRONMENT=production
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-[]}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-}
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+
+  cms:
+    environment:
+      - NEXT_PUBLIC_AGENT_URL=http://app:8123
+      - AUTH_SECRET=${AUTH_SECRET:?Set AUTH_SECRET in .env.production}
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  nginx:
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/certs:/etc/nginx/certs:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M

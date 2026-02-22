@@ -86,10 +86,16 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 # Create FastAPI application
+# Disable interactive docs in production (defense-in-depth with nginx)
+_is_dev = settings.environment == "development"
+
 app = FastAPI(
     title=settings.app_name,
     version=settings.version,
     lifespan=lifespan,
+    docs_url="/docs" if _is_dev else None,
+    openapi_url="/openapi.json" if _is_dev else None,
+    redoc_url="/redoc" if _is_dev else None,
 )
 
 # Setup rate limiting
@@ -120,11 +126,13 @@ def read_root() -> dict[str, str]:
     Returns:
         Dict containing application name, version, and docs URL.
     """
-    return {
+    response = {
         "message": settings.app_name,
         "version": settings.version,
-        "docs": "/docs",
     }
+    if settings.environment == "development":
+        response["docs"] = "/docs"
+    return response
 
 
 if __name__ == "__main__":

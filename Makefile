@@ -1,4 +1,4 @@
-.PHONY: dev dev-be dev-fe docker docker-down test lint types check db
+.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-restore
 
 # === Local Development (terminals) ===
 
@@ -14,9 +14,9 @@ dev-be: ## Start backend dev server
 dev-fe: ## Start frontend dev server
 	cd cms && pnpm --filter @vtv/web dev
 
-# === Docker (integration / pre-deployment) ===
+# === Docker — Local Dev ===
 
-docker: ## Build and start all services (db, redis, auto-migrate, app, cms, nginx on :80)
+docker: ## Build and start all services (local dev, port :80)
 	@docker volume create vtv_postgres_data 2>/dev/null || true
 	AUTH_SECRET=$$(openssl rand -base64 32) docker-compose up -d --build
 
@@ -25,6 +25,16 @@ docker-down: ## Stop all Docker services
 
 docker-logs: ## Tail logs from all services
 	docker-compose logs -f
+
+# === Docker — Production ===
+
+docker-prod: ## Production: build and start (requires .env.production)
+	@docker volume create vtv_postgres_data 2>/dev/null || true
+	@test -f .env.production || (echo "ERROR: .env.production not found. Copy from .env.production.example" && exit 1)
+	docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+docker-prod-down: ## Production: stop all services
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
 # === Quality Checks ===
 
@@ -52,6 +62,16 @@ db-migrate: ## Run database migrations
 
 db-revision: ## Create a new migration (usage: make db-revision m="description")
 	uv run alembic revision --autogenerate -m "$(m)"
+
+db-backup: ## Backup PostgreSQL to timestamped file
+	@mkdir -p backups
+	docker exec vtv-db-1 pg_dump -U postgres vtv_db | gzip > backups/vtv_db_$$(date +%Y%m%d_%H%M%S).sql.gz
+	@ls -lh backups/vtv_db_*.sql.gz | tail -1
+
+db-restore: ## Restore from backup (usage: make db-restore f=backups/file.sql.gz)
+	@test -n "$(f)" || (echo "Usage: make db-restore f=backups/file.sql.gz" && exit 1)
+	@test -f "$(f)" || (echo "ERROR: File $(f) not found" && exit 1)
+	gunzip -c "$(f)" | docker exec -i vtv-db-1 psql -U postgres vtv_db
 
 # === Help ===
 

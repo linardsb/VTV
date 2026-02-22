@@ -9,13 +9,14 @@ import asyncio
 import os
 import subprocess
 import sys
+import time
 import urllib.request
 from pathlib import Path
 
 
 def run_alembic_upgrade() -> int:
     """Run alembic upgrade head and return exit code."""
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S603
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         capture_output=False,
     )
@@ -24,7 +25,7 @@ def run_alembic_upgrade() -> int:
 
 def run_alembic_stamp_base() -> int:
     """Reset alembic version to base."""
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S603
         [sys.executable, "-m", "alembic", "stamp", "base"],
         capture_output=False,
     )
@@ -33,8 +34,9 @@ def run_alembic_stamp_base() -> int:
 
 async def check_tables_exist() -> bool:
     """Check if core tables exist in the database."""
-    from app.core.database import engine
     from sqlalchemy import text
+
+    from app.core.database import engine
 
     required_tables = {"agencies", "routes", "stops", "calendars", "trips"}
     async with engine.connect() as conn:
@@ -51,8 +53,9 @@ async def check_tables_exist() -> bool:
 
 async def check_routes_empty() -> bool:
     """Check if routes table has zero rows."""
-    from app.core.database import engine
     from sqlalchemy import text
+
+    from app.core.database import engine
 
     async with engine.connect() as conn:
         result = await conn.execute(text("SELECT count(*) FROM routes"))
@@ -63,16 +66,24 @@ async def check_routes_empty() -> bool:
 async def auto_import_gtfs() -> None:
     """Download and import Riga GTFS data."""
     gtfs_url = "https://saraksti.rigassatiksme.lv/riga/gtfs.zip"
-    gtfs_path = Path("/tmp/gtfs.zip")
+    gtfs_path = Path("/tmp/gtfs.zip")  # noqa: S108
 
     print(f"[migrate] Downloading GTFS from {gtfs_url}...")
-    urllib.request.urlretrieve(gtfs_url, gtfs_path)  # noqa: S310
-    print(f"[migrate] Downloaded {gtfs_path.stat().st_size:,} bytes")
+    start = time.time()
+    try:
+        urllib.request.urlretrieve(gtfs_url, gtfs_path, timeout=120)  # noqa: S310
+    except Exception as e:
+        print(f"[migrate] ERROR: GTFS download failed: {e}")
+        print("[migrate] Continuing without GTFS data - import manually later")
+        return
+    elapsed = time.time() - start
+    print(f"[migrate] Downloaded {gtfs_path.stat().st_size:,} bytes in {elapsed:.1f}s")
 
     print("[migrate] Importing GTFS data...")
-    from app.core.database import engine
-    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+    start = time.time()
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
+    from app.core.database import engine
     from app.schedules.service import ScheduleService
 
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -80,8 +91,9 @@ async def auto_import_gtfs() -> None:
         service = ScheduleService(session)
         result = await service.import_gtfs(gtfs_path.read_bytes())
 
+    elapsed = time.time() - start
     print(
-        f"[migrate] GTFS imported: "
+        f"[migrate] GTFS imported in {elapsed:.1f}s: "
         f"{result.agencies_count} agencies, "
         f"{result.routes_count} routes, "
         f"{result.calendars_count} calendars, "
@@ -95,8 +107,9 @@ async def auto_import_gtfs() -> None:
 
 async def seed_users() -> None:
     """Seed default users if none exist."""
-    from app.core.database import engine
     from sqlalchemy import text
+
+    from app.core.database import engine
 
     async with engine.connect() as conn:
         result = await conn.execute(text("SELECT count(*) FROM users"))
@@ -106,7 +119,7 @@ async def seed_users() -> None:
         print("[migrate] Seeding default users...")
         import urllib.request
 
-        req = urllib.request.Request(  # noqa: S310
+        req = urllib.request.Request(
             "http://localhost:8123/api/v1/auth/seed",
             method="POST",
         )
@@ -121,9 +134,13 @@ async def seed_users() -> None:
 
 def main() -> None:
     """Run migrations with self-healing."""
+    total_start = time.time()
+
     # Step 1: Run alembic upgrade head
     print("[migrate] Running alembic upgrade head...")
+    start = time.time()
     exit_code = run_alembic_upgrade()
+    print(f"[migrate] Alembic completed in {time.time() - start:.1f}s")
     if exit_code != 0:
         print(f"[migrate] Alembic failed with exit code {exit_code}")
         sys.exit(exit_code)
@@ -150,14 +167,15 @@ def main() -> None:
     if auto_import:
         routes_empty = asyncio.run(check_routes_empty())
         if routes_empty:
-            print("[migrate] Routes table is empty — auto-importing GTFS...")
+            print("[migrate] Routes table is empty - auto-importing GTFS...")
             asyncio.run(auto_import_gtfs())
         else:
-            print("[migrate] Routes table has data — skipping GTFS import")
+            print("[migrate] Routes table has data - skipping GTFS import")
     else:
-        print("[migrate] AUTO_IMPORT_GTFS=false — skipping")
+        print("[migrate] AUTO_IMPORT_GTFS=false - skipping")
 
-    print("[migrate] Done")
+    total_elapsed = time.time() - total_start
+    print(f"[migrate] Done in {total_elapsed:.1f}s")
 
 
 if __name__ == "__main__":

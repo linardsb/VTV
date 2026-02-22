@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.production.example
 
 # Python
 __pycache__/
@@ -23,6 +24,11 @@ Thumbs.db
 
 # Docker
 *.log
+backups/
+
+# TLS certificates (keep directory, ignore contents)
+nginx/certs/*
+!nginx/certs/.gitkeep
 
 # === Node.js / Frontend ===
 node_modules/
