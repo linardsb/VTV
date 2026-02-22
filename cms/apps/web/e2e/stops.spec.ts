@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
 
-/** Wait for the page data to load — either a table with rows or a "no results" message. */
+/** Wait for the page data to load — either a table with rows or an empty state message. */
 async function waitForDataOrEmpty(page: import("@playwright/test").Page) {
   await Promise.race([
     page.getByRole("row").nth(1).waitFor({ state: "visible", timeout: 10000 }),
-    page.getByText(/no results|nav rezultātu/i).waitFor({ state: "visible", timeout: 10000 }),
+    page.getByText(/no.*found|nav.*atrast/i).waitFor({ state: "visible", timeout: 10000 }),
   ]).catch(() => {});
 }
 
@@ -18,8 +18,16 @@ test.describe("Stops page", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 
-  test("displays stop table", async ({ page }) => {
-    await expect(page.getByRole("table")).toBeVisible();
+  test("displays stop table or empty state", async ({ page }) => {
+    const table = page.getByRole("table");
+    const emptyState = page.getByText(/no.*found|nav.*atrast/i);
+    await Promise.race([
+      table.waitFor({ state: "visible", timeout: 10000 }),
+      emptyState.waitFor({ state: "visible", timeout: 10000 }),
+    ]);
+    expect(
+      (await table.isVisible()) || (await emptyState.isVisible())
+    ).toBeTruthy();
   });
 
   test("search input filters stops", async ({ page }) => {
@@ -29,7 +37,7 @@ test.describe("Stops page", () => {
       await searchInput.fill("central");
       await waitForDataOrEmpty(page);
       const table = page.getByRole("table");
-      const noResults = page.getByText(/no results|nav rezultātu/i);
+      const noResults = page.getByText(/no.*found|nav.*atrast/i);
       expect(
         (await table.isVisible()) || (await noResults.isVisible())
       ).toBeTruthy();

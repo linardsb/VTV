@@ -31,8 +31,8 @@ test.describe("Dashboard", () => {
     // Click Month view
     const monthToggle = page.getByRole("radio", { name: /month|mēnesis/i });
     if (await monthToggle.isVisible()) {
-      await monthToggle.click({ force: true });
-      await expect(monthToggle).toHaveAttribute("data-state", "on");
+      await monthToggle.click();
+      await expect(monthToggle).toHaveAttribute("data-state", "on", { timeout: 3000 });
     }
   });
 

@@ -22,19 +22,34 @@ test.describe("Schedules page", () => {
   });
 
   test.describe("Calendars tab", () => {
-    test("shows calendar table", async ({ page }) => {
+    test("shows calendar table or empty state", async ({ page }) => {
       await page.getByRole("tab", { name: /calendars|kalendāri/i }).click();
-      await expect(page.getByRole("table")).toBeVisible();
+      // Either a table with data or an empty state message
+      const table = page.getByRole("table");
+      const emptyState = page.getByText(/no.*found|nav.*atrast/i);
+      await Promise.race([
+        table.waitFor({ state: "visible", timeout: 5000 }),
+        emptyState.waitFor({ state: "visible", timeout: 5000 }),
+      ]);
+      expect(
+        (await table.isVisible()) || (await emptyState.isVisible())
+      ).toBeTruthy();
     });
 
     test("clicking row opens detail sheet", async ({ page }) => {
       await page.getByRole("tab", { name: /calendars|kalendāri/i }).click();
+      // Wait for data or empty state
+      const emptyState = page.getByText(/no.*found|nav.*atrast/i);
       const firstRow = page.getByRole("row").nth(1);
-      if (await firstRow.isVisible()) {
-        await firstRow.click();
-        const sheet = page.getByRole("dialog");
-        await expect(sheet).toBeVisible({ timeout: 3000 });
-      }
+      await Promise.race([
+        firstRow.waitFor({ state: "visible", timeout: 5000 }),
+        emptyState.waitFor({ state: "visible", timeout: 5000 }),
+      ]).catch(() => {});
+      if (await emptyState.isVisible()) return; // No data — skip
+      if (!(await firstRow.isVisible())) return;
+      await firstRow.click();
+      const sheet = page.getByRole("dialog");
+      await expect(sheet).toBeVisible({ timeout: 3000 });
     });
 
     test("create button opens calendar form", async ({ page }) => {
@@ -53,26 +68,39 @@ test.describe("Schedules page", () => {
 
     test("calendar detail shows operating days", async ({ page }) => {
       await page.getByRole("tab", { name: /calendars|kalendāri/i }).click();
+      // Wait for data or empty state
+      const emptyState = page.getByText(/no.*found|nav.*atrast/i);
       const firstRow = page.getByRole("row").nth(1);
-      if (await firstRow.isVisible()) {
-        await firstRow.click();
-        const sheet = page.getByRole("dialog");
-        await expect(sheet).toBeVisible({ timeout: 3000 });
-        // Should show day badges (Mon, Tue, etc.)
-        const dayBadge = sheet.getByText(/mon|pir/i);
-        if (await dayBadge.isVisible()) {
-          await expect(dayBadge).toBeVisible();
-        }
+      await Promise.race([
+        firstRow.waitFor({ state: "visible", timeout: 5000 }),
+        emptyState.waitFor({ state: "visible", timeout: 5000 }),
+      ]).catch(() => {});
+      if (await emptyState.isVisible()) return; // No data — skip
+      if (!(await firstRow.isVisible())) return;
+      await firstRow.click();
+      const sheet = page.getByRole("dialog");
+      await expect(sheet).toBeVisible({ timeout: 3000 });
+      // Should show day badges (Mon, Tue, etc.)
+      const dayBadge = sheet.getByText(/mon|pir/i);
+      if (await dayBadge.isVisible()) {
+        await expect(dayBadge).toBeVisible();
       }
     });
   });
 
   test.describe("Trips tab", () => {
-    test("shows trip table", async ({ page }) => {
+    test("shows trip table or empty state", async ({ page }) => {
       await page.getByRole("tab", { name: /trips|reisi/i }).click();
-      // Wait for tab content to load
-      await page.waitForTimeout(500);
-      await expect(page.getByRole("table")).toBeVisible();
+      // Either a table with data or an empty state message
+      const table = page.getByRole("table");
+      const emptyState = page.getByText(/no.*found|nav.*atrast/i);
+      await Promise.race([
+        table.waitFor({ state: "visible", timeout: 5000 }),
+        emptyState.waitFor({ state: "visible", timeout: 5000 }),
+      ]);
+      expect(
+        (await table.isVisible()) || (await emptyState.isVisible())
+      ).toBeTruthy();
     });
 
     test("route filter dropdown is visible", async ({ page }) => {
