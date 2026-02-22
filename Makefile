@@ -1,4 +1,4 @@
-.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-restore
+.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-restore e2e e2e-all e2e-ui e2e-headed
 
 # === Local Development (terminals) ===
 
@@ -50,6 +50,25 @@ types: ## Run mypy + pyright
 	uv run pyright app/
 
 check: lint types test ## Run all checks (lint, types, tests)
+
+e2e: ## Run e2e tests for changed features only (or all if nothing detected)
+	@TESTS=$$(cd cms/apps/web && ./e2e/detect-changed.sh); \
+	if [ -z "$$TESTS" ]; then \
+		echo "No frontend changes detected — running full suite"; \
+		cd cms && pnpm --filter @vtv/web e2e; \
+	else \
+		echo "Changed features detected — running: $$TESTS"; \
+		cd cms/apps/web && npx playwright test $$TESTS; \
+	fi
+
+e2e-all: ## Run ALL e2e tests regardless of changes
+	cd cms && pnpm --filter @vtv/web e2e
+
+e2e-ui: ## Open Playwright UI mode for interactive testing
+	cd cms && pnpm --filter @vtv/web e2e:ui
+
+e2e-headed: ## Run e2e tests with visible browser
+	cd cms && pnpm --filter @vtv/web e2e:headed
 
 # === Database ===
 

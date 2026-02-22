@@ -16,6 +16,10 @@
     "generate-sdk": {
       "cache": false,
       "outputs": ["src/client/**"]
+    },
+    "e2e": {
+      "cache": false,
+      "dependsOn": ["build"]
     }
   }
 }
