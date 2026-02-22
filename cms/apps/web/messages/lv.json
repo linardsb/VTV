@@ -14,6 +14,7 @@
     "routes": "Maršruti",
     "stops": "Pieturas",
     "schedules": "Grafiki",
+    "drivers": "Vadītāji",
     "gtfs": "GTFS",
     "users": "Lietotāji",
     "documents": "Dokumenti",
@@ -552,5 +553,127 @@
     "retry": "Mēģināt vēlreiz",
     "copied": "Nokopēts",
     "copy": "Kopēt"
+  },
+  "drivers": {
+    "title": "Vadītāju pārvaldība",
+    "description": "Pārvaldiet vadītāju profilus, maiņas un kvalifikācijas",
+    "search": "Meklēt vadītājus...",
+    "filters": {
+      "allStatuses": "Visi statusi",
+      "available": "Pieejams",
+      "on_duty": "Dežūrā",
+      "on_leave": "Atvaļinājumā",
+      "sick": "Slims",
+      "allShifts": "Visas maiņas",
+      "morning": "Rīta",
+      "afternoon": "Pēcpusdienas",
+      "evening": "Vakara",
+      "night": "Nakts",
+      "status": "Statuss",
+      "shift": "Maiņa"
+    },
+    "table": {
+      "employeeNumber": "Darbinieka Nr.",
+      "name": "Vārds",
+      "status": "Statuss",
+      "shift": "Maiņa",
+      "phone": "Tālrunis",
+      "licenseExpiry": "Licences termiņš",
+      "actions": "Darbības",
+      "noResults": "Vadītāji nav atrasti",
+      "showing": "vadītāji"
+    },
+    "detail": {
+      "personalInfo": "Personīgā informācija",
+      "phone": "Tālrunis",
+      "email": "E-pasts",
+      "dateOfBirth": "Dzimšanas datums",
+      "address": "Adrese",
+      "emergencyContact": "Avārijas kontakts",
+      "emergencyName": "Kontaktpersonas vārds",
+      "emergencyPhone": "Kontaktpersonas tālrunis",
+      "employment": "Nodarbinātība",
+      "hireDate": "Pieņemšanas datums",
+      "shift": "Noklusētā maiņa",
+      "status": "Statuss",
+      "licensing": "Licence un medicīniskās izziņas",
+      "licenseCategories": "Licences kategorijas",
+      "licenseExpiry": "Licences termiņš",
+      "medicalCertExpiry": "Med. izziņas termiņš",
+      "qualifiedRoutes": "Kvalificētie maršruti",
+      "notesSection": "Piezīmes",
+      "notes": "Piezīmes",
+      "trainingRecords": "Apmācības ieraksti",
+      "metadata": "Ieraksta info",
+      "createdAt": "Izveidots",
+      "updatedAt": "Atjaunots",
+      "inactive": "Neaktīvs"
+    },
+    "shifts": {
+      "morning": "Rīta (05:00-13:00)",
+      "afternoon": "Pēcpusdienas (13:00-21:00)",
+      "evening": "Vakara (17:00-01:00)",
+      "night": "Nakts (22:00-06:00)"
+    },
+    "statuses": {
+      "available": "Pieejams",
+      "on_duty": "Dežūrā",
+      "on_leave": "Atvaļinājumā",
+      "sick": "Slims"
+    },
+    "form": {
+      "createTitle": "Pievienot vadītāju",
+      "editTitle": "Rediģēt vadītāju",
+      "personalInfo": "Personīgā informācija",
+      "firstName": "Vārds",
+      "lastName": "Uzvārds",
+      "employeeNumber": "Darbinieka numurs",
+      "dateOfBirth": "Dzimšanas datums",
+      "phone": "Tālrunis",
+      "email": "E-pasts",
+      "emergencySection": "Adrese un avārijas kontakts",
+      "address": "Adrese",
+      "emergencyName": "Avārijas kontakta vārds",
+      "emergencyPhone": "Avārijas kontakta tālrunis",
+      "employmentSection": "Nodarbinātība",
+      "hireDate": "Pieņemšanas datums",
+      "defaultShift": "Noklusētā maiņa",
+      "status": "Statuss",
+      "licenseSection": "Licence un medicīniskās izziņas",
+      "licenseCategories": "Licences kategorijas",
+      "licenseExpiry": "Licences termiņa datums",
+      "medicalExpiry": "Med. izziņas termiņš",
+      "qualifiedRoutes": "Kvalificēto maršrutu ID",
+      "notesSection": "Piezīmes",
+      "notes": "Piezīmes",
+      "trainingRecords": "Apmācības ieraksti",
+      "isActive": "Aktīvs"
+    },
+    "actions": {
+      "create": "Pievienot vadītāju",
+      "edit": "Rediģēt",
+      "delete": "Dzēst",
+      "save": "Saglabāt",
+      "cancel": "Atcelt"
+    },
+    "delete": {
+      "title": "Dzēst vadītāju",
+      "confirmation": "Vai tiešām vēlaties dzēst \"{name}\"?",
+      "warning": "Šo darbību nevar atsaukt. Vadītājs tiks neatgriezeniski dzēsts.",
+      "confirm": "Dzēst",
+      "cancel": "Atcelt"
+    },
+    "toast": {
+      "created": "Vadītājs veiksmīgi izveidots",
+      "updated": "Vadītājs veiksmīgi atjaunots",
+      "deleted": "Vadītājs veiksmīgi dzēsts",
+      "createError": "Neizdevās izveidot vadītāju",
+      "updateError": "Neizdevās atjaunot vadītāju",
+      "deleteError": "Neizdevās dzēst vadītāju",
+      "loadError": "Neizdevās ielādēt vadītājus"
+    },
+    "mobile": {
+      "showFilters": "Filtri"
+    }
   }
 }
