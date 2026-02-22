@@ -12,7 +12,7 @@ from starlette.requests import Request
 def _get_client_ip(request: Request) -> str:
     """Extract client IP from request for rate limiting.
 
-    Uses X-Forwarded-For header if present (behind reverse proxy),
+    Uses X-Real-IP header (set by nginx, not client-spoofable) if present,
     falls back to direct client address.
 
     Args:
@@ -21,9 +21,9 @@ def _get_client_ip(request: Request) -> str:
     Returns:
         Client IP address string.
     """
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
     return get_remote_address(request)
 
 

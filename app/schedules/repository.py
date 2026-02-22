@@ -25,6 +25,7 @@ from app.schedules.schemas import (
     StopTimeCreate,
     TripUpdate,
 )
+from app.shared.utils import escape_like
 
 # Basic GTFS type → extended GTFS type range mapping.
 # Riga's GTFS feed uses extended types (800=trolleybus, 900=tram).
@@ -175,7 +176,7 @@ class ScheduleRepository:
         """
         query = select(Route)
         if search:
-            pattern = f"%{search}%"
+            pattern = f"%{escape_like(search)}%"
             query = query.where(
                 Route.route_short_name.ilike(pattern) | Route.route_long_name.ilike(pattern)
             )
@@ -210,7 +211,7 @@ class ScheduleRepository:
         """
         query = select(func.count()).select_from(Route)
         if search:
-            pattern = f"%{search}%"
+            pattern = f"%{escape_like(search)}%"
             query = query.where(
                 Route.route_short_name.ilike(pattern) | Route.route_long_name.ilike(pattern)
             )

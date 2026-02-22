@@ -96,6 +96,14 @@ Official open data page: https://www.rigassatiksme.lv/en/about-us/publishable-in
 - **Server components default** — use `'use client'` only when needed
 - **shadcn/ui components** — install from `npx shadcn@latest add [component]`
 
+## Security Practices
+
+- **No hardcoded credentials** — demo passwords come from env vars (`DEMO_USER_PASSWORD`), never committed in source
+- **Auth tokens** — stored via httpOnly cookies (Auth.js), never localStorage
+- **File uploads** — client-side size validation (50MB limit) before upload
+- **Security headers** — CSP, HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff configured in `next.config.ts`
+- **XSS prevention** — no `dangerouslySetInnerHTML` without sanitization, external links use `rel="noopener noreferrer"`
+
 <claude-mem-context>
 # Recent Activity
 

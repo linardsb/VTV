@@ -77,16 +77,28 @@ class AuthService:
         return LoginResponse(id=user.id, email=user.email, name=user.name, role=user.role)
 
     async def seed_demo_users(self) -> list[User]:
-        """Create demo users if no users exist. Returns created users."""
+        """Create demo users if no users exist. Returns created users.
+
+        Only seeds in development environment. Uses configurable password
+        from DEMO_USER_PASSWORD env var (defaults to 'admin').
+        """
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        if settings.environment != "development":
+            logger.info("auth.demo_seed_skipped", environment=settings.environment)
+            return []
+
         count = await self.repo.count()
         if count > 0:
             return []
 
+        password = settings.demo_user_password
         demo_users = [
-            ("admin@vtv.lv", "admin", "VTV Admin", "admin"),
-            ("dispatcher@vtv.lv", "admin", "VTV Dispatcher", "dispatcher"),
-            ("editor@vtv.lv", "admin", "VTV Editor", "editor"),
-            ("viewer@vtv.lv", "admin", "VTV Viewer", "viewer"),
+            ("admin@vtv.lv", password, "VTV Admin", "admin"),
+            ("dispatcher@vtv.lv", password, "VTV Dispatcher", "dispatcher"),
+            ("editor@vtv.lv", password, "VTV Editor", "editor"),
+            ("viewer@vtv.lv", password, "VTV Viewer", "viewer"),
         ]
 
         created: list[User] = []

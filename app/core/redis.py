@@ -1,6 +1,8 @@
 # pyright: reportUnknownMemberType=false, reportMissingTypeStubs=false
 """Redis client singleton for shared state across the application."""
 
+from urllib.parse import urlparse
+
 from redis.asyncio import Redis
 
 from app.core.config import get_settings
@@ -9,6 +11,21 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 _redis_client: Redis | None = None
+
+
+def _redact_url(url: str) -> str:
+    """Redact credentials from a URL before logging.
+
+    Args:
+        url: URL that may contain embedded credentials.
+
+    Returns:
+        URL with password replaced by '***'.
+    """
+    parsed = urlparse(url)
+    if parsed.password:
+        return url.replace(f":{parsed.password}@", ":***@")
+    return url
 
 
 async def get_redis() -> Redis:
@@ -23,7 +40,7 @@ async def get_redis() -> Redis:
             socket_timeout=5,
             retry_on_timeout=True,
         )
-        logger.info("redis.connection_initialized", redis_url=settings.redis_url)
+        logger.info("redis.connection_initialized", redis_url=_redact_url(settings.redis_url))
     return _redis_client
 
 

@@ -145,6 +145,15 @@ npx playwright test --ui               # Interactive UI mode
 
 **Adding tests for a new feature:** Create `e2e/{feature}.spec.ts`, add path mappings in `detect-changed.sh`.
 
+## Security Practices
+
+- **No hardcoded credentials** — demo passwords come from env vars, never in source code
+- **Auth tokens via httpOnly cookies** — Auth.js handles token storage, never use localStorage for auth tokens
+- **File uploads** — client-side size validation (50MB limit) before sending to backend
+- **Security headers** — `next.config.ts` sets CSP, HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff
+- **XSS prevention** — avoid `dangerouslySetInnerHTML`, sanitize user input before rendering
+- **External links** — always use `rel="noopener noreferrer"` on `target="_blank"` links
+
 ## Zero-Warning Policy
 
 **Lint must be fully clean** — zero errors AND zero warnings. Do not tolerate "pre-existing" lint issues.

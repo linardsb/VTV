@@ -73,8 +73,15 @@ Read all files in the target path. For each file, check against VTV's standards 
 
 ### 8. Security
 
-- No hardcoded secrets or credentials
-- Input validation on API boundaries
+- No hardcoded secrets, demo passwords, or credentials in source code
+- ILIKE/LIKE queries use `escape_like()` from `app.shared.utils` (not raw f-strings)
+- File uploads enforce size limits via streaming chunks (not just middleware `Content-Length`)
+- Filenames regex-sanitized with `re.sub(r"[^\w\-.]", "_", ...)` and paths validated with `is_relative_to()`
+- URLs redacted before logging — no credentials in log output (use `_redact_url()`)
+- Rate limiter uses `X-Real-IP` header, not client-spoofable `X-Forwarded-For`
+- Query params validated with `max_length` and `pattern` constraints
+- Docker credentials use env var interpolation (`${VAR:-default}`), not hardcoded values
+- Input validation on all API boundaries (Query, Form, Path params)
 - SQL injection prevention (parameterized queries via SQLAlchemy)
 
 ## OUTPUT

@@ -5,7 +5,7 @@ Endpoints:
 - GET /api/v1/transit/vehicles - Real-time vehicle positions from GTFS-RT
 """
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -22,8 +22,8 @@ router = APIRouter(prefix="/api/v1/transit", tags=["transit"])
 @limiter.limit("30/minute")
 async def get_vehicles(
     request: Request,
-    route_id: str | None = None,
-    feed_id: str | None = None,
+    route_id: str | None = Query(None, max_length=100, pattern=r"^[\w\-.:]+$"),
+    feed_id: str | None = Query(None, max_length=50, pattern=r"^[\w\-]+$"),
 ) -> VehiclePositionsResponse:
     """Get real-time vehicle positions, optionally filtered by feed and/or route.
 

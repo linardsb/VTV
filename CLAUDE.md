@@ -179,6 +179,18 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 
 **Docker services:** `db` (PostgreSQL + pgvector), `redis` (vehicle position cache), `migrate` (Alembic auto-migration, runs once), `app` (FastAPI), `cms` (Next.js), `nginx` (reverse proxy on port 80). Services start in dependency order with healthchecks. All behind nginx.
 
+## Security Practices
+
+- **ILIKE wildcard escaping** — All search queries use `escape_like()` from `app.shared.utils` (rules 40-45 in `docs/python-anti-patterns.md`)
+- **Streaming file uploads** — Application-level size enforcement via chunked reads, not just middleware `Content-Length`
+- **Filename sanitization** — Regex sanitization + `is_relative_to()` path traversal prevention
+- **Credential redaction** — URLs with embedded passwords are redacted before logging
+- **Rate limiting** — Uses `X-Real-IP` (nginx-set, not spoofable) instead of `X-Forwarded-For`
+- **Transit input validation** — Query params constrained with `max_length` and `pattern`
+- **Docker credentials** — Environment variable interpolation (`${VAR:-default}`) in docker-compose
+- **Demo credentials** — Environment-controlled: only seeded when `ENVIRONMENT=development`, password configurable via `DEMO_USER_PASSWORD`
+- **Out of scope (future):** Backend API authentication (JWT/token), Redis-backed brute-force tracking, full HTTPS/TLS deployment
+
 ## Key Reference Documents
 
 - `reference/vsa-patterns.md` — Async repository, service, routes, cross-feature patterns
@@ -186,7 +198,8 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 - `reference/PRD.md` — Product requirements and vision
 - `reference/mvp-tool-designs.md` — Agent tool specifications
 - `.claude/commands/CLAUDE.md` — Full slash command documentation
-- `docs/python-anti-patterns.md` — 40 documented Python anti-patterns
+- `docs/python-anti-patterns.md` — 45 documented Python anti-patterns (includes security patterns)
+- `docs/security_audit.txt` — Third-party security audit findings and remediation status
 - `docs/PLANNING/Implementation-Plan.md` — Latvia transit platform roadmap (4 phases)
 - `docs/TODO.md` — Planned features with effort estimates
 - `.agents/code-reviews/AUDIT-SUMMARY.md` — Full codebase health audit (120 findings, 2026-02-21)

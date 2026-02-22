@@ -67,3 +67,12 @@ Avoid these — they cause lint/type errors. Referenced from root `CLAUDE.md`.
 37. **`dict(result.all())` fails mypy** — `Sequence[Row[tuple[str, int]]]` is not `Iterable[tuple[str, int]]`. Use `{row[0]: row[1] for row in result.all()}`.
 38. **`InstrumentedAttribute` is not `ColumnElement`** — MyPy doesn't see `Model.column` as `sa.ColumnElement[str]`. Import `from sqlalchemy.orm.attributes import InstrumentedAttribute` and type as `InstrumentedAttribute[str]`.
 39. **`**dict[str, str | None]` unpacking into typed kwargs fails** — Dict invariance: mypy rejects `**config_dict` when constructor expects specific types. Pass keyword arguments explicitly instead of unpacking a dict.
+
+## Security Patterns
+
+40. **ILIKE search params must escape wildcards** — `f"%{search}%"` allows users to inject `%` and `_` wildcards for DoS or data enumeration. Always use `escape_like()` from `app.shared.utils`: `f"%{escape_like(search)}%"`.
+41. **File uploads must enforce size limits in application code** — Middleware `Content-Length` checks are bypassable (chunked encoding, missing header). Stream with `while chunk := await file.read(8192)` and a running counter that raises `HTTPException(413)`.
+42. **User-provided filenames must be regex-sanitized** — `Path(filename).name` strips directories but allows special chars. Always `re.sub(r"[^\w\-.]", "_", filename)` and validate with `stored_path.resolve().is_relative_to(storage_dir.resolve())`.
+43. **Never log URLs that may contain credentials** — Redis/DB URLs may embed passwords. Use `urllib.parse.urlparse` to detect and mask passwords before logging.
+44. **Rate limiter must use X-Real-IP, not X-Forwarded-For** — `X-Forwarded-For` is client-spoofable. Only `X-Real-IP` (set by nginx) is trustworthy for per-IP rate limiting.
+45. **Docker credentials must use env var interpolation** — Never hardcode `POSTGRES_PASSWORD: postgres` in docker-compose. Use `${POSTGRES_PASSWORD:-postgres}` so production can override via env vars.

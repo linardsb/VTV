@@ -3,6 +3,18 @@
 from datetime import UTC, datetime
 
 
+def escape_like(value: str) -> str:
+    """Escape SQL LIKE/ILIKE wildcard characters.
+
+    Args:
+        value: Raw search string that may contain %, _, or \\ characters.
+
+    Returns:
+        Escaped string safe for use in LIKE/ILIKE queries.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def utcnow() -> datetime:
     """Get current UTC time with timezone information.
 

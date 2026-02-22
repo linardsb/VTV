@@ -1,10 +1,11 @@
 # pyright: reportUnknownMemberType=false, reportUntypedFunctionDecorator=false
 """Knowledge base REST API endpoints."""
 
+import re
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.requests import Request
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,16 +88,23 @@ async def upload_document(
 
     # Sanitize filename: strip path components, limit to basename
     raw_filename = file.filename or "unknown"
-    safe_filename = Path(raw_filename).name.replace("\x00", "")
+    safe_filename = re.sub(r"[^\w\-.]", "_", Path(raw_filename).name.replace("\x00", ""))
     if not safe_filename or safe_filename.startswith("."):
         safe_filename = "upload" + Path(raw_filename).suffix
 
-    # Save to temp file
+    # Save to temp file with streaming size limit
+    max_upload_size = 50 * 1024 * 1024  # 50MB
     suffix = Path(safe_filename).suffix
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
     try:
-        content = await file.read()
-        tmp.write(content)
+        size = 0
+        while chunk := await file.read(8192):
+            size += len(chunk)
+            if size > max_upload_size:
+                tmp.close()
+                Path(tmp.name).unlink(missing_ok=True)
+                raise HTTPException(status_code=413, detail="File exceeds 50MB limit")
+            tmp.write(chunk)
         tmp.flush()
         tmp.close()
 
@@ -105,7 +113,7 @@ async def upload_document(
             upload=upload,
             filename=safe_filename,
             source_type=source_type,
-            file_size=len(content),
+            file_size=size,
         )
     finally:
         Path(tmp.name).unlink(missing_ok=True)

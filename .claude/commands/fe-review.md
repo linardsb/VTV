@@ -85,10 +85,13 @@ Read all files in the target path. For each file, check against VTV's frontend s
 ### 8. Security
 
 - No hardcoded secrets, API keys, or credentials
+- No hardcoded demo credentials in auth flows — passwords must come from env vars
 - User input sanitized before rendering (XSS prevention)
 - External URLs use `rel="noopener noreferrer"` on `target="_blank"` links
 - No `dangerouslySetInnerHTML` without sanitization
 - Form submissions validate input client-side and rely on server-side validation
+- File uploads: client-side size validation before upload (50MB limit)
+- Auth tokens stored via httpOnly cookies (Auth.js), never localStorage
 
 ## OUTPUT
 

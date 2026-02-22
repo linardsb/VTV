@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.shared.utils import escape_like
 from app.stops.models import Stop
 from app.stops.schemas import StopCreate, StopUpdate
 
@@ -73,7 +74,7 @@ class StopRepository:
         if active_only:
             query = query.where(Stop.is_active.is_(True))
         if search:
-            query = query.where(Stop.stop_name.ilike(f"%{search}%"))
+            query = query.where(Stop.stop_name.ilike(f"%{escape_like(search)}%"))
         if location_type is not None:
             query = query.where(Stop.location_type == location_type)
         query = query.order_by(Stop.stop_name).offset(offset).limit(limit)
@@ -101,7 +102,7 @@ class StopRepository:
         if active_only:
             query = query.where(Stop.is_active.is_(True))
         if search:
-            query = query.where(Stop.stop_name.ilike(f"%{search}%"))
+            query = query.where(Stop.stop_name.ilike(f"%{escape_like(search)}%"))
         if location_type is not None:
             query = query.where(Stop.location_type == location_type)
         result = await self.db.execute(query)

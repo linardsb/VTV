@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.drivers.models import Driver
 from app.drivers.schemas import DriverCreate, DriverUpdate
+from app.shared.utils import escape_like
 
 
 class DriverRepository:
@@ -75,7 +76,7 @@ class DriverRepository:
         if active_only:
             query = query.where(Driver.is_active.is_(True))
         if search:
-            pattern = f"%{search}%"
+            pattern = f"%{escape_like(search)}%"
             query = query.where(
                 or_(
                     Driver.first_name.ilike(pattern),
@@ -114,7 +115,7 @@ class DriverRepository:
         if active_only:
             query = query.where(Driver.is_active.is_(True))
         if search:
-            pattern = f"%{search}%"
+            pattern = f"%{escape_like(search)}%"
             query = query.where(
                 or_(
                     Driver.first_name.ilike(pattern),

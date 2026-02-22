@@ -59,7 +59,7 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
             "/api/v1/knowledge",
         )
         if any(path.startswith(p) for p in upload_paths):
-            max_size = 10_485_760  # 10MB for file uploads
+            max_size = 52_428_800  # 50MB + overhead for file uploads
         else:
             max_size = self._max_body_size
 

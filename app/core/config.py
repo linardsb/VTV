@@ -107,6 +107,9 @@ class Settings(BaseSettings):
     obsidian_api_key: str | None = None
     obsidian_vault_url: str = "https://127.0.0.1:27124"
 
+    # Demo credentials (only used when environment=development)
+    demo_user_password: str = "admin"  # noqa: S105
+
     # Rate limiting (requests per minute per IP)
     rate_limit_chat: str = "10/minute"
     rate_limit_transit: str = "30/minute"

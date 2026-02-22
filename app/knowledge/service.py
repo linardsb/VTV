@@ -123,6 +123,8 @@ class KnowledgeService:
             storage_dir = Path(settings.document_storage_path) / str(doc.id)
             storage_dir.mkdir(parents=True, exist_ok=True)
             stored_path = storage_dir / filename
+            if not stored_path.resolve().is_relative_to(storage_dir.resolve()):
+                raise ProcessingError(f"Invalid filename: {filename}")
             shutil.copy2(file_path, stored_path)
             await self.repository.update_document_file_path(doc.id, str(stored_path))
             logger.info(
