@@ -13,6 +13,8 @@ from app.shared.utils import escape_like
 from app.stops.models import Stop
 from app.stops.schemas import StopCreate, StopUpdate
 
+_BATCH_SIZE = 2000
+
 
 class StopRepository:
     """Database operations for stops."""
@@ -164,12 +166,14 @@ class StopRepository:
         """
         if not values:
             return 0, 0
-        existing_result = await self.db.execute(
-            select(Stop.gtfs_stop_id).where(
-                Stop.gtfs_stop_id.in_([v["gtfs_stop_id"] for v in values])
+        existing_ids: set[str] = set()
+        all_gtfs_ids = [v["gtfs_stop_id"] for v in values]
+        for i in range(0, len(all_gtfs_ids), _BATCH_SIZE):
+            batch = all_gtfs_ids[i : i + _BATCH_SIZE]
+            existing_result = await self.db.execute(
+                select(Stop.gtfs_stop_id).where(Stop.gtfs_stop_id.in_(batch))
             )
-        )
-        existing_ids = set(existing_result.scalars().all())
+            existing_ids.update(existing_result.scalars().all())
         update_cols = [
             "stop_name",
             "stop_lat",
@@ -178,13 +182,15 @@ class StopRepository:
             "location_type",
             "wheelchair_boarding",
         ]
-        stmt = pg_insert(Stop).values(values)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["gtfs_stop_id"],
-            set_={c: stmt.excluded[c] for c in update_cols},
-        )
-        await self.db.execute(stmt)
-        await self.db.flush()
+        for i in range(0, len(values), _BATCH_SIZE):
+            batch = values[i : i + _BATCH_SIZE]
+            stmt = pg_insert(Stop).values(batch)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["gtfs_stop_id"],
+                set_={c: stmt.excluded[c] for c in update_cols},
+            )
+            await self.db.execute(stmt)
+            await self.db.flush()
         updated = len(existing_ids & {v["gtfs_stop_id"] for v in values})
         return len(values) - updated, updated
 

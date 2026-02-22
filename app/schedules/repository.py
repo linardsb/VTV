@@ -27,6 +27,10 @@ from app.schedules.schemas import (
 )
 from app.shared.utils import escape_like
 
+# PostgreSQL supports max 32767 query parameters. Use conservative batch size
+# to stay well under the limit for any column count.
+_BATCH_SIZE = 2000
+
 # Basic GTFS type → extended GTFS type range mapping.
 # Riga's GTFS feed uses extended types (800=trolleybus, 900=tram).
 # When filtering by basic type (e.g. 0=tram), also match extended range (900-999).
@@ -688,31 +692,34 @@ class ScheduleRepository:
         await self.db.flush()
 
     async def bulk_create_calendar_dates(self, items: list[CalendarDate]) -> None:
-        """Bulk create calendar dates (flush only, no commit).
+        """Bulk create calendar dates in batches (flush only, no commit).
 
         Args:
             items: List of CalendarDate model instances.
         """
-        self.db.add_all(items)
-        await self.db.flush()
+        for i in range(0, len(items), _BATCH_SIZE):
+            self.db.add_all(items[i : i + _BATCH_SIZE])
+            await self.db.flush()
 
     async def bulk_create_trips(self, items: list[Trip]) -> None:
-        """Bulk create trips (flush only, no commit).
+        """Bulk create trips in batches (flush only, no commit).
 
         Args:
             items: List of Trip model instances.
         """
-        self.db.add_all(items)
-        await self.db.flush()
+        for i in range(0, len(items), _BATCH_SIZE):
+            self.db.add_all(items[i : i + _BATCH_SIZE])
+            await self.db.flush()
 
     async def bulk_create_stop_times(self, items: list[StopTime]) -> None:
-        """Bulk create stop times (flush only, no commit).
+        """Bulk create stop times in batches (flush only, no commit).
 
         Args:
             items: List of StopTime model instances.
         """
-        self.db.add_all(items)
-        await self.db.flush()
+        for i in range(0, len(items), _BATCH_SIZE):
+            self.db.add_all(items[i : i + _BATCH_SIZE])
+            await self.db.flush()
 
     # --- Bulk upsert operations (for GTFS merge import) ---
 
@@ -822,7 +829,7 @@ class ScheduleRepository:
         self,
         values: list[dict[str, Any]],
     ) -> tuple[int, int]:
-        """Upsert trips by gtfs_trip_id. Flush only, no commit.
+        """Upsert trips by gtfs_trip_id in batches. Flush only, no commit.
 
         Args:
             values: List of column dicts for each trip.
@@ -836,13 +843,15 @@ class ScheduleRepository:
             Trip.gtfs_trip_id, [v["gtfs_trip_id"] for v in values]
         )
         update_cols = ["route_id", "calendar_id", "direction_id", "trip_headsign", "block_id"]
-        stmt = pg_insert(Trip).values(values)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["gtfs_trip_id"],
-            set_={c: stmt.excluded[c] for c in update_cols},
-        )
-        await self.db.execute(stmt)
-        await self.db.flush()
+        for i in range(0, len(values), _BATCH_SIZE):
+            batch = values[i : i + _BATCH_SIZE]
+            stmt = pg_insert(Trip).values(batch)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["gtfs_trip_id"],
+                set_={c: stmt.excluded[c] for c in update_cols},
+            )
+            await self.db.execute(stmt)
+            await self.db.flush()
         updated = len(existing_ids & {v["gtfs_trip_id"] for v in values})
         return len(values) - updated, updated
 
@@ -854,9 +863,9 @@ class ScheduleRepository:
         """
         if not calendar_ids:
             return
-        await self.db.execute(
-            delete(CalendarDate).where(CalendarDate.calendar_id.in_(calendar_ids))
-        )
+        for i in range(0, len(calendar_ids), _BATCH_SIZE):
+            batch = calendar_ids[i : i + _BATCH_SIZE]
+            await self.db.execute(delete(CalendarDate).where(CalendarDate.calendar_id.in_(batch)))
         await self.db.flush()
 
     async def delete_stop_times_for_trips(self, trip_ids: list[int]) -> None:
@@ -867,7 +876,9 @@ class ScheduleRepository:
         """
         if not trip_ids:
             return
-        await self.db.execute(delete(StopTime).where(StopTime.trip_id.in_(trip_ids)))
+        for i in range(0, len(trip_ids), _BATCH_SIZE):
+            batch = trip_ids[i : i + _BATCH_SIZE]
+            await self.db.execute(delete(StopTime).where(StopTime.trip_id.in_(batch)))
         await self.db.flush()
 
     async def get_agency_gtfs_map(self) -> dict[str, int]:
@@ -922,8 +933,12 @@ class ScheduleRepository:
         """
         if not gtfs_ids:
             return set()
-        result = await self.db.execute(select(column).where(column.in_(gtfs_ids)))
-        return set(result.scalars().all())
+        ids: set[str] = set()
+        for i in range(0, len(gtfs_ids), _BATCH_SIZE):
+            batch = gtfs_ids[i : i + _BATCH_SIZE]
+            result = await self.db.execute(select(column).where(column.in_(batch)))
+            ids.update(result.scalars().all())
+        return ids
 
     async def clear_all_schedule_data(self) -> None:
         """Delete all schedule data in reverse FK order.
