@@ -146,6 +146,7 @@ export default function RoutesPage() {
         search: debouncedSearch || undefined,
         route_type: typeFilter ?? undefined,
         agency_id: agencyFilter ?? undefined,
+        is_active: statusFilter === "all" ? undefined : statusFilter === "active",
       });
       setRoutes(result.items);
       setTotalItems(result.total);
@@ -155,7 +156,7 @@ export default function RoutesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, debouncedSearch, typeFilter, agencyFilter]);
+  }, [page, debouncedSearch, typeFilter, agencyFilter, statusFilter]);
 
   // Fetch all routes for color map (needed for vehicle markers)
   const loadAllRoutes = useCallback(async () => {
@@ -298,7 +299,7 @@ export default function RoutesPage() {
             typeFilter={typeFilter}
             onTypeFilterChange={(type) => { setTypeFilter(type); setPage(1); }}
             statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
+            onStatusFilterChange={(status) => { setStatusFilter(status); setPage(1); }}
             agencyFilter={agencyFilter}
             onAgencyFilterChange={(id) => { setAgencyFilter(id); setPage(1); }}
             agencies={agencies}
@@ -359,7 +360,7 @@ export default function RoutesPage() {
                 typeFilter={typeFilter}
                 onTypeFilterChange={(type) => { setTypeFilter(type); setPage(1); }}
                 statusFilter={statusFilter}
-                onStatusFilterChange={setStatusFilter}
+                onStatusFilterChange={(status) => { setStatusFilter(status); setPage(1); }}
                 agencyFilter={agencyFilter}
                 onAgencyFilterChange={(id) => { setAgencyFilter(id); setPage(1); }}
                 agencies={agencies}

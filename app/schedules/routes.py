@@ -78,12 +78,13 @@ async def list_routes(
     search: str | None = Query(None, max_length=200),
     route_type: int | None = Query(None, ge=0),
     agency_id: int | None = Query(None),
+    is_active: bool | None = Query(None),
     service: ScheduleService = Depends(get_service),  # noqa: B008
 ) -> PaginatedResponse[RouteResponse]:
     """List routes with pagination and filtering."""
     _ = request
     return await service.list_routes(
-        pagination, search=search, route_type=route_type, agency_id=agency_id
+        pagination, search=search, route_type=route_type, agency_id=agency_id, is_active=is_active
     )
 
 

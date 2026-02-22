@@ -78,6 +78,7 @@ export async function fetchRoutes(params: {
   search?: string;
   route_type?: number;
   agency_id?: number;
+  is_active?: boolean;
 }): Promise<PaginatedResponse<Route>> {
   const searchParams = new URLSearchParams();
   if (params.page !== undefined) searchParams.set("page", String(params.page));
@@ -88,6 +89,8 @@ export async function fetchRoutes(params: {
     searchParams.set("route_type", String(params.route_type));
   if (params.agency_id !== undefined)
     searchParams.set("agency_id", String(params.agency_id));
+  if (params.is_active !== undefined)
+    searchParams.set("is_active", String(params.is_active));
 
   const response = await fetch(
     `${BASE_URL}${API_PREFIX}/routes?${searchParams.toString()}`,

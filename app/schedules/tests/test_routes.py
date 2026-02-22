@@ -64,6 +64,28 @@ def test_list_routes_200():
         app.dependency_overrides.clear()
 
 
+def test_list_routes_filter_is_active():
+    mock_svc = _mock_service()
+    active_route = RouteResponse.model_validate(make_route(id=1, is_active=True))
+
+    mock_svc.list_routes = AsyncMock(
+        return_value=PaginatedResponse[RouteResponse](
+            items=[active_route], total=1, page=1, page_size=20
+        )
+    )
+    app.dependency_overrides[get_service] = lambda: mock_svc
+
+    try:
+        client = TestClient(app)
+        response = client.get("/api/v1/schedules/routes?is_active=true")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        mock_svc.list_routes.assert_called_once()
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_create_route_201():
     mock_svc = _mock_service()
     route = make_route()

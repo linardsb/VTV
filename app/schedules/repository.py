@@ -155,6 +155,7 @@ class ScheduleRepository:
         search: str | None = None,
         route_type: int | None = None,
         agency_id: int | None = None,
+        is_active: bool | None = None,
     ) -> list[Route]:
         """List routes with pagination and filtering.
 
@@ -164,6 +165,7 @@ class ScheduleRepository:
             search: Case-insensitive substring on route_short_name or route_long_name.
             route_type: GTFS route_type filter.
             agency_id: Filter by agency.
+            is_active: Filter by active status.
 
         Returns:
             List of Route instances.
@@ -178,6 +180,8 @@ class ScheduleRepository:
             query = query.where(_route_type_filter(route_type))
         if agency_id is not None:
             query = query.where(Route.agency_id == agency_id)
+        if is_active is not None:
+            query = query.where(Route.is_active == is_active)
         query = query.order_by(Route.route_short_name).offset(offset).limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -188,6 +192,7 @@ class ScheduleRepository:
         search: str | None = None,
         route_type: int | None = None,
         agency_id: int | None = None,
+        is_active: bool | None = None,
     ) -> int:
         """Count routes matching filters.
 
@@ -195,6 +200,7 @@ class ScheduleRepository:
             search: Case-insensitive substring filter.
             route_type: GTFS route_type filter.
             agency_id: Filter by agency.
+            is_active: Filter by active status.
 
         Returns:
             Total count of matching routes.
@@ -209,6 +215,8 @@ class ScheduleRepository:
             query = query.where(_route_type_filter(route_type))
         if agency_id is not None:
             query = query.where(Route.agency_id == agency_id)
+        if is_active is not None:
+            query = query.where(Route.is_active == is_active)
         result = await self.db.execute(query)
         return result.scalar_one()
 

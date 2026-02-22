@@ -133,6 +133,7 @@ class ScheduleService:
         search: str | None = None,
         route_type: int | None = None,
         agency_id: int | None = None,
+        is_active: bool | None = None,
     ) -> PaginatedResponse[RouteResponse]:
         """List routes with pagination and filtering.
 
@@ -141,6 +142,7 @@ class ScheduleService:
             search: Case-insensitive substring filter.
             route_type: GTFS route_type filter.
             agency_id: Filter by agency.
+            is_active: Filter by active status.
 
         Returns:
             Paginated list of RouteResponse items.
@@ -150,6 +152,7 @@ class ScheduleService:
             page=pagination.page,
             search=search,
             route_type=route_type,
+            is_active=is_active,
         )
         routes = await self.repository.list_routes(
             offset=pagination.offset,
@@ -157,9 +160,10 @@ class ScheduleService:
             search=search,
             route_type=route_type,
             agency_id=agency_id,
+            is_active=is_active,
         )
         total = await self.repository.count_routes(
-            search=search, route_type=route_type, agency_id=agency_id
+            search=search, route_type=route_type, agency_id=agency_id, is_active=is_active
         )
         items = [RouteResponse.model_validate(r) for r in routes]
         logger.info("schedules.route.list_completed", total=total, result_count=len(items))
