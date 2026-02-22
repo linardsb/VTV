@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Dashboard", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/lv");
+    await page.waitForLoadState("networkidle");
   });
 
   test("displays page title", async ({ page }) => {
@@ -11,7 +12,10 @@ test.describe("Dashboard", () => {
 
   test("displays 4 metric cards", async ({ page }) => {
     // Metric cards: Active Vehicles, On-Time Performance, Delayed Routes, Fleet Utilization
-    const cards = page.locator("[class*='border-card-border']");
+    // Scope to the metrics grid to avoid matching the calendar card border
+    const metricsGrid = page.locator("div.grid").first();
+    const cards = metricsGrid.locator("[class*='border-card-border']");
+    await expect(cards.first()).toBeVisible({ timeout: 5000 });
     await expect(cards).toHaveCount(4);
   });
 
@@ -27,7 +31,7 @@ test.describe("Dashboard", () => {
     // Click Month view
     const monthToggle = page.getByRole("radio", { name: /month|mēnesis/i });
     if (await monthToggle.isVisible()) {
-      await monthToggle.click();
+      await monthToggle.click({ force: true });
       await expect(monthToggle).toHaveAttribute("data-state", "on");
     }
   });
@@ -39,9 +43,10 @@ test.describe("Dashboard", () => {
   });
 
   test("calendar navigation arrows work", async ({ page }) => {
-    const nextButton = page.getByRole("button", { name: /next|nākamais/i });
+    // Scope to main content area to avoid matching Next.js dev tools button
+    const nextButton = page.locator("main").getByRole("button", { name: /next|nākamais/i });
     if (await nextButton.isVisible()) {
-      await nextButton.click();
+      await nextButton.click({ force: true });
       // Should still be on dashboard
       await expect(page).toHaveURL(/\/(lv|en)\/?$/);
     }

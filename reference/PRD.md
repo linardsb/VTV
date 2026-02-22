@@ -61,7 +61,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 ### 4.2 What's Out (Post-MVP)
 
 - ~~Live GPS tracking and real-time map~~ ✅ **Implemented** — Multi-feed GTFS-RT tracking with Redis caching, background pollers, 3 REST endpoints. Live map with react-leaflet v5, HTTP polling. Supports Riga + configurable additional feeds (Jurmala, Pieriga, ATD)
-- Vehicle and driver management (Phase 2)
+- ~~Vehicle and driver management (Phase 2)~~ **Driver management implemented** — Full CRUD backend (5 endpoints), CMS page with table/filters/forms, agent tool integration (DB-backed `check_driver_availability`). Vehicle management remains Phase 2
 - NeTEx/SIRI compliance exports (Phase 3)
 - Public-facing passenger information (out of scope)
 - Fare management (handled by e-talons system)
@@ -182,7 +182,7 @@ agent = Agent(
 | `get_route_schedule` ✅ | Timetable for a specific route and service date | GTFS static ZIP (stop_times, calendar, calendar_dates) |
 | `search_stops` ✅ | Search stops by name or proximity (lat/lon) | GTFS static ZIP (stops.txt, stop_times.txt) |
 | `get_adherence_report` ✅ | On-time performance metrics for routes/periods | GTFS-RT trip updates + GTFS static ZIP |
-| `check_driver_availability` ✅ | Available drivers for a shift/date | Mock provider (Phase 2: VTV tRPC API) |
+| `check_driver_availability` ✅ | Available drivers for a shift/date | DB-backed via `app/drivers/` (fallback: mock data for tests) |
 
 All transit tools are read-only. The agent cannot create, update, or delete any transit data. This is a safety constraint — AI advises, humans decide.
 

@@ -1,6 +1,6 @@
 # VTV Commands
 
-23 slash commands for AI-assisted development workflows (16 backend + 7 frontend). Run any command by typing `/command-name` in Claude Code.
+24 slash commands for AI-assisted development workflows (16 backend + 7 frontend + 1 testing). Run any command by typing `/command-name` in Claude Code.
 
 Every command is designed to produce artifacts that other commands consume. This creates composable pipelines where each step's output feeds the next. Commands work standalone but are most powerful when chained.
 
@@ -581,6 +581,41 @@ Runs the complete frontend page development lifecycle autonomously in 6 phases, 
 
 ---
 
+## Testing Commands
+
+### `/e2e`
+
+**Usage:** `/e2e` or `/e2e routes` or `/e2e "dashboard loads"`
+
+Runs Playwright end-to-end tests for the VTV frontend using the CLI (not MCP). When called without arguments, auto-detects which features have changed files (via `e2e/detect-changed.sh` + git diff) and runs only the relevant test files. When called with a feature name, runs that specific test file. When called with a quoted string, matches tests by title.
+
+Requires backend (port 8123) and frontend (port 3000) to be running. The Playwright config auto-starts the frontend dev server if not already running, but the backend must be started manually (`make dev-be` or `make dev`).
+
+**Test projects:**
+- **setup** — Authenticates via login page, saves session state for reuse
+- **chromium** — Authenticated tests (depends on setup), uses saved session
+- **no-auth** — Unauthenticated tests (login page, redirects), no stored session
+
+**Auto-detection mapping:**
+- `components/routes/*` → `routes.spec.ts`
+- `components/stops/*` → `stops.spec.ts`
+- `components/schedules/*` → `schedules.spec.ts`
+- `components/documents/*` → `documents.spec.ts`
+- `components/dashboard/*` → `dashboard.spec.ts`
+- `app-sidebar*`, `middleware.ts` → `navigation.spec.ts`
+- `auth.ts`, `login/*` → `login.noauth.spec.ts`
+- Shared code (`ui/*`, `lib/*`, `hooks/*`, `messages/*`) → ALL tests
+
+**Produces:** Pass/fail test results, HTML report viewable via `npx playwright show-report`
+
+**Chains with:**
+- Run **after** `/fe-validate` — e2e tests verify the app works in a real browser
+- Run **before** `/commit` — don't commit if browser tests fail
+- Use `/Browser` skill for visual debugging of test failures
+- Frontend workflow: `/fe-execute` → `/fe-validate` → `/e2e` → `/commit`
+
+---
+
 ## Workflows
 
 ### Feature Development (manual steps)
@@ -651,6 +686,7 @@ Runs the complete frontend page development lifecycle autonomously in 6 phases, 
 ```
 /be-validate        # Run all backend linting, type checking, tests, and SDK sync
 /fe-validate     # Run all frontend quality checks
+/e2e             # Auto-detect changed features, run browser tests
 /review app/     # Review backend code against VTV standards
 /fe-review cms/apps/web/src/  # Review frontend code against VTV standards
 ```
@@ -661,6 +697,7 @@ Runs the complete frontend page development lifecycle autonomously in 6 phases, 
 /fe-planning add routes management page         # Create the plan
 /fe-execute .agents/plans/fe-routes.md          # Implement it
 /fe-validate                                    # Verify everything passes
+/e2e routes                                     # Browser tests for the feature
 /commit                                         # Commit with conventional format
 ```
 
@@ -697,11 +734,11 @@ Runs the complete frontend page development lifecycle autonomously in 6 phases, 
 
 ### Frontend Pipeline
 ```
-/fe-prime ──→ /fe-planning ──→ /fe-execute ──→ /fe-validate ──→ /commit
+/fe-prime ──→ /fe-planning ──→ /fe-execute ──→ /fe-validate ──→ /e2e ──→ /commit
                                     │                │
                /fe-create-page ─────┘                ├──→ /execution-report ──→ /system-review
                                                      │
-/fe-review ──→ /code-review-fix ──→ /fe-validate ──→ /commit
+/fe-review ──→ /code-review-fix ──→ /fe-validate ──→ /e2e ──→ /commit
 
 /fe-end-to-end-page = /fe-prime + /fe-planning + /fe-execute + /fe-validate + /execution-report + /commit
 ```

@@ -29,6 +29,7 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         storageState: "e2e/.auth/user.json",
       },
+      testIgnore: /.*\.noauth\.spec\.ts/,
       dependencies: ["setup"],
     },
 

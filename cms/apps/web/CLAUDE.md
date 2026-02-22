@@ -22,6 +22,7 @@ src/
 │   │   ├── routes/page.tsx     # Route management (real API CRUD, server pagination, search, resizable map; mobile: tab layout)
 │   │   ├── schedules/page.tsx  # Schedule management (calendars/trips/import tabs, GTFS ZIP upload)
 │   │   ├── stops/page.tsx      # Stop management (CRUD, Leaflet map with terminus markers, direction display, GTFS copy; mobile: tab layout)
+│   │   ├── drivers/page.tsx    # Driver management (CRUD, search, shift/status filters, license tracking)
 │   │   └── {page}/page.tsx     # Future feature pages
 │   ├── login/page.tsx          # Login (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect
@@ -32,17 +33,19 @@ src/
 │   ├── documents/              # Document management (table, filters, upload-form, detail, delete-dialog)
 │   ├── routes/                 # Route management (table, filters, form, detail, type-badge, map, bus-marker)
 │   ├── schedules/              # Schedule management (calendar-table/form/detail, trip-table/form/detail/filters, gtfs-import, delete dialogs)
-│   └── stops/                  # Stop management (table, filters, form, detail, delete-dialog, map with draggable markers)
+│   ├── stops/                  # Stop management (table, filters, form, detail, delete-dialog, map with draggable markers)
+│   └── drivers/                # Driver management (table, filters, form, detail, delete-dialog)
 ├── hooks/
 │   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
 │   └── use-vehicle-positions.ts # useVehiclePositions() hook (polls backend every 15s)
-├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts)
+├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts, driver.ts)
 ├── lib/
 │   ├── utils.ts                # cn() class merge utility
 │   ├── agent-client.ts         # FastAPI agent API client
 │   ├── documents-client.ts     # Knowledge base API client (upload, list, delete, download)
 │   ├── stops-client.ts         # Stops API client (CRUD, nearby search)
 │   ├── schedules-client.ts     # Schedules API client (22 endpoints: agencies, routes, calendars, trips, import, validate)
+│   ├── drivers-client.ts       # Drivers API client (CRUD, search, shift/status filters)
 │   ├── color-utils.ts          # Hex color conversion (backend "FF7043" ↔ frontend "#FF7043")
 │   └── mock-dashboard-data.ts  # Mock dashboard metrics and events
 └── i18n/
@@ -120,6 +123,27 @@ These patterns trigger lint errors under React 19 strict rules. Write correct co
    const USER_ROLE: string = "admin";
    const readOnly = USER_ROLE === "viewer";
    ```
+
+## E2E Testing (Playwright)
+
+66 tests across 9 files in `e2e/` (65 active + 1 skipped). Requires backend (port 8123) + frontend (port 3000) running.
+
+```bash
+npx playwright test                    # All tests (headless)
+npx playwright test e2e/routes.spec.ts # Single feature
+npx playwright test -g "dashboard"     # By test name
+npx playwright test --ui               # Interactive UI mode
+```
+
+**Test structure:**
+- `e2e/auth.setup.ts` — Login + save session (runs before authenticated tests)
+- `e2e/*.spec.ts` — Authenticated tests (dashboard, routes, stops, schedules, documents, navigation, smoke)
+- `e2e/*.noauth.spec.ts` — Unauthenticated tests (login form, redirects)
+- `e2e/detect-changed.sh` — Auto-detects which features changed and runs only those tests
+
+**Auto-detection:** `make e2e` uses `detect-changed.sh` to map git-changed source files → test files. Shared code changes (ui/, lib/, hooks/, messages/) run all tests.
+
+**Adding tests for a new feature:** Create `e2e/{feature}.spec.ts`, add path mappings in `detect-changed.sh`.
 
 ## Zero-Warning Policy
 

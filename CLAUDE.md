@@ -22,7 +22,7 @@ VTV is a unified transit operations platform targeting all of Latvia's public tr
 
 ## Slash Commands
 
-23 AI-assisted development commands (16 backend + 7 frontend). Full docs: `.claude/commands/CLAUDE.md`.
+24 AI-assisted development commands (16 backend + 7 frontend + 1 testing). Full docs: `.claude/commands/CLAUDE.md`.
 
 ### Backend Commands
 
@@ -57,7 +57,13 @@ VTV is a unified transit operations platform targeting all of Latvia's public tr
 | `/fe-review` | Review frontend code against all 8 VTV frontend quality standards |
 | `/fe-end-to-end-page` | Autonomously develop a complete frontend page through all 6 phases |
 
-**Workflows:** `/be-prime` → `/be-planning` → `/be-execute` → `/be-validate` → `/commit` | Frontend: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` → `/commit`
+### Testing Commands
+
+| Command | Description |
+|---------|-------------|
+| `/e2e` | Run Playwright e2e tests — auto-detects changed features or runs specific test |
+
+**Workflows:** `/be-prime` → `/be-planning` → `/be-execute` → `/be-validate` → `/commit` | Frontend: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` → `/e2e` → `/commit`
 
 ## Essential Commands
 
@@ -72,9 +78,15 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (450 tests, ~14s)
+make test            # Unit tests (478 tests, ~14s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
+
+# E2E testing (Playwright)
+make e2e             # Auto-detect changed features, run only those tests
+make e2e-all         # Run all 66 e2e tests (65 active + 1 skipped)
+make e2e-ui          # Interactive Playwright UI mode
+make e2e-headed      # Run with visible browser
 
 # Docker (integration / pre-deployment)
 make docker          # Full stack (db, redis, auto-migrate, app, cms, nginx on :80)
@@ -98,6 +110,7 @@ VTV/
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── auth/           # DB-backed authentication (2 endpoints, bcrypt, brute-force lockout)
 │   ├── knowledge/      # RAG knowledge base + DMS (9 endpoints, pgvector, multi-format processing)
+│   ├── drivers/        # Driver management (5 endpoints, HR profiles, shift/availability, agent integration)
 │   ├── stops/          # Stop management (6 endpoints, Haversine proximity, location_type filter)
 │   ├── schedules/      # GTFS schedule management (23 endpoints, trip CRUD, ZIP import/export)
 │   ├── transit/        # Multi-feed GTFS-RT tracking (3 endpoints, Redis cache, background poller)
@@ -106,7 +119,7 @@ VTV/
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
 ├── reference/          # Architecture docs (vsa-patterns.md, PRD.md, feature-readme-template.md)
 ├── nginx/             # Reverse proxy (rate limiting, security headers)
-├── .claude/commands/   # 23 slash commands
+├── .claude/commands/   # 24 slash commands
 ├── .agents/            # Plans, code reviews, execution reports, system reviews
 ├── docs/              # Planning docs, RCA documents, anti-patterns reference
 ├── alembic/            # Database migrations
@@ -117,14 +130,14 @@ VTV/
 
 - **Async SQLAlchemy** with connection pooling (pool_size=5, max_overflow=10)
 - Base class: `app.core.database.Base` (extends `DeclarativeBase`)
-- Session dependency: `get_db()` from `app.core.database`
+- Session dependency: `get_db()` from `app.core.database`; standalone context: `get_db_context()` for agent tools
 - All models inherit `TimestampMixin` from `app.shared.models`
 - Migration workflow: define models → `alembic revision --autogenerate` → review → `alembic upgrade head`
 
 ### Middleware & Rate Limiting
 
 - `BodySizeLimitMiddleware` (100KB), `RequestLoggingMiddleware` (correlation IDs), `CORSMiddleware`
-- Rate limiting via slowapi: auth (10/min login, 5/min seed), chat (10/min), transit (30/min), knowledge (10-30/min), schedules (5-30/min), health (60/min)
+- Rate limiting via slowapi: auth (10/min login, 5/min seed), chat (10/min), transit (30/min), knowledge (10-30/min), schedules (5-30/min), drivers (10-30/min), health (60/min)
 - Query quota: 50/day per IP for LLM chat endpoint (`app.core.agents.quota`)
 
 ### Shared Utilities
@@ -142,7 +155,7 @@ Environment variables via Pydantic Settings (`app.core.config`). Copy `.env.exam
 Turborepo monorepo under `cms/` with pnpm workspaces. **Full documentation in `cms/CLAUDE.md` and `cms/apps/web/CLAUDE.md`.**
 
 - **Stack:** Next.js 16 + React 19, Tailwind CSS v4 + three-tier design tokens, shadcn/ui + CVA, Auth.js v5 with 4-role RBAC (DB-backed via `POST /api/v1/auth/login`), next-intl (lv/en)
-- **Pages:** Dashboard, Routes, Stops, Schedules, Documents, Chat, Login
+- **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, Documents, Chat, Login
 - **New page checklist:** page component → i18n keys (lv + en) → sidebar nav → middleware RBAC → semantic tokens only
 - **Design system:** `cms/design-system/vtv/MASTER.md` (global) → `pages/{page}.md` (overrides) → `packages/ui/src/tokens.css` (tokens)
 

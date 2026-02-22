@@ -7,9 +7,9 @@ const TEST_USER = {
 
 setup("authenticate", async ({ page }) => {
   await page.goto("/lv/login");
-  await page.getByLabel(/email/i).fill(TEST_USER.email);
-  await page.getByLabel(/password/i).fill(TEST_USER.password);
-  await page.getByRole("button", { name: /login|pieslēgties/i }).click();
+  await page.getByLabel(/email|e-pasts/i).fill(TEST_USER.email);
+  await page.getByLabel(/password|parole/i).fill(TEST_USER.password);
+  await page.getByRole("button", { name: /login|pieteikties/i }).click();
 
   // Wait for redirect to dashboard after successful login
   await expect(page).toHaveURL(/\/(lv|en)\/?$/);

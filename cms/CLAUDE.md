@@ -28,6 +28,12 @@ pnpm --filter @vtv/web build        # Production build
 pnpm --filter @vtv/web type-check   # TypeScript strict check
 pnpm --filter @vtv/web lint         # ESLint
 
+# E2E testing (Playwright — requires backend + frontend running)
+pnpm --filter @vtv/web e2e          # Run all 69 tests (headless)
+pnpm --filter @vtv/web e2e:ui       # Interactive Playwright UI
+pnpm --filter @vtv/web e2e:headed   # Visible browser
+pnpm --filter @vtv/web e2e:report   # View HTML test report
+
 # Generate SDK client (requires FastAPI running on port 8123)
 pnpm --filter @vtv/sdk generate-sdk
 ```
@@ -50,8 +56,9 @@ Design rules live in `design-system/vtv/MASTER.md`. Page-specific overrides go i
 | `/fe-create-page` | Scaffold a new page |
 | `/fe-execute` | Execute a frontend plan |
 | `/fe-validate` | Run all frontend quality checks |
+| `/e2e` | Run Playwright e2e tests (auto-detects changed features) |
 
-Workflow: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` → `/commit`
+Workflow: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` → `/e2e` → `/commit`
 
 ## Implemented Pages
 
@@ -61,6 +68,7 @@ Workflow: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` �
 | Routes | `/[locale]/routes` | Live | Backend `/api/v1/schedules/routes` (CRUD, server pagination, search) + GTFS-RT live vehicle positions (10s polling) on Leaflet map |
 | Stops | `/[locale]/stops` | Live | Backend `/api/v1/stops` endpoints (CRUD, Leaflet map with terminus markers, direction display, GTFS copy, location_type filtering) |
 | Schedules | `/[locale]/schedules` | Live | Backend `/api/v1/schedules` (22 endpoints: calendars CRUD, trips CRUD, GTFS ZIP import, validation) |
+| Drivers | `/[locale]/drivers` | Live | Backend `/api/v1/drivers` (5 endpoints: CRUD, search, shift/status filters, agent integration) |
 | Documents | `/[locale]/documents` | Live | Backend `/api/v1/knowledge` endpoints (upload, list, detail, delete, download) |
 | Login | `/[locale]/login` | Live | Auth.js credentials → `POST /api/v1/auth/login` (DB-backed, bcrypt) |
 | Unauthorized | `/[locale]/unauthorized` | Live | — |

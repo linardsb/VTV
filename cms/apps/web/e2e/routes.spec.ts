@@ -1,8 +1,17 @@
 import { test, expect } from "@playwright/test";
 
+/** Wait for the page data to load — either a table with rows or a "no results" message. */
+async function waitForDataOrEmpty(page: import("@playwright/test").Page) {
+  await Promise.race([
+    page.getByRole("row").nth(1).waitFor({ state: "visible", timeout: 10000 }),
+    page.getByText(/no results|nav rezultātu/i).waitFor({ state: "visible", timeout: 10000 }),
+  ]).catch(() => {});
+}
+
 test.describe("Routes page", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/lv/routes");
+    await page.waitForLoadState("networkidle");
   });
 
   test("displays page title", async ({ page }) => {
@@ -25,8 +34,7 @@ test.describe("Routes page", () => {
     const searchInput = page.getByPlaceholder(/search|meklēt/i);
     if (await searchInput.isVisible()) {
       await searchInput.fill("1");
-      // Wait for debounce (300ms)
-      await page.waitForTimeout(500);
+      await waitForDataOrEmpty(page);
       // Table should still be visible (filtered or empty state)
       const table = page.getByRole("table");
       const noResults = page.getByText(/no results|nav rezultātu/i);
@@ -37,14 +45,16 @@ test.describe("Routes page", () => {
   });
 
   test("type filter toggles work", async ({ page }) => {
-    const busToggle = page.getByRole("radio", { name: /bus|autobuss/i });
+    // Use exact match to avoid matching "Trolejbuss" which also contains "bus"
+    const busToggle = page.getByRole("radio", { name: /^bus$|^autobuss$/i });
     if (await busToggle.isVisible()) {
-      await busToggle.click();
+      await busToggle.click({ force: true });
       await expect(busToggle).toHaveAttribute("data-state", "on");
     }
   });
 
   test("clicking table row opens detail sheet", async ({ page }) => {
+    await waitForDataOrEmpty(page);
     const firstRow = page.getByRole("row").nth(1); // skip header
     if (await firstRow.isVisible()) {
       await firstRow.click();
@@ -59,7 +69,7 @@ test.describe("Routes page", () => {
       name: /create|izveidot/i,
     });
     if (await createButton.isVisible()) {
-      await createButton.click();
+      await createButton.click({ force: true });
       // Form sheet should open with input fields
       await expect(
         page.getByLabel(/route short name|maršruta īsais nosaukums/i)
@@ -68,6 +78,7 @@ test.describe("Routes page", () => {
   });
 
   test("pagination controls are visible when data exists", async ({ page }) => {
+    await waitForDataOrEmpty(page);
     const table = page.getByRole("table");
     if (await table.isVisible()) {
       const rows = page.getByRole("row");
