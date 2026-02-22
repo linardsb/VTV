@@ -7,7 +7,7 @@ Planned features and improvements. Each item links to its detailed planning docu
 ```
 Backend API       ████████████████████░░░░  85%  (6/7 features, schedules + stops + transit + knowledge + DMS + auth done)
 CMS Frontend      ████████████████████░░░░  83%  (7/7 pages live, real API on 5/7, mock data on dashboard)
-Testing           ██████████████░░░░░░░░░░  60%  (450 unit tests, 69 e2e tests, no CI pipeline yet)
+Testing           ██████████████░░░░░░░░░░  60%  (520 unit tests, 69 e2e tests, no CI pipeline yet)
 Infrastructure    ████████████████████░░░░  80%  (Docker, nginx, Makefile, 24 slash commands, e2e framework)
 Latvia Platform   ████░░░░░░░░░░░░░░░░░░░  15%  (Riga GTFS only, no PostGIS/TimescaleDB/multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
@@ -119,6 +119,9 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 - [x] **Codebase Audit** - 120 findings documented in `.agents/code-reviews/AUDIT-SUMMARY.md`. (2026-02-21)
 
 - [x] **Documentation Cleanup** - 74 redundant CLAUDE.md files removed, 5 substantive files retained. (2026-02-21)
+
+- [x] **Security Audit Remediation** - 13 findings from third-party security audit fixed. Streaming upload with 50MB limit, regex filename sanitization, path traversal prevention, ILIKE wildcard escaping, X-Real-IP rate limiting, Redis URL redaction, Docker env var interpolation, transit input validation, nginx HTTPS template, environment-controlled demo credentials. 33 security regression tests. (commit 85bf32d, 2026-02-22)
+  - Audit: [docs/security_audit.txt](security_audit.txt)
 
 ## Planning Documents
 

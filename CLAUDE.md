@@ -16,7 +16,7 @@ VTV is a unified transit operations platform targeting all of Latvia's public tr
 
 **Type Safety (CRITICAL)** — Strict MyPy + Pyright enforced. All functions must have complete type annotations. No `Any` without justification. Test files have relaxed rules (see `pyproject.toml`).
 
-**Python Anti-Patterns** — 40 documented patterns that cause lint/type errors. See `docs/python-anti-patterns.md`. Also embedded in `/be-execute` and `/be-planning` Known Pitfalls sections.
+**Python Anti-Patterns** — 45 documented patterns that cause lint/type errors (includes security patterns). See `docs/python-anti-patterns.md`. Also embedded in `/be-execute` and `/be-planning` Known Pitfalls sections.
 
 **Structured Logging** — `domain.component.action_state` pattern via structlog. Logger: `from app.core.logging import get_logger`. Full taxonomy: `docs/logging-standard.md`.
 
@@ -78,7 +78,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (478 tests, ~14s)
+make test            # Unit tests (520 tests, ~14s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -145,10 +145,11 @@ VTV/
 - **Pagination**: `PaginationParams` + `PaginatedResponse[T]` from `app.shared.schemas`
 - **Timestamps**: `TimestampMixin` + `utcnow()` from `app.shared.models`
 - **Errors**: `AppError` hierarchy (`NotFoundError` → 404, `ValidationError` → 422, feature errors → 500) with global exception handlers in `app.core.exceptions`. `ErrorResponse` schema in `app.shared.schemas`
+- **SQL Escaping**: `escape_like()` from `app.shared.utils` — escapes `%`, `_`, `\` in ILIKE search params
 
 ### Configuration
 
-Environment variables via Pydantic Settings (`app.core.config`). Copy `.env.example` to `.env` for local development. Key settings: `DATABASE_URL` (required), `REDIS_URL`, `TRANSIT_FEEDS_JSON`, `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL`, `OBSIDIAN_API_KEY`. Full list in `.env.example` and `app/core/config.py`.
+Environment variables via Pydantic Settings (`app.core.config`). Copy `.env.example` to `.env` for local development. Key settings: `DATABASE_URL` (required), `REDIS_URL`, `TRANSIT_FEEDS_JSON`, `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL`, `OBSIDIAN_API_KEY`, `DEMO_USER_PASSWORD`. Full list in `.env.example` and `app/core/config.py`.
 
 ## Frontend (CMS)
 

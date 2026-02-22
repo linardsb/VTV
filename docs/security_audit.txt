@@ -267,35 +267,31 @@ The application does implement several good security practices:
 13. Add security monitoring and alerting  
 14. Conduct penetration testing  
   
-## Notes  
-  
-The codebase shows good engineering practices overall (structured logging, type safety, testing), but the security layer is incomplete. The frontend has RBAC via Auth.js, but the backend APIs are completely open with no authentication checks. This is the **most critical architectural gap** - all backend endpoints can be called without any credentials. [0-cite-30](#0-cite-30)
-  
-    ports:
-      # SECURITY: Consider removing in production - only needed for direct DB access during development
-      - "5433:5432"
+## Notes
 
-## Recommended Fix Priority  
-  
-**Before ANY production deployment:**  
-1. Fix path traversal in knowledge download (C1)  
-2. Add file size validation and sanitize filenames (C2, C3)  
-3. Remove hardcoded demo credentials (C1)  
-4. Implement proper authentication/authorization on backend APIs  
-5. Add HTTPS/TLS configuration  
-  
-**Short-term (production hardening):**  
-6. Escape ILIKE wildcards in all search queries  
-7. Fix rate limiter X-Forwarded-For spoofing  
-8. Move brute force tracking to Redis (persistent)  
-9. Sanitize Redis URL in logs  
-10. Remove exposed database ports in production  
-  
-**Medium-term:**  
-11. Add comprehensive input validation across all endpoints  
-12. Implement proper RBAC on backend routes  
-13. Add security monitoring and alerting  
-14. Conduct penetration testing  
+The codebase shows good engineering practices overall (structured logging, type safety, testing), but the security layer is incomplete. The frontend has RBAC via Auth.js, but the backend APIs are completely open with no authentication checks. This is the **most critical architectural gap** - all backend endpoints can be called without any credentials.
+
+## Remediation Status (2026-02-22, commit 85bf32d)
+
+| # | Finding | Severity | Status | Fix Applied |
+|---|---------|----------|--------|-------------|
+| C1 | Path traversal in download | Critical | FIXED | `is_relative_to()` validation in `knowledge/routes.py` (pre-existing fix) |
+| C2 | No file size limit on upload | Critical | FIXED | Streaming chunked reads (8KB) with 50MB limit, `HTTPException(413)` |
+| C3 | Filename injection | Critical | FIXED | `re.sub(r"[^\w\-.]", "_", ...)` + `is_relative_to()` path validation |
+| 4 | Hardcoded demo credentials | High | FIXED | Environment-controlled: `ENVIRONMENT != development` skips seeding, `DEMO_USER_PASSWORD` configurable |
+| 5 | ILIKE wildcard injection | High | FIXED | `escape_like()` in `app/shared/utils.py`, applied to stops/schedules/drivers repos |
+| 6 | No backend API auth | Critical | DEFERRED | Architectural change (~2-3 days), tracked in `docs/TODO.md` |
+| 7 | Rate limiter X-Forwarded-For spoofing | Medium | FIXED | Switched to `X-Real-IP` header (nginx-set, not spoofable) |
+| 8 | Redis credentials in logs | Medium | FIXED | `_redact_url()` in `app/core/redis.py` masks passwords before logging |
+| 9 | In-memory brute force (non-persistent) | Medium | DEFERRED | Requires Redis-backed tracking, tracked in `docs/TODO.md` |
+| 10 | No HTTPS/TLS | Medium | PARTIAL | Commented HTTPS template added to `nginx/nginx.conf`, requires cert provisioning |
+| 11 | Docker credentials hardcoded | Medium | FIXED | `${POSTGRES_USER:-postgres}` / `${POSTGRES_PASSWORD:-postgres}` interpolation |
+| 12 | Missing input validation | Medium | FIXED | `max_length` + `pattern` constraints on transit query params |
+| 13 | Exposed database ports | Low | DOCUMENTED | Already has `# SECURITY` comment, production concern only |
+
+**Regression tests:** 33 security-specific tests in `app/tests/test_security.py` covering all fixed findings.
+**Anti-patterns:** Security rules 40-45 added to `docs/python-anti-patterns.md`.
+**Slash commands:** `/review` expanded to 10 security checks, `/be-planning` and `/be-execute` updated with security pitfalls 41-46.  
   
 
 
