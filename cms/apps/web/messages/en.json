@@ -14,6 +14,7 @@
     "routes": "Routes",
     "stops": "Stops",
     "schedules": "Schedules",
+    "drivers": "Drivers",
     "gtfs": "GTFS",
     "users": "Users",
     "documents": "Documents",
@@ -552,5 +553,127 @@
     "retry": "Try again",
     "copied": "Copied",
     "copy": "Copy"
+  },
+  "drivers": {
+    "title": "Driver Management",
+    "description": "Manage driver profiles, shifts, and qualifications",
+    "search": "Search drivers...",
+    "filters": {
+      "allStatuses": "All Statuses",
+      "available": "Available",
+      "on_duty": "On Duty",
+      "on_leave": "On Leave",
+      "sick": "Sick",
+      "allShifts": "All Shifts",
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening",
+      "night": "Night",
+      "status": "Status",
+      "shift": "Shift"
+    },
+    "table": {
+      "employeeNumber": "Employee #",
+      "name": "Name",
+      "status": "Status",
+      "shift": "Shift",
+      "phone": "Phone",
+      "licenseExpiry": "License Expiry",
+      "actions": "Actions",
+      "noResults": "No drivers found",
+      "showing": "drivers"
+    },
+    "detail": {
+      "personalInfo": "Personal Information",
+      "phone": "Phone",
+      "email": "Email",
+      "dateOfBirth": "Date of Birth",
+      "address": "Address",
+      "emergencyContact": "Emergency Contact",
+      "emergencyName": "Contact Name",
+      "emergencyPhone": "Contact Phone",
+      "employment": "Employment",
+      "hireDate": "Hire Date",
+      "shift": "Default Shift",
+      "status": "Status",
+      "licensing": "License & Medical",
+      "licenseCategories": "License Categories",
+      "licenseExpiry": "License Expiry",
+      "medicalCertExpiry": "Medical Cert. Expiry",
+      "qualifiedRoutes": "Qualified Routes",
+      "notesSection": "Notes",
+      "notes": "Notes",
+      "trainingRecords": "Training Records",
+      "metadata": "Record Info",
+      "createdAt": "Created",
+      "updatedAt": "Updated",
+      "inactive": "Inactive"
+    },
+    "shifts": {
+      "morning": "Morning (05:00-13:00)",
+      "afternoon": "Afternoon (13:00-21:00)",
+      "evening": "Evening (17:00-01:00)",
+      "night": "Night (22:00-06:00)"
+    },
+    "statuses": {
+      "available": "Available",
+      "on_duty": "On Duty",
+      "on_leave": "On Leave",
+      "sick": "Sick"
+    },
+    "form": {
+      "createTitle": "Add Driver",
+      "editTitle": "Edit Driver",
+      "personalInfo": "Personal Information",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "employeeNumber": "Employee Number",
+      "dateOfBirth": "Date of Birth",
+      "phone": "Phone",
+      "email": "Email",
+      "emergencySection": "Address & Emergency",
+      "address": "Address",
+      "emergencyName": "Emergency Contact Name",
+      "emergencyPhone": "Emergency Contact Phone",
+      "employmentSection": "Employment",
+      "hireDate": "Hire Date",
+      "defaultShift": "Default Shift",
+      "status": "Status",
+      "licenseSection": "License & Medical",
+      "licenseCategories": "License Categories",
+      "licenseExpiry": "License Expiry Date",
+      "medicalExpiry": "Medical Cert. Expiry",
+      "qualifiedRoutes": "Qualified Route IDs",
+      "notesSection": "Notes",
+      "notes": "Notes",
+      "trainingRecords": "Training Records",
+      "isActive": "Active"
+    },
+    "actions": {
+      "create": "Add Driver",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "delete": {
+      "title": "Delete Driver",
+      "confirmation": "Are you sure you want to delete \"{name}\"?",
+      "warning": "This action cannot be undone. The driver will be permanently removed.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "created": "Driver created successfully",
+      "updated": "Driver updated successfully",
+      "deleted": "Driver deleted successfully",
+      "createError": "Failed to create driver",
+      "updateError": "Failed to update driver",
+      "deleteError": "Failed to delete driver",
+      "loadError": "Failed to load drivers"
+    },
+    "mobile": {
+      "showFilters": "Filters"
+    }
   }
 }

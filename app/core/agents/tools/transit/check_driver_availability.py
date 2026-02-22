@@ -136,7 +136,9 @@ async def check_driver_availability(
         )
 
     try:
-        raw_drivers = await get_driver_availability(date_str, shift, route_id)
+        raw_drivers = await get_driver_availability(
+            date_str, shift, route_id, db_session_factory=ctx.deps.db_session_factory
+        )
 
         # Build DriverInfo list
         drivers: list[DriverInfo] = []

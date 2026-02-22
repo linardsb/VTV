@@ -4,9 +4,14 @@ Provides UnifiedDeps dataclass injected into all agent tools via RunContext,
 and a factory function for creating configured instances.
 """
 
-from dataclasses import dataclass
+from __future__ import annotations
+
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass, field
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 
@@ -20,11 +25,15 @@ class UnifiedDeps:
         obsidian_http_client: Async HTTP client for Obsidian Local REST API
             (SSL verification disabled for self-signed cert).
         settings: Application settings containing feed URLs, cache TTL, and Obsidian config.
+        db_session_factory: Optional factory for creating standalone DB sessions.
     """
 
     transit_http_client: httpx.AsyncClient
     obsidian_http_client: httpx.AsyncClient
     settings: Settings
+    db_session_factory: Callable[[], AbstractAsyncContextManager[AsyncSession]] | None = field(
+        default=None
+    )
 
 
 # Keep TransitDeps as an alias for backwards compatibility during migration
@@ -52,10 +61,13 @@ def create_unified_deps(settings: Settings | None = None) -> UnifiedDeps:
         verify=False,  # noqa: S501 - Obsidian Local REST API uses self-signed cert
         headers={"Authorization": f"Bearer {settings.obsidian_api_key or ''}"},
     )
+    from app.core.database import get_db_context
+
     return UnifiedDeps(
         transit_http_client=transit_client,
         obsidian_http_client=obsidian_client,
         settings=settings,
+        db_session_factory=get_db_context,
     )
 
 

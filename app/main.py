@@ -32,6 +32,7 @@ from app.core.logging import get_logger, setup_logging
 from app.core.middleware import setup_middleware
 from app.core.rate_limit import limiter
 from app.core.redis import close_redis
+from app.drivers.routes import router as drivers_router
 from app.knowledge.routes import router as knowledge_router
 from app.schedules.routes import router as schedules_router
 from app.stops.routes import router as stops_router
@@ -117,6 +118,7 @@ app.include_router(transit_router)
 app.include_router(stops_router)
 app.include_router(knowledge_router)
 app.include_router(schedules_router)
+app.include_router(drivers_router)
 
 
 @app.get("/")
