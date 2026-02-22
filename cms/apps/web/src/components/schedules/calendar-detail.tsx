@@ -102,17 +102,12 @@ export function CalendarDetail({
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:w-[420px]">
         <SheetHeader>
-          <div className="flex items-start justify-between">
-            <SheetTitle className="font-heading text-heading font-semibold">
-              {calendar.gtfs_service_id}
-            </SheetTitle>
-            <Button variant="ghost" size="sm" className="size-8 p-0" onClick={onClose}>
-              <X className="size-4" />
-            </Button>
-          </div>
+          <SheetTitle className="font-heading text-heading font-semibold">
+            {calendar.gtfs_service_id}
+          </SheetTitle>
         </SheetHeader>
 
-        <div className="mt-(--spacing-grid) space-y-(--spacing-grid)">
+        <div className="px-4 pb-4 space-y-(--spacing-card)">
           {/* Operating days */}
           <DetailRow label={t("operatingDays")}>
             <div className="flex flex-wrap gap-1">

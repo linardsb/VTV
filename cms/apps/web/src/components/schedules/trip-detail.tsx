@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
-import { Pencil, Trash2, X } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -99,17 +99,12 @@ export function TripDetail({
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:w-[480px]">
         <SheetHeader>
-          <div className="flex items-start justify-between">
-            <SheetTitle className="font-heading text-heading font-semibold">
-              {trip.gtfs_trip_id}
-            </SheetTitle>
-            <Button variant="ghost" size="sm" className="size-8 p-0" onClick={onClose}>
-              <X className="size-4" />
-            </Button>
-          </div>
+          <SheetTitle className="font-heading text-heading font-semibold">
+            {trip.gtfs_trip_id}
+          </SheetTitle>
         </SheetHeader>
 
-        <div className="mt-(--spacing-grid) space-y-(--spacing-grid)">
+        <div className="px-4 pb-4 space-y-(--spacing-card)">
           <div className="space-y-(--spacing-card)">
             <DetailRow label={t("route")}>
               {routeName ? `${routeName.route_short_name} - ${routeName.route_long_name}` : "-"}

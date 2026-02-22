@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { Download, Trash2, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Download, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -110,26 +110,13 @@ export function DocumentDetail({
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:w-[480px]">
         <SheetHeader>
-          <div className="flex items-start justify-between">
-            <div className="space-y-(--spacing-tight)">
-              <SheetTitle className="font-heading text-heading font-semibold">
-                {doc.title ?? doc.filename}
-              </SheetTitle>
-              <StatusBadge status={doc.status} />
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="size-8 p-0"
-              onClick={onClose}
-              aria-label={tActions("close")}
-            >
-              <X className="size-4" />
-            </Button>
-          </div>
+          <SheetTitle className="font-heading text-heading font-semibold">
+            {doc.title ?? doc.filename}
+          </SheetTitle>
+          <StatusBadge status={doc.status} />
         </SheetHeader>
 
-        <div className="mt-(--spacing-grid) space-y-(--spacing-grid)">
+        <div className="px-4 pb-4 space-y-(--spacing-card)">
           {/* Metadata */}
           <div className="space-y-(--spacing-card)">
             <DetailRow label={t("fileName")}>{doc.filename}</DetailRow>
