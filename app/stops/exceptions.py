@@ -6,7 +6,7 @@ Inherits from core exceptions for automatic HTTP status code mapping:
 - StopError -> 500
 """
 
-from app.core.exceptions import AppError, NotFoundError, ValidationError
+from app.core.exceptions import AppError, DomainValidationError, NotFoundError
 
 
 class StopError(AppError):
@@ -17,5 +17,5 @@ class StopNotFoundError(NotFoundError):
     """Raised when a stop is not found by ID."""
 
 
-class StopAlreadyExistsError(ValidationError):
+class StopAlreadyExistsError(DomainValidationError):
     """Raised when creating a stop with a duplicate gtfs_stop_id."""

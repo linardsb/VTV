@@ -60,7 +60,7 @@ def _detect_source_type(content_type: str | None) -> str:
         return "image"
     if content_type.startswith("text/"):
         return "text"
-    return "text"
+    return "unknown"
 
 
 @router.post("/documents", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
@@ -85,6 +85,11 @@ async def upload_document(
         description=description,
     )
     source_type = _detect_source_type(file.content_type)
+    if source_type == "unknown":
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported file type: {file.content_type}. Supported: PDF, DOCX, XLSX, CSV, TXT, images, email.",
+        )
 
     # Sanitize filename: strip path components, limit to basename
     raw_filename = file.filename or "unknown"

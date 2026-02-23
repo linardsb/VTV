@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const locales = ["lv", "en"] as const;
 
 function setCookie(name: string, value: string, maxAge: number) {
-  document.cookie = `${name}=${value};path=/;max-age=${maxAge}`;
+  document.cookie = `${name}=${value};path=/;max-age=${maxAge};SameSite=Lax`;
 }
 
 export function LocaleToggle() {

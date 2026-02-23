@@ -79,6 +79,13 @@ Scan `.tsx` files under `cms/apps/web/src/app/` for common accessibility issues:
 
 Report findings with file paths and line numbers.
 
+### Check 7: Security Patterns
+- Grep for hardcoded API URLs (should use env vars)
+- Grep for `localStorage.setItem` with auth/token/session keys
+- Grep for `dangerouslySetInnerHTML` without sanitization
+- Grep for `document.cookie` without SameSite
+- Grep for hardcoded credentials/passwords
+
 ## OUTPUT
 
 ```

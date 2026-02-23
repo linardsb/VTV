@@ -80,6 +80,19 @@ curl -s http://localhost:8123/health
 curl -s -o /dev/null -w "%{http_code}" http://localhost:8123/docs
 ```
 
+### 9. Security Lint (Ruff Bandit rules)
+
+```bash
+ruff check app/ --select=S --no-fix
+```
+
+This runs Bandit-equivalent security rules (S101-S701) to catch:
+- assert in production code (S101)
+- hardcoded passwords (S105)
+- exec/eval usage (S102)
+- insecure temp files (S108)
+- SQL injection patterns (S608)
+
 ## OUTPUT
 
 ```

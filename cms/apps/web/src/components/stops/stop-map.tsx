@@ -21,6 +21,8 @@ interface StopMapProps {
   stops: Stop[];
   selectedStopId: number | null;
   onSelectStop: (stop: Stop) => void;
+  /** Opens the detail Sheet — called from popup "Details" button */
+  onViewDetail?: (stop: Stop) => void;
   onEditStop?: (stop: Stop) => void;
   placementMode?: boolean;
   onMapClick?: (lat: number, lon: number) => void;
@@ -29,6 +31,8 @@ interface StopMapProps {
   onEditingCoordsChange?: (lat: number, lon: number) => void;
   /** "all" | "0" (stop) | "1" (station) — grays out non-matching markers */
   locationTypeFilter?: string;
+  /** Incremented when a table row is clicked — triggers the popup to open on the selected stop */
+  popupTrigger?: number;
 }
 
 /**
@@ -203,10 +207,60 @@ function ClosePopupOnEdit({ trigger }: { trigger: number }) {
   return null;
 }
 
+/** Opens the popup on the selected stop's CircleMarker after the fly animation completes. */
+function OpenPopupForSelected({
+  stops,
+  selectedStopId,
+  trigger,
+}: {
+  stops: Stop[];
+  selectedStopId: number | null;
+  trigger: number;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (trigger === 0 || selectedStopId === null) return;
+
+    const stop = stops.find((s) => s.id === selectedStopId);
+    if (!stop || stop.stop_lat === null || stop.stop_lon === null) return;
+
+    const targetLat = stop.stop_lat;
+    const targetLon = stop.stop_lon;
+
+    const openPopup = () => {
+      map.eachLayer((layer) => {
+        if (
+          layer instanceof L.CircleMarker &&
+          !(layer instanceof L.Circle)
+        ) {
+          const pos = layer.getLatLng();
+          if (
+            Math.abs(pos.lat - targetLat) < 0.00001 &&
+            Math.abs(pos.lng - targetLon) < 0.00001
+          ) {
+            layer.openPopup();
+          }
+        }
+      });
+    };
+
+    // Wait for fly animation to finish before opening popup
+    map.once("moveend", openPopup);
+
+    return () => {
+      map.off("moveend", openPopup);
+    };
+  }, [map, stops, selectedStopId, trigger]);
+
+  return null;
+}
+
 export function StopMap({
   stops,
   selectedStopId,
   onSelectStop,
+  onViewDetail,
   onEditStop,
   placementMode = false,
   onMapClick,
@@ -214,6 +268,7 @@ export function StopMap({
   editingCoords,
   onEditingCoordsChange,
   locationTypeFilter = "all",
+  popupTrigger = 0,
 }: StopMapProps) {
   const t = useTranslations("stops.map");
   const [editTrigger, setEditTrigger] = useState(0);
@@ -234,7 +289,7 @@ export function StopMap({
   }, [stopsWithCoords, locationTypeFilter]);
 
   return (
-    <div className="relative h-full min-h-[50vh] w-full bg-surface">
+    <div className="relative isolate h-full min-h-[50vh] w-full bg-surface">
       {/* Overlay label */}
       <div className="absolute left-3 top-3 z-[1000] rounded-md bg-surface/90 px-3 py-1.5 text-sm font-medium shadow-sm backdrop-blur-sm">
         {t("title")} - {visibleStopCount} {t("stops")}
@@ -269,6 +324,7 @@ export function StopMap({
         />
         <InvalidateSize />
         <FlyToSelected stops={stops} selectedStopId={selectedStopId} />
+        <OpenPopupForSelected stops={stops} selectedStopId={selectedStopId} trigger={popupTrigger} />
         <PlacementCursor active={placementMode} />
         <ClosePopupOnEdit trigger={editTrigger} />
 
@@ -343,7 +399,11 @@ export function StopMap({
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditTrigger((n) => n + 1);
-                        onSelectStop(stop);
+                        if (onViewDetail) {
+                          onViewDetail(stop);
+                        } else {
+                          onSelectStop(stop);
+                        }
                       }}
                     >
                       {t("details")}

@@ -22,13 +22,29 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
-        <h1 className="font-heading text-heading font-semibold">
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "100vh",
+        padding: "1rem",
+        backgroundColor: "var(--color-background)",
+      }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        style={{ width: "100%", maxWidth: "400px" }}
+        className="space-y-4"
+      >
+        <h1 className="font-heading text-2xl font-semibold text-foreground">
           {t("appName")}
         </h1>
+        <p className="text-sm text-foreground-muted">
+          {t("login")}
+        </p>
         <div>
-          <label htmlFor="email" className="text-sm font-medium">
+          <label htmlFor="email" className="block text-sm font-medium text-foreground">
             {t("email")}
           </label>
           <input
@@ -36,12 +52,12 @@ export default function LoginPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2"
+            style={{ width: "100%", display: "block", padding: "8px 12px", borderRadius: "6px", border: "1px solid var(--color-border)", fontSize: "14px", marginTop: "4px" }}
             required
           />
         </div>
         <div>
-          <label htmlFor="password" className="text-sm font-medium">
+          <label htmlFor="password" className="block text-sm font-medium text-foreground">
             {t("password")}
           </label>
           <input
@@ -49,11 +65,11 @@ export default function LoginPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2"
+            style={{ width: "100%", display: "block", padding: "8px 12px", borderRadius: "6px", border: "1px solid var(--color-border)", fontSize: "14px", marginTop: "4px" }}
             required
           />
         </div>
-        <Button type="submit" className="w-full">
+        <Button type="submit" className="w-full cursor-pointer">
           {t("login")}
         </Button>
       </form>

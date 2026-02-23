@@ -83,6 +83,13 @@ Read all files in the target path. For each file, check against VTV's standards 
 - Docker credentials use env var interpolation (`${VAR:-default}`), not hardcoded values
 - Input validation on all API boundaries (Query, Form, Path params)
 - SQL injection prevention (parameterized queries via SQLAlchemy)
+- GTFS time fields validated for range (minutes < 60, seconds < 60), not just format
+- Composite natural keys have UniqueConstraint (trip+stop_sequence, calendar+date)
+- Unknown file types rejected with 415, never silently processed as "text"
+- Error-path DB calls wrapped in try/except to avoid masking original errors
+- Content-Length header parsed with try/except ValueError
+- PATCH/PUT schemas reject empty bodies via model_validator
+- Stored files cleaned up when processing fails (no orphaned uploads)
 
 ## OUTPUT
 

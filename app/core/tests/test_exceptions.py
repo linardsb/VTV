@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 from app.auth.exceptions import AccountLockedError, InvalidCredentialsError
 from app.core.exceptions import (
     AppError,
+    DomainValidationError,
     NotFoundError,
-    ValidationError,
     account_locked_handler,
     app_exception_handler,
     invalid_credentials_handler,
@@ -37,15 +37,15 @@ def test_not_found_error_inherits_from_database_error():
 
 
 def test_validation_error_inherits_from_database_error():
-    """Test that ValidationError inherits from AppError."""
-    assert issubclass(ValidationError, AppError)
+    """Test that DomainValidationError inherits from AppError."""
+    assert issubclass(DomainValidationError, AppError)
 
-    with pytest.raises(ValidationError):
-        raise ValidationError("Validation failed")
+    with pytest.raises(DomainValidationError):
+        raise DomainValidationError("Validation failed")
 
     # Verify it can also be caught as AppError
     with pytest.raises(AppError):
-        raise ValidationError("Validation failed")
+        raise DomainValidationError("Validation failed")
 
 
 @pytest.mark.asyncio
@@ -94,12 +94,12 @@ async def test_app_exception_handler_returns_404_for_not_found():
 
 @pytest.mark.asyncio
 async def test_app_exception_handler_returns_422_for_validation():
-    """Test that ValidationError returns 422 status code."""
+    """Test that DomainValidationError returns 422 status code."""
     mock_request = MagicMock(spec=Request)
     mock_request.url.path = "/test/path"
     mock_request.method = "GET"
 
-    exc = ValidationError("Validation failed")
+    exc = DomainValidationError("Validation failed")
 
     with patch("app.core.exceptions.logger.error"):
         response = await app_exception_handler(mock_request, exc)
@@ -164,6 +164,6 @@ def test_setup_exception_handlers_registers_handlers():
     call_args_list = [call[0][0] for call in mock_app.add_exception_handler.call_args_list]
     assert AppError in call_args_list
     assert NotFoundError in call_args_list
-    assert ValidationError in call_args_list
+    assert DomainValidationError in call_args_list
     assert InvalidCredentialsError in call_args_list
     assert AccountLockedError in call_args_list

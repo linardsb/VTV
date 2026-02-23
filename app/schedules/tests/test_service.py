@@ -1,4 +1,4 @@
-# pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+# pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportCallIssue=false
 """Tests for schedule management service."""
 
 from datetime import date
@@ -502,3 +502,114 @@ async def test_import_merges_existing_data(service):
             # Verify merge behavior: no clear_all called, upsert maps loaded
             service.repository.get_agency_gtfs_map.assert_called_once()
             assert result.agencies_count == 0
+
+
+# --- Edge case tests (security audit #2) ---
+
+
+@pytest.mark.asyncio
+async def test_update_calendar_not_found(service):
+    """CalendarNotFoundError when updating non-existent calendar."""
+    from app.schedules.exceptions import CalendarNotFoundError
+    from app.schedules.schemas import CalendarUpdate
+
+    service.repository.get_calendar = AsyncMock(return_value=None)
+
+    with pytest.raises(CalendarNotFoundError):
+        await service.update_calendar(999, CalendarUpdate(monday=False))
+
+
+@pytest.mark.asyncio
+async def test_update_trip_not_found(service):
+    """TripNotFoundError when updating non-existent trip."""
+    from app.schedules.schemas import TripUpdate
+
+    service.repository.get_trip = AsyncMock(return_value=None)
+
+    with pytest.raises(TripNotFoundError):
+        await service.update_trip(999, TripUpdate(trip_headsign="New"))
+
+
+@pytest.mark.asyncio
+async def test_get_trip_not_found(service):
+    """TripNotFoundError when getting non-existent trip."""
+    service.repository.get_trip = AsyncMock(return_value=None)
+
+    with pytest.raises(TripNotFoundError):
+        await service.get_trip(999)
+
+
+@pytest.mark.asyncio
+async def test_add_calendar_exception_calendar_not_found(service):
+    """CalendarNotFoundError when adding exception to non-existent calendar."""
+    from app.schedules.exceptions import CalendarNotFoundError
+    from app.schedules.schemas import CalendarDateCreate
+
+    service.repository.get_calendar = AsyncMock(return_value=None)
+
+    with pytest.raises(CalendarNotFoundError):
+        await service.add_calendar_exception(
+            999, CalendarDateCreate(date=date(2026, 3, 15), exception_type=1)
+        )
+
+
+@pytest.mark.asyncio
+async def test_remove_calendar_exception_not_found(service):
+    """CalendarDateNotFoundError when removing non-existent exception."""
+    from app.schedules.exceptions import CalendarDateNotFoundError
+
+    service.repository.get_calendar_date = AsyncMock(return_value=None)
+
+    with pytest.raises(CalendarDateNotFoundError):
+        await service.remove_calendar_exception(999)
+
+
+@pytest.mark.asyncio
+async def test_replace_stop_times_trip_not_found(service):
+    """TripNotFoundError when replacing stop times on non-existent trip."""
+    service.repository.get_trip = AsyncMock(return_value=None)
+
+    data = StopTimesBulkUpdate(
+        stop_times=[
+            StopTimeCreate(
+                stop_id=1,
+                stop_sequence=1,
+                arrival_time="08:00:00",
+                departure_time="08:01:00",
+            ),
+        ]
+    )
+    with pytest.raises(TripNotFoundError):
+        await service.replace_stop_times(999, data)
+
+
+@pytest.mark.asyncio
+async def test_validate_calendar_date_range(service):
+    """Validation detects start_date > end_date."""
+    bad_calendar = make_calendar(
+        start_date=date(2026, 12, 31),
+        end_date=date(2026, 1, 1),
+    )
+    service.repository.list_calendars = AsyncMock(return_value=[bad_calendar])
+    service.repository.list_trips = AsyncMock(return_value=[])
+
+    result = await service.validate_schedule()
+    assert result.valid is False
+    assert any("end_date" in e or "date range" in e.lower() for e in result.errors)
+
+
+@pytest.mark.asyncio
+async def test_import_gtfs_failure_path(service):
+    """Exception during GTFS import is handled."""
+    from app.schedules.exceptions import GTFSImportError
+
+    with patch("app.schedules.service.StopRepository") as mock_stop_repo_cls:
+        mock_stop_repo = mock_stop_repo_cls.return_value
+        mock_stop_repo.list = AsyncMock(return_value=[])
+
+        with patch("app.schedules.service.GTFSImporter") as mock_importer_cls:
+            mock_importer = mock_importer_cls.return_value
+            mock_importer.parse.side_effect = ValueError("Corrupt ZIP")
+
+            with pytest.raises(GTFSImportError, match="Corrupt ZIP"):
+                await service.import_gtfs(b"bad_zip")

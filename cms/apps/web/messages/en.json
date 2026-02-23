@@ -30,7 +30,14 @@
       "onTimePerformance": "On-Time Performance",
       "delayedRoutes": "Delayed Routes",
       "fleetUtilization": "Fleet Utilization",
-      "comparedToLastMonth": "Compared to last month"
+      "comparedToLastMonth": "Compared to last month",
+      "activeRoutes": "Active Routes",
+      "onRoutes": "across {count} routes",
+      "vehiclesOnTime": "{count} of {total} on time",
+      "ofTotalRoutes": "of {total} routes",
+      "totalInSystem": "of {total} in system",
+      "unavailable": "Data unavailable",
+      "liveIndicator": "Live"
     },
     "manageRoutes": "Manage Routes",
     "calendar": {
@@ -164,6 +171,7 @@
       "shortNamePlaceholder": "e.g., 22",
       "longNamePlaceholder": "e.g., Riga - Liepaja",
       "colorPlaceholder": "#FF0000",
+      "colorPreview": "Preview",
       "textColorPlaceholder": "#FFFFFF",
       "required": "Required field",
       "shortNameHelp": "Route number or short identifier",

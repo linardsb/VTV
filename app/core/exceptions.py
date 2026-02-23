@@ -23,7 +23,7 @@ class NotFoundError(AppError):
     pass
 
 
-class ValidationError(AppError):
+class DomainValidationError(AppError):
     """Exception raised when validation fails."""
 
     pass
@@ -54,7 +54,7 @@ async def app_exception_handler(request: Request, exc: AppError) -> JSONResponse
     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     if isinstance(exc, NotFoundError):
         status_code = status.HTTP_404_NOT_FOUND
-    elif isinstance(exc, ValidationError):
+    elif isinstance(exc, DomainValidationError):
         status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
 
     return JSONResponse(
@@ -124,14 +124,14 @@ def setup_exception_handlers(app: FastAPI) -> None:
     # FastAPI's type system expects exception handlers with exact type signatures
     # matching each exception class. However, our app_exception_handler uses
     # polymorphism to handle AppError and all its subtypes (NotFoundError,
-    # ValidationError) with a single implementation. This is a valid design pattern
+    # DomainValidationError) with a single implementation. This is a valid design pattern
     # that reduces code duplication. We use cast(Any, ...) to inform the type checker
     # that we're intentionally using polymorphic exception handling.
     handler: Any = cast(Any, app_exception_handler)
 
     app.add_exception_handler(AppError, handler)
     app.add_exception_handler(NotFoundError, handler)
-    app.add_exception_handler(ValidationError, handler)
+    app.add_exception_handler(DomainValidationError, handler)
 
     # Auth-specific handlers (401, 423)
     app.add_exception_handler(InvalidCredentialsError, cast(Any, invalid_credentials_handler))

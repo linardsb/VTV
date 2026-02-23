@@ -169,7 +169,7 @@ class TestDemoCredentials:
             )
             await service.seed_demo_users()
 
-        assert len(created_users) == 4
+        assert len(created_users) == 5
         # Verify all users use the custom password (verify against bcrypt hash)
         for user in created_users:
             assert AuthService.verify_password("custom-secure-password", user.hashed_password)

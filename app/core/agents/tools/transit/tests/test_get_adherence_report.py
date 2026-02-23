@@ -9,16 +9,18 @@ import pytest
 from app.core.agents.tools.transit.client import StopTimeUpdateData, TripUpdateData
 from app.core.agents.tools.transit.get_adherence_report import (
     _classify_trip_status,
-    _delay_description,
-    _gtfs_time_to_display,
-    _gtfs_time_to_minutes,
-    _validate_date,
     get_adherence_report,
 )
 from app.core.agents.tools.transit.static_cache import (
     RouteInfo,
     StopTimeEntry,
     TripInfo,
+)
+from app.core.agents.tools.transit.utils import (
+    delay_description,
+    gtfs_time_to_display,
+    gtfs_time_to_minutes,
+    validate_date,
 )
 
 # --- Helper functions ---
@@ -130,32 +132,32 @@ def _make_trip_update(
 # --- Unit tests for helper functions ---
 
 
-def test_gtfs_time_to_minutes_normal():
-    assert _gtfs_time_to_minutes("06:30:00") == 390
+def testgtfs_time_to_minutes_normal():
+    assert gtfs_time_to_minutes("06:30:00") == 390
 
 
-def test_gtfs_time_to_minutes_overnight():
-    assert _gtfs_time_to_minutes("25:30:00") == 1530
+def testgtfs_time_to_minutes_overnight():
+    assert gtfs_time_to_minutes("25:30:00") == 1530
 
 
-def test_gtfs_time_to_display_normal():
-    assert _gtfs_time_to_display("06:30:00") == "06:30"
+def testgtfs_time_to_display_normal():
+    assert gtfs_time_to_display("06:30:00") == "06:30"
 
 
-def test_gtfs_time_to_display_overnight():
-    assert _gtfs_time_to_display("25:30:00") == "01:30"
+def testgtfs_time_to_display_overnight():
+    assert gtfs_time_to_display("25:30:00") == "01:30"
 
 
-def test_validate_date_none_returns_today():
-    result = _validate_date(None)
+def testvalidate_date_none_returns_today():
+    result = validate_date(None)
     assert isinstance(result, tuple)
     parsed_date, date_str = result
     assert isinstance(parsed_date, date)
     assert date_str == parsed_date.isoformat()
 
 
-def test_validate_date_invalid():
-    result = _validate_date("bad-date")
+def testvalidate_date_invalid():
+    result = validate_date("bad-date")
     assert isinstance(result, str)
     assert "Invalid date" in result
 
@@ -174,11 +176,11 @@ def test_classify_trip_status_late_and_early():
     assert _classify_trip_status(-600) == "early"
 
 
-def test_delay_description_values():
-    assert _delay_description(0) == "on time"
-    assert _delay_description(300) == "5 min late"
-    assert _delay_description(-180) == "3 min early"
-    assert _delay_description(30) == "on time"
+def testdelay_description_values():
+    assert delay_description(0) == "on time"
+    assert delay_description(300) == "5 min late"
+    assert delay_description(-180) == "3 min early"
+    assert delay_description(30) == "on time"
 
 
 # --- Tool function tests with mocks ---

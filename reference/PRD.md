@@ -42,7 +42,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 - GTFS import/export — parse and generate GTFS ZIP files ✅ (import via POST + export via GET, 7 CSV files each)
 - Authentication — Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer) ✅ (DB-backed via `POST /api/v1/auth/login`, bcrypt, brute-force lockout)
 - Internationalization — Latvian (primary) + English ✅ (proper diacritics, 142+ i18n keys per locale)
-- Responsive dashboard layout (✅ dashboard + routes + chat pages are mobile responsive)
+- Responsive dashboard layout (✅ dashboard + routes + chat pages are mobile responsive, dashboard metrics on real API)
 
 **AI Agent Service (FastAPI + Pydantic AI)**
 - Single unified agent with transit + vault + knowledge tools

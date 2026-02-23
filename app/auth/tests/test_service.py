@@ -120,7 +120,7 @@ class TestSeedDemoUsers:
             patch.object(service.repo, "create", side_effect=lambda u: u),
         ):
             users = await service.seed_demo_users()
-            assert len(users) == 4
+            assert len(users) == 5
 
     @pytest.mark.asyncio
     async def test_skips_when_users_exist(self, service):

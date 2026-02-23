@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import date, datetime
-from zoneinfo import ZoneInfo
 
 from pydantic_ai import RunContext
 
@@ -24,100 +22,18 @@ from app.core.agents.tools.transit.static_cache import (
     TripInfo,
     get_static_cache,
 )
+from app.core.agents.tools.transit.utils import (
+    classify_service_type,
+    get_first_departure_minutes,
+    gtfs_time_to_display,
+    gtfs_time_to_minutes,
+    validate_date,
+)
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
 _MAX_TRIPS_PER_DIRECTION = 30  # Token efficiency cap
-_RIGA_TZ = ZoneInfo("Europe/Riga")
-
-
-def _gtfs_time_to_minutes(gtfs_time: str) -> int:
-    """Convert GTFS time string to minutes since midnight.
-
-    Handles times > 24:00:00 (e.g., "25:30:00" = 1530 minutes).
-
-    Args:
-        gtfs_time: Time string in HH:MM:SS or HH:MM format.
-
-    Returns:
-        Minutes since midnight (can exceed 1440 for next-day trips).
-    """
-    parts = gtfs_time.strip().split(":")
-    hours = int(parts[0])
-    minutes = int(parts[1])
-    return hours * 60 + minutes
-
-
-def _gtfs_time_to_display(gtfs_time: str) -> str:
-    """Convert GTFS time to HH:MM display format.
-
-    Normalizes times > 24h (e.g., "25:30:00" -> "01:30").
-
-    Args:
-        gtfs_time: GTFS time string.
-
-    Returns:
-        Normalized HH:MM string.
-    """
-    parts = gtfs_time.strip().split(":")
-    hours = int(parts[0]) % 24
-    minutes = int(parts[1])
-    return f"{hours:02d}:{minutes:02d}"
-
-
-def _classify_service_type(query_date: date) -> str:
-    """Classify a date's service type for display.
-
-    Args:
-        query_date: The date to classify.
-
-    Returns:
-        One of "weekday", "saturday", "sunday".
-    """
-    day_name = query_date.strftime("%A").lower()
-    if day_name == "saturday":
-        return "saturday"
-    if day_name == "sunday":
-        return "sunday"
-    return "weekday"
-
-
-def _validate_date(date_str: str | None) -> tuple[date, str] | str:
-    """Validate and parse a date string, defaulting to today in Riga timezone.
-
-    Args:
-        date_str: ISO date string (YYYY-MM-DD) or None for today.
-
-    Returns:
-        Tuple of (date, date_string) on success, or error message string on failure.
-    """
-    if date_str is None:
-        today = datetime.now(tz=_RIGA_TZ).date()
-        return (today, today.isoformat())
-    try:
-        parsed = date.fromisoformat(date_str)
-    except ValueError:
-        return f"Invalid date format '{date_str}'. Use YYYY-MM-DD format, e.g., '2026-02-17'."
-    return (parsed, date_str)
-
-
-def _get_first_departure_minutes(
-    trip: TripInfo, trip_stop_times: dict[str, list[StopTimeEntry]]
-) -> int:
-    """Get the departure time in minutes for a trip's first stop.
-
-    Args:
-        trip: Trip to look up.
-        trip_stop_times: Index of trip_id -> ordered stop times.
-
-    Returns:
-        Minutes since midnight, or 9999 if no stop times found.
-    """
-    stops = trip_stop_times.get(trip.trip_id, [])
-    if not stops:
-        return 9999
-    return _gtfs_time_to_minutes(stops[0].departure_time)
 
 
 def _build_direction_schedules(
@@ -145,7 +61,7 @@ def _build_direction_schedules(
         dir_trips = by_direction[direction_id]
 
         # Sort trips by first departure time
-        dir_trips.sort(key=lambda t: _get_first_departure_minutes(t, trip_stop_times))
+        dir_trips.sort(key=lambda t: get_first_departure_minutes(t, trip_stop_times))
 
         total_count = len(dir_trips)
         display_trips = dir_trips[:_MAX_TRIPS_PER_DIRECTION]
@@ -155,8 +71,8 @@ def _build_direction_schedules(
         for trip in display_trips:
             stops = trip_stop_times.get(trip.trip_id, [])
             if stops:
-                first_dep = _gtfs_time_to_display(stops[0].departure_time)
-                last_arr = _gtfs_time_to_display(stops[-1].arrival_time)
+                first_dep = gtfs_time_to_display(stops[0].departure_time)
+                last_arr = gtfs_time_to_display(stops[-1].arrival_time)
             else:
                 first_dep = "--:--"
                 last_arr = "--:--"
@@ -178,7 +94,7 @@ def _build_direction_schedules(
             # For last departure, use last from full sorted list (not truncated)
             last_trip_stops = trip_stop_times.get(dir_trips[-1].trip_id, [])
             last_departure = (
-                _gtfs_time_to_display(last_trip_stops[0].departure_time)
+                gtfs_time_to_display(last_trip_stops[0].departure_time)
                 if last_trip_stops
                 else trip_schedules[-1].first_departure
             )
@@ -268,7 +184,7 @@ async def get_route_schedule(
     )
 
     # Validate date
-    date_result = _validate_date(date)
+    date_result = validate_date(date)
     if isinstance(date_result, str):
         return date_result
     query_date, date_str = date_result
@@ -316,19 +232,19 @@ async def get_route_schedule(
         # Time window filter
         total_before_time_filter = len(active_trips)
         if time_from is not None or time_until is not None:
-            from_minutes = _gtfs_time_to_minutes(time_from) if time_from else 0
-            until_minutes = _gtfs_time_to_minutes(time_until) if time_until else 99999
+            from_minutes = gtfs_time_to_minutes(time_from) if time_from else 0
+            until_minutes = gtfs_time_to_minutes(time_until) if time_until else 99999
 
             filtered: list[TripInfo] = []
             for trip in active_trips:
-                dep_minutes = _get_first_departure_minutes(trip, static.trip_stop_times)
+                dep_minutes = get_first_departure_minutes(trip, static.trip_stop_times)
                 if from_minutes <= dep_minutes <= until_minutes:
                     filtered.append(trip)
 
             if not filtered:
                 # Find actual first and last departures for the error message
                 all_deps = [
-                    _get_first_departure_minutes(t, static.trip_stop_times) for t in active_trips
+                    get_first_departure_minutes(t, static.trip_stop_times) for t in active_trips
                 ]
                 valid_deps = [d for d in all_deps if d < 9999]
                 if valid_deps:
@@ -354,7 +270,7 @@ async def get_route_schedule(
         directions = _build_direction_schedules(active_trips, static.trip_stop_times)
 
         # Build summary
-        service_type = _classify_service_type(query_date)
+        service_type = classify_service_type(query_date)
         total_trips = sum(d.trip_count for d in directions)
 
         dir_summaries: list[str] = []

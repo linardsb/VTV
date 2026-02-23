@@ -30,7 +30,14 @@
       "onTimePerformance": "Savlaicīgums",
       "delayedRoutes": "Kavēti maršruti",
       "fleetUtilization": "Parka izmantojums",
-      "comparedToLastMonth": "Salīdzinot ar iepriekšējo mēnesi"
+      "comparedToLastMonth": "Salīdzinot ar iepriekšējo mēnesi",
+      "activeRoutes": "Aktīvi maršruti",
+      "onRoutes": "uz {count} maršrutiem",
+      "vehiclesOnTime": "{count} no {total} laikā",
+      "ofTotalRoutes": "no {total} maršrutiem",
+      "totalInSystem": "no {total} sistēmā",
+      "unavailable": "Dati nav pieejami",
+      "liveIndicator": "Reāllaiks"
     },
     "manageRoutes": "Pārvaldīt maršrutus",
     "calendar": {
@@ -164,6 +171,7 @@
       "shortNamePlaceholder": "piem., 22",
       "longNamePlaceholder": "piem., Rīga - Liepāja",
       "colorPlaceholder": "#FF0000",
+      "colorPreview": "Priekšskatījums",
       "textColorPlaceholder": "#FFFFFF",
       "required": "Obligāts lauks",
       "shortNameHelp": "Maršruta numurs vai īsais apzīmējums",

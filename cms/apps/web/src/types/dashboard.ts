@@ -21,7 +21,7 @@ export interface CalendarEvent {
 export interface MetricData {
   title: string;
   value: string;
-  delta: string;
-  deltaType: "positive" | "negative" | "neutral";
+  delta?: string;
+  deltaType?: "positive" | "negative" | "neutral";
   subtitle: string;
 }

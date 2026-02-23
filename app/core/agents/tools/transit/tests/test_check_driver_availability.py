@@ -7,10 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.agents.tools.transit.check_driver_availability import (
-    _classify_service_type,
-    _validate_date,
     check_driver_availability,
 )
+from app.core.agents.tools.transit.utils import classify_service_type, validate_date
 
 # --- Helper functions ---
 
@@ -52,35 +51,35 @@ def _make_mock_drivers(
 # --- Unit tests for helper functions ---
 
 
-def test_validate_date_none_returns_today():
-    result = _validate_date(None)
+def testvalidate_date_none_returns_today():
+    result = validate_date(None)
     assert isinstance(result, tuple)
     parsed_date, date_str = result
     assert isinstance(parsed_date, date)
     assert date_str == parsed_date.isoformat()
 
 
-def test_validate_date_valid():
-    result = _validate_date("2026-02-17")
+def testvalidate_date_valid():
+    result = validate_date("2026-02-17")
     assert isinstance(result, tuple)
     parsed_date, date_str = result
     assert parsed_date == date(2026, 2, 17)
     assert date_str == "2026-02-17"
 
 
-def test_validate_date_invalid():
-    result = _validate_date("bad-date")
+def testvalidate_date_invalid():
+    result = validate_date("bad-date")
     assert isinstance(result, str)
     assert "Invalid date" in result
 
 
-def test_classify_service_type_weekday():
-    assert _classify_service_type(date(2026, 2, 17)) == "weekday"  # Tuesday
+def testclassify_service_type_weekday():
+    assert classify_service_type(date(2026, 2, 17)) == "weekday"  # Tuesday
 
 
-def test_classify_service_type_weekend():
-    assert _classify_service_type(date(2026, 2, 21)) == "saturday"
-    assert _classify_service_type(date(2026, 3, 1)) == "sunday"
+def testclassify_service_type_weekend():
+    assert classify_service_type(date(2026, 2, 21)) == "saturday"
+    assert classify_service_type(date(2026, 3, 1)) == "sunday"
 
 
 # --- Tool function tests with mocks ---

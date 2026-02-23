@@ -2,7 +2,7 @@
 
 import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # --- Agency ---
 
@@ -210,6 +210,16 @@ class StopTimeCreate(BaseModel):
     )
     pickup_type: int = Field(default=0, ge=0, le=3, description="GTFS pickup_type")
     drop_off_type: int = Field(default=0, ge=0, le=3, description="GTFS drop_off_type")
+
+    @field_validator("arrival_time", "departure_time")
+    @classmethod
+    def validate_time_range(cls, v: str) -> str:
+        """Validate GTFS time values: hours 0-99, minutes/seconds 0-59."""
+        parts = v.split(":")
+        h, m, s = int(parts[0]), int(parts[1]), int(parts[2])
+        if not (0 <= h <= 99 and 0 <= m <= 59 and 0 <= s <= 59):
+            raise ValueError(f"Invalid time '{v}': minutes and seconds must be 0-59")
+        return v
 
 
 class StopTimeResponse(BaseModel):

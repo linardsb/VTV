@@ -6,8 +6,8 @@ Planned features and improvements. Each item links to its detailed planning docu
 
 ```
 Backend API       ████████████████████░░░░  85%  (6/7 features, schedules + stops + transit + knowledge + DMS + auth done)
-CMS Frontend      ████████████████████░░░░  83%  (7/7 pages live, real API on 5/7, mock data on dashboard)
-Testing           ██████████████░░░░░░░░░░  60%  (520 unit tests, 69 e2e tests, no CI pipeline yet)
+CMS Frontend      █████████████████████░░░  88%  (7/7 pages live, real API on 6/7, mock calendar on dashboard only)
+Testing           ██████████████░░░░░░░░░░  65%  (554 unit tests, 69 e2e tests, no CI pipeline yet)
 Infrastructure    ████████████████████░░░░  80%  (Docker, nginx, Makefile, 24 slash commands, e2e framework)
 Latvia Platform   ████░░░░░░░░░░░░░░░░░░░  15%  (Riga GTFS only, no PostGIS/TimescaleDB/multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
@@ -22,7 +22,7 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 ### Dashboard Real Data
 
-- [ ] **Dashboard API Integration** - Replace mock metrics and calendar events with real backend data. Dashboard currently uses `mock-dashboard-data.ts` — the only page still on mock data.
+- [ ] **Dashboard Calendar Integration** - Replace mock calendar events with real backend data. Dashboard metrics now use real API data (vehicle positions + route counts, 30s polling via `useDashboardMetrics` hook). Calendar events still use `mock-dashboard-data.ts`.
 
 ## Planned Features
 
@@ -87,7 +87,7 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 ### CMS Frontend Pages
 
-- [x] **Dashboard** - 4 metric cards, multi-view calendar (week/month/3-month/year), live timeline, resizable panels. Mock data. (commit 852ee95)
+- [x] **Dashboard** - 4 metric cards (real API: vehicles + routes, 30s polling), multi-view calendar (week/month/3-month/year, mock events), live timeline, resizable panels. (commit 852ee95, updated 2026-02-23)
 
 - [x] **Routes Page** - Real API CRUD against backend `/api/v1/schedules/routes`, server pagination, search, type/agency/status filters, route detail sheet, route form, Leaflet map with live GTFS-RT vehicle positions (15s polling), resizable split panels, mobile tab layout. 142 i18n keys per locale.
 
@@ -122,6 +122,9 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [x] **Security Audit Remediation** - 13 findings from third-party security audit fixed. Streaming upload with 50MB limit, regex filename sanitization, path traversal prevention, ILIKE wildcard escaping, X-Real-IP rate limiting, Redis URL redaction, Docker env var interpolation, transit input validation, nginx HTTPS template, environment-controlled demo credentials. 33 security regression tests. (commit 85bf32d, 2026-02-22)
   - Audit: [docs/security_audit.txt](security_audit.txt)
+
+- [x] **Security Audit 2 Remediation** - Second audit addressing code quality, data integrity, and testing gaps. `ValidationError` → `DomainValidationError` rename (Pydantic clash), Content-Length header hardening, transit tool deduplication (6 functions → `utils.py`), GTFS time validation (min/sec range), unique constraints on `(trip_id, stop_sequence)` and `(calendar_id, date)` + 2 migrations, knowledge empty update rejection, unknown file type rejection, exception handling improvements, cookie SameSite, locale-aware auth redirects, schedule edge case tests, knowledge repository + route layer tests. 34 new tests (520 → 554). (2026-02-23)
+  - Audit: [docs/security_audit_2.txt](security_audit_2.txt)
 
 ## Planning Documents
 

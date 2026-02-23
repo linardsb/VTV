@@ -1,35 +1,4 @@
-import type { CalendarEvent, MetricData } from "@/types/dashboard";
-
-export const MOCK_METRICS: MetricData[] = [
-  {
-    title: "Active Vehicles",
-    value: "342",
-    delta: "+12",
-    deltaType: "positive",
-    subtitle: "Compared to 330 last month",
-  },
-  {
-    title: "On-Time Performance",
-    value: "94.2%",
-    delta: "+2.1%",
-    deltaType: "positive",
-    subtitle: "Compared to 92.1% last month",
-  },
-  {
-    title: "Delayed Routes",
-    value: "3",
-    delta: "+1",
-    deltaType: "negative",
-    subtitle: "Compared to 2 last month",
-  },
-  {
-    title: "Fleet Utilization",
-    value: "87%",
-    delta: "+5%",
-    deltaType: "positive",
-    subtitle: "Compared to 82% last month",
-  },
-];
+import type { CalendarEvent } from "@/types/dashboard";
 
 function getWeekDay(offset: number): Date {
   const now = new Date();

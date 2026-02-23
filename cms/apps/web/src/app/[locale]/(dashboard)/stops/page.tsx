@@ -82,6 +82,9 @@ export default function StopsPage() {
   const [editingStopId, setEditingStopId] = useState<number | null>(null);
   const [editingCoords, setEditingCoords] = useState<{ lat: number; lon: number } | null>(null);
 
+  // Popup trigger — incremented when table row is clicked to tell map to open the popup
+  const [popupTrigger, setPopupTrigger] = useState(0);
+
   // Debounced search
   // Wrap filter setters to reset page on filter change
   const setLocationTypeFilter = useCallback((value: string) => {
@@ -156,6 +159,12 @@ export default function StopsPage() {
 
   // Handlers
   const handleSelectStop = useCallback((stop: Stop) => {
+    setSelectedStop(stop);
+    setPopupTrigger((n) => n + 1);
+  }, []);
+
+  // Called from popup "Details" button — opens the detail Sheet
+  const handleViewDetail = useCallback((stop: Stop) => {
     setSelectedStop(stop);
     setDetailOpen(true);
   }, []);
@@ -300,6 +309,7 @@ export default function StopsPage() {
     stops: allStops,
     selectedStopId,
     onSelectStop: handleSelectStop,
+    onViewDetail: handleViewDetail,
     onEditStop: IS_READ_ONLY ? undefined : handleEditFromTable,
     placementMode,
     onMapClick: handleMapClick,
@@ -307,6 +317,7 @@ export default function StopsPage() {
     editingCoords,
     onEditingCoordsChange: handleEditingCoordsChange,
     locationTypeFilter,
+    popupTrigger,
   };
 
   return (

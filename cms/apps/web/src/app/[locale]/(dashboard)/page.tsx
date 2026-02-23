@@ -1,30 +1,17 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
-import { Bus, Clock, AlertTriangle, Gauge, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MetricCard } from "@/components/dashboard/metric-card";
+import { DashboardMetrics } from "@/components/dashboard/dashboard-metrics";
 import { CalendarGrid } from "@/components/dashboard/calendar-grid";
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
-import { MOCK_METRICS, MOCK_EVENTS } from "@/lib/mock-dashboard-data";
+import { MOCK_EVENTS } from "@/lib/mock-dashboard-data";
 
-export const revalidate = 3600; // 1 hour — dashboard uses mock data
-
-const METRIC_ICONS = [
-  <Bus key="bus" className="size-5 text-foreground-muted" aria-hidden="true" />,
-  <Clock key="clock" className="size-5 text-foreground-muted" aria-hidden="true" />,
-  <AlertTriangle key="alert" className="size-5 text-foreground-muted" aria-hidden="true" />,
-  <Gauge key="gauge" className="size-5 text-foreground-muted" aria-hidden="true" />,
-];
-const METRIC_KEYS = [
-  "activeVehicles",
-  "onTimePerformance",
-  "delayedRoutes",
-  "fleetUtilization",
-] as const;
+export const revalidate = 3600; // 1 hour — calendar uses mock data, metrics are client-side
 
 export default async function DashboardPage({
   params,
@@ -51,19 +38,7 @@ export default async function DashboardPage({
       <ResizablePanelGroup orientation="vertical" className="min-h-[calc(100vh-6rem)]">
         {/* Metrics panel */}
         <ResizablePanel defaultSize={20} minSize={10}>
-          <div className="grid grid-cols-1 gap-(--spacing-grid) sm:grid-cols-2 lg:grid-cols-4">
-            {MOCK_METRICS.map((metric, i) => (
-              <MetricCard
-                key={METRIC_KEYS[i]}
-                icon={METRIC_ICONS[i]}
-                title={t(`metrics.${METRIC_KEYS[i]}`)}
-                value={metric.value}
-                delta={metric.delta}
-                deltaType={metric.deltaType}
-                subtitle={t("metrics.comparedToLastMonth")}
-              />
-            ))}
-          </div>
+          <DashboardMetrics />
         </ResizablePanel>
 
         <ResizableHandle withHandle />

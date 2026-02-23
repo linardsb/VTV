@@ -29,6 +29,7 @@ from app.core.agents.tools.transit.schemas import (
     StopDepartures,
 )
 from app.core.agents.tools.transit.static_cache import GTFSStaticCache, get_static_cache
+from app.core.agents.tools.transit.utils import delay_description
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -39,16 +40,6 @@ _WARNING_THRESHOLD = 180  # 3 minutes
 _CRITICAL_THRESHOLD = 600  # 10 minutes
 
 _VALID_ACTIONS = ("status", "route_overview", "stop_departures")
-
-
-def _delay_description(delay_seconds: int) -> str:
-    """Convert delay in seconds to human-readable text."""
-    if abs(delay_seconds) < 60:
-        return "on time"
-    minutes = abs(delay_seconds) // 60
-    if delay_seconds > 0:
-        return f"{minutes} min late"
-    return f"{minutes} min early"
 
 
 def _severity(delay_seconds: int) -> str:
@@ -321,7 +312,7 @@ async def _handle_stop_departures(
                     trip_id=tu.trip_id,
                     predicted_arrival=predicted,
                     delay_seconds=delay,
-                    delay_description=_delay_description(delay),
+                    delay_description=delay_description(delay),
                 )
             )
 
@@ -422,7 +413,7 @@ def _build_bus_statuses(
                 next_stop_name=next_stop_name,
                 position=position,
                 delay_seconds=delay,
-                delay_description=_delay_description(delay),
+                delay_description=delay_description(delay),
                 predicted_arrival=predicted_arrival,
                 timestamp=ts,
                 severity=_severity(delay),

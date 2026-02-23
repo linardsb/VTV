@@ -1,8 +1,9 @@
 """Pydantic schemas for knowledge base feature."""
 
 from datetime import datetime
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 
 class DocumentUpload(BaseModel):
@@ -22,6 +23,13 @@ class DocumentUpdate(BaseModel):
     description: str | None = None
     domain: str | None = Field(None, min_length=1, max_length=50)
     language: str | None = Field(None, pattern="^(lv|en)$")
+
+    @model_validator(mode="after")
+    def check_at_least_one_field(self) -> Self:
+        """Reject empty PATCH bodies that would cause unnecessary DB round-trips."""
+        if not any(v is not None for v in self.model_dump(exclude_unset=True).values()):
+            raise ValueError("At least one field must be provided for update")
+        return self
 
 
 class DocumentResponse(BaseModel):

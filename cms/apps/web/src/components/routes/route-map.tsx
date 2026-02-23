@@ -17,7 +17,7 @@ export function RouteMap({ buses, selectedRouteId, onSelectRoute }: RouteMapProp
   const t = useTranslations("routes.map");
   const [mapInstance] = useState(() => `map-${Date.now()}`);
   return (
-    <div className="relative h-full min-h-[50vh] w-full bg-surface">
+    <div className="relative isolate h-full min-h-[50vh] w-full bg-surface">
       <div className="absolute left-3 top-3 z-[1000] rounded-md bg-surface/90 px-3 py-1.5 text-sm font-medium shadow-sm backdrop-blur-sm">
         {t("title")} - {buses.length} {t("vehicles")}
       </div>

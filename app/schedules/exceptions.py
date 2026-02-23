@@ -6,7 +6,7 @@ Inherits from core exceptions for automatic HTTP status code mapping:
 - ScheduleError / GTFSImportError -> 500
 """
 
-from app.core.exceptions import AppError, NotFoundError, ValidationError
+from app.core.exceptions import AppError, DomainValidationError, NotFoundError
 
 
 class ScheduleError(AppError):
@@ -17,7 +17,7 @@ class AgencyNotFoundError(NotFoundError):
     """Raised when an agency is not found by ID."""
 
 
-class AgencyAlreadyExistsError(ValidationError):
+class AgencyAlreadyExistsError(DomainValidationError):
     """Raised when creating an agency with a duplicate gtfs_agency_id."""
 
 
@@ -41,19 +41,19 @@ class CalendarDateNotFoundError(NotFoundError):
     """Raised when a calendar date exception is not found by ID."""
 
 
-class RouteAlreadyExistsError(ValidationError):
+class RouteAlreadyExistsError(DomainValidationError):
     """Raised when creating a route with a duplicate gtfs_route_id."""
 
 
-class CalendarAlreadyExistsError(ValidationError):
+class CalendarAlreadyExistsError(DomainValidationError):
     """Raised when creating a calendar with a duplicate gtfs_service_id."""
 
 
-class TripAlreadyExistsError(ValidationError):
+class TripAlreadyExistsError(DomainValidationError):
     """Raised when creating a trip with a duplicate gtfs_trip_id."""
 
 
-class ScheduleValidationError(ValidationError):
+class ScheduleValidationError(DomainValidationError):
     """Raised when schedule data fails validation checks."""
 
 

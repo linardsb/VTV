@@ -92,6 +92,9 @@ Read all files in the target path. For each file, check against VTV's frontend s
 - Form submissions validate input client-side and rely on server-side validation
 - File uploads: client-side size validation before upload (50MB limit)
 - Auth tokens stored via httpOnly cookies (Auth.js), never localStorage
+- All `document.cookie` calls include `SameSite=Lax` (or Strict for auth)
+- Redirects preserve user's current locale (never hardcode /lv/ or /en/)
+- No auth tokens in localStorage (must use httpOnly cookies via Auth.js)
 
 ## OUTPUT
 

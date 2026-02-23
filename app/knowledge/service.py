@@ -166,7 +166,18 @@ class KnowledgeService:
             await self.repository.update_document_status(doc.id, "completed", None, len(chunks))
 
         except Exception as e:
-            await self.repository.update_document_status(doc.id, "failed", str(e), 0)
+            try:
+                await self.repository.update_document_status(doc.id, "failed", str(e), 0)
+            except Exception:
+                logger.error("knowledge.ingest.status_update_failed", document_id=doc.id)
+            # Clean up stored file on failure
+            try:
+                stored_dir = Path(settings.document_storage_path) / str(doc.id)
+                if stored_dir.exists():
+                    shutil.rmtree(stored_dir)
+                    logger.info("knowledge.ingest.cleanup", document_id=doc.id)
+            except Exception:
+                logger.error("knowledge.ingest.cleanup_failed", document_id=doc.id)
             duration_ms = int((time.monotonic() - start) * 1000)
             logger.error(
                 "knowledge.ingest.failed",

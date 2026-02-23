@@ -7,7 +7,7 @@ Stop times reference the stops table via foreign key.
 
 import datetime
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -70,6 +70,7 @@ class CalendarDate(Base, TimestampMixin):
     """Calendar date exception database model (GTFS calendar_dates.txt)."""
 
     __tablename__ = "calendar_dates"
+    __table_args__ = (UniqueConstraint("calendar_id", "date", name="uq_calendar_date"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     calendar_id: Mapped[int] = mapped_column(
@@ -105,6 +106,7 @@ class StopTime(Base, TimestampMixin):
     """
 
     __tablename__ = "stop_times"
+    __table_args__ = (UniqueConstraint("trip_id", "stop_sequence", name="uq_stop_time_trip_seq"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     trip_id: Mapped[int] = mapped_column(

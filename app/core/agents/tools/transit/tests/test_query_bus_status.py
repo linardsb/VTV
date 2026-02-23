@@ -5,29 +5,29 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.agents.tools.transit.query_bus_status import (
-    _delay_description,
     _severity,
     _validate_params,
     query_bus_status,
 )
+from app.core.agents.tools.transit.utils import delay_description
 
 # --- Unit tests for helper functions ---
 
 
-def test_delay_description_on_time():
-    assert _delay_description(30) == "on time"
-    assert _delay_description(-30) == "on time"
-    assert _delay_description(0) == "on time"
+def testdelay_description_on_time():
+    assert delay_description(30) == "on time"
+    assert delay_description(-30) == "on time"
+    assert delay_description(0) == "on time"
 
 
-def test_delay_description_late():
-    assert _delay_description(180) == "3 min late"
-    assert _delay_description(600) == "10 min late"
+def testdelay_description_late():
+    assert delay_description(180) == "3 min late"
+    assert delay_description(600) == "10 min late"
 
 
-def test_delay_description_early():
-    assert _delay_description(-180) == "3 min early"
-    assert _delay_description(-600) == "10 min early"
+def testdelay_description_early():
+    assert delay_description(-180) == "3 min early"
+    assert delay_description(-600) == "10 min early"
 
 
 def test_severity_normal():

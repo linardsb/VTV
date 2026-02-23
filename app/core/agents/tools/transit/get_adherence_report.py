@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import date, datetime
-from zoneinfo import ZoneInfo
 
 from pydantic_ai import RunContext
 
@@ -25,101 +23,21 @@ from app.core.agents.tools.transit.static_cache import (
     TripInfo,
     get_static_cache,
 )
+from app.core.agents.tools.transit.utils import (
+    classify_service_type,
+    delay_description,
+    get_first_departure_minutes,
+    gtfs_time_to_display,
+    gtfs_time_to_minutes,
+    validate_date,
+)
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-_RIGA_TZ = ZoneInfo("Europe/Riga")
 _ON_TIME_THRESHOLD = 300  # +/- 5 minutes
 _MAX_TRIPS_PER_ROUTE = 30  # Token efficiency cap
 _MAX_ROUTES_NETWORK = 15  # Cap for network-wide report
-
-
-def _validate_date(date_str: str | None) -> tuple[date, str] | str:
-    """Validate and parse a date string, defaulting to today in Riga timezone.
-
-    Args:
-        date_str: ISO date string (YYYY-MM-DD) or None for today.
-
-    Returns:
-        Tuple of (date, date_string) on success, or error message string on failure.
-    """
-    if date_str is None:
-        today = datetime.now(tz=_RIGA_TZ).date()
-        return (today, today.isoformat())
-    try:
-        parsed = date.fromisoformat(date_str)
-    except ValueError:
-        return f"Invalid date format '{date_str}'. Use YYYY-MM-DD format, e.g., '2026-02-17'."
-    return (parsed, date_str)
-
-
-def _classify_service_type(query_date: date) -> str:
-    """Classify a date's service type for display.
-
-    Args:
-        query_date: The date to classify.
-
-    Returns:
-        One of "weekday", "saturday", "sunday".
-    """
-    day_name = query_date.strftime("%A").lower()
-    if day_name == "saturday":
-        return "saturday"
-    if day_name == "sunday":
-        return "sunday"
-    return "weekday"
-
-
-def _gtfs_time_to_minutes(gtfs_time: str) -> int:
-    """Convert GTFS time string to minutes since midnight.
-
-    Handles times > 24:00:00 (e.g., "25:30:00" = 1530 minutes).
-
-    Args:
-        gtfs_time: Time string in HH:MM:SS or HH:MM format.
-
-    Returns:
-        Minutes since midnight (can exceed 1440 for next-day trips).
-    """
-    parts = gtfs_time.strip().split(":")
-    hours = int(parts[0])
-    minutes = int(parts[1])
-    return hours * 60 + minutes
-
-
-def _gtfs_time_to_display(gtfs_time: str) -> str:
-    """Convert GTFS time to HH:MM display format.
-
-    Normalizes times > 24h (e.g., "25:30:00" -> "01:30").
-
-    Args:
-        gtfs_time: GTFS time string.
-
-    Returns:
-        Normalized HH:MM string.
-    """
-    parts = gtfs_time.strip().split(":")
-    hours = int(parts[0]) % 24
-    minutes = int(parts[1])
-    return f"{hours:02d}:{minutes:02d}"
-
-
-def _delay_description(delay_seconds: int) -> str:
-    """Convert delay in seconds to human-readable text.
-
-    Args:
-        delay_seconds: Delay in seconds (positive=late, negative=early).
-
-    Returns:
-        Human-readable delay description.
-    """
-    if abs(delay_seconds) < 60:
-        return "on time"
-    minutes = abs(delay_seconds) // 60
-    if delay_seconds > 0:
-        return f"{minutes} min late"
-    return f"{minutes} min early"
 
 
 def _classify_trip_status(delay_seconds: int) -> str:
@@ -136,24 +54,6 @@ def _classify_trip_status(delay_seconds: int) -> str:
     if delay_seconds > _ON_TIME_THRESHOLD:
         return "late"
     return "early"
-
-
-def _get_first_departure_minutes(
-    trip: TripInfo, trip_stop_times: dict[str, list[StopTimeEntry]]
-) -> int:
-    """Get the departure time in minutes for a trip's first stop.
-
-    Args:
-        trip: Trip to look up.
-        trip_stop_times: Index of trip_id -> ordered stop times.
-
-    Returns:
-        Minutes since midnight, or 9999 if no stop times found.
-    """
-    stops = trip_stop_times.get(trip.trip_id, [])
-    if not stops:
-        return 9999
-    return _gtfs_time_to_minutes(stops[0].departure_time)
 
 
 def _compute_route_adherence(
@@ -183,7 +83,7 @@ def _compute_route_adherence(
 
     for trip in scheduled_trips:
         # Get first departure time
-        dep_minutes = _get_first_departure_minutes(trip, trip_stop_times)
+        dep_minutes = get_first_departure_minutes(trip, trip_stop_times)
 
         # Apply time window filter
         if time_from_minutes is not None and dep_minutes < time_from_minutes:
@@ -192,7 +92,7 @@ def _compute_route_adherence(
             continue
 
         stops = trip_stop_times.get(trip.trip_id, [])
-        scheduled_dep = _gtfs_time_to_display(stops[0].departure_time) if stops else "--:--"
+        scheduled_dep = gtfs_time_to_display(stops[0].departure_time) if stops else "--:--"
 
         # Look up real-time data
         tu = trip_update_map.get(trip.trip_id)
@@ -207,7 +107,7 @@ def _compute_route_adherence(
                     headsign=trip.trip_headsign,
                     scheduled_departure=scheduled_dep,
                     delay_seconds=delay,
-                    delay_description=_delay_description(delay),
+                    delay_description=delay_description(delay),
                     status=status,
                     vehicle_id=tu.vehicle_id,
                 )
@@ -314,7 +214,7 @@ async def get_adherence_report(
     )
 
     # Validate date
-    date_result = _validate_date(date)
+    date_result = validate_date(date)
     if isinstance(date_result, str):
         return date_result
     query_date, date_str = date_result
@@ -331,10 +231,10 @@ async def get_adherence_report(
         service_ids = static.get_active_service_ids(query_date)
 
         # Time window
-        time_from_minutes = _gtfs_time_to_minutes(time_from) if time_from else None
-        time_until_minutes = _gtfs_time_to_minutes(time_until) if time_until else None
+        time_from_minutes = gtfs_time_to_minutes(time_from) if time_from else None
+        time_until_minutes = gtfs_time_to_minutes(time_until) if time_until else None
 
-        service_type = _classify_service_type(query_date)
+        service_type = classify_service_type(query_date)
         route_adherences: list[RouteAdherence] = []
 
         if route_id is not None:

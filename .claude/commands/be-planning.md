@@ -402,6 +402,20 @@ The executing agent MUST follow these rules to avoid common errors:
 44. **Never log URLs that may contain credentials** — Redis URLs, database URLs, and API endpoints may embed passwords. Plan must specify a `_redact_url()` helper using `urllib.parse.urlparse` to mask passwords before logging.
 45. **Rate limiter must use X-Real-IP, not X-Forwarded-For** — `X-Forwarded-For` is client-spoofable. Only `X-Real-IP` (set by nginx) is trustworthy. Plan must specify `request.headers.get("X-Real-IP")` in rate limiting key functions.
 46. **Docker credentials must use env var interpolation** — Never hardcode `POSTGRES_PASSWORD: postgres` in docker-compose. Plan must specify `${POSTGRES_PASSWORD:-postgres}` syntax for all database credentials.
+47. **GTFS time validation needs range check** — Regex `^\d{2}:\d{2}:\d{2}$` is format-only.
+    Always add field_validator for minutes < 60, seconds < 60.
+48. **Unique constraints for GTFS composite keys** — Always add `__table_args__` with
+    UniqueConstraint for natural keys (trip_id+stop_sequence, calendar_id+date).
+49. **Unknown file types must be rejected** — Never default to "text" for unrecognized MIME types.
+    Return 415 Unsupported Media Type.
+50. **Wrap error-path DB updates in try/except** — If `update_status("failed")` itself fails
+    (DB gone), it masks the original error. Always: try/except around cleanup DB calls.
+51. **Clean up stored files on processing failure** — If file is copied to permanent storage
+    before processing, add cleanup in the exception handler.
+52. **Empty PATCH bodies must be rejected** — Add `@model_validator(mode="after")` to reject
+    updates where no fields are provided. Prevents unnecessary DB round-trips.
+53. **Content-Length must be parsed defensively** — `int(content_length)` raises ValueError on
+    malformed headers. Always wrap in try/except.
 
 ## Migration (if applicable)
 

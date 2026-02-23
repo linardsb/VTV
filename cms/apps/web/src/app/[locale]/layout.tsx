@@ -1,7 +1,6 @@
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { SessionProvider } from "next-auth/react";
-import { AppSidebar } from "@/components/app-sidebar";
 import { Toaster } from "@/components/ui/sonner";
 
 export default async function LocaleLayout({
@@ -17,12 +16,7 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <SessionProvider>
-        <div className="flex min-h-screen flex-col md:flex-row">
-          <AppSidebar locale={locale} />
-          <main id="main-content" className="flex-1 overflow-auto p-(--spacing-page)">
-            {children}
-          </main>
-        </div>
+        {children}
         <Toaster />
       </SessionProvider>
     </NextIntlClientProvider>

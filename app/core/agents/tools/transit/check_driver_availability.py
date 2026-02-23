@@ -8,8 +8,6 @@ from __future__ import annotations
 import json
 import time
 from collections import defaultdict
-from datetime import date, datetime
-from zoneinfo import ZoneInfo
 
 from pydantic_ai import RunContext
 
@@ -23,48 +21,12 @@ from app.core.agents.tools.transit.schemas import (
     DriverInfo,
     ShiftSummary,
 )
+from app.core.agents.tools.transit.utils import classify_service_type, validate_date
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-_RIGA_TZ = ZoneInfo("Europe/Riga")
 _MAX_DRIVERS_RESPONSE = 30  # Token efficiency cap
-
-
-def _validate_date(date_str: str | None) -> tuple[date, str] | str:
-    """Validate and parse a date string, defaulting to today in Riga timezone.
-
-    Args:
-        date_str: ISO date string (YYYY-MM-DD) or None for today.
-
-    Returns:
-        Tuple of (date, date_string) on success, or error message string on failure.
-    """
-    if date_str is None:
-        today = datetime.now(tz=_RIGA_TZ).date()
-        return (today, today.isoformat())
-    try:
-        parsed = date.fromisoformat(date_str)
-    except ValueError:
-        return f"Invalid date format '{date_str}'. Use YYYY-MM-DD format, e.g., '2026-02-17'."
-    return (parsed, date_str)
-
-
-def _classify_service_type(query_date: date) -> str:
-    """Classify a date's service type for display.
-
-    Args:
-        query_date: The date to classify.
-
-    Returns:
-        One of "weekday", "saturday", "sunday".
-    """
-    day_name = query_date.strftime("%A").lower()
-    if day_name == "saturday":
-        return "saturday"
-    if day_name == "sunday":
-        return "sunday"
-    return "weekday"
 
 
 async def check_driver_availability(
@@ -121,7 +83,7 @@ async def check_driver_availability(
     )
 
     # Validate date
-    date_result = _validate_date(date)
+    date_result = validate_date(date)
     if isinstance(date_result, str):
         return date_result
     query_date, date_str = date_result
@@ -180,7 +142,7 @@ async def check_driver_availability(
         available_count = sum(1 for d in drivers if d.status == "available")
 
         # Build summary text
-        service_type = _classify_service_type(query_date)
+        service_type = classify_service_type(query_date)
         shift_desc = f", {shift} shift" if shift else ""
         route_desc = f", route {route_id}" if route_id else ""
 

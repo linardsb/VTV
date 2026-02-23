@@ -7,8 +7,8 @@ interface MetricCardProps {
   icon: ReactNode;
   title: string;
   value: string;
-  delta: string;
-  deltaType: "positive" | "negative" | "neutral";
+  delta?: string;
+  deltaType?: "positive" | "negative" | "neutral";
   subtitle: string;
 }
 
@@ -33,14 +33,16 @@ export function MetricCard({
           {icon}
           <span className="text-sm text-foreground-muted">{title}</span>
         </div>
-        <span
-          className={cn(
-            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-            deltaStyles[deltaType]
-          )}
-        >
-          {delta}
-        </span>
+        {delta && deltaType && (
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+              deltaStyles[deltaType]
+            )}
+          >
+            {delta}
+          </span>
+        )}
       </div>
       <p className="mt-(--spacing-inline) font-heading text-heading font-semibold text-foreground">
         {value}

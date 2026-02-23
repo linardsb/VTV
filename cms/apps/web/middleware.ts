@@ -13,9 +13,11 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const role = req.auth?.user?.role;
 
-  // Not authenticated — redirect to login
+  // Not authenticated — redirect to login (preserving user's locale)
   if (!role) {
-    return NextResponse.redirect(new URL("/lv/login", req.url));
+    const locale = pathname.split("/")[1] || "lv";
+    const validLocale = ["lv", "en"].includes(locale) ? locale : "lv";
+    return NextResponse.redirect(new URL(`/${validLocale}/login`, req.url));
   }
 
   // Extract path without locale prefix (e.g., /lv/routes → /routes)

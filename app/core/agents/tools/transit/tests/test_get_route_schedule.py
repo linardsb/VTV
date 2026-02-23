@@ -5,83 +5,83 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.core.agents.tools.transit.get_route_schedule import (
-    _classify_service_type,
-    _gtfs_time_to_display,
-    _gtfs_time_to_minutes,
-    _validate_date,
-    get_route_schedule,
-)
+from app.core.agents.tools.transit.get_route_schedule import get_route_schedule
 from app.core.agents.tools.transit.static_cache import (
     RouteInfo,
     StopTimeEntry,
     TripInfo,
 )
+from app.core.agents.tools.transit.utils import (
+    classify_service_type,
+    gtfs_time_to_display,
+    gtfs_time_to_minutes,
+    validate_date,
+)
 
 # --- Unit tests for helper functions ---
 
 
-def test_gtfs_time_to_minutes_normal():
-    assert _gtfs_time_to_minutes("06:30:00") == 390
+def testgtfs_time_to_minutes_normal():
+    assert gtfs_time_to_minutes("06:30:00") == 390
 
 
-def test_gtfs_time_to_minutes_midnight():
-    assert _gtfs_time_to_minutes("00:00:00") == 0
+def testgtfs_time_to_minutes_midnight():
+    assert gtfs_time_to_minutes("00:00:00") == 0
 
 
-def test_gtfs_time_to_minutes_overnight():
-    assert _gtfs_time_to_minutes("25:30:00") == 1530
+def testgtfs_time_to_minutes_overnight():
+    assert gtfs_time_to_minutes("25:30:00") == 1530
 
 
-def test_gtfs_time_to_minutes_short_format():
-    assert _gtfs_time_to_minutes("06:30") == 390
+def testgtfs_time_to_minutes_short_format():
+    assert gtfs_time_to_minutes("06:30") == 390
 
 
-def test_gtfs_time_to_display_normal():
-    assert _gtfs_time_to_display("06:30:00") == "06:30"
+def testgtfs_time_to_display_normal():
+    assert gtfs_time_to_display("06:30:00") == "06:30"
 
 
-def test_gtfs_time_to_display_overnight():
-    assert _gtfs_time_to_display("25:30:00") == "01:30"
+def testgtfs_time_to_display_overnight():
+    assert gtfs_time_to_display("25:30:00") == "01:30"
 
 
-def test_gtfs_time_to_display_midnight():
-    assert _gtfs_time_to_display("24:00:00") == "00:00"
+def testgtfs_time_to_display_midnight():
+    assert gtfs_time_to_display("24:00:00") == "00:00"
 
 
-def test_classify_service_type_weekday():
+def testclassify_service_type_weekday():
     # 2026-02-16 is a Monday
-    assert _classify_service_type(date(2026, 2, 16)) == "weekday"
+    assert classify_service_type(date(2026, 2, 16)) == "weekday"
 
 
-def test_classify_service_type_saturday():
+def testclassify_service_type_saturday():
     # 2026-02-21 is a Saturday
-    assert _classify_service_type(date(2026, 2, 21)) == "saturday"
+    assert classify_service_type(date(2026, 2, 21)) == "saturday"
 
 
-def test_classify_service_type_sunday():
+def testclassify_service_type_sunday():
     # 2026-02-22 is a Sunday
-    assert _classify_service_type(date(2026, 2, 22)) == "sunday"
+    assert classify_service_type(date(2026, 2, 22)) == "sunday"
 
 
-def test_validate_date_none_returns_today():
-    result = _validate_date(None)
+def testvalidate_date_none_returns_today():
+    result = validate_date(None)
     assert isinstance(result, tuple)
     parsed_date, date_str = result
     assert isinstance(parsed_date, date)
     assert date_str == parsed_date.isoformat()
 
 
-def test_validate_date_valid():
-    result = _validate_date("2026-02-17")
+def testvalidate_date_valid():
+    result = validate_date("2026-02-17")
     assert isinstance(result, tuple)
     parsed_date, date_str = result
     assert parsed_date == date(2026, 2, 17)
     assert date_str == "2026-02-17"
 
 
-def test_validate_date_invalid():
-    result = _validate_date("not-a-date")
+def testvalidate_date_invalid():
+    result = validate_date("not-a-date")
     assert isinstance(result, str)
     assert "Invalid date" in result
 

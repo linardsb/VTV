@@ -78,7 +78,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (520 tests, ~14s)
+make test            # Unit tests (554 tests, ~15s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -144,7 +144,7 @@ VTV/
 
 - **Pagination**: `PaginationParams` + `PaginatedResponse[T]` from `app.shared.schemas`
 - **Timestamps**: `TimestampMixin` + `utcnow()` from `app.shared.models`
-- **Errors**: `AppError` hierarchy (`NotFoundError` → 404, `ValidationError` → 422, feature errors → 500) with global exception handlers in `app.core.exceptions`. `ErrorResponse` schema in `app.shared.schemas`
+- **Errors**: `AppError` hierarchy (`NotFoundError` → 404, `DomainValidationError` → 422, feature errors → 500) with global exception handlers in `app.core.exceptions`. `ErrorResponse` schema in `app.shared.schemas`
 - **SQL Escaping**: `escape_like()` from `app.shared.utils` — escapes `%`, `_`, `\` in ILIKE search params
 
 ### Configuration
@@ -170,7 +170,7 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 - **Routes** → HTTP concerns (status codes, dependency injection) — thin, delegate to service
 - **Service** → Business logic, validation, logging, orchestration
 - **Repository** → Database operations only (no business logic)
-- **Exceptions** → Inherit from `AppError` in `core.exceptions` for automatic HTTP status mapping
+- **Exceptions** → Inherit from `AppError` in `core.exceptions` for automatic HTTP status mapping (`DomainValidationError` not `ValidationError` — avoids Pydantic naming clash)
 
 **Cross-feature access:** Read from other repositories freely (same `AsyncSession` = single transaction). Never write to another feature's tables directly.
 
@@ -188,8 +188,14 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 - **Credential redaction** — URLs with embedded passwords are redacted before logging
 - **Rate limiting** — Uses `X-Real-IP` (nginx-set, not spoofable) instead of `X-Forwarded-For`
 - **Transit input validation** — Query params constrained with `max_length` and `pattern`
+- **GTFS time validation** — Field validators enforce minutes < 60 and seconds < 60 (hours can exceed 24 per GTFS spec)
+- **Content-Length validation** — `BodySizeLimitMiddleware` handles malformed headers defensively (`try/except ValueError`)
+- **Cookie security** — Locale cookie set with `SameSite=Lax` attribute
+- **Locale-aware redirects** — Auth middleware preserves user's current locale on redirect
 - **Docker credentials** — Environment variable interpolation (`${VAR:-default}`) in docker-compose
 - **Demo credentials** — Environment-controlled: only seeded when `ENVIRONMENT=development`, password configurable via `DEMO_USER_PASSWORD`
+- **Database unique constraints** — `(trip_id, stop_sequence)` and `(calendar_id, date)` prevent GTFS data corruption
+- **Knowledge base input validation** — Empty update rejection (`model_validator`), unknown file type rejection instead of silent text fallback
 - **Out of scope (future):** Backend API authentication (JWT/token), Redis-backed brute-force tracking, full HTTPS/TLS deployment
 
 ## Key Reference Documents
@@ -200,7 +206,8 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 - `reference/mvp-tool-designs.md` — Agent tool specifications
 - `.claude/commands/CLAUDE.md` — Full slash command documentation
 - `docs/python-anti-patterns.md` — 45 documented Python anti-patterns (includes security patterns)
-- `docs/security_audit.txt` — Third-party security audit findings and remediation status
+- `docs/security_audit.txt` — First security audit findings and remediation (13 findings, commit 85bf32d)
+- `docs/security_audit_2.txt` — Second security audit: code quality, data integrity, testing gaps
 - `docs/PLANNING/Implementation-Plan.md` — Latvia transit platform roadmap (4 phases)
 - `docs/TODO.md` — Planned features with effort estimates
 - `.agents/code-reviews/AUDIT-SUMMARY.md` — Full codebase health audit (120 findings, 2026-02-21)

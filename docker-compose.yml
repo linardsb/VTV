@@ -87,7 +87,10 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      # Docker-internal URLs (hardcoded to prevent .env from overriding with localhost values)
+      # SECURITY NOTE: These are Docker-internal defaults for local development only.
+      # In production, override via deployment environment variables (not .env).
+      # The postgres:postgres credentials are intentionally hardcoded here to prevent
+      # .env localhost URLs from being used inside Docker containers.
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/vtv_db
       - REDIS_URL=redis://redis:6379/0
 

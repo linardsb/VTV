@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { LocaleToggle } from "@/components/locale-toggle";
@@ -34,7 +35,9 @@ interface AppSidebarProps {
 
 function NavContent({ locale }: { locale: string }) {
   const t = useTranslations("nav");
+  const tCommon = useTranslations("common");
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   return (
     <>
@@ -73,8 +76,29 @@ function NavContent({ locale }: { locale: string }) {
           })}
         </ul>
       </nav>
-      <div className="mt-auto pt-(--spacing-card)">
-        <LocaleToggle />
+      <div className="mt-auto border-t border-border pt-(--spacing-card)">
+        {session?.user && (
+          <div className="mb-2 px-3">
+            <p className="truncate text-sm font-medium text-foreground">
+              {session.user.name}
+            </p>
+            <p className="truncate text-xs text-foreground-muted">
+              {session.user.email}
+            </p>
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-2 px-3 text-foreground-muted hover:text-foreground cursor-pointer"
+          onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
+        >
+          <LogOut className="size-4" />
+          {tCommon("logout")}
+        </Button>
+        <div className="mt-2">
+          <LocaleToggle />
+        </div>
       </div>
     </>
   );

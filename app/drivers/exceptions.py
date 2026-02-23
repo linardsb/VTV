@@ -6,7 +6,7 @@ Inherits from core exceptions for automatic HTTP status code mapping:
 - DriverError -> 500
 """
 
-from app.core.exceptions import AppError, NotFoundError, ValidationError
+from app.core.exceptions import AppError, DomainValidationError, NotFoundError
 
 
 class DriverError(AppError):
@@ -17,5 +17,5 @@ class DriverNotFoundError(NotFoundError):
     """Raised when a driver is not found by ID."""
 
 
-class DriverAlreadyExistsError(ValidationError):
+class DriverAlreadyExistsError(DomainValidationError):
     """Raised when creating a driver with a duplicate employee_number."""

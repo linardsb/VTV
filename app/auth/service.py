@@ -95,6 +95,7 @@ class AuthService:
 
         password = settings.demo_user_password
         demo_users = [
+            ("linardsberzins@gmail.com", password, "Linards Berzins", "admin"),
             ("admin@vtv.lv", password, "VTV Admin", "admin"),
             ("dispatcher@vtv.lv", password, "VTV Dispatcher", "dispatcher"),
             ("editor@vtv.lv", password, "VTV Editor", "editor"),

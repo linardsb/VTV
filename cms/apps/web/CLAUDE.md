@@ -37,7 +37,8 @@ src/
 │   └── drivers/                # Driver management (table, filters, form, detail, delete-dialog)
 ├── hooks/
 │   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
-│   └── use-vehicle-positions.ts # useVehiclePositions() hook (polls backend every 15s)
+│   ├── use-vehicle-positions.ts # useVehiclePositions() hook (polls backend every 15s)
+│   └── use-dashboard-metrics.ts # useDashboardMetrics() hook (real API: vehicles + routes, 30s polling)
 ├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts, driver.ts)
 ├── lib/
 │   ├── utils.ts                # cn() class merge utility
