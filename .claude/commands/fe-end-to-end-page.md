@@ -64,6 +64,7 @@ Implement the plan step by step:
 - Proper TypeScript types on all components and functions
 - Accessibility: ARIA labels, alt text, keyboard navigation
 - Follow MASTER.md design system rules (spacing, typography, color)
+- **Server/client boundary**: API client files called from `"use client"` hooks MUST use plain `fetch()` for public endpoints — NEVER `authFetch` (calls server-only `auth()`)
 - Add i18n keys to both `lv.json` and `en.json`
 - Update middleware with route matcher and role permissions
 - Add sidebar navigation entry in locale layout

@@ -1,10 +1,12 @@
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 """Unit tests for driver management REST API routes."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
+from app.auth.dependencies import get_current_user
+from app.auth.models import User
 from app.core.rate_limit import limiter
 from app.drivers.exceptions import DriverNotFoundError
 from app.drivers.routes import get_service
@@ -15,6 +17,21 @@ from app.main import app
 from app.shared.schemas import PaginatedResponse
 
 limiter.enabled = False
+
+
+def _mock_admin_user() -> User:
+    """Return a mock admin user for testing."""
+    user = MagicMock(spec=User)
+    user.id = 1
+    user.email = "admin@vtv.lv"
+    user.name = "Admin"
+    user.role = "admin"
+    user.is_active = True
+    return user
+
+
+# Override auth dependencies for testing
+app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def _make_response(driver_id: int = 1, **overrides: object) -> DriverResponse:
@@ -49,6 +66,7 @@ def test_list_drivers():
         assert len(data["items"]) == 2
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_get_driver():
@@ -66,6 +84,7 @@ def test_get_driver():
         assert data["first_name"] == "Janis"
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_get_driver_not_found():
@@ -79,6 +98,7 @@ def test_get_driver_not_found():
         assert response.status_code == 404
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_create_driver():
@@ -102,6 +122,7 @@ def test_create_driver():
         assert data["employee_number"] == "DRV-099"
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_update_driver():
@@ -121,6 +142,7 @@ def test_update_driver():
         assert data["first_name"] == "Updated"
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_delete_driver():
@@ -134,3 +156,4 @@ def test_delete_driver():
         assert response.status_code == 204
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user

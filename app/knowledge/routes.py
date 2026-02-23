@@ -10,6 +10,8 @@ from fastapi.requests import Request
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import get_current_user, require_role
+from app.auth.models import User
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.knowledge.schemas import (
@@ -74,6 +76,7 @@ async def upload_document(
     title: str | None = Form(default=None),
     description: str | None = Form(default=None),
     service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> DocumentResponse:
     """Upload and ingest a document into the knowledge base."""
     _ = request
@@ -132,6 +135,7 @@ async def list_documents(
     domain: str | None = Query(None, max_length=50),
     document_status: str | None = Query(None, alias="status", max_length=20),
     service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> PaginatedResponse[DocumentResponse]:
     """List documents with pagination and optional filtering."""
     _ = request
@@ -144,6 +148,7 @@ async def get_document(
     request: Request,
     document_id: int,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> DocumentResponse:
     """Get a document by its database ID."""
     _ = request
@@ -157,6 +162,7 @@ async def update_document(
     document_id: int,
     body: DocumentUpdate,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> DocumentResponse:
     """Update document metadata (title, description, domain, language)."""
     _ = request
@@ -169,6 +175,7 @@ async def download_document(
     request: Request,
     document_id: int,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> FileResponse:
     """Download the original uploaded file."""
     _ = request
@@ -194,6 +201,7 @@ async def get_document_content(
     request: Request,
     document_id: int,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> DocumentContentResponse:
     """Get extracted text chunks for a document."""
     _ = request
@@ -206,6 +214,7 @@ async def delete_document(
     request: Request,
     document_id: int,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> None:
     """Delete a document and its chunks."""
     _ = request
@@ -217,6 +226,7 @@ async def delete_document(
 async def list_domains(
     request: Request,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> DomainListResponse:
     """List all unique document domains."""
     _ = request
@@ -229,6 +239,7 @@ async def search_knowledge(
     request: Request,
     body: SearchRequest,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> SearchResponse:
     """Search the knowledge base with hybrid vector + fulltext search."""
     _ = request

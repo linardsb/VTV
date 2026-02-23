@@ -48,6 +48,8 @@ Follow the plan's implementation steps in exact order. For each step:
   - Use `select()` not `.query()` for database operations
   - Google-style docstrings for functions
   - Agent-optimized docstrings for tool functions
+  - **Pydantic Update schemas** MUST include `model_validator(mode="before")` to reject empty PATCH/PUT bodies (reject when all fields are None). Pattern: `reject_empty_body` classmethod that raises `ValueError("At least one field must be provided")`
+  - **Constrained string fields** MUST use `Literal[...]` types, not bare `str`. When a field only accepts a fixed set of values (priority, status, category, role), define a `TypeAlias = Literal["val1", "val2", ...]` and use it as the field type. This gives Pydantic validation + TypeScript type narrowing for free
 
 - **Python Anti-Patterns — AVOID THESE (write correct code on first pass):**
   1. **No `assert` in production code** — Ruff S101. Use `if x is not None:` not `assert x is not None`
@@ -114,6 +116,9 @@ Follow the plan's implementation steps in exact order. For each step:
     updates where no fields are provided. Prevents unnecessary DB round-trips.
   53. **Content-Length must be parsed defensively** — `int(content_length)` raises ValueError on
     malformed headers. Always wrap in try/except.
+  54. **FastAPI `HTTPBearer(auto_error=True)` returns 403, not 401** — The default `HTTPBearer()` returns 403 when the Authorization header is missing (FastAPI framework design), but RFC 7235 requires 401 for missing authentication. Always use `HTTPBearer(auto_error=False)` and handle the missing-token case manually: raise `HTTPException(status_code=401, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"})`.
+  55. **`app.dependency_overrides` is global and leaks between test modules** — FastAPI's `dependency_overrides` dict lives on the shared global `app` object. If one test module sets `app.dependency_overrides[get_current_user] = mock_user`, that override persists into ALL subsequent test modules in the same pytest session. Always use a pytest fixture that saves the original overrides, clears them, yields, then restores: `saved = app.dependency_overrides.copy(); app.dependency_overrides.clear(); yield; app.dependency_overrides = saved`.
+  56. **Never expose role names or permission details in authorization error messages** — Error messages like `"Requires one of roles: admin, editor"` leak internal authorization logic to attackers. Always use generic messages: `"Insufficient permissions"`. The 403 status code already communicates "forbidden" — the error detail should NOT enumerate which roles are allowed.
 
 ### 3. Run database migrations (if needed)
 
@@ -184,6 +189,8 @@ Verify:
 - [ ] Logging follows `domain.component.action_state` format
 - [ ] Models inherit `TimestampMixin`
 - [ ] Tests exist and pass
+- [ ] Update schemas have `reject_empty_body` model_validator (rejects empty PATCH/PUT)
+- [ ] Constrained string fields use `Literal[...]` types, not bare `str`
 
 ## OUTPUT
 

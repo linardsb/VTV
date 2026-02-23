@@ -4,6 +4,8 @@ import os
 from unittest.mock import patch
 
 from pydantic_ai.models.anthropic import AnthropicModel
+from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.groq import GroqModel
 from pydantic_ai.models.test import TestModel
 
 from app.core.agents.config import build_model_string, get_agent_model
@@ -40,7 +42,11 @@ def test_get_agent_model_test_provider():
 
 
 def test_get_agent_model_no_fallback():
-    settings = create_settings(LLM_PROVIDER="anthropic", LLM_MODEL="claude-sonnet-4-5")
+    settings = create_settings(
+        LLM_PROVIDER="anthropic",
+        LLM_MODEL="claude-sonnet-4-5",
+        ANTHROPIC_API_KEY="sk-test-key",
+    )
     result = get_agent_model(settings)
     assert isinstance(result, AnthropicModel)
 
@@ -57,7 +63,51 @@ def test_get_agent_model_with_fallback():
         LLM_MODEL="claude-sonnet-4-5",
         LLM_FALLBACK_PROVIDER="ollama",
         LLM_FALLBACK_MODEL="llama3.1:70b",
+        ANTHROPIC_API_KEY="sk-test-key",
     )
     result = get_agent_model(settings)
     # Anthropic provider takes priority — returns AnthropicModel directly
     assert isinstance(result, AnthropicModel)
+
+
+def test_get_agent_model_anthropic_missing_key():
+    """Falls back to TestModel when Anthropic API key is not set."""
+    settings = create_settings(LLM_PROVIDER="anthropic", LLM_MODEL="claude-sonnet-4-5")
+    result = get_agent_model(settings)
+    assert isinstance(result, TestModel)
+
+
+def test_get_agent_model_google():
+    settings = create_settings(
+        LLM_PROVIDER="google",
+        LLM_MODEL="gemini-2.0-flash",
+        GOOGLE_API_KEY="test-google-key",
+    )
+    result = get_agent_model(settings)
+    assert isinstance(result, GoogleModel)
+
+
+def test_get_agent_model_google_missing_key():
+    """Falls back to TestModel when Google API key is not set."""
+    settings = create_settings(LLM_PROVIDER="google", LLM_MODEL="gemini-2.0-flash")
+    result = get_agent_model(settings)
+    assert isinstance(result, TestModel)
+
+
+def test_get_agent_model_groq():
+    settings = create_settings(
+        LLM_PROVIDER="groq",
+        LLM_MODEL="llama-3.3-70b-versatile",
+        GROQ_API_KEY="test-groq-key",
+    )
+    result = get_agent_model(settings)
+    assert isinstance(result, GroqModel)
+
+
+def test_get_agent_model_groq_missing_key():
+    """Falls back to TestModel when Groq API key is not set."""
+    settings = create_settings(
+        LLM_PROVIDER="groq", LLM_MODEL="llama-3.3-70b-versatile", GROQ_API_KEY=""
+    )
+    result = get_agent_model(settings)
+    assert isinstance(result, TestModel)

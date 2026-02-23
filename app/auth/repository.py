@@ -17,6 +17,11 @@ class UserRepository:
         result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
+    async def find_by_id(self, user_id: int) -> User | None:
+        """Find a user by database ID."""
+        result = await self.db.execute(select(User).where(User.id == user_id))
+        return result.scalar_one_or_none()
+
     async def create(self, user: User) -> User:
         """Create a new user."""
         self.db.add(user)

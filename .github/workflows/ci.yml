@@ -1,0 +1,189 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-checks:
+    name: Backend Checks
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vtv_db
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 3
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/vtv_db
+      REDIS_URL: redis://localhost:6379/0
+      ENVIRONMENT: development
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Lint check
+        run: uv run ruff check .
+
+      - name: Type check (mypy)
+        run: uv run mypy app/
+
+      - name: Type check (pyright)
+        run: uv run pyright app/
+
+      - name: Run migrations
+        run: uv run alembic upgrade head
+
+      - name: Run tests
+        run: uv run pytest -x -q
+
+  frontend-checks:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: cms
+
+    env:
+      AUTH_SECRET: ci-test-secret-minimum-32-characters-long
+      NEXT_PUBLIC_AGENT_URL: http://localhost:8123
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: cms/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm --filter @vtv/web type-check
+
+      - name: Lint
+        run: pnpm --filter @vtv/web lint
+
+      - name: Build
+        run: pnpm --filter @vtv/web build
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [backend-checks, frontend-checks]
+
+    env:
+      CI: true
+      AUTH_SECRET: ci-test-secret-minimum-32-characters-long
+      DEMO_USER_PASSWORD: e2e-test-password
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: cms/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: cms
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: cms/apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Create external Docker volume
+        run: docker volume create vtv_postgres_data
+
+      - name: Start services via Docker Compose
+        run: docker compose up -d --build
+        env:
+          ENVIRONMENT: development
+          DEMO_USER_PASSWORD: e2e-test-password
+
+      - name: Verify migrations completed
+        run: |
+          echo "Waiting for migrate container to finish..."
+          timeout 60 bash -c 'while [ "$(docker compose ps migrate --format json 2>/dev/null | grep -c "exited")" -eq 0 ]; do sleep 2; done'
+          echo "Checking migration exit code..."
+          docker compose logs migrate
+          EXIT_CODE=$(docker inspect --format='{{.State.ExitCode}}' "$(docker compose ps migrate -q)" 2>/dev/null || echo "1")
+          if [ "$EXIT_CODE" != "0" ]; then echo "Migration failed with exit code $EXIT_CODE"; exit 1; fi
+          echo "Migrations completed successfully"
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for services..."
+          timeout 180 bash -c 'until curl -sf http://localhost:80/health; do sleep 5; done'
+          echo "Backend healthy"
+          timeout 120 bash -c 'until curl -sf http://localhost:80; do sleep 5; done'
+          echo "Frontend healthy"
+
+      - name: Run Playwright tests
+        working-directory: cms/apps/web
+        run: npx playwright test
+        env:
+          BASE_URL: http://localhost:80
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: cms/apps/web/playwright-report/
+          retention-days: 14
+
+      - name: Stop services
+        if: always()
+        run: docker compose down

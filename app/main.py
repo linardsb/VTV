@@ -33,6 +33,7 @@ from app.core.middleware import setup_middleware
 from app.core.rate_limit import limiter
 from app.core.redis import close_redis
 from app.drivers.routes import router as drivers_router
+from app.events.routes import router as events_router
 from app.knowledge.routes import router as knowledge_router
 from app.schedules.routes import router as schedules_router
 from app.stops.routes import router as stops_router
@@ -60,6 +61,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Startup
     setup_logging(log_level=settings.log_level)
     logger = get_logger(__name__)
+
+    # SECURITY: Fail hard if JWT secret is default in non-development environments
+    if (
+        settings.environment != "development"
+        and settings.jwt_secret_key == "CHANGE-ME-IN-PRODUCTION"  # noqa: S105
+    ):
+        msg = "JWT_SECRET_KEY must be set to a strong secret in non-development environments"
+        raise RuntimeError(msg)
+
     logger.info(
         "application.lifecycle_started",
         app_name=settings.app_name,
@@ -119,6 +129,7 @@ app.include_router(stops_router)
 app.include_router(knowledge_router)
 app.include_router(schedules_router)
 app.include_router(drivers_router)
+app.include_router(events_router)
 
 
 @app.get("/")

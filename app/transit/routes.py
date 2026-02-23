@@ -5,8 +5,10 @@ Endpoints:
 - GET /api/v1/transit/vehicles - Real-time vehicle positions from GTFS-RT
 """
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 
+from app.auth.dependencies import get_current_user
+from app.auth.models import User
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
@@ -24,6 +26,7 @@ async def get_vehicles(
     request: Request,
     route_id: str | None = Query(None, max_length=100, pattern=r"^[\w\-.:]+$"),
     feed_id: str | None = Query(None, max_length=50, pattern=r"^[\w\-]+$"),
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> VehiclePositionsResponse:
     """Get real-time vehicle positions, optionally filtered by feed and/or route.
 
@@ -46,7 +49,10 @@ async def get_vehicles(
 
 @router.get("/feeds")
 @limiter.limit("30/minute")
-async def get_feeds(request: Request) -> list[dict[str, object]]:
+async def get_feeds(
+    request: Request,
+    _current_user: User = Depends(get_current_user),  # noqa: B008
+) -> list[dict[str, object]]:
     """List configured transit feeds and their status."""
     _ = request
     settings = get_settings()

@@ -29,7 +29,7 @@ pnpm --filter @vtv/web type-check   # TypeScript strict check
 pnpm --filter @vtv/web lint         # ESLint
 
 # E2E testing (Playwright — requires backend + frontend running)
-pnpm --filter @vtv/web e2e          # Run all 69 tests (headless)
+pnpm --filter @vtv/web e2e          # Run all 81 tests (headless, CRUD tests conditionally skip)
 pnpm --filter @vtv/web e2e:ui       # Interactive Playwright UI
 pnpm --filter @vtv/web e2e:headed   # Visible browser
 pnpm --filter @vtv/web e2e:report   # View HTML test report
@@ -64,7 +64,7 @@ Workflow: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` �
 
 | Page | Route | Status | Data Source |
 |------|-------|--------|-------------|
-| Dashboard | `/[locale]/` | Live | Real API metrics (vehicles + routes, 30s polling) + mock calendar events |
+| Dashboard | `/[locale]/` | Live | Real API metrics (vehicles + routes, 30s polling) + real calendar events (`/api/v1/events`, 60s polling) |
 | Routes | `/[locale]/routes` | Live | Backend `/api/v1/schedules/routes` (CRUD, server pagination, search) + GTFS-RT live vehicle positions (10s polling) on Leaflet map |
 | Stops | `/[locale]/stops` | Live | Backend `/api/v1/stops` endpoints (CRUD, Leaflet map with terminus markers, direction display, GTFS copy, location_type filtering) |
 | Schedules | `/[locale]/schedules` | Live | Backend `/api/v1/schedules` (22 endpoints: calendars CRUD, trips CRUD, GTFS ZIP import, validation) |

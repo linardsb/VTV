@@ -113,6 +113,29 @@ test("redirects to login when not authenticated", async ({ page }) => {
 });
 ```
 
+**CRUD test with conditional skip** (when prerequisites may be missing):
+```typescript
+// CRUD tests that depend on UI elements or prerequisite data
+test("creates, edits, and deletes a route", async ({ page }) => {
+  await page.goto("/lv/routes");
+  const createButton = page.getByRole("button", { name: /create/i });
+
+  // CRITICAL: Use test.skip() — NEVER silently return
+  if (!(await createButton.isVisible())) {
+    test.skip(true, "Create button not visible — may require prerequisite data");
+    return;
+  }
+
+  // ... CRUD test logic
+});
+```
+
+**Rules for CRUD tests:**
+- **Always use `test.skip(true, "reason")` when prerequisites are missing** — NEVER silently `return` from a test. Silent returns make the test appear as "passed" in CI reports, hiding the fact that nothing was actually tested
+- Generate unique identifiers with `E2E-${Date.now()}` to avoid collisions
+- Self-cleaning: delete what you create at the end of the test
+- Each test should be independent — don't rely on data from other tests
+
 ### Environment Variables
 
 | Variable | Default | Description |

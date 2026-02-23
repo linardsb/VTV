@@ -412,10 +412,14 @@ The executing agent MUST follow these rules to avoid common errors:
     (DB gone), it masks the original error. Always: try/except around cleanup DB calls.
 51. **Clean up stored files on processing failure** — If file is copied to permanent storage
     before processing, add cleanup in the exception handler.
-52. **Empty PATCH bodies must be rejected** — Add `@model_validator(mode="after")` to reject
-    updates where no fields are provided. Prevents unnecessary DB round-trips.
+52. **Empty PATCH bodies must be rejected** — Add `@model_validator(mode="before")` with `@classmethod` to reject
+    updates where all fields are None. Use `mode="before"` (not `"after"`) so validation runs before Pydantic parsing. Pattern: `if isinstance(data, dict) and not any(v is not None for v in data.values()): raise ValueError("At least one field must be provided")`. Plan must include corresponding test cases for empty dict AND all-None dict.
 53. **Content-Length must be parsed defensively** — `int(content_length)` raises ValueError on
     malformed headers. Always wrap in try/except.
+54. **Constrained string fields must use `Literal[...]`** — When a field only accepts a fixed set of values (priority, status, category, role), define a `TypeAlias = Literal["val1", "val2", ...]` and use it as the field type instead of bare `str`. This gives Pydantic validation for free and produces TypeScript union types on the frontend. Plan must include the type alias definition and use it in both Create and Update schemas.
+55. **FastAPI `HTTPBearer(auto_error=True)` returns 403, not 401** — The default `HTTPBearer()` returns 403 when the Authorization header is missing (FastAPI framework design), but RFC 7235 requires 401 for missing authentication. Plan must specify `HTTPBearer(auto_error=False)` and a manual check that raises `HTTPException(status_code=401, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"})` when credentials are `None`.
+56. **`app.dependency_overrides` is global and leaks between test modules** — FastAPI's `dependency_overrides` dict lives on the shared global `app` object. If one test module sets `app.dependency_overrides[get_current_user] = mock_user`, that override persists into ALL subsequent test modules in the same pytest session. Plan must include a pytest fixture that saves, clears, and restores overrides: `saved = app.dependency_overrides.copy(); app.dependency_overrides.clear(); yield; app.dependency_overrides = saved`. Apply this fixture to any test module that manipulates `dependency_overrides`.
+57. **Never expose role names or permission details in authorization error messages** — Error messages like `"Requires one of roles: admin, editor"` leak internal authorization structure to attackers. Plan must specify generic messages for all 403 responses: `"Insufficient permissions"`. The HTTP status code already communicates "forbidden" — the detail should NOT enumerate allowed roles, scopes, or permissions.
 
 ## Migration (if applicable)
 

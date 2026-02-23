@@ -133,6 +133,11 @@ Create the plan file at `.agents/plans/fe-{page-name}.md` using this template:
 - **API endpoints**: [list endpoints from @vtv/sdk or FastAPI backend]
 - **Server vs Client**: [which data loads server-side vs client-side]
 - **Loading states**: [skeleton patterns to use]
+- **CRITICAL — Server/client boundary for API clients:**
+  - `authFetch` (from `src/lib/auth-fetch.ts`) uses dynamic imports for dual-context support: `auth()` on server, `getSession()` on client (detected via `typeof window`). This means `authFetch` works in both server and client components
+  - **When creating NEW shared fetch/API wrappers**, NEVER statically import server-only functions (like Auth.js `auth()`). Always use dynamic `await import()` with `typeof window === "undefined"` detection. Static imports of server-only modules break the entire client-side bundle with "Module not found" errors
+  - API client files called from client-side hooks can use `authFetch` (handles dual-context internally) or plain `fetch()` for public endpoints
+  - Rule: For authenticated endpoints, use `authFetch`. For public endpoints from client hooks, plain `fetch()` is simpler. NEVER create a wrapper that statically imports `auth()`
 
 ## RBAC Integration
 
@@ -208,6 +213,11 @@ The executor MUST follow these rules to avoid lint/type errors on first pass:
 - **Shared type changes require ripple-effect tasks** — When adding a field to a shared interface (e.g., `BusPosition`), the plan MUST include tasks to update ALL files that construct objects of that type (mock data files, test factories, etc.). Search for all usages with `Grep` before finalizing the plan.
 
 See `cms/apps/web/CLAUDE.md` → "React 19 Anti-Patterns" for full examples.
+
+## TypeScript Security Rules
+
+- **Never use `as` casts on JWT token claims without runtime validation** — JWT payloads are untrusted input. `token.role as VTVRole` is unsafe — a malformed JWT could inject any string. Plan must specify `Array.includes()` validation with a safe fallback (e.g., default to `"viewer"`). Example: `validRoles.includes(token.role as string) ? (token.role as VTVRole) : "viewer"`. This applies to ALL external data: API responses, URL params, localStorage, cookies.
+- **Clear `.next` cache when module resolution errors persist after fixing imports** — Turbopack caches module resolution aggressively. If you fix an import path but the dev server still shows the old "Module not found" error, the plan should note: `rm -rf cms/apps/web/.next` and restart the dev server.
 
 ## Step by Step Tasks
 

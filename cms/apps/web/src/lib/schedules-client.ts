@@ -24,6 +24,7 @@ import type {
   PaginatedResponse,
 } from "@/types/schedule";
 import type { Route, RouteCreate, RouteUpdate } from "@/types/route";
+import { authFetch } from "@/lib/auth-fetch";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
@@ -53,13 +54,13 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 /** Fetch all agencies. */
 export async function fetchAgencies(): Promise<Agency[]> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/agencies`);
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/agencies`);
   return handleResponse<Agency[]>(response);
 }
 
 /** Create a new agency. */
 export async function createAgency(data: AgencyCreate): Promise<Agency> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/agencies`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/agencies`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -92,7 +93,7 @@ export async function fetchRoutes(params: {
   if (params.is_active !== undefined)
     searchParams.set("is_active", String(params.is_active));
 
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/routes?${searchParams.toString()}`,
   );
   return handleResponse<PaginatedResponse<Route>>(response);
@@ -100,13 +101,13 @@ export async function fetchRoutes(params: {
 
 /** Fetch a single route by ID. */
 export async function fetchRoute(id: number): Promise<Route> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/routes/${id}`);
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/routes/${id}`);
   return handleResponse<Route>(response);
 }
 
 /** Create a new route. */
 export async function createRoute(data: RouteCreate): Promise<Route> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/routes`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/routes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -119,7 +120,7 @@ export async function updateRoute(
   id: number,
   data: RouteUpdate,
 ): Promise<Route> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/routes/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/routes/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -129,7 +130,7 @@ export async function updateRoute(
 
 /** Delete a route. */
 export async function deleteRoute(id: number): Promise<void> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/routes/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/routes/${id}`, {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -154,7 +155,7 @@ export async function fetchCalendars(params: {
     searchParams.set("page_size", String(params.page_size));
   if (params.active_on) searchParams.set("active_on", params.active_on);
 
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/calendars?${searchParams.toString()}`,
   );
   return handleResponse<PaginatedResponse<Calendar>>(response);
@@ -162,13 +163,13 @@ export async function fetchCalendars(params: {
 
 /** Fetch a single calendar by ID. */
 export async function fetchCalendar(id: number): Promise<Calendar> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/calendars/${id}`);
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/calendars/${id}`);
   return handleResponse<Calendar>(response);
 }
 
 /** Create a new calendar. */
 export async function createCalendar(data: CalendarCreate): Promise<Calendar> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/calendars`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/calendars`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -181,7 +182,7 @@ export async function updateCalendar(
   id: number,
   data: CalendarUpdate,
 ): Promise<Calendar> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/calendars/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/calendars/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -191,7 +192,7 @@ export async function updateCalendar(
 
 /** Delete a calendar. */
 export async function deleteCalendar(id: number): Promise<void> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/calendars/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/calendars/${id}`, {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -205,7 +206,7 @@ export async function addCalendarException(
   calendarId: number,
   data: CalendarExceptionCreate,
 ): Promise<CalendarException> {
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/calendars/${calendarId}/exceptions`,
     {
       method: "POST",
@@ -220,7 +221,7 @@ export async function addCalendarException(
 export async function deleteCalendarException(
   exceptionId: number,
 ): Promise<void> {
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/calendar-exceptions/${exceptionId}`,
     { method: "DELETE" },
   );
@@ -253,7 +254,7 @@ export async function fetchTrips(params: {
   if (params.direction_id !== undefined)
     searchParams.set("direction_id", String(params.direction_id));
 
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/trips?${searchParams.toString()}`,
   );
   return handleResponse<PaginatedResponse<Trip>>(response);
@@ -261,13 +262,13 @@ export async function fetchTrips(params: {
 
 /** Fetch a single trip with stop times. */
 export async function fetchTrip(id: number): Promise<TripDetail> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/trips/${id}`);
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/trips/${id}`);
   return handleResponse<TripDetail>(response);
 }
 
 /** Create a new trip. */
 export async function createTrip(data: TripCreate): Promise<Trip> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/trips`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/trips`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -280,7 +281,7 @@ export async function updateTrip(
   id: number,
   data: TripUpdate,
 ): Promise<Trip> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/trips/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/trips/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -290,7 +291,7 @@ export async function updateTrip(
 
 /** Delete a trip. */
 export async function deleteTrip(id: number): Promise<void> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/trips/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/trips/${id}`, {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -304,7 +305,7 @@ export async function replaceStopTimes(
   tripId: number,
   stopTimes: StopTimeCreate[],
 ): Promise<StopTime[]> {
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/trips/${tripId}/stop-times`,
     {
       method: "PUT",
@@ -324,7 +325,7 @@ export async function importGTFS(file: File): Promise<GTFSImportResponse> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/import`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/import`, {
     method: "POST",
     body: formData,
   });
@@ -333,7 +334,7 @@ export async function importGTFS(file: File): Promise<GTFSImportResponse> {
 
 /** Validate the current schedule data. */
 export async function validateSchedule(): Promise<ValidationResult> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/validate`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/validate`, {
     method: "POST",
   });
   return handleResponse<ValidationResult>(response);

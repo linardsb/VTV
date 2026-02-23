@@ -15,6 +15,7 @@ import type {
   DomainList,
   PaginatedDocuments,
 } from "@/types/document";
+import { authFetch } from "@/lib/auth-fetch";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
@@ -53,7 +54,7 @@ export async function fetchDocuments(params: {
   if (params.status) searchParams.set("status", params.status);
   if (params.language) searchParams.set("language", params.language);
 
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/documents?${searchParams.toString()}`
   );
   return handleResponse<PaginatedDocuments>(response);
@@ -61,7 +62,7 @@ export async function fetchDocuments(params: {
 
 /** Fetch a single document by ID. */
 export async function fetchDocument(id: number): Promise<DocumentItem> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/documents/${id}`);
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/documents/${id}`);
   return handleResponse<DocumentItem>(response);
 }
 
@@ -76,7 +77,7 @@ export async function uploadDocument(
   if (data.title) formData.append("title", data.title);
   if (data.description) formData.append("description", data.description);
 
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/documents`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/documents`, {
     method: "POST",
     body: formData,
   });
@@ -88,7 +89,7 @@ export async function updateDocument(
   id: number,
   data: DocumentUpdateData
 ): Promise<DocumentItem> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/documents/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/documents/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -98,7 +99,7 @@ export async function updateDocument(
 
 /** Delete a document and its file. */
 export async function deleteDocument(id: number): Promise<void> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/documents/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/documents/${id}`, {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -111,7 +112,7 @@ export async function deleteDocument(id: number): Promise<void> {
 export async function fetchDocumentContent(
   id: number
 ): Promise<DocumentContentResponse> {
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/documents/${id}/content`
   );
   return handleResponse<DocumentContentResponse>(response);
@@ -119,7 +120,7 @@ export async function fetchDocumentContent(
 
 /** Download the original file as a Blob. */
 export async function downloadDocument(id: number): Promise<Blob> {
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/documents/${id}/download`
   );
   if (!response.ok) {
@@ -131,6 +132,6 @@ export async function downloadDocument(id: number): Promise<Blob> {
 
 /** Fetch list of unique domains used across documents. */
 export async function fetchDomains(): Promise<DomainList> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/domains`);
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/domains`);
   return handleResponse<DomainList>(response);
 }

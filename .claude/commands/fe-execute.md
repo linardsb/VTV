@@ -101,6 +101,16 @@ Follow the plan's implementation steps in exact order. For each step:
 - CRITICAL — Hook ordering and shared type ripple effects:
   - **`useMemo`/`useCallback` MUST come AFTER the `useState` declarations they depend on** — TypeScript enforces block-scoped variable ordering (TS2448). If a new memo depends on state like `typeFilter`, place it AFTER the `useState<...>(null)` line, not before.
   - **When adding a field to a shared interface** (e.g., adding `routeType` to `BusPosition`), you MUST update ALL files that construct objects of that type — mock data files, test factories, inline literals. Search with `Grep` for the type name constructor pattern (e.g., `BusPosition`) to find all consumers before editing.
+- CRITICAL — Server/client boundary for API clients:
+  - **`authFetch` uses dynamic imports for dual-context** — it detects `typeof window === "undefined"` and dynamically imports `auth()` (server) or `getSession()` from `next-auth/react` (client). This means `authFetch` works in BOTH server and client components. However, NEVER statically import server-only functions like `auth()` in files that may be imported by `"use client"` components — always use dynamic `await import()` with runtime context detection
+  - **When creating new shared fetch/API wrappers**, always consider both server and client usage. If a wrapper calls server-only functions (like Auth.js `auth()`), it MUST use dynamic imports with `typeof window` detection — static imports will break the entire client-side bundle with "Module not found" errors that are hard to debug
+  - **API client files called from client-side hooks** (e.g., `use-calendar-events.ts`, `use-vehicle-positions.ts`) can use `authFetch` (which handles dual-context internally), or use plain `fetch()` for public endpoints
+  - **Rule of thumb:** For authenticated endpoints, use `authFetch` (works everywhere). For public endpoints called from client hooks, plain `fetch()` is simpler. NEVER create a new wrapper that statically imports `auth()` without dynamic import protection
+- CRITICAL — TypeScript `as` casts on untrusted data:
+  - **Never use `as` casts on JWT token claims without runtime validation** — JWT payloads are untrusted input. `token.role as VTVRole` is unsafe — a malformed or tampered JWT could inject any string. Always validate with `Array.includes()` and provide a safe fallback: `validRoles.includes(token.role as string) ? (token.role as VTVRole) : "viewer"`
+  - This applies to ANY data from external sources: API responses, URL params, localStorage, cookies. Validate before casting
+- CRITICAL — Stale Turbopack/Next.js cache:
+  - **If module resolution errors persist after fixing imports**, clear the Next.js cache: `rm -rf cms/apps/web/.next` and restart the dev server. Turbopack caches module resolution and may serve stale errors even after the source file is corrected. Always clear `.next` when you see "Module not found" errors that contradict the actual file contents
 
 ### 3. Run per-task validation
 

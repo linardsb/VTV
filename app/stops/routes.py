@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import get_current_user, require_role
+from app.auth.models import User
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.shared.schemas import PaginatedResponse, PaginationParams
@@ -33,6 +35,7 @@ async def list_stops(
     active_only: bool = Query(default=True),
     location_type: int | None = Query(None, ge=0, le=4),
     service: StopService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> PaginatedResponse[StopResponse]:
     """List stops with pagination and optional search filter."""
     _ = request
@@ -46,6 +49,7 @@ async def list_stops(
 async def list_all_stops_for_map(
     request: Request,
     service: StopService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> list[StopResponse]:
     """Return all stops in a single response (for map display)."""
     _ = request
@@ -61,6 +65,7 @@ async def nearby_stops(
     radius_meters: int = Query(500, ge=1, le=5000),
     limit: int = Query(20, ge=1, le=100),
     service: StopService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> list[StopResponse]:
     """Find stops within a radius of a geographic point."""
     _ = request
@@ -74,6 +79,7 @@ async def get_stop(
     request: Request,
     stop_id: int,
     service: StopService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> StopResponse:
     """Get a stop by its database ID."""
     _ = request
@@ -86,6 +92,7 @@ async def create_stop(
     request: Request,
     data: StopCreate,
     service: StopService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> StopResponse:
     """Create a new stop."""
     _ = request
@@ -99,6 +106,7 @@ async def update_stop(
     stop_id: int,
     data: StopUpdate,
     service: StopService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> StopResponse:
     """Update an existing stop."""
     _ = request
@@ -111,6 +119,7 @@ async def delete_stop(
     request: Request,
     stop_id: int,
     service: StopService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> None:
     """Delete a stop by its database ID."""
     _ = request

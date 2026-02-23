@@ -7,9 +7,13 @@ the appropriate Pydantic AI model instance based on application settings.
 from pydantic_ai.models import Model
 from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.models.fallback import FallbackModel
+from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.groq import GroqModel
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.providers.anthropic import AnthropicProvider
+from pydantic_ai.providers.google import GoogleProvider
+from pydantic_ai.providers.groq import GroqProvider
 from pydantic_ai.providers.ollama import OllamaProvider
 
 from app.core.config import Settings, get_settings
@@ -65,8 +69,27 @@ def get_agent_model(settings: Settings | None = None) -> str | Model:
 
     # Anthropic needs explicit api_key since env var may not be set at import time
     if provider == "anthropic":
+        if not settings.anthropic_api_key:
+            logger.warning("agent.config.anthropic_api_key_missing")
+            return TestModel()
         anthropic_provider = AnthropicProvider(api_key=settings.anthropic_api_key)
         return AnthropicModel(model, provider=anthropic_provider)
+
+    # Google Gemini needs explicit api_key
+    if provider == "google":
+        if not settings.google_api_key:
+            logger.warning("agent.config.google_api_key_missing")
+            return TestModel()
+        google_provider = GoogleProvider(api_key=settings.google_api_key)
+        return GoogleModel(model, provider=google_provider)
+
+    # Groq needs explicit api_key
+    if provider == "groq":
+        if not settings.groq_api_key:
+            logger.warning("agent.config.groq_api_key_missing")
+            return TestModel()
+        groq_provider = GroqProvider(api_key=settings.groq_api_key)
+        return GroqModel(model, provider=groq_provider)
 
     # Ollama needs explicit base_url since env var may not be set at import time
     if provider == "ollama":

@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.auth.dependencies import get_current_user
+from app.auth.models import User
 from app.core.agents.exceptions import TransitDataError
 from app.core.rate_limit import limiter
 from app.main import app
@@ -12,6 +14,21 @@ from app.transit.schemas import VehiclePosition, VehiclePositionsResponse
 
 # Disable rate limiting during tests
 limiter.enabled = False
+
+
+def _mock_admin_user() -> User:
+    """Return a mock admin user for testing."""
+    user = MagicMock(spec=User)
+    user.id = 1
+    user.email = "admin@vtv.lv"
+    user.name = "Admin"
+    user.role = "admin"
+    user.is_active = True
+    return user
+
+
+# Override auth dependencies for testing
+app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def _make_response(count: int = 2) -> VehiclePositionsResponse:

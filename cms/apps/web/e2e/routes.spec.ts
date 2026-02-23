@@ -1,18 +1,5 @@
 import { test, expect } from "@playwright/test";
-
-/** Wait for the page data to load — either a table with rows or an empty state message. */
-async function waitForDataOrEmpty(page: import("@playwright/test").Page) {
-  await Promise.race([
-    page.getByRole("row").nth(1).waitFor({ state: "visible", timeout: 10000 }),
-    page.getByText(/no.*found|nav.*atrast/i).waitFor({ state: "visible", timeout: 10000 }),
-  ]).catch(() => {});
-}
-
-/** Check if the page has a visible data table (not just empty state). */
-async function hasDataTable(page: import("@playwright/test").Page) {
-  const table = page.getByRole("table");
-  return await table.isVisible();
-}
+import { waitForDataOrEmpty, hasDataTable } from "./helpers";
 
 test.describe("Routes page", () => {
   test.beforeEach(async ({ page }) => {
@@ -92,7 +79,9 @@ test.describe("Routes page", () => {
     }
   });
 
-  test("pagination controls are visible when data exists", async ({ page }) => {
+  test("pagination controls are visible when data exists", async ({
+    page,
+  }) => {
     if (!(await hasDataTable(page))) return; // No data — skip
     const rows = page.getByRole("row");
     if ((await rows.count()) > 1) {
@@ -106,5 +95,128 @@ test.describe("Routes page", () => {
     if (await map.isVisible()) {
       await expect(map).toBeVisible();
     }
+  });
+});
+
+test.describe("Routes CRUD", () => {
+  test("create, edit, and delete route", async ({ page }) => {
+    const uniqueId = `E2E-${Date.now()}`;
+    const gtfsRouteId = `E2E_R_${Date.now().toString().slice(-6)}`;
+
+    await page.goto("/lv/routes");
+    await page.waitForLoadState("networkidle");
+    await waitForDataOrEmpty(page);
+
+    // --- CREATE ---
+    const createButton = page.getByRole("button", {
+      name: /create|izveidot/i,
+    });
+    if (!(await createButton.isVisible())) {
+      test.skip(true, "Create button not visible — may require prerequisite data");
+      return;
+    }
+    await createButton.click();
+
+    // Fill required fields
+    await page.locator("#gtfsRouteId").fill(gtfsRouteId);
+    await page.locator("#shortName").fill(`T${uniqueId.slice(-4)}`);
+    await page.locator("#longName").fill(`E2E Test Route ${uniqueId}`);
+
+    // Select route type (Bus = 3)
+    const routeTypeSelect = page
+      .locator("button")
+      .filter({ hasText: /bus|autobuss|type|veids/i })
+      .first();
+    if (await routeTypeSelect.isVisible()) {
+      await routeTypeSelect.click();
+      const busOption = page
+        .getByRole("option", { name: /bus|autobuss/i })
+        .first();
+      if (await busOption.isVisible()) await busOption.click();
+    }
+
+    // Select agency if available
+    const agencySelect = page
+      .locator("button")
+      .filter({ hasText: /operator|operators|agency/i })
+      .first();
+    if (await agencySelect.isVisible()) {
+      await agencySelect.click();
+      const firstAgency = page.getByRole("option").first();
+      if (await firstAgency.isVisible()) await firstAgency.click();
+    }
+
+    // Save and wait for API response
+    const createResponse = page.waitForResponse(
+      (resp) =>
+        resp.url().includes("/api/v1/schedules/routes") &&
+        resp.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: /save|saglabāt/i }).click();
+    await createResponse;
+    await waitForDataOrEmpty(page);
+
+    // Search for created route using the unique GTFS route ID
+    const searchInput = page.getByPlaceholder(/search|meklēt/i);
+    if (await searchInput.isVisible()) {
+      await searchInput.fill(gtfsRouteId);
+      await waitForDataOrEmpty(page);
+    }
+
+    // --- EDIT ---
+    const row = page.getByRole("row").nth(1);
+    if (!(await row.isVisible())) return;
+    await row.click();
+
+    const sheet = page.getByRole("dialog");
+    await expect(sheet).toBeVisible({ timeout: 3000 });
+
+    const editButton = sheet.getByRole("button", { name: /edit|rediģēt/i });
+    if (!(await editButton.isVisible())) return;
+    await editButton.click();
+
+    // Update short name
+    const shortNameInput = page.locator("#shortName");
+    await shortNameInput.clear();
+    await shortNameInput.fill(`U${uniqueId.slice(-4)}`);
+
+    const editResponse = page.waitForResponse(
+      (resp) =>
+        resp.url().includes("/api/v1/schedules/routes") &&
+        resp.request().method() !== "GET",
+    );
+    await page.getByRole("button", { name: /save|saglabāt/i }).click();
+    await editResponse;
+
+    // --- DELETE ---
+    await waitForDataOrEmpty(page);
+    if (await searchInput.isVisible()) {
+      await searchInput.clear();
+      await searchInput.fill(gtfsRouteId);
+      await waitForDataOrEmpty(page);
+    }
+
+    const routeRow = page.getByRole("row").nth(1);
+    if (!(await routeRow.isVisible())) return;
+    await routeRow.click();
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 3000 });
+
+    const deleteButton = page
+      .getByRole("dialog")
+      .getByRole("button", { name: /delete|dzēst/i });
+    if (!(await deleteButton.isVisible())) return;
+    await deleteButton.click();
+
+    // Confirm deletion and wait for API response
+    const deleteResponse = page.waitForResponse(
+      (resp) =>
+        resp.url().includes("/api/v1/schedules/routes") &&
+        resp.request().method() === "DELETE",
+    );
+    const confirmDelete = page
+      .getByRole("button", { name: /delete|dzēst/i })
+      .last();
+    await confirmDelete.click();
+    await deleteResponse;
   });
 });

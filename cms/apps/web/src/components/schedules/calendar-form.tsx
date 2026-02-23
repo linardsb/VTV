@@ -86,8 +86,8 @@ export function CalendarForm({
       const data: CalendarCreate = { ...form, gtfs_service_id: form.gtfs_service_id.trim() };
       onSubmit(data);
     } else {
-      const { gtfs_service_id: _serviceId, ...rest } = form;
-      void _serviceId;
+      const { gtfs_service_id: _, ...rest } = form;
+      void _;
       onSubmit(rest as CalendarUpdate);
     }
     onClose();
@@ -102,7 +102,7 @@ export function CalendarForm({
           </SheetTitle>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="mt-(--spacing-grid) space-y-(--spacing-card)">
+        <form onSubmit={handleSubmit} className="space-y-5 px-4 pb-4">
           {/* Service ID */}
           <div className="space-y-(--spacing-tight)">
             <Label htmlFor="serviceId">{t("serviceId")} *</Label>
@@ -120,12 +120,12 @@ export function CalendarForm({
           <Separator />
 
           {/* Days */}
-          <div className="space-y-(--spacing-inline)">
+          <div className="space-y-2.5">
             <p className="text-xs font-medium text-label-text uppercase tracking-wide">
               {t("operatingDays")}
             </p>
             {DAYS.map((day) => (
-              <div key={day} className="flex items-center justify-between">
+              <div key={day} className="flex items-center justify-between py-0.5">
                 <Label htmlFor={day}>{tDays(day)}</Label>
                 <Switch
                   id={day}
@@ -164,7 +164,7 @@ export function CalendarForm({
 
           <Separator />
 
-          <div className="flex gap-(--spacing-inline)">
+          <div className="flex gap-3">
             <Button type="button" variant="outline" className="flex-1 cursor-pointer" onClick={onClose}>
               {t("cancel")}
             </Button>

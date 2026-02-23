@@ -10,6 +10,7 @@ import type {
   DriverUpdate,
   PaginatedDrivers,
 } from "@/types/driver";
+import { authFetch } from "@/lib/auth-fetch";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
@@ -52,7 +53,7 @@ export async function fetchDrivers(params: {
   if (params.status) searchParams.set("status", params.status);
   if (params.shift) searchParams.set("shift", params.shift);
 
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/?${searchParams.toString()}`,
   );
   return handleResponse<PaginatedDrivers>(response);
@@ -60,13 +61,13 @@ export async function fetchDrivers(params: {
 
 /** Fetch a single driver by ID. */
 export async function fetchDriver(id: number): Promise<Driver> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/${id}`);
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/${id}`);
   return handleResponse<Driver>(response);
 }
 
 /** Create a new driver. */
 export async function createDriver(data: DriverCreate): Promise<Driver> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -79,7 +80,7 @@ export async function updateDriver(
   id: number,
   data: DriverUpdate,
 ): Promise<Driver> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -89,7 +90,7 @@ export async function updateDriver(
 
 /** Delete a driver. */
 export async function deleteDriver(id: number): Promise<void> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/${id}`, {
     method: "DELETE",
   });
   if (!response.ok) {

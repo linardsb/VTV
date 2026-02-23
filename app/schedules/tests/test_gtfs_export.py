@@ -10,6 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.auth.dependencies import get_current_user
+from app.auth.models import User
 from app.core.rate_limit import limiter
 from app.main import app
 from app.schedules.gtfs_export import GTFSExporter
@@ -17,6 +19,21 @@ from app.schedules.models import Agency, Calendar, CalendarDate, Route, StopTime
 from app.stops.models import Stop
 
 limiter.enabled = False
+
+
+def _mock_admin_user() -> User:
+    """Return a mock admin user for testing."""
+    user = MagicMock(spec=User)
+    user.id = 1
+    user.email = "admin@vtv.lv"
+    user.name = "Admin"
+    user.role = "admin"
+    user.is_active = True
+    return user
+
+
+# Override auth dependencies for testing
+app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def make_agency(

@@ -40,9 +40,9 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 - Stop management — CRUD with geolocation, Haversine proximity search, Leaflet map with click-to-place and terminus markers ✅ (PostGIS planned for Phase 1 completion)
 - Schedule management — service calendar, trip CRUD, GTFS import ✅ (full-stack: backend 22 endpoints + frontend CMS page with 3 tabs)
 - GTFS import/export — parse and generate GTFS ZIP files ✅ (import via POST + export via GET, 7 CSV files each)
-- Authentication — Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer) ✅ (DB-backed via `POST /api/v1/auth/login`, bcrypt, brute-force lockout)
+- Authentication — Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer) ✅ (JWT auth on all endpoints: login, refresh, seed + backend RBAC enforcement via `require_role()`, bcrypt, brute-force lockout)
 - Internationalization — Latvian (primary) + English ✅ (proper diacritics, 142+ i18n keys per locale)
-- Responsive dashboard layout (✅ dashboard + routes + chat pages are mobile responsive, dashboard metrics on real API)
+- Responsive dashboard layout (✅ dashboard + routes + chat pages are mobile responsive, dashboard metrics + calendar events on real API)
 
 **AI Agent Service (FastAPI + Pydantic AI)**
 - Single unified agent with transit + vault + knowledge tools
@@ -383,14 +383,20 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ✅ Validation: check referential integrity, time consistency, required fields (via `/api/v1/schedules/validate`)
 - ⬜ Seed database from RS public feed (`https://saraksti.rigassatiksme.lv/gtfs.zip`)
 
-### 7.5 Authentication & Authorization
+### 7.5 Authentication & Authorization ✅ (JWT + RBAC — Backend enforced)
 
-| Role | Routes | Schedules | GTFS | Users | AI Chat |
-|------|--------|-----------|------|-------|---------|
-| Admin | CRUD | CRUD | Import/Export | CRUD | Yes |
-| Dispatcher | Read | Read | Export | — | Yes |
-| Editor | CRUD | CRUD | Import/Export | — | Yes |
-| Viewer | Read | Read | — | — | No |
+- ✅ JWT authentication on all backend endpoints (access tokens 30min, refresh tokens 7 days, HS256)
+- ✅ Role-based access control enforced via FastAPI dependency injection (`get_current_user`, `require_role()`)
+- ✅ Auth.js v5 frontend integration — stores backend JWT in encrypted httpOnly session cookie
+- ✅ Centralized `authFetch()` wrapper adds Bearer token to all 6 API clients
+- ✅ Startup validation fails hard if `JWT_SECRET_KEY` is default in non-dev environments
+
+| Role | Stops | Routes | Schedules | Drivers | Knowledge | Events | GTFS | AI Chat |
+|------|-------|--------|-----------|---------|-----------|--------|------|---------|
+| Admin | CRUD | CRUD | CRUD | CRUD | CRUD | CRUD | Import/Export | Yes |
+| Dispatcher | Read | Read | Read | CRUD | Read | Read | — | Yes |
+| Editor | CRUD | CRUD | CRUD | Read | CRUD | CRUD | Import/Export | Yes |
+| Viewer | Read | Read | Read | Read | Read | Read | — | Yes |
 
 ### 7.6 Dashboard Layout
 
@@ -432,7 +438,8 @@ shapes          → Route geometry (linestring + encoded polyline)
 
 ```
 users           → Email, bcrypt hashed password, role (admin/dispatcher/editor/viewer), brute-force lockout ✅
-sessions        → Auth.js session management (JWT-based, no server sessions table needed)
+                  JWT auth: access tokens (30min) + refresh tokens (7 days), enforced on all endpoints ✅
+sessions        → Auth.js session management (JWT-based, no server sessions table — tokens in httpOnly cookie)
 ```
 
 ---

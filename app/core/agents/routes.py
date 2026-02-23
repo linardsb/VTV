@@ -10,6 +10,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.auth.dependencies import get_current_user
+from app.auth.models import User
 from app.core.agents.quota import get_quota_tracker
 from app.core.agents.schemas import ChatCompletionRequest, ChatCompletionResponse
 from app.core.agents.service import AgentService, get_agent_service
@@ -25,6 +27,7 @@ async def chat_completions(
     request: Request,
     body: ChatCompletionRequest,
     service: AgentService = Depends(get_agent_service),
+    _current_user: User = Depends(get_current_user),
 ) -> ChatCompletionResponse:
     """Create a chat completion.
 
@@ -54,7 +57,10 @@ async def chat_completions(
 
 @router.get("/models")
 @limiter.limit("60/minute")
-async def list_models(request: Request) -> dict[str, Any]:
+async def list_models(
+    request: Request,
+    _current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
     """List available models.
 
     Returns the currently configured LLM model information.

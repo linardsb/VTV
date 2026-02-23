@@ -60,6 +60,8 @@ Implement the plan step by step:
 - Use `select()` for queries, `get_db()` for sessions
 - Structured logging with `get_logger(__name__)`
 - Google-style docstrings on all functions
+- Update schemas MUST have `model_validator(mode="before")` to reject empty PATCH/PUT bodies
+- Constrained string fields MUST use `Literal[...]` types, not bare `str`
 - Register router in `app/main.py`
 - Run migrations if needed:
   ```bash

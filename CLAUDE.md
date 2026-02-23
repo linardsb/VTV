@@ -78,13 +78,13 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (554 tests, ~15s)
+make test            # Unit tests (612 tests, ~15s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
 # E2E testing (Playwright)
 make e2e             # Auto-detect changed features, run only those tests
-make e2e-all         # Run all 66 e2e tests (65 active + 1 skipped)
+make e2e-all         # Run all 81 e2e tests (CRUD tests conditionally skip when prerequisites missing)
 make e2e-ui          # Interactive Playwright UI mode
 make e2e-headed      # Run with visible browser
 
@@ -108,9 +108,10 @@ VTV/
 │   ├── core/           # Infrastructure (config, database, logging, middleware, health, rate_limit, redis)
 │   │   └── agents/     # AI agent module — 10 tools, see app/core/agents/CLAUDE.md
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
-│   ├── auth/           # DB-backed authentication (2 endpoints, bcrypt, brute-force lockout)
+│   ├── auth/           # JWT auth + RBAC (4 endpoints: login, refresh, seed; bcrypt, brute-force lockout)
 │   ├── knowledge/      # RAG knowledge base + DMS (9 endpoints, pgvector, multi-format processing)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles, shift/availability, agent integration)
+│   ├── events/         # Operational events (5 endpoints, dashboard calendar, date range filter)
 │   ├── stops/          # Stop management (6 endpoints, Haversine proximity, location_type filter)
 │   ├── schedules/      # GTFS schedule management (23 endpoints, trip CRUD, ZIP import/export)
 │   ├── transit/        # Multi-feed GTFS-RT tracking (3 endpoints, Redis cache, background poller)
@@ -137,7 +138,7 @@ VTV/
 ### Middleware & Rate Limiting
 
 - `BodySizeLimitMiddleware` (100KB), `RequestLoggingMiddleware` (correlation IDs), `CORSMiddleware`
-- Rate limiting via slowapi: auth (10/min login, 5/min seed), chat (10/min), transit (30/min), knowledge (10-30/min), schedules (5-30/min), drivers (10-30/min), health (60/min)
+- Rate limiting via slowapi: auth (10/min login, 30/min refresh, 5/min seed), chat (10/min), transit (30/min), knowledge (10-30/min), schedules (5-30/min), drivers (10-30/min), events (10-30/min), health (60/min)
 - Query quota: 50/day per IP for LLM chat endpoint (`app.core.agents.quota`)
 
 ### Shared Utilities
@@ -149,7 +150,7 @@ VTV/
 
 ### Configuration
 
-Environment variables via Pydantic Settings (`app.core.config`). Copy `.env.example` to `.env` for local development. Key settings: `DATABASE_URL` (required), `REDIS_URL`, `TRANSIT_FEEDS_JSON`, `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL`, `OBSIDIAN_API_KEY`, `DEMO_USER_PASSWORD`. Full list in `.env.example` and `app/core/config.py`.
+Environment variables via Pydantic Settings (`app.core.config`). Copy `.env.example` to `.env` for local development. Key settings: `DATABASE_URL` (required), `REDIS_URL`, `JWT_SECRET_KEY` (required in production), `TRANSIT_FEEDS_JSON`, `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL`, `OBSIDIAN_API_KEY`, `DEMO_USER_PASSWORD`. Full list in `.env.example` and `app/core/config.py`.
 
 ## Frontend (CMS)
 
@@ -180,6 +181,8 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 
 **Docker services:** `db` (PostgreSQL + pgvector), `redis` (vehicle position cache), `migrate` (Alembic auto-migration, runs once), `app` (FastAPI), `cms` (Next.js), `nginx` (reverse proxy on port 80). Services start in dependency order with healthchecks. All behind nginx.
 
+**CI Pipeline:** GitHub Actions (`.github/workflows/ci.yml`) runs on push/PR to `main`. Three jobs: `backend-checks` (ruff + mypy + pyright + pytest with PostgreSQL + Redis services), `frontend-checks` (TypeScript + ESLint + build), `e2e-tests` (docker-compose full stack + Playwright, depends on first two jobs). Playwright report uploaded as artifact (14-day retention).
+
 ## Security Practices
 
 - **ILIKE wildcard escaping** — All search queries use `escape_like()` from `app.shared.utils` (rules 40-45 in `docs/python-anti-patterns.md`)
@@ -196,7 +199,10 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 - **Demo credentials** — Environment-controlled: only seeded when `ENVIRONMENT=development`, password configurable via `DEMO_USER_PASSWORD`
 - **Database unique constraints** — `(trip_id, stop_sequence)` and `(calendar_id, date)` prevent GTFS data corruption
 - **Knowledge base input validation** — Empty update rejection (`model_validator`), unknown file type rejection instead of silent text fallback
-- **Out of scope (future):** Backend API authentication (JWT/token), Redis-backed brute-force tracking, full HTTPS/TLS deployment
+- **JWT Authentication** — All backend endpoints protected via `Depends(get_current_user)` with HS256 JWT tokens (30min access + 7-day refresh). Startup fails hard if `JWT_SECRET_KEY` is default in non-dev environments.
+- **RBAC** — `require_role()` dependency enforces function-level authorization: admin (full), editor (data CRUD), dispatcher (driver management), viewer (read-only)
+- **authFetch dual-context** — `cms/apps/web/src/lib/auth-fetch.ts` uses dynamic imports: `auth()` on server (cheap, no network), `getSession()` on client (fetches from `/api/auth/session`). Never static-import server-only `auth()` in files used by `'use client'` components.
+- **Out of scope (future):** Redis-backed brute-force tracking, full HTTPS/TLS deployment, token revocation
 
 ## Key Reference Documents
 
@@ -208,6 +214,7 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 - `docs/python-anti-patterns.md` — 45 documented Python anti-patterns (includes security patterns)
 - `docs/security_audit.txt` — First security audit findings and remediation (13 findings, commit 85bf32d)
 - `docs/security_audit_2.txt` — Second security audit: code quality, data integrity, testing gaps
+- `.github/workflows/ci.yml` — CI pipeline (backend checks, frontend checks, E2E tests)
 - `docs/PLANNING/Implementation-Plan.md` — Latvia transit platform roadmap (4 phases)
 - `docs/TODO.md` — Planned features with effort estimates
 - `.agents/code-reviews/AUDIT-SUMMARY.md` — Full codebase health audit (120 findings, 2026-02-21)

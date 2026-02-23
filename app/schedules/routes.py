@@ -8,6 +8,8 @@ from fastapi.requests import Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import get_current_user, require_role
+from app.auth.models import User
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.schedules.schemas import (
@@ -49,6 +51,7 @@ def get_service(db: AsyncSession = Depends(get_db)) -> ScheduleService:  # noqa:
 async def list_agencies(
     request: Request,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> list[AgencyResponse]:
     """List all transit agencies."""
     _ = request
@@ -61,6 +64,7 @@ async def create_agency(
     request: Request,
     data: AgencyCreate,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> AgencyResponse:
     """Create a new transit agency."""
     _ = request
@@ -80,6 +84,7 @@ async def list_routes(
     agency_id: int | None = Query(None),
     is_active: bool | None = Query(None),
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> PaginatedResponse[RouteResponse]:
     """List routes with pagination and filtering."""
     _ = request
@@ -94,6 +99,7 @@ async def create_route(
     request: Request,
     data: RouteCreate,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> RouteResponse:
     """Create a new route."""
     _ = request
@@ -106,6 +112,7 @@ async def get_route(
     request: Request,
     route_id: int,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> RouteResponse:
     """Get a route by its database ID."""
     _ = request
@@ -119,6 +126,7 @@ async def update_route(
     route_id: int,
     data: RouteUpdate,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> RouteResponse:
     """Update an existing route."""
     _ = request
@@ -131,6 +139,7 @@ async def delete_route(
     request: Request,
     route_id: int,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> None:
     """Delete a route by its database ID."""
     _ = request
@@ -147,6 +156,7 @@ async def list_calendars(
     pagination: PaginationParams = Depends(),  # noqa: B008
     active_on: date | None = Query(None),  # noqa: B008
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> PaginatedResponse[CalendarResponse]:
     """List service calendars with pagination."""
     _ = request
@@ -159,6 +169,7 @@ async def create_calendar(
     request: Request,
     data: CalendarCreate,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> CalendarResponse:
     """Create a new service calendar."""
     _ = request
@@ -171,6 +182,7 @@ async def get_calendar(
     request: Request,
     calendar_id: int,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> CalendarResponse:
     """Get a service calendar by ID."""
     _ = request
@@ -184,6 +196,7 @@ async def update_calendar(
     calendar_id: int,
     data: CalendarUpdate,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> CalendarResponse:
     """Update an existing service calendar."""
     _ = request
@@ -196,6 +209,7 @@ async def delete_calendar(
     request: Request,
     calendar_id: int,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> None:
     """Delete a service calendar."""
     _ = request
@@ -213,6 +227,7 @@ async def add_calendar_exception(
     calendar_id: int,
     data: CalendarDateCreate,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> CalendarDateResponse:
     """Add a date exception to a service calendar."""
     _ = request
@@ -225,6 +240,7 @@ async def remove_calendar_exception(
     request: Request,
     exception_id: int,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> None:
     """Remove a calendar date exception."""
     _ = request
@@ -243,6 +259,7 @@ async def list_trips(
     calendar_id: int | None = Query(None),
     direction_id: int | None = Query(None, ge=0, le=1),
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> PaginatedResponse[TripResponse]:
     """List trips with pagination and filtering."""
     _ = request
@@ -257,6 +274,7 @@ async def create_trip(
     request: Request,
     data: TripCreate,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> TripResponse:
     """Create a new trip."""
     _ = request
@@ -269,6 +287,7 @@ async def get_trip(
     request: Request,
     trip_id: int,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> TripDetailResponse:
     """Get a trip by ID with its stop times."""
     _ = request
@@ -282,6 +301,7 @@ async def update_trip(
     trip_id: int,
     data: TripUpdate,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> TripResponse:
     """Update an existing trip."""
     _ = request
@@ -294,6 +314,7 @@ async def delete_trip(
     request: Request,
     trip_id: int,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> None:
     """Delete a trip."""
     _ = request
@@ -307,6 +328,7 @@ async def replace_stop_times(
     trip_id: int,
     data: StopTimesBulkUpdate,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> list[StopTimeResponse]:
     """Replace all stop times for a trip."""
     _ = request
@@ -322,6 +344,7 @@ async def export_gtfs(
     request: Request,
     agency_id: int | None = Query(None),
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> Response:
     """Export schedule data as a GTFS-compliant ZIP file."""
     _ = request
@@ -339,6 +362,7 @@ async def import_gtfs(
     request: Request,
     file: UploadFile,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> GTFSImportResponse:
     """Import schedule data from a GTFS ZIP file."""
     _ = request
@@ -351,6 +375,7 @@ async def import_gtfs(
 async def validate_schedule(
     request: Request,
     service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> ValidationResult:
     """Validate referential integrity of schedule data."""
     _ = request

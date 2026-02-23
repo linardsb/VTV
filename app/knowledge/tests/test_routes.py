@@ -14,6 +14,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
+from app.auth.dependencies import get_current_user
+from app.auth.models import User
 from app.knowledge.exceptions import DocumentNotFoundError
 from app.knowledge.routes import _detect_source_type, get_service
 from app.knowledge.schemas import (
@@ -34,6 +36,17 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 _NOW = MagicMock()
+
+
+def _mock_admin_user() -> User:
+    """Return a mock admin user for testing."""
+    user = MagicMock(spec=User)
+    user.id = 1
+    user.email = "admin@vtv.lv"
+    user.name = "Admin"
+    user.role = "admin"
+    user.is_active = True
+    return user
 
 
 def _make_doc_response(**overrides: object) -> DocumentResponse:
@@ -65,13 +78,14 @@ def _mock_service() -> AsyncMock:
 
 
 def _client() -> tuple[TestClient, FastAPI]:
-    """Return a TestClient with rate limiting disabled."""
+    """Return a TestClient with rate limiting disabled and auth bypassed."""
     from fastapi.testclient import TestClient
 
     from app.core.rate_limit import limiter
     from app.main import app
 
     limiter.enabled = False
+    app.dependency_overrides[get_current_user] = _mock_admin_user
     return TestClient(app), app
 
 
@@ -107,6 +121,7 @@ def test_upload_document_success():
         assert call_kwargs.kwargs["source_type"] == "pdf"
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 # ---------------------------------------------------------------------------
@@ -204,6 +219,7 @@ def test_upload_unsupported_type():
         mock_svc.ingest_document.assert_not_awaited()
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +254,7 @@ def test_list_documents_with_filters():
         assert call_kwargs.kwargs["status"] == "completed"
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 # ---------------------------------------------------------------------------
@@ -259,6 +276,7 @@ def test_get_document_not_found():
         assert "999" in data["error"]
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 # ---------------------------------------------------------------------------
@@ -280,6 +298,7 @@ def test_delete_document_success():
         mock_svc.delete_document.assert_awaited_once_with(1)
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 # ---------------------------------------------------------------------------
@@ -303,6 +322,7 @@ def test_download_document_path_traversal():
             assert response.status_code == 500
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 # ---------------------------------------------------------------------------
@@ -347,6 +367,7 @@ def test_search_documents():
         mock_svc.search.assert_awaited_once()
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 # ---------------------------------------------------------------------------
@@ -388,6 +409,7 @@ def test_upload_filename_sanitization():
         assert sanitized.endswith(".pdf")
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_filename_sanitization_dot_prefix():
@@ -411,6 +433,7 @@ def test_filename_sanitization_dot_prefix():
         assert not sanitized.startswith(".")
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_filename_sanitization_null_bytes():
@@ -439,6 +462,7 @@ def test_filename_sanitization_null_bytes():
         assert "\x00" not in sanitized
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 # ---------------------------------------------------------------------------

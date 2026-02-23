@@ -12,6 +12,7 @@ import type {
   ChatCompletionResponse,
   MessageRole,
 } from "@/types/chat";
+import { authFetch } from "@/lib/auth-fetch";
 
 const AGENT_URL =
   process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
@@ -36,7 +37,7 @@ export class AgentApiError extends Error {
 export async function sendChatMessage(
   messages: Array<{ role: MessageRole; content: string }>
 ): Promise<ChatCompletionResponse> {
-  const response = await fetch(`${AGENT_URL}/v1/chat/completions`, {
+  const response = await authFetch(`${AGENT_URL}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages }),
@@ -58,7 +59,7 @@ export async function chatWithAgent(
 }
 
 export async function listModels(): Promise<unknown> {
-  const response = await fetch(`${AGENT_URL}/v1/models`);
+  const response = await authFetch(`${AGENT_URL}/v1/models`);
   if (!response.ok) {
     throw new AgentApiError(
       response.status,

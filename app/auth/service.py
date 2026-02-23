@@ -9,6 +9,7 @@ from app.auth.exceptions import AccountLockedError, InvalidCredentialsError
 from app.auth.models import User
 from app.auth.repository import UserRepository
 from app.auth.schemas import LoginResponse
+from app.auth.token import create_access_token, create_refresh_token
 from app.core.logging import get_logger
 from app.shared.models import utcnow
 
@@ -73,8 +74,39 @@ class AuthService:
             user.locked_until = None
             await self.repo.update(user)
 
-        logger.info("auth.login_success", email=email, role=user.role)
-        return LoginResponse(id=user.id, email=user.email, name=user.name, role=user.role)
+        # Issue JWT tokens
+        access_token = create_access_token(user.id, user.role)
+        refresh_token = create_refresh_token(user.id)
+
+        logger.info("auth.token_issued", email=email, role=user.role)
+        return LoginResponse(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            role=user.role,
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
+
+    async def refresh_access_token(self, user_id: int) -> str:
+        """Issue a new access token for a valid user.
+
+        Args:
+            user_id: The user ID from the refresh token.
+
+        Returns:
+            New access token string.
+
+        Raises:
+            InvalidCredentialsError: If user not found or inactive.
+        """
+        user = await self.repo.find_by_id(user_id)
+        if not user or not user.is_active:
+            raise InvalidCredentialsError("User not found or inactive")
+
+        access_token = create_access_token(user.id, user.role)
+        logger.info("auth.token_refreshed", user_id=user.id)
+        return access_token
 
     async def seed_demo_users(self) -> list[User]:
         """Create demo users if no users exist. Returns created users.

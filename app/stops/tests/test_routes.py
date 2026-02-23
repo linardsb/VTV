@@ -1,10 +1,12 @@
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 """Unit tests for stop management REST API routes."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
+from app.auth.dependencies import get_current_user
+from app.auth.models import User
 from app.core.rate_limit import limiter
 from app.main import app
 from app.shared.schemas import PaginatedResponse
@@ -15,6 +17,21 @@ from app.stops.service import StopService
 from app.stops.tests.conftest import make_stop
 
 limiter.enabled = False
+
+
+def _mock_admin_user() -> User:
+    """Return a mock admin user for testing."""
+    user = MagicMock(spec=User)
+    user.id = 1
+    user.email = "admin@vtv.lv"
+    user.name = "Admin"
+    user.role = "admin"
+    user.is_active = True
+    return user
+
+
+# Override auth dependencies for testing
+app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def _make_response(stop_id: int = 1, **overrides: object) -> StopResponse:
@@ -61,6 +78,7 @@ def test_list_stops():
         assert len(data["items"]) == 2
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_list_stops_with_search():
@@ -80,6 +98,7 @@ def test_list_stops_with_search():
         assert data["total"] == 1
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_get_stop():
@@ -97,6 +116,7 @@ def test_get_stop():
         assert data["stop_name"] == "Centrala stacija"
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_get_stop_not_found():
@@ -110,6 +130,7 @@ def test_get_stop_not_found():
         assert response.status_code == 404
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_create_stop():
@@ -129,6 +150,7 @@ def test_create_stop():
         assert data["gtfs_stop_id"] == "9999"
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_create_stop_duplicate():
@@ -145,6 +167,7 @@ def test_create_stop_duplicate():
         assert response.status_code == 422
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_update_stop():
@@ -164,6 +187,7 @@ def test_update_stop():
         assert data["stop_name"] == "Updated Name"
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_delete_stop():
@@ -177,6 +201,7 @@ def test_delete_stop():
         assert response.status_code == 204
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_nearby_stops():
@@ -194,6 +219,7 @@ def test_nearby_stops():
         assert data[0]["stop_name"] == "Near Stop"
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user
 
 
 def test_nearby_missing_params():
@@ -206,3 +232,4 @@ def test_nearby_missing_params():
         assert response.status_code == 422
     finally:
         app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user] = _mock_admin_user

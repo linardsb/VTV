@@ -138,7 +138,7 @@ class TestDemoCredentials:
         with patch("app.core.config.get_settings") as mock_settings:
             mock_settings.return_value = MagicMock(
                 environment="production",
-                demo_user_password="admin",  # noqa: S106
+                demo_user_password="admin",
             )
             users = await service.seed_demo_users()
 
@@ -165,7 +165,7 @@ class TestDemoCredentials:
         ):
             mock_settings.return_value = MagicMock(
                 environment="development",
-                demo_user_password="custom-secure-password",  # noqa: S106
+                demo_user_password="custom-secure-password",
             )
             await service.seed_demo_users()
 

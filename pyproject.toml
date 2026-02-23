@@ -10,6 +10,7 @@ dependencies = [
     "bcrypt>=5.0.0",
     "email-validator>=2.0.0",
     "fastapi>=0.120.1",
+    "google-genai>=1.0.0",
     "gtfs-realtime-bindings>=1.0.0",
     "httpx>=0.28.1",
     "openai>=2.20.0",
@@ -22,6 +23,7 @@ dependencies = [
     "pytesseract>=0.3.13",
     "python-docx>=1.2.0",
     "python-dotenv>=1.2.1",
+    "python-jose[cryptography]>=3.3.0",
     "redis[hiredis]>=5.2.0",
     "slowapi>=0.1.9",
     "sqlalchemy[asyncio]>=2.0.44",
@@ -74,9 +76,9 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "ANN", "ARG001", "D", "E731", "S105"]
-"test_*.py" = ["S101", "ANN", "ARG001", "D", "E731", "S105"]
-"**/tests/**/*.py" = ["S101", "ANN", "ARG001", "D", "E731", "S105"]  # Also apply to nested test directories
+"tests/**/*.py" = ["S101", "ANN", "ARG001", "D", "E731", "S105", "S106"]
+"test_*.py" = ["S101", "ANN", "ARG001", "D", "E731", "S105", "S106"]
+"**/tests/**/*.py" = ["S101", "ANN", "ARG001", "D", "E731", "S105", "S106"]  # Also apply to nested test directories
 "__init__.py" = ["F401"]  # Allow unused imports in package init
 "scripts/**/*.py" = ["T201"]  # Allow print in scripts
 "app/core/health.py" = ["B008", "ARG001"]  # FastAPI Depends() + slowapi Request param
@@ -87,6 +89,7 @@ ignore = [
 "app/schedules/routes.py" = ["ARG001"]  # slowapi requires Request param for rate limiting
 "app/auth/routes.py" = ["ARG001"]  # slowapi requires Request param for rate limiting
 "app/drivers/routes.py" = ["ARG001"]  # slowapi requires Request param for rate limiting
+"app/events/routes.py" = ["ARG001"]  # slowapi requires Request param for rate limiting
 "app/core/rate_limit.py" = ["B008"]  # slowapi Limiter() at module level is the intended pattern
 
 [tool.ruff.format]
@@ -155,9 +158,19 @@ ignore_missing_imports = true
 module = "openpyxl.*"
 ignore_missing_imports = true
 
+# google-genai lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "google.genai.*"
+ignore_missing_imports = true
+
 # redis has partial typing
 [[tool.mypy.overrides]]
 module = "redis.*"
+ignore_missing_imports = true
+
+# python-jose lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "jose.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

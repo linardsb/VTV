@@ -29,7 +29,7 @@ src/
 ├── components/
 │   ├── ui/                     # shadcn/ui components (button, table, dialog, tabs, switch, etc.)
 │   ├── app-sidebar.tsx         # Responsive sidebar (desktop: w-60 aside; mobile: hamburger + Sheet)
-│   ├── dashboard/              # Dashboard components (metric-card, calendar-grid)
+│   ├── dashboard/              # Dashboard components (metric-card, calendar-grid, calendar-panel)
 │   ├── documents/              # Document management (table, filters, upload-form, detail, delete-dialog)
 │   ├── routes/                 # Route management (table, filters, form, detail, type-badge, map, bus-marker)
 │   ├── schedules/              # Schedule management (calendar-table/form/detail, trip-table/form/detail/filters, gtfs-import, delete dialogs)
@@ -38,8 +38,9 @@ src/
 ├── hooks/
 │   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
 │   ├── use-vehicle-positions.ts # useVehiclePositions() hook (polls backend every 15s)
-│   └── use-dashboard-metrics.ts # useDashboardMetrics() hook (real API: vehicles + routes, 30s polling)
-├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts, driver.ts)
+│   ├── use-dashboard-metrics.ts # useDashboardMetrics() hook (real API: vehicles + routes, 30s polling)
+│   └── use-calendar-events.ts  # useCalendarEvents() hook (real API: /api/v1/events, 60s polling)
+├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts, driver.ts, event.ts)
 ├── lib/
 │   ├── utils.ts                # cn() class merge utility
 │   ├── agent-client.ts         # FastAPI agent API client
@@ -47,8 +48,9 @@ src/
 │   ├── stops-client.ts         # Stops API client (CRUD, nearby search)
 │   ├── schedules-client.ts     # Schedules API client (22 endpoints: agencies, routes, calendars, trips, import, validate)
 │   ├── drivers-client.ts       # Drivers API client (CRUD, search, shift/status filters)
+│   ├── events-client.ts        # Events API client (CRUD, date range filtering)
 │   ├── color-utils.ts          # Hex color conversion (backend "FF7043" ↔ frontend "#FF7043")
-│   └── mock-dashboard-data.ts  # Mock dashboard metrics and events
+│   └── mock-dashboard-data.ts  # Mock dashboard metrics (calendar events now from real API)
 └── i18n/
     └── request.ts              # next-intl configuration
 ```
@@ -127,7 +129,7 @@ These patterns trigger lint errors under React 19 strict rules. Write correct co
 
 ## E2E Testing (Playwright)
 
-66 tests across 9 files in `e2e/` (65 active + 1 skipped). Requires backend (port 8123) + frontend (port 3000) running.
+81 tests across 10 files in `e2e/` including CRUD flows for routes, stops, schedules, drivers, and documents. CRUD tests conditionally skip (`test.skip`) when prerequisites (e.g., create button, prerequisite data) are missing. Requires backend (port 8123) + frontend (port 3000) running. CI runs tests via GitHub Actions (`e2e-tests` job with docker-compose).
 
 ```bash
 npx playwright test                    # All tests (headless)
@@ -138,7 +140,8 @@ npx playwright test --ui               # Interactive UI mode
 
 **Test structure:**
 - `e2e/auth.setup.ts` — Login + save session (runs before authenticated tests)
-- `e2e/*.spec.ts` — Authenticated tests (dashboard, routes, stops, schedules, documents, navigation, smoke)
+- `e2e/helpers.ts` — Shared test utilities (`waitForDataOrEmpty`, `hasDataTable`)
+- `e2e/*.spec.ts` — Authenticated tests (dashboard, routes, stops, schedules, documents, drivers, navigation, smoke) including CRUD flows
 - `e2e/*.noauth.spec.ts` — Unauthenticated tests (login form, redirects)
 - `e2e/detect-changed.sh` — Auto-detects which features changed and runs only those tests
 

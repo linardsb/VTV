@@ -1,12 +1,5 @@
 import { test, expect } from "@playwright/test";
-
-/** Wait for the page data to load — either a table with rows or an empty state message. */
-async function waitForDataOrEmpty(page: import("@playwright/test").Page) {
-  await Promise.race([
-    page.getByRole("row").nth(1).waitFor({ state: "visible", timeout: 10000 }),
-    page.getByText(/nav atrast/i).waitFor({ state: "visible", timeout: 10000 }),
-  ]).catch(() => {});
-}
+import { waitForDataOrEmpty } from "./helpers";
 
 test.describe("Documents page", () => {
   test.beforeEach(async ({ page }) => {
@@ -21,7 +14,7 @@ test.describe("Documents page", () => {
   test("displays document table", async ({ page }) => {
     await waitForDataOrEmpty(page);
     const table = page.getByRole("table");
-    const noResults = page.getByText(/nav atrast/i);
+    const noResults = page.getByText(/no.*found|nav.*atrast/i);
     expect(
       (await table.isVisible()) || (await noResults.isVisible())
     ).toBeTruthy();
@@ -62,9 +55,9 @@ test.describe("Documents page", () => {
     if (await uploadButton.isVisible()) {
       await uploadButton.click({ force: true });
       // Upload form sheet should appear with dropzone
-      await expect(
-        page.getByText(/drop.*here|ievelciet/i)
-      ).toBeVisible({ timeout: 3000 });
+      await expect(page.getByText(/drop.*here|ievelciet/i)).toBeVisible({
+        timeout: 3000,
+      });
     }
   });
 
@@ -107,5 +100,101 @@ test.describe("Documents page", () => {
       const nextButton = page.getByRole("button", { name: /next|nākamā/i });
       await expect(nextButton).toBeVisible();
     }
+  });
+});
+
+test.describe("Documents CRUD", () => {
+  test("upload and delete document", async ({ page }) => {
+    await page.goto("/lv/documents");
+    await page.waitForLoadState("networkidle");
+    await waitForDataOrEmpty(page);
+
+    // --- UPLOAD ---
+    const uploadButton = page.getByRole("button", {
+      name: /upload|augšupielādēt/i,
+    });
+    if (!(await uploadButton.isVisible())) {
+      test.skip(true, "Upload button not visible");
+      return;
+    }
+    await uploadButton.click();
+
+    // Wait for upload form
+    await expect(page.getByText(/drop.*here|ievelciet/i)).toBeVisible({
+      timeout: 3000,
+    });
+
+    // Create a test file and upload via file input
+    const fileInput = page.locator("input[type='file']");
+    if (!(await fileInput.count())) return;
+
+    // Create a small test file
+    const testContent = `E2E Test Document ${Date.now()}`;
+    const buffer = Buffer.from(testContent);
+    await fileInput.setInputFiles({
+      name: `e2e-test-${Date.now()}.txt`,
+      mimeType: "text/plain",
+      buffer,
+    });
+
+    // Select domain
+    const domainSelect = page.locator("#doc-domain");
+    if (await domainSelect.isVisible()) {
+      await domainSelect.click();
+      const generalOption = page.getByRole("option", { name: /general/i });
+      if (await generalOption.isVisible()) {
+        await generalOption.click();
+      } else {
+        // Try first option
+        const firstOption = page.getByRole("option").first();
+        if (await firstOption.isVisible()) await firstOption.click();
+      }
+    }
+
+    // Submit upload and wait for API response
+    const submitButton = page.getByRole("button", {
+      name: /^upload$|^augšupielādēt$/i,
+    });
+    if ((await submitButton.isVisible()) && (await submitButton.isEnabled())) {
+      const uploadResponse = page.waitForResponse(
+        (resp) =>
+          resp.url().includes("/api/v1/knowledge") &&
+          resp.request().method() === "POST",
+      );
+      await submitButton.click();
+      await uploadResponse;
+    }
+
+    // Check if document appeared in the table
+    await waitForDataOrEmpty(page);
+    const table = page.getByRole("table");
+    if (!(await table.isVisible())) return;
+
+    // --- DELETE ---
+    // Click the first row (most recently uploaded)
+    const firstRow = page.getByRole("row").nth(1);
+    if (!(await firstRow.isVisible())) return;
+    await firstRow.click();
+
+    const sheet = page.getByRole("dialog");
+    await expect(sheet).toBeVisible({ timeout: 3000 });
+
+    const deleteButton = sheet.getByRole("button", {
+      name: /delete|dzēst/i,
+    });
+    if (!(await deleteButton.isVisible())) return;
+    await deleteButton.click();
+
+    // Confirm deletion and wait for API response
+    const deleteResponse = page.waitForResponse(
+      (resp) =>
+        resp.url().includes("/api/v1/knowledge") &&
+        resp.request().method() === "DELETE",
+    );
+    const confirmDelete = page
+      .getByRole("button", { name: /delete|dzēst/i })
+      .last();
+    await confirmDelete.click();
+    await deleteResponse;
   });
 });

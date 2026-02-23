@@ -3,15 +3,12 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DashboardMetrics } from "@/components/dashboard/dashboard-metrics";
-import { CalendarGrid } from "@/components/dashboard/calendar-grid";
+import { CalendarPanel } from "@/components/dashboard/calendar-panel";
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
-import { MOCK_EVENTS } from "@/lib/mock-dashboard-data";
-
-export const revalidate = 3600; // 1 hour — calendar uses mock data, metrics are client-side
 
 export default async function DashboardPage({
   params,
@@ -46,7 +43,7 @@ export default async function DashboardPage({
         {/* Calendar panel */}
         <ResizablePanel defaultSize={80} minSize={30}>
           <div className="h-full pt-(--spacing-grid)">
-            <CalendarGrid events={MOCK_EVENTS} />
+            <CalendarPanel />
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

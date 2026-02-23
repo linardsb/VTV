@@ -48,7 +48,11 @@ while IFS= read -r file; do
       add_test "schedules.spec.ts" ;;
     *components/documents/*|*app/*/documents/*)
       add_test "documents.spec.ts" ;;
+    *components/drivers/*|*app/*/drivers/*)
+      add_test "drivers.spec.ts" ;;
     *components/dashboard/*|*app/*/\(dashboard\)/page.tsx)
+      add_test "dashboard.spec.ts" ;;
+    *hooks/use-calendar-events*|*lib/events-client*|*types/event.ts)
       add_test "dashboard.spec.ts" ;;
 
     # Auth and login
@@ -66,6 +70,7 @@ while IFS= read -r file; do
       add_test "stops.spec.ts"
       add_test "schedules.spec.ts"
       add_test "documents.spec.ts"
+      add_test "drivers.spec.ts"
       add_test "dashboard.spec.ts"
       add_test "navigation.spec.ts" ;;
 
@@ -75,6 +80,7 @@ while IFS= read -r file; do
       add_test "stops.spec.ts"
       add_test "schedules.spec.ts"
       add_test "documents.spec.ts"
+      add_test "drivers.spec.ts"
       add_test "dashboard.spec.ts"
       add_test "navigation.spec.ts" ;;
   esac

@@ -14,6 +14,7 @@ import type {
   PaginatedStops,
   NearbyParams,
 } from "@/types/stop";
+import { authFetch } from "@/lib/auth-fetch";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
@@ -55,7 +56,7 @@ export async function fetchStops(params: {
   if (params.location_type !== undefined)
     searchParams.set("location_type", String(params.location_type));
 
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/?${searchParams.toString()}`,
   );
   return handleResponse<PaginatedStops>(response);
@@ -63,19 +64,19 @@ export async function fetchStops(params: {
 
 /** Fetch all stops for map display (single unpaginated request). */
 export async function fetchAllStopsForMap(): Promise<Stop[]> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/map`);
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/map`);
   return handleResponse<Stop[]>(response);
 }
 
 /** Fetch a single stop by ID. */
 export async function fetchStop(id: number): Promise<Stop> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/${id}`);
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/${id}`);
   return handleResponse<Stop>(response);
 }
 
 /** Create a new stop. */
 export async function createStop(data: StopCreate): Promise<Stop> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -88,7 +89,7 @@ export async function updateStop(
   id: number,
   data: StopUpdate,
 ): Promise<Stop> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -98,7 +99,7 @@ export async function updateStop(
 
 /** Delete a stop. */
 export async function deleteStop(id: number): Promise<void> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/${id}`, {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -119,7 +120,7 @@ export async function fetchNearbyStops(
   if (params.limit !== undefined)
     searchParams.set("limit", String(params.limit));
 
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/nearby?${searchParams.toString()}`,
   );
   return handleResponse<Stop[]>(response);

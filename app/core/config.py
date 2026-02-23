@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     # LLM API keys
     anthropic_api_key: str | None = None
 
+    # Google Gemini
+    google_api_key: str | None = None
+
+    # Groq
+    groq_api_key: str | None = None
+
     # Ollama (local LLM)
     ollama_base_url: str = "http://localhost:11434/v1"
 
@@ -106,6 +112,12 @@ class Settings(BaseSettings):
     # Obsidian Local REST API
     obsidian_api_key: str | None = None
     obsidian_vault_url: str = "https://127.0.0.1:27124"
+
+    # JWT Authentication
+    jwt_secret_key: str = "CHANGE-ME-IN-PRODUCTION"  # noqa: S105  # MUST be overridden via env
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 30
+    jwt_refresh_token_expire_days: int = 7
 
     # Demo credentials (only used when environment=development)
     demo_user_password: str = "admin"  # noqa: S105

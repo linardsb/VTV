@@ -8,9 +8,12 @@ export type VTVRole = "admin" | "dispatcher" | "editor" | "viewer";
 declare module "next-auth" {
   interface Session {
     user: { role: VTVRole } & DefaultSession["user"];
+    accessToken?: string;
   }
   interface User {
     role: VTVRole;
+    accessToken?: string;
+    refreshToken?: string;
   }
 }
 
@@ -85,6 +88,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: string;
             name: string;
             role: VTVRole;
+            access_token: string;
+            refresh_token: string;
           };
 
           clearAttempts(email);
@@ -93,6 +98,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: user.email,
             name: user.name,
             role: user.role,
+            accessToken: user.access_token,
+            refreshToken: user.refresh_token,
           };
         } catch {
           // Backend unreachable — treat as failed attempt
@@ -105,12 +112,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        (token as Record<string, unknown>).role = user.role;
+        token.role = user.role;
+        token.accessToken = user.accessToken;
+        token.refreshToken = user.refreshToken;
       }
       return token;
     },
     session({ session, token }) {
-      session.user.role = (token as Record<string, unknown>).role as VTVRole;
+      const validRoles: string[] = ["admin", "dispatcher", "editor", "viewer"];
+      session.user.role = validRoles.includes(token.role as string)
+        ? (token.role as VTVRole)
+        : "viewer";
+      session.accessToken = typeof token.accessToken === "string" ? token.accessToken : undefined;
       return session;
     },
   },

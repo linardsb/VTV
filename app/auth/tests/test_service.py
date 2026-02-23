@@ -36,7 +36,7 @@ class TestPasswordHashing:
 
 class TestAuthenticate:
     @pytest.mark.asyncio
-    async def test_success(self, service):
+    async def test_success_returns_tokens(self, service):
         user = MagicMock(spec=User)
         user.id = 1
         user.email = "admin@vtv.lv"
@@ -52,6 +52,8 @@ class TestAuthenticate:
 
         assert result.email == "admin@vtv.lv"
         assert result.role == "admin"
+        assert result.access_token != ""
+        assert result.refresh_token != ""
 
     @pytest.mark.asyncio
     async def test_user_not_found(self, service):
@@ -110,6 +112,37 @@ class TestAuthenticate:
                 await service.authenticate("test@vtv.lv", "wrong")
             assert user.failed_attempts == 5
             assert user.locked_until is not None
+
+
+class TestRefreshAccessToken:
+    @pytest.mark.asyncio
+    async def test_refresh_returns_new_token(self, service):
+        user = MagicMock(spec=User)
+        user.id = 1
+        user.role = "admin"
+        user.is_active = True
+
+        with patch.object(service.repo, "find_by_id", return_value=user):
+            token = await service.refresh_access_token(user_id=1)
+
+        assert isinstance(token, str)
+        assert len(token) > 0
+
+    @pytest.mark.asyncio
+    async def test_refresh_fails_for_missing_user(self, service):
+        with patch.object(service.repo, "find_by_id", return_value=None):
+            with pytest.raises(InvalidCredentialsError):
+                await service.refresh_access_token(user_id=999)
+
+    @pytest.mark.asyncio
+    async def test_refresh_fails_for_inactive_user(self, service):
+        user = MagicMock(spec=User)
+        user.id = 1
+        user.is_active = False
+
+        with patch.object(service.repo, "find_by_id", return_value=user):
+            with pytest.raises(InvalidCredentialsError):
+                await service.refresh_access_token(user_id=1)
 
 
 class TestSeedDemoUsers:
