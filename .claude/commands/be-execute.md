@@ -191,6 +191,8 @@ Verify:
 - [ ] Tests exist and pass
 - [ ] Update schemas have `reject_empty_body` model_validator (rejects empty PATCH/PUT)
 - [ ] Constrained string fields use `Literal[...]` types, not bare `str`
+- [ ] **All route endpoints have `get_current_user` or `require_role()` dependency** — `TestAllEndpointsRequireAuth` auto-discovers all routes and fails if auth is missing. If a new endpoint is legitimately public, add it to the `PUBLIC_ALLOWLIST` in `app/tests/test_security.py`
+- [ ] **Security convention tests pass**: `uv run pytest app/tests/test_security.py -v`
 
 ## OUTPUT
 

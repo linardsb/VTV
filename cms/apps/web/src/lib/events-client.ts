@@ -10,6 +10,7 @@ import type {
   EventUpdate,
   PaginatedEvents,
 } from "@/types/event";
+import { authFetch } from "@/lib/auth-fetch";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
@@ -47,7 +48,7 @@ export async function fetchEvents(params: {
   if (params.start_date) searchParams.set("start_date", params.start_date);
   if (params.end_date) searchParams.set("end_date", params.end_date);
 
-  const response = await fetch(
+  const response = await authFetch(
     `${BASE_URL}${API_PREFIX}/?${searchParams.toString()}`,
   );
   return handleResponse<PaginatedEvents>(response);
@@ -55,7 +56,7 @@ export async function fetchEvents(params: {
 
 /** Fetch a single event by ID. */
 export async function fetchEvent(id: number): Promise<OperationalEvent> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/${id}`);
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/${id}`);
   return handleResponse<OperationalEvent>(response);
 }
 
@@ -63,7 +64,7 @@ export async function fetchEvent(id: number): Promise<OperationalEvent> {
 export async function createEvent(
   data: EventCreate,
 ): Promise<OperationalEvent> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -76,7 +77,7 @@ export async function updateEvent(
   id: number,
   data: EventUpdate,
 ): Promise<OperationalEvent> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -86,7 +87,7 @@ export async function updateEvent(
 
 /** Delete an event. */
 export async function deleteEvent(id: number): Promise<void> {
-  const response = await fetch(`${BASE_URL}${API_PREFIX}/${id}`, {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/${id}`, {
     method: "DELETE",
   });
   if (!response.ok) {

@@ -95,6 +95,12 @@ Present a scannable summary using this structure:
 uv run ruff format . && uv run ruff check . && uv run mypy app/ && uv run pyright app/ && uv run pytest -v
 ```
 
+**Security Enforcement:**
+- Pre-commit hook: `make install-hooks` (blocks Bandit violations, sensitive files, hardcoded creds)
+- Security lint: `make security-check` (standalone Ruff Bandit rules)
+- Convention tests: `uv run pytest app/tests/test_security.py -v` (65 tests: auto-discovery endpoint auth, JWT safety, bcrypt rounds, nginx headers)
+- CI gate: dedicated "Security audit" step in GitHub Actions
+
 **Next steps:**
 - To build a new feature: `/be-planning [feature description]`
 - To scaffold a feature skeleton: `/be-create-feature [name]`

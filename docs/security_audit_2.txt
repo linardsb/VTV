@@ -1,484 +1,283 @@
-Nginx Layer - Rate limiting zones with different limits per endpoint type (30 req/s for general API, 2 req/s for expensive LLM chat, 60 req/s for health checks), connection limits (20 per IP), body size limits (1MB default, 10MB for file uploads), and security headers
+Security Vulnerabilities Found 
+Based on my analysis of the VTV codebase, I found several security vulnerabilities. Many have been addressed, but some critical and medium-severity issues remain unfixed.
+
+Critical/High Severity Issues (Remaining) 
+1. No Backend API Authentication (DEFERRED) 
+The most critical vulnerability is that backend API endpoints lack authentication enforcement. While authentication infrastructure exists, it was marked as DEFERRED in the security audit remediation. security_audit.txt:111-143
+
+However, I verified that authentication has been added to most routes. The transit, schedules, knowledge, drivers, events, and agent endpoints now require authentication: routes.py:23-30 routes.py:68-79 routes.py:24-31
+
+Status: This appears to be mostly resolved despite being marked as DEFERRED in the audit.
+
+2. In-Memory Brute Force Protection (DEFERRED) 
+Brute force protection uses in-memory storage that resets on server restart, allowing attackers to bypass lockouts: security_audit.txt:181-195
+
+The implementation is still in-memory: service.py:18-20 service.py:51-69
+
+Recommendation: Move brute force tracking to Redis for persistence across restarts.
+
+3. Default JWT Secret Key 
+The application has a hardcoded default JWT secret key that could be used if not properly configured: config.py:116-120
+
+The application does check for this in production and fails hard: main.py:65-71
+
+Recommendation: This is mitigated but still risky. Consider removing the default value entirely.
+
+Medium Severity Issues (Remaining) 
+4. No HTTPS/TLS Configuration (PARTIAL) 
+Production deployment lacks proper HTTPS configuration: security_audit.txt:196-211
+
+While there's an HTTPS template in nginx, it's commented out: nginx.conf:177-202
+
+The production docker-compose exposes port 443 but without SSL configuration: docker-compose.prod.yml:62-72
+
+Recommendation: Implement proper TLS with Let's Encrypt or similar certificate authority.
+
+5. Exposed Database Ports in Development 
+Development configuration exposes PostgreSQL and Redis ports directly: docker-compose.yml:8-10 docker-compose.yml:27-29
+
+Recommendation: These are documented with security warnings and removed in production, but ensure they're never exposed in production deployments.
+
+6. No Password Reset Functionality 
+The authentication system lacks password reset functionality, which could lead to account lockout issues: routes.py:34-67
+
+There are no endpoints for password recovery, and the User model lacks reset token fields.
+
+Recommendation: Implement secure password reset with time-limited tokens and email verification.
 
 
-Implemented defense-in-depth DDoS protection across the entire VTV stack:
-- **Phase 1**: Singleton caches (TransitService, AgentService), request size limits, slowapi rate limiting, daily query quota
-- **Phase 2**: Security headers (Next.js CSP/HSTS), login brute-force protection, Docker non-root user + resource limits, nginx reverse proxy
-
-Application-level Rate Limiting - slowapi integration with per-IP limits on FastAPI endpoints
-
-We use a layered defense strategy that requires **no new infrastructure** for Phase 1 (pure code changes) and minimal infrastructure additions for Phase 2 (nginx container, Docker security).
-**Approach Decision:**
-We chose `slowapi` for rate limiting because:
-- Pure Python, in-memory — no Redis dependency needed for development/MVP
-- Built on `limits` library, well-tested with FastAPI
-- Per-IP tracking with configurable time windows
-- Easily swappable to Redis backend when scaling
-**Alternatives Considered:**
-- Redis-backed rate limiting: Rejected because VTV is single-instance MVP, Redis adds infrastructure complexity
-- Cloudflare/WAF only: Rejected because app-layer defenses are needed regardless of edge protection
-- Custom middleware: Rejected because `slowapi` is battle-tested and saves development time
-
-Body Size Middleware - Prevents large payload attacks with configurable limits per endpoint (100KB default) 
-
-### Files to Modify
-- `app/transit/service.py` — Convert `get_transit_service()` to singleton with persistent `GTFSRealtimeClient`
-- `app/core/agents/service.py` — Convert `get_agent_service()` to singleton
-- `app/core/agents/schemas.py` — Add Pydantic Field constraints for size limits
-- `app/core/middleware.py` — Add `BodySizeLimitMiddleware`
-- `app/main.py` — Add singleton cleanup in lifespan, register rate limiter exception handler
-- `app/core/agents/routes.py` — Add rate limit decorators and quota check
-- `app/transit/routes.py` — Add rate limit decorator, use singleton service
-
-Query Quota System - 50 queries/day per IP for expensive LLM operations with automatic daily reset
-
-### Task 14: Create Query Quota Tracker
-**File:** `app/core/agents/quota.py` (create new)
-**Action:** CREATE
-Create an in-memory daily IP-based quota tracker:
-```python
-"""Daily query quota enforcement for the agent LLM endpoint.
-Tracks per-IP query counts with automatic daily reset. Returns HTTP 429
-when a client exceeds the configured daily quota.
-"""
-import time
-from dataclasses import dataclass, field
-from app.core.config import get_settings
-from app.core.logging import get_logger
-logger = get_logger(__name__)
-_SECONDS_PER_DAY: int = 86_400
-@dataclass
-class _QuotaEntry:
-    """Tracks query count and reset time for a single IP."""
-    count: int = 0
-    reset_at: float = field(default_factory=lambda: time.monotonic() + _SECONDS_PER_DAY)
-class QueryQuotaTracker:
-    """In-memory daily query quota tracker per IP address.
-    Automatically resets counts after 24 hours per IP. Thread-safe
-    for single-process async usage (no cross-process sharing).
-    """
-    def __init__(self, daily_limit: int) -> None:
-        """Initialize with the maximum queries per IP per day.
-        Args:
-            daily_limit: Maximum number of queries allowed per IP per day.
-        """
-        self._daily_limit = daily_limit
-        self._entries: dict[str, _QuotaEntry] = {}
-    def check_and_increment(self, client_ip: str) -> bool:
-        """Check if the client has quota remaining and increment if so.
-        Args:
-            client_ip: The client's IP address.
-        Returns:
-            True if the request is allowed, False if quota exceeded.
-        """
-        now = time.monotonic()
-        entry = self._entries.get(client_ip)
-        if entry is None or now >= entry.reset_at:
-            self._entries[client_ip] = _QuotaEntry(count=1, reset_at=now + _SECONDS_PER_DAY)
-            return True
-        if entry.count >= self._daily_limit:
-            logger.warning(
-                "agent.quota_exceeded",
-                client_ip=client_ip,
-                daily_limit=self._daily_limit,
-                current_count=entry.count,
-            )
-            return False
-        entry.count += 1
-        return True
-    def get_remaining(self, client_ip: str) -> int:
-        """Get the number of queries remaining for a client.
-        Args:
-            client_ip: The client's IP address.
-        Returns:
-            Number of queries remaining in the current period.
-        """
-        now = time.monotonic()
-        entry = self._entries.get(client_ip)
-        if entry is None or now >= entry.reset_at:
-            return self._daily_limit
-        return max(0, self._daily_limit - entry.count)
-# --- Module-level singleton ---
-_quota_tracker: QueryQuotaTracker | None = None
-def get_quota_tracker() -> QueryQuotaTracker:
-    """Get or create the quota tracker singleton.
+### 6. **No Authentication/Authorization on API Endpoints**  
+The backend API endpoints have **no authentication layer**. Anyone can call the agent endpoints, transit APIs, and other services without credentials. The login endpoint exists but doesn't issue tokens, and no endpoints check for authentication. [0-cite-10](#0-cite-10) [0-cite-11](#0-cite-11)   
+  
+The authentication only exists on the frontend via Auth.js, but the backend APIs are completely open.  
+  
+@router.post("/chat/completions", response_model=ChatCompletionResponse)
+@limiter.limit("10/minute")
+async def chat_completions(
+    request: Request,
+    body: ChatCompletionRequest,
+    service: AgentService = Depends(get_agent_service),
+) -> ChatCompletionResponse:
+    """Create a chat completion.
+    Accepts a list of messages and returns the agent's response
+    in OpenAI-compatible format.
+    Args:
+        request: The incoming HTTP request (used for rate limiting).
+        body: Chat completion request with messages.
+        service: Agent service instance (injected).
     Returns:
-        Singleton QueryQuotaTracker instance.
+        Chat completion response with the agent's message.
     """
-    global _quota_tracker
-    if _quota_tracker is None:
-        settings = get_settings()
-        _quota_tracker = QueryQuotaTracker(daily_limit=settings.agent_daily_quota)
-    return _quota_tracker
-```
-
-SQL Logging in Development - echo=True logs all SQL statements including potentially sensitive query parameters when running in development mode
-**M2. `echo=True` in development leaks SQL statements to logs**
-- **File:** `/Users/Berzins/Desktop/VTV/app/core/database.py`, line 22
-- **Standard:** Security / Logging
-- **Details:** `echo=settings.environment == "development"` logs all SQL statements including potentially sensitive query parameters when running in development mode. While this is useful for debugging, it should be a separate explicit setting (e.g., `DATABASE_ECHO=false`) rather than tied to the environment name, to prevent accidental production logging if someone sets `environment=development`.
-
-Body Size Middleware Path Matching - Uses fragile string matching that could be bypassed with crafted URLs
+    # Check daily quota before expensive LLM call
+    client_ip = request.client.host if request.client else "unknown"
+    tracker = get_quota_tracker()
+    if not tracker.check_and_increment(client_ip):
+        remaining = tracker.get_remaining(client_ip)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily query quota exceeded. Remaining: {remaining}. Resets in 24 hours.",
+        )
+    return await service.chat(body)
 
 
-**M3. `BodySizeLimitMiddleware` path matching is fragile**
-- **File:** `/Users/Berzins/Desktop/VTV/app/core/middleware.py`, lines 55-57
-- **Standard:** Security
-- **Details:** `if path.endswith("/import") or "/knowledge" in path:` uses simple string matching which could be bypassed (e.g., `/api/not-real/knowledge-bypass` would match). The path checks should use more precise matching, such as checking for specific route prefixes like `path.startswith("/api/schedules/") and path.endswith("/import")`.
-
-Duplicate Tool Functions - Six utility functions duplicated across 3-4 files creating divergence risk
-
-**H5. Significant code duplication across transit tools**
-- **File:** `/Users/Berzins/Desktop/VTV/app/core/agents/tools/transit/get_route_schedule.py`, lines 35-66, 69-83, 86-102
-- **File:** `/Users/Berzins/Desktop/VTV/app/core/agents/tools/transit/get_adherence_report.py`, lines 38-54, 57-71, 74-88, 91-106, 108-123
-- **File:** `/Users/Berzins/Desktop/VTV/app/core/agents/tools/transit/check_driver_availability.py`, lines 34-50, 53-67
-- **File:** `/Users/Berzins/Desktop/VTV/app/core/agents/tools/transit/query_bus_status.py`, lines 44-51
-- **Standard:** Code Quality (DRY)
-- **Details:** The following functions are duplicated across 3-4 files:
-  - `_validate_date()` -- identical in `get_route_schedule.py`, `get_adherence_report.py`, `check_driver_availability.py`
-  - `_classify_service_type()` -- identical in `get_route_schedule.py`, `get_adherence_report.py`, `check_driver_availability.py`
-  - `_gtfs_time_to_minutes()` -- identical in `get_route_schedule.py`, `get_adherence_report.py`
-  - `_gtfs_time_to_display()` -- identical in `get_route_schedule.py`, `get_adherence_report.py`
-  - `_delay_description()` -- identical in `query_bus_status.py`, `get_adherence_report.py`
-  - `_get_first_departure_minutes()` -- identical in `get_route_schedule.py`, `get_adherence_report.py`
-  Per the project's three-feature rule, any utility used by 3+ features should be extracted to `app/shared/`. These 6 functions are used across 2-4 tool files and should be consolidated into a shared transit utilities module (e.g., `app/core/agents/tools/transit/utils.py`).
+@router.post("/documents", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
+async def upload_document(
+    request: Request,
+    file: UploadFile = File(...),  # noqa: B008
+    domain: str = Form(...),
+    language: str = Form(default="lv"),
+    metadata_json: str | None = Form(default=None),
+    title: str | None = Form(default=None),
+    description: str | None = Form(default=None),
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 
 
-ILIKE Wildcard Injection - User input not escaped in search parameters across multiple modules, allowing pattern manipulation
-**H4. ILIKE search pattern is not sanitized for SQL wildcards**
-- **File:** `/Users/Berzins/Desktop/VTV/app/schedules/repository.py`, lines 152-154
-- **Standard:** Security (4)
-- The search parameter is interpolated into an ILIKE pattern as `f"%{search}%"`. If a user passes `%` or `_` characters in their search query, these are interpreted as SQL wildcards, allowing unintended pattern matching. For example, searching for `%` would match every route.
-- **Recommendation:** Escape `%` and `_` characters in the search string before wrapping in wildcards. SQLAlchemy doesn't auto-escape these for `ilike()`.
-
-Invalid Time Values - Regex allows invalid times like 99:99:99 in arrival/departure time fields
-**M6. `arrival_time` regex allows invalid times like `99:99:99`**
-- **File:** `/Users/Berzins/Desktop/VTV/app/schedules/schemas.py`, lines 205-209
-- **Standard:** Security (4), Error Handling (3)
-- The regex `^\d{2}:\d{2}:\d{2}$` validates format but not value ranges. It accepts `99:99:99` or `00:61:00`. While GTFS allows times >24:00:00 for overnight trips, minutes and seconds should be 0-59.
-- **Recommendation:** Add a `field_validator` that parses hours/minutes/seconds and validates minutes < 60 and seconds < 60. Hours can exceed 24 (GTFS spec).
-
-
-Missing Database Constraints - No unique constraints on critical fields like (trip_id, stop_sequence) and (calendar_id, date)
-
-**M4. No unique constraint on `(trip_id, stop_sequence)` in StopTime model**
-- **File:** `/Users/Berzins/Desktop/VTV/app/schedules/models.py`, lines 100-120
-- **Standard:** Data Integrity
-- The `StopTime` model allows duplicate `stop_sequence` values for the same trip at the database level. The validation endpoint checks for non-sequential ordering but doesn't prevent duplicates at the schema or model level.
-- **Recommendation:** Add `__table_args__ = (UniqueConstraint('trip_id', 'stop_sequence', name='uq_stop_time_trip_seq'),)` to prevent data corruption.
-**M5. No unique constraint on `(calendar_id, date)` in CalendarDate model**
-- **File:** `/Users/Berzins/Desktop/VTV/app/schedules/models.py`, lines 69-79
-- **Standard:** Data Integrity
-- Multiple calendar date exceptions can be created for the same date on the same calendar, which violates GTFS semantics (each date should have at most one exception type per service).
-- **Recommendation:** Add `__table_args__ = (UniqueConstraint('calendar_id', 'date', name='uq_calendar_date'),)`.
-
-Content-Type Validation - Trusts client-provided MIME types without magic-byte validation
-
-**Fix:** Document this coupling clearly. Consider using a migration to alter the column if the dimension changes, or at minimum add a startup check that validates `settings.embedding_dimension == 1024`.
-#### M4. No Content-Type Validation Beyond Extension Mapping
-**File:** `/Users/Berzins/Desktop/VTV/app/knowledge/routes.py`, lines 34-62
-**Standard:** Security
-The `_detect_source_type` function trusts the MIME type from the upload, which is set by the client and can be spoofed. A malicious file could be uploaded with `content_type: text/plain` but actually contain executable content. There's no magic-byte validation.
-```python
-def _detect_source_type(content_type: str | None) -> str:
-    if content_type is None:
-        return "text"  # Defaults to text with no validation
-```
-**Fix:** For defense in depth, also check the file extension from the filename, and optionally use `python-magic` for magic-byte detection.
-
-Sequential Search Queries - Vector and fulltext searches run sequentially instead of concurrently, impacting performance 
-#### M7. Vector and Fulltext Searches Run Sequentially
-**File:** `/Users/Berzins/Desktop/VTV/app/knowledge/service.py`, lines 298-303
-**Standard:** Performance
-The two search queries (vector + fulltext) run sequentially even though they are independent:
-```python
-vector_results = await self.repository.search_vector(...)
-text_results = await self.repository.search_fulltext(...)
-```
-**Fix:** Run them concurrently with `asyncio.gather`:
-```python
-vector_results, text_results = await asyncio.gather(
-    self.repository.search_vector(...),
-    self.repository.search_fulltext(...),
-)
-```
-Note: This requires both queries to use separate sessions or the same session to support concurrent queries, which may not be the case with a single `AsyncSession`. Verify before applying.
-
-No Fulltext Search Index - Missing GIN index causes sequential scans on every search
-
-```
-Note: This requires both queries to use separate sessions or the same session to support concurrent queries, which may not be the case with a single `AsyncSession`. Verify before applying.
-#### M8. No Fulltext Search Index
-**File:** `/Users/Berzins/Desktop/VTV/app/knowledge/repository.py`, lines 277-318
-**Standard:** Performance
-The fulltext search uses `to_tsvector('simple', DocumentChunk.content)` and `plainto_tsquery('simple', ...)` on every query. Without a GIN index on `to_tsvector('simple', content)`, this performs a sequential scan on every search, which will degrade significantly as the chunk table grows.
-**Fix:** Add a GIN index in a migration:
-```sql
-CREATE INDEX idx_document_chunks_content_tsvector
-ON document_chunks USING gin(to_tsvector('simple', content));
-```
-
-File Cleanup Issues - Temporary files not cleaned up when ingestion fails
-
-
-#### M1. Temporary File Not Cleaned Up on Ingest Exception
-**File:** `/Users/Berzins/Desktop/VTV/app/knowledge/routes.py`, lines 90-105
-**Standard:** Code Quality
-The temp file is cleaned up in `finally`, which is correct. However, the stored copy in `data/documents/{id}/` is NOT cleaned up when ingestion fails. The service's `ingest_document` method copies the file to permanent storage before embedding, but if embedding fails, the file remains on disk even though the document status is "failed":
-```python
-# service.py lines 122-127 - file copied before embedding
-shutil.copy2(file_path, stored_path)
-await self.repository.update_document_file_path(doc.id, str(stored_path))
-# ... if embedding fails after this, file stays on disk
-```
-**Fix:** Move file storage to after successful processing, or add cleanup in the error handler.
-
-In-memory Brute-force Protection - Login attempt tracking doesn't survive restarts or work across multiple server instances
-
-**H1. In-memory brute-force protection does not survive restarts**
-- **File:** `/Users/Berzins/Desktop/VTV/cms/apps/web/auth.ts`, lines 27-51
-- **Standard:** Security
-- **Details:** The `loginAttempts` Map is stored in-memory. In production with multiple server instances or after a restart, all lockout state is lost. An attacker can bypass the 5-attempt lockout by simply waiting for a redeploy.
-- **Recommendation:** Move login attempt tracking to Redis or the database.
-
-Cookie Security - document.cookie set without SameSite attribute
-**M8. `document.cookie` set without `SameSite` attribute**
-- **File:** `/Users/Berzins/Desktop/VTV/cms/apps/web/src/components/locale-toggle.tsx`, line 11
-- **Standard:** Security
-- **Details:** The locale cookie is set without `SameSite` attribute. Modern browsers default to `Lax`, but explicit declaration is a security best practice.
-```typescript
-document.cookie = `${name}=${value};path=/;max-age=${maxAge}`;
-```
-- **Recommendation:** Add `SameSite=Lax` to the cookie string.
-
-Locale Handling - Middleware redirects don't preserve user's current locale, always defaulting to /lv/login
-**M4. Unauthenticated redirect always goes to `/lv/login` regardless of current locale**
-- **File:** `/Users/Berzins/Desktop/VTV/cms/apps/web/middleware.ts`, line 18
-- **Standard:** i18n
-- **Details:** If an English-locale user (`/en/routes`) is not authenticated, they are redirected to `/lv/login` (Latvian). The redirect should preserve the user's current locale.
-```typescript
-return NextResponse.redirect(new URL("/lv/login", req.url));
-```
-- **Recommendation:** Extract the locale from the request pathname and redirect to `/${locale}/login`.
-
-No Input Validation - feed_id and route_id query parameters used directly in Redis key construction without length limits or character validation
-
-
-#### M2. No input validation on `feed_id` and `route_id` query parameters
-**File:** `/Users/Berzins/Desktop/VTV/app/transit/routes.py`, lines 23-26
-**Standard:** Security (input validation)
-The `feed_id` parameter is used directly in Redis key construction (`f"feed:{feed_id}:vehicles"` and `f"vehicle:{feed_id}:{vid}"`). While Redis key injection is low-risk (read-only operations, no deletion), there is no length limit or character validation. An attacker could send arbitrarily long `feed_id` values.
-```python
+@router.get("/vehicles", response_model=VehiclePositionsResponse)
+@limiter.limit("30/minute")
 async def get_vehicles(
     request: Request,
-    route_id: str | None = None,    # No validation
-    feed_id: str | None = None,     # No validation, used in Redis keys
+    route_id: str | None = Query(None, max_length=100, pattern=r"^[\w\-.:]+$"),
+    feed_id: str | None = Query(None, max_length=50, pattern=r"^[\w\-]+$"),
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> VehiclePositionsResponse:
-```
-**Fix:** Add `Query` constraints:
-```python
-from fastapi import Query
-feed_id: str | None = Query(None, max_length=50, pattern=r"^[a-z0-9_-]+$"),  # noqa: B008
-route_id: str | None = Query(None, max_length=50),  # noqa: B008
-
-
-Missing Rate Limiting - /feeds endpoint lacks rate limiting unlike /vehicles
-
-#### M3. `get_feeds` endpoint missing rate limiting
-**File:** `/Users/Berzins/Desktop/VTV/app/transit/routes.py`, lines 47-59
-**Standard:** Security (rate limiting)
-The `/feeds` endpoint has no `@limiter.limit()` decorator, unlike `/vehicles` which has `30/minute`. While `/feeds` is lighter (reads from config, not Redis), it should still have rate limiting to prevent abuse.
-**Fix:** Add `@limiter.limit("30/minute")` and accept `request: Request` parameter.
-
-Hardcoded Database Credentials - docker-compose files contain plaintext credentials that could diverge from .env configuration
-
-| `docker-compose.yml:50` | 8. Security | `migrate` service hardcodes `DATABASE_URL` with plaintext credentials `postgres:postgres`. If `.env` provides a different password, the migration will connect with wrong creds. | Remove the hardcoded `DATABASE_URL` from `migrate.environment` and rely on `.env` file only, or use `${POSTGRES_PASSWORD:-postgres}` interpolation to stay consistent with the `db` service. | Medium |
-| `docker-compose.yml:90` | 8. Security | `app` service also hardcodes `DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/vtv_db` which overrides any `.env` value. | Same fix — use `DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/vtv_db}` or remove the override and document that `.env` must set Docker-internal URLs. | Medium |
-| `docker-compose.yml:140` | 8. Security | `AUTH_SECRET=${AUTH_SECRET:?AUTH_SECRET must be set}` will crash `docker-compose up` if not set, but `make db` workaround uses `AUTH_SECRET=dev-placeholder`. This creates divergent behavior. | Document in `.env.example` that `AUTH_SECRET` is required for `docker-compose up` (full stack) but not for `make db` (dev subset). Alternatively, use `AUTH_SECRET=${AUTH_SECRET:-}` with a runtime check in the CMS app. | Low |
-
-******** This might be because i asked for this, as database was being emptied after each docker rerun or docker container switch off. PLEASE confirm this in the task ************
-
-Custom ValidationError Naming - Name conflicts with Pydantic's ValidationError, causing confusion in error logs
-
-**L4. `ValidationError` name conflicts with Pydantic's `ValidationError`**
-- **File:** `/Users/Berzins/Desktop/VTV/app/core/exceptions.py`, line 26
-- **Standard:** Code Quality (naming)
-- **Details:** The custom `ValidationError` class shares its name with `pydantic.ValidationError`, which is used throughout the codebase for request validation. This can cause confusion when reading error logs or when both are needed in the same module. Consider renaming to `DomainValidationError` or `BusinessValidationError`.
-
-Content-Length Parsing - Doesn't handle malformed header values defensively 
-
-- **File:** `/Users/Berzins/Desktop/VTV/app/core/middleware.py`, line 62
-- **Standard:** Error Handling
-- **Details:** `int(content_length)` will raise `ValueError` if the header contains a non-numeric value. While this would be caught by the framework, wrapping it in a `try/except ValueError` would be more defensive.
 
-Empty Update Requests - DocumentUpdate schema accepts empty patches with no validation
 
-#### L5. `DocumentUpdate` Accepts Empty Patch
-**File:** `/Users/Berzins/Desktop/VTV/app/knowledge/schemas.py`, lines 18-24
-**Standard:** Code Quality
-All fields in `DocumentUpdate` are optional with no validation that at least one field is provided. An empty `{}` body will hit the database and return the unchanged document.
-```python
-class DocumentUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    domain: str | None = Field(None, min_length=1, max_length=50)
-    language: str | None = Field(None, pattern="^(lv|en)$")
-```
-**Fix:** Add a model validator to reject empty updates:
-```python
-@model_validator(mode="after")
-def check_at_least_one_field(self) -> Self:
-    if not any(v is not None for v in self.model_dump(exclude_unset=True).values()):
-        raise ValueError("At least one field must be provided")
-    return self
-```
-
-Unknown File Types - System defaults to "text" processing for unrecognized MIME types, potentially producing garbage output
-#### L6. `_detect_source_type` Falls Back to "text" for Unknown Types
-**File:** `/Users/Berzins/Desktop/VTV/app/knowledge/routes.py`, line 62
-**Standard:** Error Handling
-Any unrecognized MIME type (including `application/octet-stream`, `application/zip`) silently defaults to "text" and will be processed by `_extract_text_sync`, which reads the file as UTF-8 text. This could produce garbage output or raise encoding errors.
-```python
-return "text"  # Catch-all for unknown types
-```
-**Fix:** Return `"unknown"` and let the processing layer reject it via `UnsupportedDocumentTypeError`, or reject unknown types at the route level.
-
-
-Broad Exception Catching - Generic except Exception blocks in multiple modules could mask specific errors
-
-#### L1. Broad Exception Catch in `ingest_document`
-**File:** `/Users/Berzins/Desktop/VTV/app/knowledge/service.py`, line 166
-**Standard:** Error Handling
-The bare `except Exception` catches everything including `KeyboardInterrupt` (indirectly via `BaseException` subclasses). While the re-raise mitigates the damage, it's better to be explicit.
-```python
-except Exception as e:
-    await self.repository.update_document_status(doc.id, "failed", str(e), 0)
-```
-This is acceptable since it re-raises, but `update_document_status` itself could fail (e.g., DB connection lost), which would mask the original error.
-**Fix:** Wrap the status update in its own try/except:
-```python
-except Exception as e:
-    try:
-        await self.repository.update_document_status(doc.id, "failed", str(e), 0)
-    except Exception:
-        logger.error("knowledge.ingest.status_update_failed", document_id=doc.id)
-    raise
-```
-
-**********IMPORTANT:********* (need to implement this in our testing workflow, make this a priority after test fixes above)
-
-Testing Gaps: 
-No Repository Layer Tests - Knowledge repository methods have zero test coverage, especially critical vector and fulltext search queries knowledge-review.md:375-381
-
-No Route Layer Tests - FastAPI route handlers completely untested for file upload flow and error responses knowledge-review.md:382-388
-
-Missing Edge Case Coverage - Multiple service methods lack tests for error paths and boundary conditions schedules-review.md:176-189
-
-
-#### L2. No Test Coverage for Repository Layer
-**Standard:** Testing
-There are no tests for `KnowledgeRepository` methods. All service tests mock the repository. This means SQL query construction, filtering logic, and the critical `search_vector`/`search_fulltext` methods are completely untested.
-**Fix:** Add integration tests (marked `@pytest.mark.integration`) that test repository methods against a real database, especially the vector and fulltext search queries.
-
-
-#### L3. No Test Coverage for Route Layer
-**Standard:** Testing
-There are no tests for the FastAPI route handlers (`routes.py`). The file upload flow, content-type detection, query parameter parsing, rate limiting, and HTTP status codes are untested.
-**Fix:** Add tests using `httpx.AsyncClient` or `fastapi.testclient.TestClient` to verify route behavior, especially the upload endpoint's file handling and error responses.
-
-
-**L6. Test coverage gaps for edge cases**
-- **File:** `/Users/Berzins/Desktop/VTV/app/schedules/tests/test_service.py`
-- **Standard:** Testing (6)
-- Missing test cases:
-  - `update_calendar` when calendar not found
-  - `update_trip` when trip not found
-  - `get_trip` when trip not found
-  - `add_calendar_exception` when calendar not found
-  - `remove_calendar_exception` when exception not found
-  - `replace_stop_times` when trip not found
-  - Calendar date range validation in `validate_schedule` (start_date > end_date)
-  - `import_gtfs` when import fails (exception path)
-- **Recommendation:** Add these edge case tests to improve coverage of error paths.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+### 9. **In-Memory Brute Force Protection (Non-Persistent)**  
+The brute force protection uses in-memory storage that resets on server restart, allowing attackers to bypass lockouts. [0-cite-15](#0-cite-15) [0-cite-16](#0-cite-16)   
+  
+# Brute-force protection constants
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_DURATION = datetime.timedelta(minutes=15)
+// SECURITY: Frontend brute-force protection (defense in depth — backend also enforces)
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+interface LoginAttempt {
+  count: number;
+  lockedUntil: number | null;
+
+
+# Brute-force protection constants
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_DURATION = datetime.timedelta(minutes=15)
+
+
+        # Check lockout
+        if user.locked_until and utcnow() < user.locked_until:
+            logger.warning("auth.login_locked", email=email)
+            raise AccountLockedError("Account is temporarily locked")
+        # Clear expired lockout
+        if user.locked_until and utcnow() >= user.locked_until:
+            user.locked_until = None
+            user.failed_attempts = 0
+        # Verify password
+        if not self.verify_password(password, user.hashed_password):
+            user.failed_attempts += 1
+            if user.failed_attempts >= MAX_FAILED_ATTEMPTS:
+                user.locked_until = utcnow() + LOCKOUT_DURATION
+                logger.warning("auth.account_locked", email=email, attempts=user.failed_attempts)
+            await self.repo.update(user)
+            logger.warning("auth.login_failed", email=email, reason="bad_password")
+            raise InvalidCredentialsError("Invalid email or password")
+
+    # JWT Authentication
+    jwt_secret_key: str = "CHANGE-ME-IN-PRODUCTION"  # noqa: S105  # MUST be overridden via env
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 30
+    jwt_refresh_token_expire_days: int = 
+
+
+    # SECURITY: Fail hard if JWT secret is default in non-development environments
+    if (
+        settings.environment != "development"
+        and settings.jwt_secret_key == "CHANGE-ME-IN-PRODUCTION"  # noqa: S105
+    ):
+        msg = "JWT_SECRET_KEY must be set to a strong secret in non-development environments"
+        raise RuntimeError(msg)
+
+### 10. **No HTTPS/TLS Configuration**  
+The production nginx configuration only exposes port 80 (HTTP) and references certificates but doesn't configure SSL. [0-cite-17](#0-cite-17) [0-cite-18](#0-cite-18)   
+  
+## Medium Severity Issues  
+  
+    server {
+        listen 80;
+        server_name _;
+  nginx:
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/certs:/etc/nginx/certs:ro
+
+  # --- HTTPS Template ---
+        # Uncomment and configure for production TLS deployment:
+        #
+        # server {
+        #     listen 443 ssl http2;
+        #     server_name your-domain.com;
+        #
+        #     ssl_certificate /etc/nginx/ssl/cert.pem;
+        #     ssl_certificate_key /etc/nginx/ssl/key.pem;
+        #     ssl_protocols TLSv1.2 TLSv1.3;
+        #     ssl_ciphers HIGH:!aNULL:!MD5;
+        #     ssl_prefer_server_ciphers on;
+        #     ssl_session_cache shared:SSL:10m;
+        #     ssl_session_timeout 10m;
+        #
+        #     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+        #
+        #     # ... copy location blocks from HTTP server above ...
+        # }
+        #
+        # # HTTP to HTTPS redirect
+        # server {
+        #     listen 80;
+        #     server_name your-domain.com;
+        #     return 301 https://$host$request_uri;
+        # }
+
+
+  nginx:
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/certs:/etc/nginx/certs:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+    ports:
+      # SECURITY: Consider removing in production - only needed for direct DB access during development
+      - "5433:5432"
+
+    ports:
+      # SECURITY: Consider removing in production - only needed for direct Redis access during development
+      - "6379:6379"
+
+@router.post("/login", response_model=LoginResponse)
+@limiter.limit("10/minute")
+async def login(
+    request: Request,
+    body: LoginRequest,
+    service: AuthService = Depends(get_service),  # noqa: B008
+) -> LoginResponse:
+    """Authenticate user with email and password. Returns JWT tokens."""
+    _ = request
+    return await service.authenticate(body.email, body.password)
+@router.post("/refresh", response_model=RefreshResponse)
+@limiter.limit("30/minute")
+async def refresh_token(
+    request: Request,
+    body: RefreshRequest,
+    service: AuthService = Depends(get_service),  # noqa: B008
+) -> RefreshResponse:
+    """Exchange a valid refresh token for a new access token."""
+    _ = request
+    logger.info("auth.token.refresh_started")
+    payload = decode_token(body.refresh_token)
+    if payload is None or payload.type != "refresh":
+        logger.warning("auth.token.refresh_failed", reason="invalid_refresh_token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+    access_token = await service.refresh_access_token(payload.sub)
+    logger.info("auth.token.refresh_completed", user_id=payload.sub)
+    return RefreshResponse(access_token=access_token)
+
+
+## Remediation Status (v3 Hardening)
+
+| # | Finding | Source | Severity | Status | Fix Applied |
+|---|---------|--------|----------|--------|-------------|
+| 1 | Events GET unauthenticated | Code review | HIGH | FIXED | Added get_current_user to list_events and get_event |
+| 2 | In-memory brute force | Audit 1 #9 | HIGH | FIXED | Redis-backed tracking with DB fallback |
+| 3 | No token revocation | Code review | HIGH | FIXED | Redis denylist with TTL matching token expiry |
+| 4 | CORS too permissive | Code review | MEDIUM | FIXED | Restricted methods and headers to explicit allowlist |
+| 5 | No CSP header | Code review | MEDIUM | FIXED | Content-Security-Policy added to nginx |
+| 6 | Docker DATABASE_URL hardcoded | Audit 1 #11 | MEDIUM | FIXED | Env var interpolation in migrate and app services |
+| 7 | Health leaks infra details | Code review | LOW | FIXED | Removed provider name and error messages |
+| 8 | Root endpoint leaks version | Code review | LOW | FIXED | Version only in development environment |
+| 9 | No password complexity | Audit 3 #6 | HIGH | FIXED | 10+ chars, uppercase, lowercase, digit required |
+| 10 | Refresh ignores lockout | Code review | MEDIUM | FIXED | Added locked_until check in refresh_access_token |
+| 11 | Quota tracker in-memory | Code review | MEDIUM | FIXED | Redis-backed with in-memory fallback |
+| 12 | Redis no authentication | Code review | MEDIUM | FIXED | Optional password via REDIS_PASSWORD env var |
+| 13 | No HTTPS/TLS | Audit 1 #10 | HIGH | FIXED | Full HTTPS server block in nginx with modern TLS |
+| 14 | Exposed DB ports | Audit 1 #13 | MEDIUM | VERIFIED | docker-compose.prod.yml uses ports: !reset [] |
+| 15 | No password reset | Audit 3 #6 | HIGH | FIXED | Admin-only password reset endpoint with validation |
+| 16 | Default JWT secret | Audit 3 #3 | HIGH | FIXED | Startup rejects weak/short keys in production |
+
+Deployment requirements:
+- HTTPS: SSL certificates at nginx/certs/cert.pem and nginx/certs/key.pem
+  Generate self-signed: openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout nginx/certs/key.pem -out nginx/certs/cert.pem
+  Production: Use Let's Encrypt or institutional CA certificate
+- Redis password: Set REDIS_PASSWORD env var in production
+- JWT secret: Set JWT_SECRET_KEY env var (min 32 chars) in production
 
 
 

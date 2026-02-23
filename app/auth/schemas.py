@@ -1,6 +1,35 @@
 """Pydantic schemas for authentication."""
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
+
+PASSWORD_MIN_LENGTH = 10
+
+
+def _validate_password_complexity(password: str) -> str:
+    """Validate password meets government-grade complexity requirements.
+
+    Args:
+        password: The password string to validate.
+
+    Returns:
+        The validated password string.
+
+    Raises:
+        ValueError: If password does not meet complexity requirements.
+    """
+    if len(password) < PASSWORD_MIN_LENGTH:
+        msg = f"Password must be at least {PASSWORD_MIN_LENGTH} characters"
+        raise ValueError(msg)
+    if not any(c.isupper() for c in password):
+        msg = "Password must contain at least one uppercase letter"
+        raise ValueError(msg)
+    if not any(c.islower() for c in password):
+        msg = "Password must contain at least one lowercase letter"
+        raise ValueError(msg)
+    if not any(c.isdigit() for c in password):
+        msg = "Password must contain at least one digit"
+        raise ValueError(msg)
+    return password
 
 
 class LoginRequest(BaseModel):
@@ -36,6 +65,19 @@ class RefreshResponse(BaseModel):
     """Token refresh response."""
 
     access_token: str
+
+
+class PasswordResetRequest(BaseModel):
+    """Admin-initiated password reset."""
+
+    user_id: int
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """Enforce password complexity on new passwords."""
+        return _validate_password_complexity(v)
 
 
 class UserResponse(BaseModel):

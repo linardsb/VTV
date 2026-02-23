@@ -10,6 +10,7 @@ from app.auth.models import User
 from app.auth.schemas import (
     LoginRequest,
     LoginResponse,
+    PasswordResetRequest,
     RefreshRequest,
     RefreshResponse,
     UserResponse,
@@ -64,6 +65,19 @@ async def refresh_token(
     access_token = await service.refresh_access_token(payload.sub)
     logger.info("auth.token.refresh_completed", user_id=payload.sub)
     return RefreshResponse(access_token=access_token)
+
+
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("5/minute")
+async def reset_password(
+    request: Request,
+    body: PasswordResetRequest,
+    service: AuthService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin")),  # noqa: B008
+) -> None:
+    """Reset a user's password (admin only)."""
+    _ = request
+    await service.reset_password(body.user_id, body.new_password)
 
 
 @router.post("/seed", response_model=list[UserResponse])

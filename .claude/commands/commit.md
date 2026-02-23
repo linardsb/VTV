@@ -32,6 +32,7 @@ Review changes, scan for secrets, stage explicitly, and create a conventional co
 
 - STOP if any of these files appear in the changes: `.env`, `*.pem`, `*.key`, `credentials.*`, `secrets.*`
 - Warn the user and ask for confirmation before proceeding
+- **Note:** If the pre-commit hook is installed (`make install-hooks`), it will also automatically block Bandit security violations, sensitive files, and hardcoded postgres credentials before the commit completes
 
 ### 3. Stage files
 

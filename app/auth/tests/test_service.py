@@ -35,6 +35,26 @@ class TestPasswordHashing:
 
 
 class TestAuthenticate:
+    @pytest.fixture(autouse=True)
+    def _no_redis(self):
+        """Disable Redis brute-force helpers so tests use DB-only path."""
+        with (
+            patch(
+                "app.auth.service._check_redis_brute_force",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "app.auth.service._record_failed_attempt_redis",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.auth.service._clear_redis_brute_force",
+                new_callable=AsyncMock,
+            ),
+        ):
+            yield
+
     @pytest.mark.asyncio
     async def test_success_returns_tokens(self, service):
         user = MagicMock(spec=User)
@@ -113,6 +133,30 @@ class TestAuthenticate:
             assert user.failed_attempts == 5
             assert user.locked_until is not None
 
+    @pytest.mark.asyncio
+    async def test_brute_force_accumulates_across_calls(self, service):
+        """5 consecutive wrong-password attempts should lock the account."""
+        user = MagicMock(spec=User)
+        user.is_active = True
+        user.hashed_password = AuthService.hash_password("correct")
+        user.failed_attempts = 0
+        user.locked_until = None
+
+        with (
+            patch.object(service.repo, "find_by_email", return_value=user),
+            patch.object(service.repo, "update", return_value=user),
+        ):
+            for _ in range(5):
+                with pytest.raises(InvalidCredentialsError):
+                    await service.authenticate("brute@vtv.lv", "wrong")
+
+            assert user.failed_attempts == 5
+            assert user.locked_until is not None
+
+            # 6th attempt hits lockout path
+            with pytest.raises(AccountLockedError):
+                await service.authenticate("brute@vtv.lv", "wrong")
+
 
 class TestRefreshAccessToken:
     @pytest.mark.asyncio
@@ -121,6 +165,7 @@ class TestRefreshAccessToken:
         user.id = 1
         user.role = "admin"
         user.is_active = True
+        user.locked_until = None
 
         with patch.object(service.repo, "find_by_id", return_value=user):
             token = await service.refresh_access_token(user_id=1)
@@ -143,6 +188,43 @@ class TestRefreshAccessToken:
         with patch.object(service.repo, "find_by_id", return_value=user):
             with pytest.raises(InvalidCredentialsError):
                 await service.refresh_access_token(user_id=1)
+
+
+class TestResetPassword:
+    @pytest.fixture(autouse=True)
+    def _no_redis(self):
+        """Disable Redis clear helper so tests use DB-only path."""
+        with patch(
+            "app.auth.service._clear_redis_brute_force",
+            new_callable=AsyncMock,
+        ) as mock_clear:
+            self.mock_clear_redis = mock_clear
+            yield
+
+    @pytest.mark.asyncio
+    async def test_reset_password_success(self, service):
+        user = MagicMock(spec=User)
+        user.id = 1
+        user.email = "admin@vtv.lv"
+        user.failed_attempts = 3
+        user.locked_until = "some-lockout"
+
+        with (
+            patch.object(service.repo, "find_by_id", return_value=user),
+            patch.object(service.repo, "update", return_value=user),
+        ):
+            await service.reset_password(user_id=1, new_password="NewSecure123")
+
+        assert user.failed_attempts == 0
+        assert user.locked_until is None
+        assert user.hashed_password != ""
+        self.mock_clear_redis.assert_awaited_once_with("admin@vtv.lv")
+
+    @pytest.mark.asyncio
+    async def test_reset_password_user_not_found(self, service):
+        with patch.object(service.repo, "find_by_id", return_value=None):
+            with pytest.raises(InvalidCredentialsError):
+                await service.reset_password(user_id=999, new_password="NewSecure123")
 
 
 class TestSeedDemoUsers:

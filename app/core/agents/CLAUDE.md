@@ -87,6 +87,5 @@ def process_request(user_id: str, query: str) -> dict[str, Any]:
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #16621 | 12:30 PM | 🔵 | Documentation Structure Audit Reveals 75 Redundant Files | ~502 |
-| #16617 | 12:23 PM | 🔄 | Agent Module Documentation Extracted to Scoped File | ~319 |
+| #16618 | 12:24 PM | 🔄 | Root CLAUDE.md refactored for conciseness | ~979 |
 </claude-mem-context>

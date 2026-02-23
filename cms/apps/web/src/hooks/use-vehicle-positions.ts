@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { authFetch } from "@/lib/auth-fetch";
 import type { BusPosition } from "@/types/route";
 
 /** Raw vehicle from backend API (snake_case). */
@@ -100,7 +101,7 @@ export function useVehiclePositions(
 
   const fetchVehicles = useCallback(async () => {
     try {
-      const res = await fetch(`${apiBase}/api/v1/transit/vehicles`);
+      const res = await authFetch(`${apiBase}/api/v1/transit/vehicles`);
       if (!res.ok) {
         setError(`API error: ${res.status}`);
         return;

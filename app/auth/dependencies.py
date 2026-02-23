@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.auth.repository import UserRepository
-from app.auth.token import decode_token
+from app.auth.token import decode_token, is_token_revoked
 from app.core.database import get_db
 from app.core.logging import get_logger
 
@@ -42,6 +42,15 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Check token revocation denylist
+    if await is_token_revoked(payload.jti):
+        logger.warning("auth.token_revoked", jti=payload.jti)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

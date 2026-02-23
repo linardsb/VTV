@@ -77,7 +77,6 @@ async def database_health_check(
         result = {
             "status": "healthy",
             "service": "database",
-            "provider": "postgresql",
         }
         _db_health_cache = result
         _db_health_cache_time = now
@@ -124,7 +123,7 @@ async def health_redis(request: Request) -> dict[str, str]:
         raise
     except Exception as e:
         logger.error("redis.health_check_failed", error=str(e), exc_info=True)
-        raise HTTPException(status_code=503, detail=f"Redis unavailable: {e}") from e
+        raise HTTPException(status_code=503, detail="Service dependency unavailable") from e
 
 
 @router.get("/health/ready")
@@ -163,9 +162,9 @@ async def readiness_check(
         except Exception:
             redis_status = "unavailable"
 
+        _ = settings  # Used for future configuration checks
         return {
             "status": "ready",
-            "environment": settings.environment,
             "database": "connected",
             "redis": redis_status,
         }

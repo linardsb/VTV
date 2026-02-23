@@ -73,6 +73,48 @@ def create_refresh_token(user_id: int) -> str:
     return token
 
 
+async def revoke_token(jti: str, ttl_seconds: int = 1800) -> None:
+    """Add a token JTI to the revocation denylist in Redis.
+
+    Args:
+        jti: The unique token identifier (from JWT 'jti' claim).
+        ttl_seconds: Time to keep in denylist (default: 30 min = access token lifetime).
+    """
+    try:
+        from app.core.redis import get_redis
+
+        redis_client = await get_redis()
+        await redis_client.setex(f"auth:revoked:{jti}", ttl_seconds, "1")
+    except Exception as e:
+        logger.warning(
+            "auth.token.revocation_failed",
+            jti=jti,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+
+
+async def is_token_revoked(jti: str) -> bool:
+    """Check if a token JTI has been revoked.
+
+    Args:
+        jti: The unique token identifier.
+
+    Returns:
+        True if the token is in the revocation denylist.
+    """
+    if not jti:
+        return False
+    try:
+        from app.core.redis import get_redis
+
+        redis_client = await get_redis()
+        result = await redis_client.get(f"auth:revoked:{jti}")
+        return result is not None
+    except Exception:
+        return False  # Redis down = allow (fail-open for availability)
+
+
 def decode_token(token: str) -> TokenPayload | None:
     """Decode and validate a JWT token.
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { authFetch } from "@/lib/auth-fetch";
 
 interface VehicleApiResponse {
   count: number;
@@ -52,7 +53,7 @@ export function useDashboardMetrics(): UseDashboardMetricsResult {
   const fetchMetrics = useCallback(async () => {
     try {
       // Always fetch vehicle data (polled)
-      const vehicleRes = await fetch(
+      const vehicleRes = await authFetch(
         `${apiBase}/api/v1/transit/vehicles`,
       );
 
@@ -92,10 +93,10 @@ export function useDashboardMetrics(): UseDashboardMetricsResult {
       // Fetch route counts only once
       if (!routesFetchedRef.current) {
         const [activeRes, totalRes] = await Promise.all([
-          fetch(
+          authFetch(
             `${apiBase}/api/v1/schedules/routes?is_active=true&page_size=1`,
           ),
-          fetch(`${apiBase}/api/v1/schedules/routes?page_size=1`),
+          authFetch(`${apiBase}/api/v1/schedules/routes?page_size=1`),
         ]);
 
         if (activeRes.ok) {

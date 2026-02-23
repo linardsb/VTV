@@ -20,7 +20,7 @@ Scaffold a new VTV feature slice named "$ARGUMENTS" with all VSA files, tests, a
    - `repository.py` — Async repository class with `get()`, `list()`, `create()` methods
    - `service.py` — Service class with structured logging (`{feature}.action_state` pattern)
    - `exceptions.py` — Feature exceptions inheriting from `app.core.exceptions` base classes
-   - `routes.py` — FastAPI router with `prefix="/{feature}"` and service dependency
+   - `routes.py` — FastAPI router with `prefix="/{feature}"` and service dependency. **Every endpoint MUST include `current_user: User = Depends(get_current_user)` or `current_user: User = Depends(require_role("admin"))` in its signature.** Import both from `app.auth.dependencies`. Write endpoints use `require_role`, read endpoints use `get_current_user`. New features start secure by default.
 
 3. **Create the test directory** at `app/{feature_name}/tests/` with:
    - `__init__.py` (empty)

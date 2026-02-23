@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Pre-commit hook: fast security checks (<5s)
+# Install: make install-hooks
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+FAILED=0
+
+# 1. Ruff Bandit security rules on staged Python files
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+if [ -n "$STAGED_PY" ]; then
+    echo "Running security lint (ruff --select=S)..."
+    if ! uv run ruff check --select=S --no-fix $STAGED_PY 2>/dev/null; then
+        echo -e "${RED}BLOCKED: Security lint violations found${NC}"
+        FAILED=1
+    fi
+fi
+
+# 2. Check for staged sensitive files
+SENSITIVE_PATTERNS='\.env$|\.pem$|\.key$|credentials\.|secrets\.'
+STAGED_SENSITIVE=$(git diff --cached --name-only --diff-filter=ACM | grep -E "$SENSITIVE_PATTERNS" || true)
+if [ -n "$STAGED_SENSITIVE" ]; then
+    echo -e "${RED}BLOCKED: Sensitive files staged for commit:${NC}"
+    echo "$STAGED_SENSITIVE"
+    FAILED=1
+fi
+
+# 3. Check for hardcoded postgres credentials in config files (not tests/docs/scripts)
+STAGED_CONFIG=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(yml|yaml|py|toml|cfg|ini)$' | grep -v -E '(test_|tests/|docs/|scripts/|CLAUDE\.md)' || true)
+if [ -n "$STAGED_CONFIG" ]; then
+    if git diff --cached -- $STAGED_CONFIG | grep '^+' | grep -v '^+++' | grep -q 'postgres:postgres@' 2>/dev/null; then
+        echo -e "${RED}BLOCKED: Hardcoded postgres credentials found in staged changes${NC}"
+        echo "Check these files:"
+        for f in $STAGED_CONFIG; do
+            if git diff --cached -- "$f" | grep '^+' | grep -v '^+++' | grep -q 'postgres:postgres@' 2>/dev/null; then
+                echo "  $f"
+            fi
+        done
+        FAILED=1
+    fi
+fi
+
+if [ $FAILED -ne 0 ]; then
+    echo -e "${RED}Pre-commit checks failed. Fix issues above or use --no-verify to skip.${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}Pre-commit security checks passed.${NC}"

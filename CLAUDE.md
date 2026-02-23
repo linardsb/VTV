@@ -78,7 +78,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (612 tests, ~15s)
+make test            # Unit tests (647 tests, ~15s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -92,6 +92,10 @@ make e2e-headed      # Run with visible browser
 make docker          # Full stack (db, redis, auto-migrate, app, cms, nginx on :80)
 make docker-logs     # Tail all service logs
 make docker-down     # Stop all services
+
+# Security
+make install-hooks   # Install git pre-commit hook (security lint + sensitive file check)
+make security-check  # Run Ruff Bandit security rules standalone
 
 # Database
 make db-migrate                    # Run migrations
@@ -108,7 +112,7 @@ VTV/
 │   ├── core/           # Infrastructure (config, database, logging, middleware, health, rate_limit, redis)
 │   │   └── agents/     # AI agent module — 10 tools, see app/core/agents/CLAUDE.md
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
-│   ├── auth/           # JWT auth + RBAC (4 endpoints: login, refresh, seed; bcrypt, brute-force lockout)
+│   ├── auth/           # JWT auth + RBAC (5 endpoints: login, refresh, seed, reset-password; bcrypt, Redis brute-force, token revocation)
 │   ├── knowledge/      # RAG knowledge base + DMS (9 endpoints, pgvector, multi-format processing)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles, shift/availability, agent integration)
 │   ├── events/         # Operational events (5 endpoints, dashboard calendar, date range filter)
@@ -119,6 +123,7 @@ VTV/
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
 ├── reference/          # Architecture docs (vsa-patterns.md, PRD.md, feature-readme-template.md)
+├── scripts/           # Git hooks (pre-commit: security lint + sensitive file check)
 ├── nginx/             # Reverse proxy (rate limiting, security headers)
 ├── .claude/commands/   # 24 slash commands
 ├── .agents/            # Plans, code reviews, execution reports, system reviews
@@ -139,7 +144,7 @@ VTV/
 
 - `BodySizeLimitMiddleware` (100KB), `RequestLoggingMiddleware` (correlation IDs), `CORSMiddleware`
 - Rate limiting via slowapi: auth (10/min login, 30/min refresh, 5/min seed), chat (10/min), transit (30/min), knowledge (10-30/min), schedules (5-30/min), drivers (10-30/min), events (10-30/min), health (60/min)
-- Query quota: 50/day per IP for LLM chat endpoint (`app.core.agents.quota`)
+- Query quota: 50/day per IP for LLM chat endpoint (`app.core.agents.quota`) — Redis-backed with in-memory fallback
 
 ### Shared Utilities
 
@@ -181,7 +186,9 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 
 **Docker services:** `db` (PostgreSQL + pgvector), `redis` (vehicle position cache), `migrate` (Alembic auto-migration, runs once), `app` (FastAPI), `cms` (Next.js), `nginx` (reverse proxy on port 80). Services start in dependency order with healthchecks. All behind nginx.
 
-**CI Pipeline:** GitHub Actions (`.github/workflows/ci.yml`) runs on push/PR to `main`. Three jobs: `backend-checks` (ruff + mypy + pyright + pytest with PostgreSQL + Redis services), `frontend-checks` (TypeScript + ESLint + build), `e2e-tests` (docker-compose full stack + Playwright, depends on first two jobs). Playwright report uploaded as artifact (14-day retention).
+**CI Pipeline:** GitHub Actions (`.github/workflows/ci.yml`) runs on push/PR to `main`. Three jobs: `backend-checks` (ruff + dedicated security audit via `ruff --select=S` + mypy + pyright + pytest with PostgreSQL + Redis services), `frontend-checks` (TypeScript + ESLint + build), `e2e-tests` (docker-compose full stack + Playwright, depends on first two jobs). Playwright report uploaded as artifact (14-day retention).
+
+**Pre-commit hook:** `scripts/pre-commit` — fast (<5s) shell script that blocks commits with Bandit security violations, staged sensitive files (`.env`, `*.pem`, `*.key`), or hardcoded postgres credentials. Install via `make install-hooks`.
 
 ## Security Practices
 
@@ -202,7 +209,26 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 - **JWT Authentication** — All backend endpoints protected via `Depends(get_current_user)` with HS256 JWT tokens (30min access + 7-day refresh). Startup fails hard if `JWT_SECRET_KEY` is default in non-dev environments.
 - **RBAC** — `require_role()` dependency enforces function-level authorization: admin (full), editor (data CRUD), dispatcher (driver management), viewer (read-only)
 - **authFetch dual-context** — `cms/apps/web/src/lib/auth-fetch.ts` uses dynamic imports: `auth()` on server (cheap, no network), `getSession()` on client (fetches from `/api/auth/session`). Never static-import server-only `auth()` in files used by `'use client'` components.
-- **Out of scope (future):** Redis-backed brute-force tracking, full HTTPS/TLS deployment, token revocation
+- **Redis brute-force tracking** — Fast-path lockout check before DB query; 5 failed attempts trigger 15-min lockout persisted in Redis with in-memory fallback
+- **JWT token revocation** — Redis-backed denylist with TTL; `revoke_token(jti)` + `is_token_revoked(jti)` checked in `get_current_user` dependency; fail-open when Redis unavailable
+- **Password complexity** — 10+ chars, mixed case, digit required on password reset (not login); enforced via `PasswordResetRequest` schema validator
+- **CORS hardened** — Explicit method/header allowlists (no wildcards); `GET, POST, PATCH, DELETE, OPTIONS` only
+- **Health endpoint redaction** — No provider names, environment, or error details leaked to unauthenticated callers
+- **nginx CSP/HTTPS** — Content-Security-Policy headers, full HTTPS server block with modern TLS ciphers, HSTS
+- **Convention enforcement tests** — `app/tests/test_security.py` (65 tests) auto-discovers all route functions and verifies authentication, checks JWT algorithm safety, bcrypt rounds, password complexity on correct schema, nginx security headers, and no debug-level logging in security paths
+- **Out of scope (future):** Full HTTPS/TLS deployment (certs), WebSocket security, API key rotation
+
+### Automated Security Enforcement (4 layers)
+
+Security is enforced automatically at every stage of the development lifecycle — no manual review required to catch common security regressions:
+
+1. **Pre-commit hook** (`scripts/pre-commit`, install via `make install-hooks`) — Runs in <5s before every `git commit`. Blocks: Bandit security violations (hardcoded creds, `assert` in prod, `exec`/`eval`), staged sensitive files (`.env`, `*.pem`, `*.key`), hardcoded `postgres:postgres@` in diffs.
+
+2. **Convention tests** (`app/tests/test_security.py`, 65 tests) — Run in every `make test`, `make check`, and `/be-validate`. The auto-discovery test `TestAllEndpointsRequireAuth` dynamically scans every `routes.py` — adding an endpoint without auth breaks CI. Also enforces: JWT uses HS256 (not `none`), bcrypt >= 12 rounds, password complexity on `PasswordResetRequest` (not `LoginRequest`), security logging at `warning+` (not `debug`), nginx has CSP/HSTS/X-Frame-Options/X-Content-Type-Options.
+
+3. **Secure scaffold** (`/be-create-feature`) — New features generate routes with `get_current_user`/`require_role` already in every endpoint signature. Security by default, not by remembering.
+
+4. **CI security gate** (`.github/workflows/ci.yml`) — Dedicated "Security audit" step runs `ruff --select=S` as its own GitHub Actions status check between Lint and Type check. Security violations are a hard PR failure with their own status line — not buried in general lint output.
 
 ## Key Reference Documents
 
@@ -213,8 +239,10 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 - `.claude/commands/CLAUDE.md` — Full slash command documentation
 - `docs/python-anti-patterns.md` — 45 documented Python anti-patterns (includes security patterns)
 - `docs/security_audit.txt` — First security audit findings and remediation (13 findings, commit 85bf32d)
-- `docs/security_audit_2.txt` — Second security audit: code quality, data integrity, testing gaps
-- `.github/workflows/ci.yml` — CI pipeline (backend checks, frontend checks, E2E tests)
+- `docs/security_audit_2.txt` — Third security audit: code quality, data integrity, testing gaps (remediated in v3 hardening)
+- `.agents/plans/security-hardening-v3.md` — Security hardening v3 plan (19 tasks, 4 phases, all implemented)
+- `.github/workflows/ci.yml` — CI pipeline (backend checks + security audit gate, frontend checks, E2E tests)
+- `scripts/pre-commit` — Git pre-commit hook (security lint, sensitive files, hardcoded creds)
 - `docs/PLANNING/Implementation-Plan.md` — Latvia transit platform roadmap (4 phases)
 - `docs/TODO.md` — Planned features with effort estimates
 - `.agents/code-reviews/AUDIT-SUMMARY.md` — Full codebase health audit (120 findings, 2026-02-21)

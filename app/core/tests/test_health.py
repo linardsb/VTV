@@ -47,7 +47,6 @@ async def test_database_health_check_success():
 
     assert response["status"] == "healthy"
     assert response["service"] == "database"
-    assert response["provider"] == "postgresql"
 
 
 @pytest.mark.asyncio
@@ -78,7 +77,6 @@ async def test_readiness_check_success():
     mock_db.execute.assert_called_once()
 
     assert response["status"] == "ready"
-    assert response["environment"] == "test"
     assert response["database"] == "connected"
 
 

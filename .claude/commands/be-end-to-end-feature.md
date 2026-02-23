@@ -62,6 +62,7 @@ Implement the plan step by step:
 - Google-style docstrings on all functions
 - Update schemas MUST have `model_validator(mode="before")` to reject empty PATCH/PUT bodies
 - Constrained string fields MUST use `Literal[...]` types, not bare `str`
+- **Every route endpoint MUST have `get_current_user` or `require_role()` dependency** — the `TestAllEndpointsRequireAuth` convention test auto-discovers all routes and fails CI if auth is missing
 - Register router in `app/main.py`
 - Run migrations if needed:
   ```bash

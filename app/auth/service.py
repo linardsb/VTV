@@ -20,6 +20,53 @@ MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_DURATION = datetime.timedelta(minutes=15)
 
 
+async def _check_redis_brute_force(email: str) -> bool:
+    """Check Redis for brute force lockout. Returns True if locked out."""
+    try:
+        from app.core.redis import get_redis
+
+        redis_client = await get_redis()
+        key = f"auth:lockout:{email}"
+        locked = await redis_client.get(key)
+        return locked is not None
+    except Exception:
+        # Redis unavailable - fall through to DB check
+        return False
+
+
+async def _record_failed_attempt_redis(email: str) -> None:
+    """Record a failed login attempt in Redis with TTL."""
+    try:
+        from app.core.redis import get_redis
+
+        redis_client = await get_redis()
+        key = f"auth:failures:{email}"
+        pipe = redis_client.pipeline()
+        pipe.incr(key)
+        pipe.expire(key, int(LOCKOUT_DURATION.total_seconds()))
+        result = await pipe.execute()
+        count = int(result[0]) if result else 0
+        if count >= MAX_FAILED_ATTEMPTS:
+            lockout_key = f"auth:lockout:{email}"
+            await redis_client.setex(lockout_key, int(LOCKOUT_DURATION.total_seconds()), "locked")
+    except Exception:
+        logger.warning("auth.redis_brute_force_unavailable", email=email)
+
+
+async def _clear_redis_brute_force(email: str) -> None:
+    """Clear Redis brute force keys on successful login."""
+    try:
+        from app.core.redis import get_redis
+
+        redis_client = await get_redis()
+        await redis_client.delete(
+            f"auth:failures:{email}",
+            f"auth:lockout:{email}",
+        )
+    except Exception:
+        logger.warning("auth.redis_clear_unavailable", email=email)
+
+
 class AuthService:
     """Handles authentication logic with bcrypt password verification."""
 
@@ -43,6 +90,11 @@ class AuthService:
             InvalidCredentialsError: If credentials are invalid.
             AccountLockedError: If the account is locked.
         """
+        # Redis fast-path lockout check (before DB query)
+        if await _check_redis_brute_force(email):
+            logger.warning("auth.login_locked_redis", email=email)
+            raise AccountLockedError("Account is temporarily locked")
+
         user = await self.repo.find_by_email(email)
         if not user or not user.is_active:
             logger.warning("auth.login_failed", email=email, reason="user_not_found")
@@ -53,10 +105,11 @@ class AuthService:
             logger.warning("auth.login_locked", email=email)
             raise AccountLockedError("Account is temporarily locked")
 
-        # Clear expired lockout
+        # Clear expired lockout (both DB and Redis)
         if user.locked_until and utcnow() >= user.locked_until:
             user.locked_until = None
             user.failed_attempts = 0
+            await _clear_redis_brute_force(email)
 
         # Verify password
         if not self.verify_password(password, user.hashed_password):
@@ -65,6 +118,7 @@ class AuthService:
                 user.locked_until = utcnow() + LOCKOUT_DURATION
                 logger.warning("auth.account_locked", email=email, attempts=user.failed_attempts)
             await self.repo.update(user)
+            await _record_failed_attempt_redis(email)
             logger.warning("auth.login_failed", email=email, reason="bad_password")
             raise InvalidCredentialsError("Invalid email or password")
 
@@ -73,6 +127,7 @@ class AuthService:
             user.failed_attempts = 0
             user.locked_until = None
             await self.repo.update(user)
+        await _clear_redis_brute_force(email)
 
         # Issue JWT tokens
         access_token = create_access_token(user.id, user.role)
@@ -104,9 +159,38 @@ class AuthService:
         if not user or not user.is_active:
             raise InvalidCredentialsError("User not found or inactive")
 
+        # Check lockout status — locked users must not refresh tokens
+        if user.locked_until and utcnow() < user.locked_until:
+            logger.warning("auth.refresh_locked", user_id=user_id)
+            raise AccountLockedError("Account is temporarily locked")
+
         access_token = create_access_token(user.id, user.role)
         logger.info("auth.token_refreshed", user_id=user.id)
         return access_token
+
+    async def reset_password(self, user_id: int, new_password: str) -> None:
+        """Reset a user's password (admin action).
+
+        Args:
+            user_id: Target user's database ID.
+            new_password: The new password (already validated by schema).
+
+        Raises:
+            InvalidCredentialsError: If user not found.
+        """
+        user = await self.repo.find_by_id(user_id)
+        if not user:
+            raise InvalidCredentialsError("User not found")
+
+        user.hashed_password = self.hash_password(new_password)
+        user.failed_attempts = 0
+        user.locked_until = None
+        await self.repo.update(user)
+
+        # Clear Redis brute force state for this user
+        await _clear_redis_brute_force(user.email)
+
+        logger.info("auth.password_reset", user_id=user_id)
 
     async def seed_demo_users(self) -> list[User]:
         """Create demo users if no users exist. Returns created users.

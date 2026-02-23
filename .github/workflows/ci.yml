@@ -63,6 +63,9 @@ jobs:
       - name: Lint check
         run: uv run ruff check .
 
+      - name: Security audit
+        run: uv run ruff check app/ --select=S --no-fix
+
       - name: Type check (mypy)
         run: uv run mypy app/
 

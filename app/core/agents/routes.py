@@ -16,7 +16,10 @@ from app.core.agents.quota import get_quota_tracker
 from app.core.agents.schemas import ChatCompletionRequest, ChatCompletionResponse
 from app.core.agents.service import AgentService, get_agent_service
 from app.core.config import get_settings
+from app.core.logging import get_logger
 from app.core.rate_limit import limiter
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1", tags=["agent"])
 
@@ -45,8 +48,9 @@ async def chat_completions(
     # Check daily quota before expensive LLM call
     client_ip = request.client.host if request.client else "unknown"
     tracker = get_quota_tracker()
-    if not tracker.check_and_increment(client_ip):
-        remaining = tracker.get_remaining(client_ip)
+    if not await tracker.check_and_increment(client_ip):
+        remaining = await tracker.get_remaining(client_ip)
+        logger.warning("agent.quota_exceeded_http", client_ip=client_ip, remaining=remaining)
         raise HTTPException(
             status_code=429,
             detail=f"Daily query quota exceeded. Remaining: {remaining}. Resets in 24 hours.",

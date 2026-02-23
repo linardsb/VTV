@@ -82,7 +82,7 @@ If the feature involves agent tools (detected by keywords: tool, agent, MCP, Obs
 Plan the complete feature following VTV's vertical slice structure:
 - `app/[feature]/models.py` — SQLAlchemy models inheriting `Base` and `TimestampMixin`
 - `app/[feature]/schemas.py` — Pydantic schemas for request/response
-- `app/[feature]/routes.py` — FastAPI router with typed endpoints
+- `app/[feature]/routes.py` — FastAPI router with typed endpoints. **Every endpoint MUST have `get_current_user` or `require_role()` dependency** — `TestAllEndpointsRequireAuth` in `app/tests/test_security.py` auto-discovers all routes and fails CI if any lack auth. Only explicitly allowlisted public endpoints (login, health) are exempt.
 - `app/[feature]/service.py` — Business logic with structured logging
 - `app/[feature]/tests/` — Unit and integration tests
 

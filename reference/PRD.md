@@ -383,13 +383,20 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ✅ Validation: check referential integrity, time consistency, required fields (via `/api/v1/schedules/validate`)
 - ⬜ Seed database from RS public feed (`https://saraksti.rigassatiksme.lv/gtfs.zip`)
 
-### 7.5 Authentication & Authorization ✅ (JWT + RBAC — Backend enforced)
+### 7.5 Authentication & Authorization ✅ (JWT + RBAC — Backend enforced, security hardened)
 
 - ✅ JWT authentication on all backend endpoints (access tokens 30min, refresh tokens 7 days, HS256)
 - ✅ Role-based access control enforced via FastAPI dependency injection (`get_current_user`, `require_role()`)
 - ✅ Auth.js v5 frontend integration — stores backend JWT in encrypted httpOnly session cookie
 - ✅ Centralized `authFetch()` wrapper adds Bearer token to all 6 API clients
-- ✅ Startup validation fails hard if `JWT_SECRET_KEY` is default in non-dev environments
+- ✅ Startup validation fails hard if `JWT_SECRET_KEY` is default or < 32 chars in non-dev environments
+- ✅ Redis-backed brute-force tracking — fast-path lockout check before DB query, 5 attempts trigger 15-min lockout, persists across server restarts
+- ✅ JWT token revocation — Redis denylist with TTL, checked on every authenticated request, fail-open when Redis unavailable
+- ✅ Password complexity enforcement — 10+ chars, mixed case, digit required on password reset (not login)
+- ✅ Admin password reset endpoint — `POST /api/v1/auth/reset-password` (admin-only, clears brute-force state)
+- ✅ CORS hardened — explicit method/header allowlists (no wildcards)
+- ✅ Health endpoint redaction — no provider names, environment, or error details leaked
+- ✅ nginx CSP/HTTPS — Content-Security-Policy headers, full HTTPS server block with modern TLS ciphers
 
 | Role | Stops | Routes | Schedules | Drivers | Knowledge | Events | GTFS | AI Chat |
 |------|-------|--------|-----------|---------|-----------|--------|------|---------|
@@ -439,6 +446,7 @@ shapes          → Route geometry (linestring + encoded polyline)
 ```
 users           → Email, bcrypt hashed password, role (admin/dispatcher/editor/viewer), brute-force lockout ✅
                   JWT auth: access tokens (30min) + refresh tokens (7 days), enforced on all endpoints ✅
+                  Redis-backed brute-force tracking + token revocation denylist, admin password reset ✅
 sessions        → Auth.js session management (JWT-based, no server sessions table — tokens in httpOnly cookie)
 ```
 

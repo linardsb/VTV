@@ -90,6 +90,10 @@ Read all files in the target path. For each file, check against VTV's standards 
 - Content-Length header parsed with try/except ValueError
 - PATCH/PUT schemas reject empty bodies via model_validator
 - Stored files cleaned up when processing fails (no orphaned uploads)
+- **All route endpoints protected** — every endpoint has `get_current_user` or `require_role()` dependency (enforced by `TestAllEndpointsRequireAuth` convention test)
+- **Security logging at warning+** — no `logger.debug` in `except` blocks in auth paths (enforced by `TestNoDebugSecurityLogging` convention test)
+- **JWT algorithm safety** — must use HS256, not `none` (enforced by `TestJwtAlgorithmNotNone` convention test)
+- **Bcrypt rounds >= 12** — no weakened hash rounds (enforced by `TestBcryptRoundsSufficient` convention test)
 
 ## OUTPUT
 

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import require_role
+from app.auth.dependencies import get_current_user, require_role
 from app.auth.models import User
 from app.core.database import get_db
 from app.core.rate_limit import limiter
@@ -32,14 +32,14 @@ def get_service(db: AsyncSession = Depends(get_db)) -> EventService:  # noqa: B0
 async def list_events(
     request: Request,
     pagination: PaginationParams = Depends(),  # noqa: B008
-    start_date: datetime.datetime | None = Query(None, max_length=30),  # noqa: B008
-    end_date: datetime.datetime | None = Query(None, max_length=30),  # noqa: B008
+    start_date: datetime.datetime | None = Query(None),  # noqa: B008
+    end_date: datetime.datetime | None = Query(None),  # noqa: B008
     service: EventService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> PaginatedResponse[EventResponse]:
     """List operational events with optional date range filter.
 
-    Public endpoint — dashboard calendar fetches events from the client side.
-    Write endpoints (POST/PATCH/DELETE) still require authentication.
+    Requires authentication. All operational data access is restricted.
     """
     _ = request
     return await service.list_events(pagination, start_date=start_date, end_date=end_date)
@@ -51,10 +51,11 @@ async def get_event(
     request: Request,
     event_id: int,
     service: EventService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> EventResponse:
     """Get an operational event by ID.
 
-    Public endpoint — read access to individual events does not require auth.
+    Requires authentication. All operational data access is restricted.
     """
     _ = request
     return await service.get_event(event_id)

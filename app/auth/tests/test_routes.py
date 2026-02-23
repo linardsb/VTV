@@ -182,11 +182,14 @@ class TestProtectedEndpoints:
         assert response.status_code == 200
 
     def test_login_is_public(self, client):
-        """Login endpoint should be accessible without auth."""
-        # Even though it will fail auth, it shouldn't require a Bearer token
+        """Login endpoint should be accessible without auth.
+
+        Uses a weak password to also verify that LoginRequest does NOT
+        enforce password complexity — that belongs on PasswordResetRequest only.
+        """
         response = client.post(
             "/api/v1/auth/login",
             json={"email": "test@test.com", "password": "test"},
         )
-        # Should get 401 from invalid credentials, NOT 403 from missing Bearer
+        # Should get 401 from invalid credentials, NOT 422 from schema validation
         assert response.status_code == 401

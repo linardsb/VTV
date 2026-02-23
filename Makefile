@@ -1,4 +1,4 @@
-.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-restore e2e e2e-all e2e-ui e2e-headed
+.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check
 
 # === Local Development (terminals) ===
 
@@ -91,6 +91,16 @@ db-restore: ## Restore from backup (usage: make db-restore f=backups/file.sql.gz
 	@test -n "$(f)" || (echo "Usage: make db-restore f=backups/file.sql.gz" && exit 1)
 	@test -f "$(f)" || (echo "ERROR: File $(f) not found" && exit 1)
 	gunzip -c "$(f)" | docker exec -i vtv-db-1 psql -U postgres vtv_db
+
+# === Security ===
+
+install-hooks: ## Install git pre-commit hook
+	cp scripts/pre-commit .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
+	@echo "Pre-commit hook installed."
+
+security-check: ## Run security lint (Ruff Bandit rules)
+	uv run ruff check app/ --select=S --no-fix
 
 # === Help ===
 

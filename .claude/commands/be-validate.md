@@ -83,7 +83,7 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8123/docs
 ### 9. Security Lint (Ruff Bandit rules)
 
 ```bash
-ruff check app/ --select=S --no-fix
+uv run ruff check app/ --select=S --no-fix
 ```
 
 This runs Bandit-equivalent security rules (S101-S701) to catch:
@@ -92,6 +92,22 @@ This runs Bandit-equivalent security rules (S101-S701) to catch:
 - exec/eval usage (S102)
 - insecure temp files (S108)
 - SQL injection patterns (S608)
+
+### 10. Security Convention Tests
+
+```bash
+uv run pytest app/tests/test_security.py -v
+```
+
+Run the security convention test suite separately and report results. These tests enforce:
+- All endpoints require authentication (auto-discovery scan)
+- Security logging uses warning+ level (no debug in except blocks)
+- JWT uses HS256 algorithm (not "none")
+- Bcrypt uses 12+ rounds
+- Password complexity on correct schema (PasswordResetRequest, not LoginRequest)
+- Nginx has all required security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options)
+
+If any convention test fails, it indicates a security regression that must be fixed before committing.
 
 ## OUTPUT
 
@@ -105,6 +121,8 @@ Validation Results:
   6. Pytest (integration): PASS / FAIL / SKIPPED (Docker not running)
   7. SDK sync:             IN SYNC / OUT OF SYNC / SKIPPED (FastAPI not running)
   8. Server:               PASS / FAIL / SKIPPED (Docker not running)
+  9. Security lint:        PASS / FAIL  [N violations]
+ 10. Security conventions: PASS / FAIL  [X passed, Y failed]
 
 Overall: ALL PASS / X FAILURES / Y WARNINGS
 ```

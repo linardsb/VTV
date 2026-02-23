@@ -62,12 +62,14 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     setup_logging(log_level=settings.log_level)
     logger = get_logger(__name__)
 
-    # SECURITY: Fail hard if JWT secret is default in non-development environments
-    if (
-        settings.environment != "development"
-        and settings.jwt_secret_key == "CHANGE-ME-IN-PRODUCTION"  # noqa: S105
+    # SECURITY: Fail hard if JWT secret is weak in non-development environments
+    _insecure_defaults = {"CHANGE-ME-IN-PRODUCTION", "", "secret", "changeme"}
+    if settings.environment != "development" and (
+        settings.jwt_secret_key in _insecure_defaults or len(settings.jwt_secret_key) < 32
     ):
-        msg = "JWT_SECRET_KEY must be set to a strong secret in non-development environments"
+        msg = (
+            "JWT_SECRET_KEY must be a strong secret (min 32 chars) in non-development environments"
+        )
         raise RuntimeError(msg)
 
     logger.info(
@@ -139,11 +141,9 @@ def read_root() -> dict[str, str]:
     Returns:
         Dict containing application name, version, and docs URL.
     """
-    response = {
-        "message": settings.app_name,
-        "version": settings.version,
-    }
+    response: dict[str, str] = {"message": settings.app_name}
     if settings.environment == "development":
+        response["version"] = settings.version
         response["docs"] = "/docs"
     return response
 
