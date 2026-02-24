@@ -1,4 +1,4 @@
-.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check
+.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check dep-audit
 
 # === Local Development (terminals) ===
 
@@ -87,6 +87,9 @@ db-backup: ## Backup PostgreSQL to timestamped file
 	docker exec vtv-db-1 pg_dump -U postgres vtv_db | gzip > backups/vtv_db_$$(date +%Y%m%d_%H%M%S).sql.gz
 	@ls -lh backups/vtv_db_*.sql.gz | tail -1
 
+db-backup-auto: ## Automated backup with 90-day retention (cron-ready)
+	./scripts/db-backup.sh 90
+
 db-restore: ## Restore from backup (usage: make db-restore f=backups/file.sql.gz)
 	@test -n "$(f)" || (echo "Usage: make db-restore f=backups/file.sql.gz" && exit 1)
 	@test -f "$(f)" || (echo "ERROR: File $(f) not found" && exit 1)
@@ -101,6 +104,9 @@ install-hooks: ## Install git pre-commit hook
 
 security-check: ## Run security lint (Ruff Bandit rules)
 	uv run ruff check app/ --select=S --no-fix
+
+dep-audit: ## Scan dependencies for known vulnerabilities
+	uv run pip-audit --desc --ignore-vuln CVE-2025-69872 --ignore-vuln CVE-2024-23342
 
 # === Help ===
 

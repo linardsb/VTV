@@ -397,6 +397,9 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ✅ CORS hardened — explicit method/header allowlists (no wildcards)
 - ✅ Health endpoint redaction — no provider names, environment, or error details leaked
 - ✅ nginx CSP/HTTPS — Content-Security-Policy headers, full HTTPS server block with modern TLS ciphers
+- ✅ GDPR right-to-erasure — admin-only user deletion endpoint with Redis cleanup
+- ✅ Container hardening — non-root users, `no-new-privileges`, `cap_drop: ALL`, read-only FS in production
+- ✅ Dependency scanning — `pip-audit` in CI, lock file integrity via `uv lock --check`
 
 | Role | Stops | Routes | Schedules | Drivers | Knowledge | Events | GTFS | AI Chat |
 |------|-------|--------|-----------|---------|-----------|--------|------|---------|
@@ -490,7 +493,9 @@ GET    /health                 — Health check
 - DPIA required before Phase 2 driver tracking
 - No tracking during driver rest periods
 - Public GTFS-RT feeds use fleet numbers, not driver IDs
-- Data export and deletion on request
+- ✅ Right-to-erasure: admin-only `DELETE /api/v1/auth/users/{id}` permanently removes user data and clears Redis tracking
+- ✅ Automated backup retention: 90-day default via `scripts/db-backup.sh`
+- Data export on request (planned)
 
 ### EU Transit Regulations
 

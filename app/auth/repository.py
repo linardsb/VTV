@@ -35,6 +35,11 @@ class UserRepository:
         await self.db.refresh(user)
         return user
 
+    async def delete(self, user: User) -> None:
+        """Delete a user entity from the database."""
+        await self.db.delete(user)
+        await self.db.flush()
+
     async def count(self) -> int:
         """Count total users."""
         from sqlalchemy import func

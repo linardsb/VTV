@@ -57,6 +57,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Dependency audit
+        run: uv run pip-audit --desc --ignore-vuln CVE-2025-69872 --ignore-vuln CVE-2024-23342
+
+      - name: Lock file integrity
+        run: uv lock --check
+
       - name: Format check
         run: uv run ruff format --check .
 

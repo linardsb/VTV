@@ -1,0 +1,989 @@
+VTV Security Documentation & Threat Model Analysis 
+Part 1: Existing Security Documentation 
+1.1 Penetration Test Reports 
+The VTV codebase contains two formal security audit documents plus a v3 hardening remediation table.
+
+First Audit — docs/security_audit.txt (13 findings):
+This is the primary penetration test report. It documents 13 findings spanning Critical through Low severity, their code locations, proof-of-concept snippets, fixes, and a full remediation status table. security_audit.txt:1-50 security_audit.txt:274-295
+
+Second Audit — docs/security_audit_2.txt (addresses remaining gaps + v3 hardening):
+Covers the deferred items from the first audit, code quality/data integrity gaps, and a v3 hardening remediation table with 16 additional findings. security_audit_2.txt:1-50 security_audit_2.txt:254-284
+
+1.2 Security Architecture Documentation 
+CLAUDE.md — Security Practices Section: The most complete security architecture reference. It documents all 6 defense-in-depth layers, every control, and the 4-layer automated enforcement pipeline. CLAUDE.md:193-232
+
+Security Architecture Diagram (Mermaid): A complete layered architecture diagram exists in the wiki (page 2.7), embedded in the CLAUDE.md context. It maps all 6 layers from nginx to convention testing, including the critical gap node.
+
+1.3 Attack Surface Documentation 
+docs/security_audit.txt — Recommended Fix Priority Section: This functions as a prioritized attack surface matrix — it enumerates each attack vector, severity, and mitigation status. security_audit.txt:248-272
+
+docs/TODO.md — Security Audit Remediation entry: Tracks deferred security items with effort estimates. TODO.md:119-127
+
+docs/user-flows.md — Security and Access Control section: Documents the RBAC access matrix across all platform functions. user-flows.md:356-380
+
+1.4 Security Convention Tests (Living Documentation) 
+app/tests/test_security.py — 65 regression tests that serve as executable security documentation. They auto-discover all endpoints, verify cryptographic parameters, and check infrastructure headers. test_security.py:1-10 test_security.py:649-720
+
+Part 2: Comprehensive Threat Model Components 
+2.1 Application Architecture & Components 
+The platform is a 6-service Docker Compose stack: CLAUDE.md:106-133
+
+The routers registered in app/main.py define the complete API attack surface — 9 routers covering auth, agents, transit, stops, knowledge, schedules, drivers, and events: main.py:125-134
+
+Module inventory (each is an independent vertical slice with its own DB models and endpoints): CLAUDE.md:113-123
+
+2.2 Data Flows 
+Authentication flow (login → JWT issuance → token use): service.py:86-144
+
+Token creation and signing (HS256, 30-min access + 7-day refresh, JTI for revocation): token.py:27-73
+
+Token revocation denylist (Redis-backed, fail-open if Redis unavailable): token.py:76-115
+
+File upload flow (chunked streaming → filename sanitization → path validation → storage): middleware.py:54-80
+
+GTFS-RT polling (background poller fetching external transit feeds, stored in Redis): config.py:77-111
+
+LLM request flow (rate limit → daily quota check → external API call): security_audit_2.txt:54-80
+
+2.3 Authentication Mechanisms 
+Layer 1 — Nginx (outermost): Rate limiting zones per IP using X-Real-IP (nginx-set, not client-spoofable), connection limits at 20/IP, and all security response headers: nginx.conf:25-75
+
+Layer 2 — Frontend (Auth.js v5): Session cookies enforced by Next.js middleware, with 4-role RBAC (admin, editor, dispatcher, viewer): CLAUDE.md:163-167
+
+Layer 3 — SlowAPI rate limiting: Per-endpoint limits enforced using the X-Real-IP-based key function: rate_limit.py:12-30
+
+Layer 4 — Backend JWT + Brute Force: Dual-layer brute force (Redis fast-path + PostgreSQL persistent), bcrypt ≥12 rounds, lockout after 5 attempts for 15 minutes: service.py:18-68
+
+JWT startup validation: Application refuses to start in non-development environments if the secret key is weak or under 32 characters: main.py:65-73
+
+CORS hardening: Explicit method and header allowlists, no wildcards: middleware.py:169-182
+
+2.4 External Integrations (Trust Boundaries) 
+These are the external systems that must appear in any threat model:
+
+Rigas Satiksme GTFS-RT endpoints (unauthenticated public feeds, polled every 10s by background process): config.py:77-92
+
+LLM Cloud Providers (Anthropic Claude, OpenAI, Groq, OpenRouter — API keys stored in env): config.py:59-75
+
+Jina Embeddings API (external vector embedding service, API key in env): config.py:134-142
+
+Obsidian Local REST API (local vault access via API key, https://127.0.0.1:27124): config.py:112-114
+
+OpenStreetMap / CartoDB tile servers (referenced in nginx CSP img-src for the Leaflet map): nginx.conf:74
+
+PostgreSQL with pgvector and Redis (internal services, but exposed ports 5433 and 6379 in dev compose): docker-compose.yml:1-43
+
+Production credential injection (POSTGRES_PASSWORD, JWT_SECRET_KEY, AUTH_SECRET, REDIS_PASSWORD — all required via .env.production): docker-compose.prod.yml:7-43
+
+2.5 Critical Open Gap for the Threat Model 
+The single most important item for any threat model: all backend API endpoints are reachable without authentication from within the Docker network if an attacker bypasses nginx. The get_current_user dependency exists but its enforcement status (per the second audit) was noted as partially resolved: security_audit.txt:111-116 security_audit_2.txt:5-17
+
+The FastAPI docs/OpenAPI schema are disabled in production (defense-in-depth), but accessible in development, reducing the attack surface in production: main.py:102-112
+
+Summary Table 
+Category	Primary File	Status
+Pentest report #1 (13 findings)	docs/security_audit.txt	Mostly remediated
+Pentest report #2 (16 v3 findings)	docs/security_audit_2.txt	Mostly remediated
+Security architecture narrative	CLAUDE.md lines 193–232	Current
+65 executable security tests	app/tests/test_security.py	Active / CI-enforced
+RBAC access matrix	docs/user-flows.md lines 356–380	Current
+Deferred items tracker	docs/TODO.md	Open items
+nginx attack-surface controls	nginx/nginx.conf	Active
+External integration config	app/core/config.py	Active
+Notes 
+No standalone threat model document exists (e.g., a STRIDE or DREAD model document). The threat model is distributed across docs/security_audit.txt, CLAUDE.md's security section, the wiki page 2.7, and app/tests/test_security.py.
+The most critical threat model gap is the Docker-internal network trust boundary: if anything else on the Docker network is compromised, the FastAPI service at app:8123 is reachable without authentication, since nginx is the only enforcement point for external traffic.
+External LLM API keys (ANTHROPIC_API_KEY, EMBEDDING_API_KEY) represent a financial-risk attack surface (API credit exhaustion) that is mitigated by the 50/day quota tracker but only for the /v1/chat/completions endpoint — direct calls to internal LLM tooling from within the Docker network are not rate-limited.
+The Obsidian vault integration (CRUD operations via obsidian_manage_notes) represents a write-capable external integration that could be abused to exfiltrate or tamper with internal knowledge base content if the API key is compromised.
+
+
+1. Path Traversal Vulnerability in File Downloads 
+The knowledge module's download endpoint does not validate that file paths are within the storage directory, allowing potential access to arbitrary files on the filesystem.
+#### C1. Path Traversal in File Download Endpoint
+**File:** `/Users/Berzins/Desktop/VTV/app/knowledge/routes.py`, lines 147-161
+**Standard:** Security
+The download endpoint resolves the file path from the database and serves it via `FileResponse`. However, if an attacker can inject a crafted `file_path` into the database (e.g., via a compromised import, direct DB access, or a bug in the storage logic), `.resolve()` does not prevent serving arbitrary files from the filesystem.
+```python
+@router.get("/documents/{document_id}/download")
+async def download_document(...) -> FileResponse:
+    file_path, filename = await service.get_document_file_path(document_id)
+    return FileResponse(
+        path=Path(file_path).resolve(),  # No validation against storage root
+        filename=filename,
+        media_type="application/octet-stream",
+    )
+```
+**Fix:** Validate that the resolved path starts with the configured `document_storage_path` before serving:
+```python
+resolved = Path(file_path).resolve()
+storage_root = Path(settings.document_storage_path).resolve()
+if not str(resolved).startswith(str(storage_root)):
+    raise ProcessingError("File path outside storage directory")
+) -> DocumentResponse:
+    """Update document metadata (title, description, domain, language)."""
+    _ = request
+    return await service.update_document(document_id, body)
+@router.get("/documents/{document_id}/download")
+@limiter.limit("30/minute")
+async def download_document(
+    request: Request,
+    document_id: int,
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+) -> FileResponse:
+    """Download the original uploaded file."""
+    _ = request
+```
+2. No File Size Limits on Uploads 
+The document upload endpoint reads entire files into memory without size validation, creating a memory exhaustion risk.
+#### C2. No File Size Limit on Upload
+**File:** `/Users/Berzins/Desktop/VTV/app/knowledge/routes.py`, lines 65-105
+**Standard:** Security
+The `upload_document` endpoint reads the entire file into memory (`content = await file.read()`) with no size check. The project has a `BodySizeLimitMiddleware` at 100KB, but typical document uploads (PDFs, Excel files) will commonly exceed this. Either the middleware blocks legitimate uploads, or if the limit is raised, an attacker can exhaust server memory.
+```python
+content = await file.read()  # No streaming, no size check
+tmp.write(content)
+```
+**Fix:** Add explicit file size validation in the route, and stream to disk in chunks rather than reading the entire file into memory:
+- User `%` and `_` not escaped in search parameters
+- **Fix:** Escape wildcards before ILIKE queries
+### 6. **No Authentication/Authorization on API Endpoints**  
+The backend API endpoints have **no authentication layer**. Anyone can call the agent endpoints, transit APIs, and other services without credentials. The login endpoint exists but doesn't issue tokens, and no endpoints check for authentication. [0-cite-10](#0-cite-10) [0-cite-11](#0-cite-11)   
+  
+The authentication only exists on the frontend via Auth.js, but the backend APIs are completely open.  
+  
+@router.post("/chat/completions", response_model=ChatCompletionResponse)
+@limiter.limit("10/minute")
+async def chat_completions(
+  
+- **Request ID tracking** for security audit logging [0-cite-29](#0-cite-29)   
+  
+## Recommended Fix Priority  
+  
+**Before ANY production deployment:**  
+1. Fix path traversal in knowledge download (C1)  
+2. Add file size validation and sanitize filenames (C2, C3)  
+3. Remove hardcoded demo credentials (C1)  
+4. Implement proper authentication/authorization on backend APIs  
+5. Add HTTPS/TLS configuration  
+  
+**Short-term (production hardening):**  
+6. Escape ILIKE wildcards in all search queries  
+7. Fix rate limiter X-Forwarded-For spoofing  
+8. Move brute force tracking to Redis (persistent)  
+9. Sanitize Redis URL in logs  
+10. Remove exposed database ports in production  
+  
+**Medium-term:**  
+11. Add comprehensive input validation across all endpoints  
+12. Implement proper RBAC on backend routes  
+13. Add security monitoring and alerting  
+14. Conduct penetration testing  
+  
+## Notes
+The codebase shows good engineering practices overall (structured logging, type safety, testing), but the security layer is incomplete. The frontend has RBAC via Auth.js, but the backend APIs are completely open with no authentication checks. This is the **most critical architectural gap** - all backend endpoints can be called without any credentials.
+## Remediation Status (2026-02-22, commit 85bf32d)
+| # | Finding | Severity | Status | Fix Applied |
+|---|---------|----------|--------|-------------|
+| C1 | Path traversal in download | Critical | FIXED | `is_relative_to()` validation in `knowledge/routes.py` (pre-existing fix) |
+| C2 | No file size limit on upload | Critical | FIXED | Streaming chunked reads (8KB) with 50MB limit, `HTTPException(413)` |
+| C3 | Filename injection | Critical | FIXED | `re.sub(r"[^\w\-.]", "_", ...)` + `is_relative_to()` path validation |
+| 4 | Hardcoded demo credentials | High | FIXED | Environment-controlled: `ENVIRONMENT != development` skips seeding, `DEMO_USER_PASSWORD` configurable |
+| 5 | ILIKE wildcard injection | High | FIXED | `escape_like()` in `app/shared/utils.py`, applied to stops/schedules/drivers repos |
+| 6 | No backend API auth | Critical | DEFERRED | Architectural change (~2-3 days), tracked in `docs/TODO.md` |
+| 7 | Rate limiter X-Forwarded-For spoofing | Medium | FIXED | Switched to `X-Real-IP` header (nginx-set, not spoofable) |
+| 8 | Redis credentials in logs | Medium | FIXED | `_redact_url()` in `app/core/redis.py` masks passwords before logging |
+| 9 | In-memory brute force (non-persistent) | Medium | DEFERRED | Requires Redis-backed tracking, tracked in `docs/TODO.md` |
+| 10 | No HTTPS/TLS | Medium | PARTIAL | Commented HTTPS template added to `nginx/nginx.conf`, requires cert provisioning |
+| 11 | Docker credentials hardcoded | Medium | FIXED | `${POSTGRES_USER:-postgres}` / `${POSTGRES_PASSWORD:-postgres}` interpolation |
+| 12 | Missing input validation | Medium | FIXED | `max_length` + `pattern` constraints on transit query params |
+| 13 | Exposed database ports | Low | DOCUMENTED | Already has `# SECURITY` comment, production concern only |
+**Regression tests:** 33 security-specific tests in `app/tests/test_security.py` covering all fixed findings.
+**Anti-patterns:** Security rules 40-45 added to `docs/python-anti-patterns.md`.
+**Slash commands:** `/review` expanded to 10 security checks, `/be-planning` and `/be-execute` updated with security pitfalls 41-46.  
+  
+
+security_audit_2.txt
+VTV / docs/security_audit_2.txt
+
+Security Vulnerabilities Found 
+Based on my analysis of the VTV codebase, I found several security vulnerabilities. Many have been addressed, but some critical and medium-severity issues remain unfixed.
+Critical/High Severity Issues (Remaining) 
+1. No Backend API Authentication (DEFERRED) 
+The most critical vulnerability is that backend API endpoints lack authentication enforcement. While authentication infrastructure exists, it was marked as DEFERRED in the security audit remediation. security_audit.txt:111-143
+However, I verified that authentication has been added to most routes. The transit, schedules, knowledge, drivers, events, and agent endpoints now require authentication: routes.py:23-30 routes.py:68-79 routes.py:24-31
+Status: This appears to be mostly resolved despite being marked as DEFERRED in the audit.
+2. In-Memory Brute Force Protection (DEFERRED) 
+Brute force protection uses in-memory storage that resets on server restart, allowing attackers to bypass lockouts: security_audit.txt:181-195
+The implementation is still in-memory: service.py:18-20 service.py:51-69
+Recommendation: Move brute force tracking to Redis for persistence across restarts.
+3. Default JWT Secret Key 
+The application has a hardcoded default JWT secret key that could be used if not properly configured: config.py:116-120
+The application does check for this in production and fails hard: main.py:65-71
+Recommendation: This is mitigated but still risky. Consider removing the default value entirely.
+Medium Severity Issues (Remaining) 
+4. No HTTPS/TLS Configuration (PARTIAL) 
+Production deployment lacks proper HTTPS configuration: security_audit.txt:196-211
+While there's an HTTPS template in nginx, it's commented out: nginx.conf:177-202
+The production docker-compose exposes port 443 but without SSL configuration: docker-compose.prod.yml:62-72
+Recommendation: Implement proper TLS with Let's Encrypt or similar certificate authority.
+5. Exposed Database Ports in Development 
+Development configuration exposes PostgreSQL and Redis ports directly: docker-compose.yml:8-10 docker-compose.yml:27-29
+Recommendation: These are documented with security warnings and removed in production, but ensure they're never exposed in production deployments.
+6. No Password Reset Functionality 
+The authentication system lacks password reset functionality, which could lead to account lockout issues: routes.py:34-67
+There are no endpoints for password recovery, and the User model lacks reset token fields.
+Recommendation: Implement secure password reset with time-limited tokens and email verification.
+### 6. **No Authentication/Authorization on API Endpoints**  
+The backend API endpoints have **no authentication layer**. Anyone can call the agent endpoints, transit APIs, and other services without credentials. The login endpoint exists but doesn't issue tokens, and no endpoints check for authentication. [0-cite-10](#0-cite-10) [0-cite-11](#0-cite-11)   
+  
+The authentication only exists on the frontend via Auth.js, but the backend APIs are completely open.  
+  
+@router.post("/chat/completions", response_model=ChatCompletionResponse)
+@limiter.limit("10/minute")
+async def chat_completions(
+    request: Request,
+    body: ChatCompletionRequest,
+    service: AgentService = Depends(get_agent_service),
+) -> ChatCompletionResponse:
+    """Create a chat completion.
+    Accepts a list of messages and returns the agent's response
+    in OpenAI-compatible format.
+    Args:
+        request: The incoming HTTP request (used for rate limiting).
+        body: Chat completion request with messages.
+        service: Agent service instance (injected).
+    Returns:
+        Chat completion response with the agent's message.
+    """
+    # Check daily quota before expensive LLM call
+    client_ip = request.client.host if request.client else "unknown"
+    tracker = get_quota_tracker()
+    if not tracker.check_and_increment(client_ip):
+        remaining = tracker.get_remaining(client_ip)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily query quota exceeded. Remaining: {remaining}. Resets in 24 hours.",
+        )
+    return await service.chat(body)
+@router.post("/documents", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
+    return RefreshResponse(access_token=access_token)
+## Remediation Status (v3 Hardening)
+| # | Finding | Source | Severity | Status | Fix Applied |
+|---|---------|--------|----------|--------|-------------|
+| 1 | Events GET unauthenticated | Code review | HIGH | FIXED | Added get_current_user to list_events and get_event |
+| 2 | In-memory brute force | Audit 1 #9 | HIGH | FIXED | Redis-backed tracking with DB fallback |
+| 3 | No token revocation | Code review | HIGH | FIXED | Redis denylist with TTL matching token expiry |
+| 4 | CORS too permissive | Code review | MEDIUM | FIXED | Restricted methods and headers to explicit allowlist |
+| 5 | No CSP header | Code review | MEDIUM | FIXED | Content-Security-Policy added to nginx |
+| 6 | Docker DATABASE_URL hardcoded | Audit 1 #11 | MEDIUM | FIXED | Env var interpolation in migrate and app services |
+| 7 | Health leaks infra details | Code review | LOW | FIXED | Removed provider name and error messages |
+| 8 | Root endpoint leaks version | Code review | LOW | FIXED | Version only in development environment |
+| 9 | No password complexity | Audit 3 #6 | HIGH | FIXED | 10+ chars, uppercase, lowercase, digit required |
+| 10 | Refresh ignores lockout | Code review | MEDIUM | FIXED | Added locked_until check in refresh_access_token |
+| 11 | Quota tracker in-memory | Code review | MEDIUM | FIXED | Redis-backed with in-memory fallback |
+| 12 | Redis no authentication | Code review | MEDIUM | FIXED | Optional password via REDIS_PASSWORD env var |
+| 13 | No HTTPS/TLS | Audit 1 #10 | HIGH | FIXED | Full HTTPS server block in nginx with modern TLS |
+| 14 | Exposed DB ports | Audit 1 #13 | MEDIUM | VERIFIED | docker-compose.prod.yml uses ports: !reset [] |
+| 15 | No password reset | Audit 3 #6 | HIGH | FIXED | Admin-only password reset endpoint with validation |
+| 16 | Default JWT secret | Audit 3 #3 | HIGH | FIXED | Startup rejects weak/short keys in production |
+Deployment requirements:
+- HTTPS: SSL certificates at nginx/certs/cert.pem and nginx/certs/key.pem
+  Generate self-signed: openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout nginx/certs/key.pem -out nginx/certs/cert.pem
+  Production: Use Let's Encrypt or institutional CA certificate
+- Redis password: Set REDIS_PASSWORD env var in production
+- JWT secret: Set JWT_SECRET_KEY env var (min 32 chars) in production
+
+CLAUDE.md
+VTV
+
+```
+## Architecture
+### Project Structure
+```
+VTV/
+├── app/
+│   ├── core/           # Infrastructure (config, database, logging, middleware, health, rate_limit, redis)
+│   │   └── agents/     # AI agent module — 10 tools, see app/core/agents/CLAUDE.md
+│   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
+│   ├── auth/           # JWT auth + RBAC (5 endpoints: login, refresh, seed, reset-password; bcrypt, Redis brute-force, token revocation)
+│   ├── knowledge/      # RAG knowledge base + DMS (9 endpoints, pgvector, multi-format processing)
+│   ├── drivers/        # Driver management (5 endpoints, HR profiles, shift/availability, agent integration)
+│   ├── events/         # Operational events (5 endpoints, dashboard calendar, date range filter)
+│   ├── stops/          # Stop management (6 endpoints, Haversine proximity, location_type filter)
+│   ├── schedules/      # GTFS schedule management (23 endpoints, trip CRUD, ZIP import/export)
+│   ├── transit/        # Multi-feed GTFS-RT tracking (3 endpoints, Redis cache, background poller)
+│   ├── main.py         # FastAPI application entry point
+│   └── tests/          # Integration tests
+├── cms/               # Frontend monorepo — see cms/CLAUDE.md
+├── reference/          # Architecture docs (vsa-patterns.md, PRD.md, feature-readme-template.md)
+├── scripts/           # Git hooks (pre-commit: security lint + sensitive file check)
+├── nginx/             # Reverse proxy (rate limiting, security headers)
+├── .claude/commands/   # 24 slash commands
+├── .agents/            # Plans, code reviews, execution reports, system reviews
+├── docs/              # Planning docs, RCA documents, anti-patterns reference
+├── alembic/            # Database migrations
+└── pyproject.toml      # Dependencies, tooling config (ruff, mypy, pyright, pytest)
+```
+### Database
+## Frontend (CMS)
+Turborepo monorepo under `cms/` with pnpm workspaces. **Full documentation in `cms/CLAUDE.md` and `cms/apps/web/CLAUDE.md`.**
+- **Stack:** Next.js 16 + React 19, Tailwind CSS v4 + three-tier design tokens, shadcn/ui + CVA, Auth.js v5 with 4-role RBAC (DB-backed via `POST /api/v1/auth/login`), next-intl (lv/en)
+- **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, Documents, Chat, Login
+- **New page checklist:** page component → i18n keys (lv + en) → sidebar nav → middleware RBAC → semantic tokens only
+- **Design system:** `cms/design-system/vtv/MASTER.md` (global) → `pages/{page}.md` (overrides) → `packages/ui/src/tokens.css` (tokens)
+## Development Guidelines
+**Pre-commit hook:** `scripts/pre-commit` — fast (<5s) shell script that blocks commits with Bandit security violations, staged sensitive files (`.env`, `*.pem`, `*.key`), or hardcoded postgres credentials. Install via `make install-hooks`.
+## Security Practices
+- **ILIKE wildcard escaping** — All search queries use `escape_like()` from `app.shared.utils` (rules 40-45 in `docs/python-anti-patterns.md`)
+- **Streaming file uploads** — Application-level size enforcement via chunked reads, not just middleware `Content-Length`
+- **Filename sanitization** — Regex sanitization + `is_relative_to()` path traversal prevention
+- **Credential redaction** — URLs with embedded passwords are redacted before logging
+- **Rate limiting** — Uses `X-Real-IP` (nginx-set, not spoofable) instead of `X-Forwarded-For`
+- **Transit input validation** — Query params constrained with `max_length` and `pattern`
+- **GTFS time validation** — Field validators enforce minutes < 60 and seconds < 60 (hours can exceed 24 per GTFS spec)
+- **Content-Length validation** — `BodySizeLimitMiddleware` handles malformed headers defensively (`try/except ValueError`)
+- **Cookie security** — Locale cookie set with `SameSite=Lax` attribute
+- **Locale-aware redirects** — Auth middleware preserves user's current locale on redirect
+- **Docker credentials** — Environment variable interpolation (`${VAR:-default}`) in docker-compose
+- **Demo credentials** — Environment-controlled: only seeded when `ENVIRONMENT=development`, password configurable via `DEMO_USER_PASSWORD`
+- **Database unique constraints** — `(trip_id, stop_sequence)` and `(calendar_id, date)` prevent GTFS data corruption
+- **Knowledge base input validation** — Empty update rejection (`model_validator`), unknown file type rejection instead of silent text fallback
+- **JWT Authentication** — All backend endpoints protected via `Depends(get_current_user)` with HS256 JWT tokens (30min access + 7-day refresh). Startup fails hard if `JWT_SECRET_KEY` is default in non-dev environments.
+- **RBAC** — `require_role()` dependency enforces function-level authorization: admin (full), editor (data CRUD), dispatcher (driver management), viewer (read-only)
+- **authFetch dual-context** — `cms/apps/web/src/lib/auth-fetch.ts` uses dynamic imports: `auth()` on server (cheap, no network), `getSession()` on client (fetches from `/api/auth/session`). Never static-import server-only `auth()` in files used by `'use client'` components.
+- **Redis brute-force tracking** — Fast-path lockout check before DB query; 5 failed attempts trigger 15-min lockout persisted in Redis with in-memory fallback
+- **JWT token revocation** — Redis-backed denylist with TTL; `revoke_token(jti)` + `is_token_revoked(jti)` checked in `get_current_user` dependency; fail-open when Redis unavailable
+- **Password complexity** — 10+ chars, mixed case, digit required on password reset (not login); enforced via `PasswordResetRequest` schema validator
+- **CORS hardened** — Explicit method/header allowlists (no wildcards); `GET, POST, PATCH, DELETE, OPTIONS` only
+- **Health endpoint redaction** — No provider names, environment, or error details leaked to unauthenticated callers
+- **nginx CSP/HTTPS** — Content-Security-Policy headers, full HTTPS server block with modern TLS ciphers, HSTS
+- **Convention enforcement tests** — `app/tests/test_security.py` (65 tests) auto-discovers all route functions and verifies authentication, checks JWT algorithm safety, bcrypt rounds, password complexity on correct schema, nginx security headers, and no debug-level logging in security paths
+- **Out of scope (future):** Full HTTPS/TLS deployment (certs), WebSocket security, API key rotation
+### Automated Security Enforcement (4 layers)
+Security is enforced automatically at every stage of the development lifecycle — no manual review required to catch common security regressions:
+1. **Pre-commit hook** (`scripts/pre-commit`, install via `make install-hooks`) — Runs in <5s before every `git commit`. Blocks: Bandit security violations (hardcoded creds, `assert` in prod, `exec`/`eval`), staged sensitive files (`.env`, `*.pem`, `*.key`), hardcoded `postgres:postgres@` in diffs.
+2. **Convention tests** (`app/tests/test_security.py`, 65 tests) — Run in every `make test`, `make check`, and `/be-validate`. The auto-discovery test `TestAllEndpointsRequireAuth` dynamically scans every `routes.py` — adding an endpoint without auth breaks CI. Also enforces: JWT uses HS256 (not `none`), bcrypt >= 12 rounds, password complexity on `PasswordResetRequest` (not `LoginRequest`), security logging at `warning+` (not `debug`), nginx has CSP/HSTS/X-Frame-Options/X-Content-Type-Options.
+3. **Secure scaffold** (`/be-create-feature`) — New features generate routes with `get_current_user`/`require_role` already in every endpoint signature. Security by default, not by remembering.
+4. **CI security gate** (`.github/workflows/ci.yml`) — Dedicated "Security audit" step runs `ruff --select=S` as its own GitHub Actions status check between Lint and Type check. Security violations are a hard PR failure with their own status line — not buried in general lint output.
+## Key Reference Documents
+- `reference/vsa-patterns.md` — Async repository, service, routes, cross-feature patterns
+
+TODO.md
+VTV / docs/TODO.md
+
+- [x] **Docker Compose** - PostgreSQL (pgvector/pgvector:pg18), Redis, auto-migration, FastAPI app, Next.js CMS, nginx reverse proxy. Production overlay with security headers. `make docker` / `make docker-prod`.
+- [x] **Codebase Audit** - 120 findings documented in `.agents/code-reviews/AUDIT-SUMMARY.md`. (2026-02-21)
+- [x] **Documentation Cleanup** - 74 redundant CLAUDE.md files removed, 5 substantive files retained. (2026-02-21)
+- [x] **Security Audit Remediation** - 13 findings from third-party security audit fixed. Streaming upload with 50MB limit, regex filename sanitization, path traversal prevention, ILIKE wildcard escaping, X-Real-IP rate limiting, Redis URL redaction, Docker env var interpolation, transit input validation, nginx HTTPS template, environment-controlled demo credentials. 33 security regression tests. (commit 85bf32d, 2026-02-22)
+  - Audit: [docs/security_audit.txt](security_audit.txt)
+- [x] **Security Audit 2 Remediation** - Second audit addressing code quality, data integrity, and testing gaps. `ValidationError` → `DomainValidationError` rename (Pydantic clash), Content-Length header hardening, transit tool deduplication (6 functions → `utils.py`), GTFS time validation (min/sec range), unique constraints on `(trip_id, stop_sequence)` and `(calendar_id, date)` + 2 migrations, knowledge empty update rejection, unknown file type rejection, exception handling improvements, cookie SameSite, locale-aware auth redirects, schedule edge case tests, knowledge repository + route layer tests. 34 new tests (520 → 554). (2026-02-23)
+  - Audit: [docs/security_audit_2.txt](security_audit_2.txt)
+## Planning Documents
+
+user-flows.md
+VTV / docs/user-flows.md
+
+---
+## 11. Drošība un Piekļuves Kontrole
+### Piekļuves matrica
+| Funkcija | Administrators | Redaktors | Dispečers | Skatītājs |
+|----------|---------------|-----------|-----------|-----------|
+| Maršruti — skatīt | Jā | Jā | Jā | Jā |
+| Maršruti — veidot/rediģēt/dzēst | Jā | Jā | Nē | Nē |
+| Pieturas — skatīt | Jā | Jā | Jā | Jā |
+| Pieturas — veidot/rediģēt/dzēst | Jā | Jā | Nē | Nē |
+| Grafiki — skatīt | Jā | Jā | Jā | Jā |
+| Grafiki — veidot/rediģēt/dzēst | Jā | Jā | Nē | Nē |
+| GTFS imports | Jā | Jā | Nē | Nē |
+| Dokumenti — skatīt/lejupielādēt | Jā | Jā | Jā | Jā |
+| Dokumenti — augšupielādēt/dzēst | Jā | Jā | Nē | Nē |
+| AI asistents | Jā | Jā | Jā | Nē |
+| Lietotāju pārvaldība | Jā | Nē | Nē | Nē |
+### Drošības pasākumi
+- Paroļu šifrēšana ar bcrypt
+- Aizsardzība pret brutāla spēka uzbrukumiem: 5 neveiksmīgi mēģinājumi = 15 minūšu bloķēšana
+- Ātruma ierobežojumi visiem API galapunktiem
+- Drošības galvenes (CSP, HSTS, X-Frame-Options DENY)
+- Sesiju autentifikācija ar Auth.js v5
+---
+## 12. Daudzvalodība
+
+test_security.py
+VTV / app/tests/test_security.py
+
+# pyright: reportUnknownParameterType=false, reportMissingParameterType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+"""Security audit regression tests.
+Validates fixes for all 13 findings from the third-party security audit.
+Each test class maps to a specific audit finding (C1-C3, M1-M5, etc.).
+"""
+from unittest.mock import AsyncMock, MagicMock, patch
+import pytest
+from starlette.requests import Request
+# === Convention Enforcement: All Endpoints Require Auth ===
+class TestAllEndpointsRequireAuth:
+    """Auto-discovery test: every route function must have authentication.
+    Dynamically discovers ALL FastAPI route functions across app/*/routes.py
+    and verifies each has get_current_user or require_role in its source.
+    Public endpoints must be explicitly allowlisted.
+    """
+    # Endpoints that are legitimately public (no auth required)
+    PUBLIC_ALLOWLIST = {
+        "login",
+        "refresh_token",
+        "read_root",
+        "health_check",
+        "database_health_check",
+        "health_redis",
+        "readiness_check",
+    }
+    def test_all_routes_have_auth(self) -> None:
+        """Every route function not in the allowlist must reference auth dependencies."""
+        import importlib
+        import inspect
+        from pathlib import Path
+        app_dir = Path("app")
+        route_modules: list[str] = []
+        # Discover all routes.py files under app/
+        for routes_file in sorted(app_dir.rglob("routes.py")):
+            module_path = str(routes_file).replace("/", ".").removesuffix(".py")
+            route_modules.append(module_path)
+        # Also check health.py and main.py
+        route_modules.append("app.core.health")
+        route_modules.append("app.main")
+        missing_auth: list[str] = []
+        for module_path in route_modules:
+            module = importlib.import_module(module_path)
+            mod_source = inspect.getsource(module)
+            for name, func in inspect.getmembers(module, inspect.isfunction):
+                # Only check functions DEFINED in this module (not imports)
+                if getattr(func, "__module__", None) != module_path:
+                    continue
+                if name.startswith("_"):
+                    continue
+                if name in self.PUBLIC_ALLOWLIST:
+                    continue
+                # Check if a route decorator precedes this function def
+                search_str = f"def {name}("
+                if search_str not in mod_source:
+                    continue
+                func_idx = mod_source.index(search_str)
+                preceding = mod_source[max(0, func_idx - 300) : func_idx]
+                if "@router." not in preceding and "@app." not in preceding:
+                    continue
+                # This is a route handler — check for auth
+                source = inspect.getsource(func)
+                if "get_current_user" not in source and "require_role" not in source:
+                    missing_auth.append(f"{module_path}.{name}")
+        assert missing_auth == [], (
+            f"Endpoints missing authentication: {missing_auth}. "
+            f"Add get_current_user/require_role or add to PUBLIC_ALLOWLIST."
+        )
+# === Convention Enforcement: No Debug Logging in Security Paths ===
+
+main.py
+VTV / app/main.py
+
+    setup_logging(log_level=settings.log_level)
+    logger = get_logger(__name__)
+    # SECURITY: Fail hard if JWT secret is weak in non-development environments
+    _insecure_defaults = {"CHANGE-ME-IN-PRODUCTION", "", "secret", "changeme"}
+    if settings.environment != "development" and (
+        settings.jwt_secret_key in _insecure_defaults or len(settings.jwt_secret_key) < 32
+    ):
+        msg = (
+            "JWT_SECRET_KEY must be a strong secret (min 32 chars) in non-development environments"
+        )
+        raise RuntimeError(msg)
+    logger.info(
+        "application.lifecycle_started",
+# Create FastAPI application
+# Disable interactive docs in production (defense-in-depth with nginx)
+_is_dev = settings.environment == "development"
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.version,
+    lifespan=lifespan,
+    docs_url="/docs" if _is_dev else None,
+    openapi_url="/openapi.json" if _is_dev else None,
+    redoc_url="/redoc" if _is_dev else None,
+)
+# Setup rate limiting
+app.state.limiter = limiter
+setup_exception_handlers(app)
+setup_agent_exception_handlers(app)
+# Include routers
+app.include_router(health_router)
+app.include_router(auth_router)
+app.include_router(agent_router)
+app.include_router(transit_router)
+app.include_router(stops_router)
+app.include_router(knowledge_router)
+app.include_router(schedules_router)
+app.include_router(drivers_router)
+app.include_router(events_router)
+@app.get("/")
+
+service.py
+VTV / app/auth/service.py
+
+logger = get_logger(__name__)
+# Brute-force protection constants
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_DURATION = datetime.timedelta(minutes=15)
+async def _check_redis_brute_force(email: str) -> bool:
+    """Check Redis for brute force lockout. Returns True if locked out."""
+    try:
+        from app.core.redis import get_redis
+        redis_client = await get_redis()
+        key = f"auth:lockout:{email}"
+        locked = await redis_client.get(key)
+        return locked is not None
+    except Exception:
+        # Redis unavailable - fall through to DB check
+        return False
+async def _record_failed_attempt_redis(email: str) -> None:
+    """Record a failed login attempt in Redis with TTL."""
+    try:
+        from app.core.redis import get_redis
+        redis_client = await get_redis()
+        key = f"auth:failures:{email}"
+        pipe = redis_client.pipeline()
+        pipe.incr(key)
+        pipe.expire(key, int(LOCKOUT_DURATION.total_seconds()))
+        result = await pipe.execute()
+        count = int(result[0]) if result else 0
+        if count >= MAX_FAILED_ATTEMPTS:
+            lockout_key = f"auth:lockout:{email}"
+            await redis_client.setex(lockout_key, int(LOCKOUT_DURATION.total_seconds()), "locked")
+    except Exception:
+        logger.warning("auth.redis_brute_force_unavailable", email=email)
+async def _clear_redis_brute_force(email: str) -> None:
+    """Clear Redis brute force keys on successful login."""
+    try:
+        from app.core.redis import get_redis
+        redis_client = await get_redis()
+        await redis_client.delete(
+            f"auth:failures:{email}",
+            f"auth:lockout:{email}",
+        )
+    except Exception:
+        logger.warning("auth.redis_clear_unavailable", email=email)
+class AuthService:
+    """Handles authentication logic with bcrypt password verification."""
+        """Verify a password against its bcrypt hash."""
+        return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
+    async def authenticate(self, email: str, password: str) -> LoginResponse:
+        """Authenticate a user by email and password.
+        Raises:
+            InvalidCredentialsError: If credentials are invalid.
+            AccountLockedError: If the account is locked.
+        """
+        # Redis fast-path lockout check (before DB query)
+        if await _check_redis_brute_force(email):
+            logger.warning("auth.login_locked_redis", email=email)
+            raise AccountLockedError("Account is temporarily locked")
+        user = await self.repo.find_by_email(email)
+        if not user or not user.is_active:
+            logger.warning("auth.login_failed", email=email, reason="user_not_found")
+            raise InvalidCredentialsError("Invalid email or password")
+        # Check lockout
+        if user.locked_until and utcnow() < user.locked_until:
+            logger.warning("auth.login_locked", email=email)
+            raise AccountLockedError("Account is temporarily locked")
+        # Clear expired lockout (both DB and Redis)
+        if user.locked_until and utcnow() >= user.locked_until:
+            user.locked_until = None
+            user.failed_attempts = 0
+            await _clear_redis_brute_force(email)
+        # Verify password
+        if not self.verify_password(password, user.hashed_password):
+            user.failed_attempts += 1
+            if user.failed_attempts >= MAX_FAILED_ATTEMPTS:
+                user.locked_until = utcnow() + LOCKOUT_DURATION
+                logger.warning("auth.account_locked", email=email, attempts=user.failed_attempts)
+            await self.repo.update(user)
+            await _record_failed_attempt_redis(email)
+            logger.warning("auth.login_failed", email=email, reason="bad_password")
+            raise InvalidCredentialsError("Invalid email or password")
+        # Success — clear failed attempts
+        if user.failed_attempts > 0:
+            user.failed_attempts = 0
+            user.locked_until = None
+            await self.repo.update(user)
+        await _clear_redis_brute_force(email)
+        # Issue JWT tokens
+        access_token = create_access_token(user.id, user.role)
+        refresh_token = create_refresh_token(user.id)
+        logger.info("auth.token_issued", email=email, role=user.role)
+        return LoginResponse(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            role=user.role,
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
+    async def refresh_access_token(self, user_id: int) -> str:
+        """Issue a new access token for a valid user.
+
+token.py
+VTV / app/auth/token.py
+
+    jti: str  # unique token ID for revocation
+def create_access_token(user_id: int, role: str) -> str:
+    """Create a short-lived access token.
+    Args:
+        user_id: The database ID of the authenticated user.
+        role: The user's role (admin, dispatcher, editor, viewer).
+    Returns:
+        Encoded JWT access token string.
+    """
+    settings = get_settings()
+    expire = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
+        minutes=settings.jwt_access_token_expire_minutes
+    )
+    payload: dict[str, Any] = {  # JWT payload values are heterogeneous (str, datetime, int)
+        "sub": str(user_id),
+        "role": role,
+        "exp": expire,
+        "type": "access",
+        "jti": uuid.uuid4().hex,
+    }
+    token: str = jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+    return token
+def create_refresh_token(user_id: int) -> str:
+    """Create a longer-lived refresh token.
+    Args:
+        user_id: The database ID of the authenticated user.
+    Returns:
+        Encoded JWT refresh token string.
+    """
+    settings = get_settings()
+    expire = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
+        days=settings.jwt_refresh_token_expire_days
+    )
+    payload: dict[str, Any] = {
+        "sub": str(user_id),
+        "role": "",  # refresh tokens don't carry role — re-fetched on refresh
+        "exp": expire,
+        "type": "refresh",
+        "jti": uuid.uuid4().hex,
+    }
+    token: str = jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+    return token
+async def revoke_token(jti: str, ttl_seconds: int = 1800) -> None:
+    """Add a token JTI to the revocation denylist in Redis.
+    Args:
+        jti: The unique token identifier (from JWT 'jti' claim).
+        ttl_seconds: Time to keep in denylist (default: 30 min = access token lifetime).
+    """
+    try:
+        from app.core.redis import get_redis
+        redis_client = await get_redis()
+        await redis_client.setex(f"auth:revoked:{jti}", ttl_seconds, "1")
+    except Exception as e:
+        logger.warning(
+            "auth.token.revocation_failed",
+            jti=jti,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+async def is_token_revoked(jti: str) -> bool:
+    """Check if a token JTI has been revoked.
+    Args:
+        jti: The unique token identifier.
+    Returns:
+        True if the token is in the revocation denylist.
+    """
+    if not jti:
+        return False
+    try:
+        from app.core.redis import get_redis
+        redis_client = await get_redis()
+        result = await redis_client.get(f"auth:revoked:{jti}")
+        return result is not None
+    except Exception:
+        return False  # Redis down = allow (fail-open for availability)
+def decode_token(token: str) -> TokenPayload | None:
+
+middleware.py
+VTV / app/core/middleware.py
+
+        Returns:
+            Response from the next handler, or 413 if body too large.
+        """
+        # Allow larger uploads for specific file-based endpoints
+        path = request.url.path
+        upload_paths = (
+            "/api/v1/schedules/import",
+            "/api/v1/schedules/validate",
+            "/api/v1/knowledge",
+        )
+        if any(path.startswith(p) for p in upload_paths):
+            max_size = 52_428_800  # 50MB + overhead for file uploads
+        else:
+            max_size = self._max_body_size
+        content_length = request.headers.get("content-length")
+        if content_length is not None:
+            try:
+                length = int(content_length)
+            except ValueError:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "Invalid Content-Length header"},
+                )
+            if length > max_size:
+                return JSONResponse(
+                    status_code=413,
+                    content={"error": "Request body too large", "max_bytes": max_size},
+                )
+        return await call_next(request)
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    # Add request logging middleware
+    app.add_middleware(RequestLoggingMiddleware)
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.allowed_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Request-ID",
+            "Accept",
+            "Accept-Language",
+        ],
+    )
+
+config.py
+VTV / app/core/config.py
+
+    # CORS settings
+    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8123"]
+    # LLM Provider
+    llm_provider: str = "test"
+    llm_model: str = "test-model"
+    llm_fallback_provider: str | None = None
+    llm_fallback_model: str | None = None
+    # LLM API keys
+    anthropic_api_key: str | None = None
+    # Google Gemini
+    google_api_key: str | None = None
+    # Groq
+    groq_api_key: str | None = None
+    # Ollama (local LLM)
+    ollama_base_url: str = "http://localhost:11434/v1"
+    # Transit GTFS-RT feeds (Rigas Satiksme public endpoints)
+    gtfs_rt_vehicle_positions_url: str = "https://saraksti.rigassatiksme.lv/vehicle_positions.pb"
+    gtfs_rt_trip_updates_url: str = "https://saraksti.rigassatiksme.lv/trip_updates.pb"
+    gtfs_rt_alerts_url: str = "https://saraksti.rigassatiksme.lv/gtfs_realtime.pb"
+    gtfs_static_url: str = "https://saraksti.rigassatiksme.lv/gtfs.zip"
+    gtfs_rt_cache_ttl_seconds: int = 10
+    gtfs_static_cache_ttl_hours: int = 24
+    # Redis
+    redis_url: str = "redis://localhost:6379/0"
+    redis_vehicle_ttl_seconds: int = 120
+    # Multi-feed GTFS-RT (replaces single-feed URLs)
+    transit_feeds_json: str = "[]"
+    poller_enabled: bool = True
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def transit_feeds(self) -> list[TransitFeedConfig]:
+        """Parse transit feeds from JSON config, falling back to legacy single-feed URLs."""
+        feeds_raw: list[dict[str, Any]] = json.loads(self.transit_feeds_json)
+        if feeds_raw:
+            return [TransitFeedConfig(**f) for f in feeds_raw]
+        # Backward compatibility: build from legacy single-feed settings
+        return [
+            TransitFeedConfig(
+                feed_id="riga",
+                operator_name="Rigas Satiksme",
+                rt_vehicle_positions_url=self.gtfs_rt_vehicle_positions_url,
+                rt_trip_updates_url=self.gtfs_rt_trip_updates_url,
+                static_url=self.gtfs_static_url,
+                poll_interval_seconds=self.gtfs_rt_cache_ttl_seconds,
+            )
+        ]
+    # Obsidian Local REST API
+    obsidian_api_key: str | None = None
+    obsidian_vault_url: str = "https://127.0.0.1:27124"
+    # JWT Authentication
+    jwt_secret_key: str = "CHANGE-ME-IN-PRODUCTION"  # noqa: S105  # MUST be overridden via env
+    # Query quota (daily per IP)
+    agent_daily_quota: int = 50
+    # Embedding provider (mirrors LLM provider pattern)
+    embedding_provider: str = "jina"  # jina, openai, local
+    embedding_model: str = "jina-embeddings-v3"
+    embedding_dimension: int = 1024
+    embedding_api_key: str | None = None
+    embedding_base_url: str | None = None  # Custom endpoint for local/Jina
+    # Reranker
+    reranker_provider: str = "local"  # local, none
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_top_k: int = 10
+
+nginx.conf
+VTV / nginx/nginx.conf
+
+    gzip_vary on;
+    gzip_proxied any;
+    # Rate limiting zones (per IP)
+    # General API: 30 req/s burst 50
+    limit_req_zone $binary_remote_addr zone=api:10m rate=30r/s;
+    # LLM chat endpoint: 2 req/s burst 5 (expensive operation)
+    limit_req_zone $binary_remote_addr zone=llm:10m rate=2r/s;
+    # Static/health: 60 req/s burst 100
+    limit_req_zone $binary_remote_addr zone=health:10m rate=60r/s;
+    # Connection limits per IP
+    limit_conn_zone $binary_remote_addr zone=addr:10m;
+    # Logging (includes upstream response time for debugging)
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for" '
+                    'rt=$request_time urt=$upstream_response_time';
+    access_log /var/log/nginx/access.log main;
+    # Timeouts
+    proxy_connect_timeout 10s;
+    proxy_send_timeout 30s;
+    proxy_read_timeout 60s;
+    send_timeout 30s;
+    keepalive_timeout 65s;
+    # Body size limit (defense-in-depth with app-level middleware)
+    client_max_body_size 1m;
+    # Upstream backends (internal only)
+    upstream fastapi {
+        server app:8123;
+    }
+    upstream nextjs {
+        server cms:3000;
+    }
+    server {
+        listen 80;
+        server_name _;
+        # Connection limit per IP
+        limit_conn addr 20;
+        # --- Security Headers ---
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org https://cartodb-basemaps-a.global.ssl.fastly.net https://cartodb-basemaps-b.global.ssl.fastly.net https://cartodb-basemaps-c.global.ssl.fastly.net https://cartodb-basemaps-d.global.ssl.fastly.net; connect-src 'self'; font-src 'self'; frame-ancestors 'none'" always;
+        add_header X-XSS-Protection "0" always;
+        # LLM chat endpoint - strict rate limiting
+        location /v1/chat/completions {
+
+rate_limit.py
+VTV / app/core/rate_limit.py
+
+from starlette.requests import Request
+def _get_client_ip(request: Request) -> str:
+    """Extract client IP from request for rate limiting.
+    Uses X-Real-IP header (set by nginx, not client-spoofable) if present,
+    falls back to direct client address.
+    Args:
+        request: The incoming Starlette request.
+    Returns:
+        Client IP address string.
+    """
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
+    return get_remote_address(request)
+limiter = Limiter(key_func=_get_client_ip)
+
+docker-compose.yml
+VTV
+
+services:
+  db:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-vtv_db}
+    ports:
+      # SECURITY: Consider removing in production - only needed for direct DB access during development
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-}"]
+    ports:
+      # SECURITY: Consider removing in production - only needed for direct Redis access during development
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD:-}\" ping || redis-cli ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    restart: unless-stopped
+  migrate:
+    build:
+
+docker-compose.prod.yml
+VTV
+
+# Production overrides — merge with base:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Or use: make docker-prod
+#
+# Requires .env.production (copy from .env.production.example)
+services:
+  db:
+    ports: !reset []
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      POSTGRES_DB: vtv_db
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+  redis:
+    ports: !reset []
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-}"]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+  migrate:
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db:5432/vtv_db
+      - AUTO_IMPORT_GTFS=true
+  app:
+    volumes: !reset
+      - document_data:/app/data/documents
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=${LOG_LEVEL:-WARNING}
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db:5432/vtv_db
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      - ENVIRONMENT=production
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env.production}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-[]}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-}

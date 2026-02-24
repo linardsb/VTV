@@ -1,6 +1,6 @@
 # Authentication
 
-JWT-based authentication and role-based access control (RBAC) for all backend API endpoints. DB-backed user management with bcrypt password hashing, Redis-backed brute-force protection, JWT token revocation via Redis denylist, and admin password reset with complexity enforcement.
+JWT-based authentication and role-based access control (RBAC) for all backend API endpoints. DB-backed user management with bcrypt password hashing, Redis-backed brute-force protection, JWT token revocation via Redis denylist, admin password reset with complexity enforcement, and GDPR right-to-erasure user deletion.
 
 ## Key Flows
 
@@ -55,6 +55,16 @@ JWT-based authentication and role-based access control (RBAC) for all backend AP
 3. Fail-open design: if Redis is unavailable, tokens are NOT considered revoked (availability over security)
 4. Revocation is checked on every authenticated request via `get_current_user`
 
+### GDPR User Deletion (DELETE /api/v1/auth/users/{user_id})
+
+1. Requires admin role (`require_role("admin")`)
+2. Validate requesting admin is not deleting their own account (return 422)
+3. Look up target user by ID — return 404 if not found
+4. Delete user record from database (cascades to related data via FK)
+5. Clear Redis brute-force keys (`auth:failures:{email}`, `auth:lockout:{email}`)
+6. Log deletion at warning level (`auth.user_data_deleted`) with both user IDs for audit trail
+7. Return 204 No Content
+
 ### Seed Demo Users (POST /api/v1/auth/seed)
 
 1. Requires admin role (`require_role("admin")`)
@@ -104,7 +114,7 @@ Table: `users`
 
 | Endpoint Group | admin | dispatcher | editor | viewer |
 |---------------|-------|------------|--------|--------|
-| Auth (seed, reset-password) | W | - | - | - |
+| Auth (seed, reset-password, delete-user) | W | - | - | - |
 | Schedules (CRUD) | CRUD | R | CRUD | R |
 | Stops (CRUD) | CRUD | R | CRUD | R |
 | Routes (CRUD) | CRUD | R | CRUD | R |
@@ -131,6 +141,9 @@ Table: `users`
 12. Token revocation is fail-open: if Redis is unavailable, tokens are not considered revoked
 13. Admin password reset clears brute-force state (both Redis keys and DB fields)
 14. Redis unavailability falls back to DB-only brute-force tracking (logged at warning level)
+15. Admins cannot delete their own account (prevents lockout)
+16. User deletion cascades to related data via database foreign keys
+17. User deletion clears Redis brute-force keys to prevent orphaned tracking data
 
 ## Integration Points
 
@@ -148,6 +161,7 @@ Table: `users`
 | POST | `/api/v1/auth/refresh` | Public | Exchange refresh token for new access token |
 | POST | `/api/v1/auth/seed` | Admin only | Create demo users (development only, idempotent) |
 | POST | `/api/v1/auth/reset-password` | Admin only | Reset any user's password (complexity enforced) |
+| DELETE | `/api/v1/auth/users/{user_id}` | Admin only | GDPR right-to-erasure — permanently delete user and clear Redis tracking |
 
 ## Files
 
@@ -156,7 +170,7 @@ Table: `users`
 | `token.py` | JWT creation (`create_access_token`, `create_refresh_token`), validation (`decode_token`), revocation (`revoke_token`, `is_token_revoked`) |
 | `dependencies.py` | FastAPI auth dependencies (`get_current_user` with revocation check, `require_role()`) |
 | `schemas.py` | Pydantic models: `LoginRequest`, `LoginResponse`, `RefreshRequest`, `RefreshResponse`, `UserResponse`, `PasswordResetRequest` (with complexity validator) |
-| `service.py` | Business logic: `authenticate()` (Redis + DB brute-force), `refresh_access_token()` (lockout check), `reset_password()`, `seed_demo_users()` |
-| `repository.py` | DB operations: `find_by_email()`, `find_by_id()`, `create()`, `update()`, `count()` |
+| `service.py` | Business logic: `authenticate()` (Redis + DB brute-force), `refresh_access_token()` (lockout check), `reset_password()`, `delete_user_data()` (GDPR), `seed_demo_users()` |
+| `repository.py` | DB operations: `find_by_email()`, `find_by_id()`, `create()`, `update()`, `delete()`, `count()` |
 | `models.py` | SQLAlchemy `User` model |
 | `exceptions.py` | `InvalidCredentialsError` (401), `AccountLockedError` (423) |

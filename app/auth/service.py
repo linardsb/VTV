@@ -30,7 +30,7 @@ async def _check_redis_brute_force(email: str) -> bool:
         locked = await redis_client.get(key)
         return locked is not None
     except Exception:
-        # Redis unavailable - fall through to DB check
+        logger.warning("auth.redis_lockout_check_unavailable", email=email)
         return False
 
 
@@ -50,7 +50,7 @@ async def _record_failed_attempt_redis(email: str) -> None:
             lockout_key = f"auth:lockout:{email}"
             await redis_client.setex(lockout_key, int(LOCKOUT_DURATION.total_seconds()), "locked")
     except Exception:
-        logger.warning("auth.redis_brute_force_unavailable", email=email)
+        logger.warning("auth.redis_brute_force_unavailable", email=email, exc_info=True)
 
 
 async def _clear_redis_brute_force(email: str) -> None:
@@ -64,7 +64,7 @@ async def _clear_redis_brute_force(email: str) -> None:
             f"auth:lockout:{email}",
         )
     except Exception:
-        logger.warning("auth.redis_clear_unavailable", email=email)
+        logger.warning("auth.redis_clear_unavailable", email=email, exc_info=True)
 
 
 class AuthService:
@@ -191,6 +191,47 @@ class AuthService:
         await _clear_redis_brute_force(user.email)
 
         logger.info("auth.password_reset", user_id=user_id)
+
+    async def delete_user_data(self, user_id: int, requesting_user_id: int) -> bool:
+        """Delete all user data for GDPR right-to-erasure compliance.
+
+        Deletes the user record (cascading to related data).
+        Clears any Redis brute-force tracking keys.
+
+        Args:
+            user_id: The ID of the user to delete.
+            requesting_user_id: The ID of the admin requesting deletion.
+
+        Returns:
+            True if user was found and deleted, False if not found.
+
+        Raises:
+            DomainValidationError: If attempting to delete own account.
+        """
+        from app.core.exceptions import DomainValidationError
+
+        if user_id == requesting_user_id:
+            raise DomainValidationError("Cannot delete your own account")
+
+        # Look up user for email (Redis cleanup) and deletion
+        user = await self.repo.find_by_id(user_id)
+        if user is None:
+            return False
+
+        email = user.email
+
+        # Delete user record from database (reuse fetched object)
+        await self.repo.delete(user)
+
+        # Clear any Redis brute-force keys for this user
+        await _clear_redis_brute_force(email)
+
+        logger.warning(
+            "auth.user_data_deleted",
+            deleted_user_id=user_id,
+            requesting_user_id=requesting_user_id,
+        )
+        return True
 
     async def seed_demo_users(self) -> list[User]:
         """Create demo users if no users exist. Returns created users.

@@ -95,3 +95,25 @@ async def seed_demo_users(
         return []
     users = await service.seed_demo_users()
     return [UserResponse.model_validate(u) for u in users]
+
+
+@router.delete(
+    "/users/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+@limiter.limit("5/minute")
+async def delete_user_data(
+    request: Request,
+    user_id: int,
+    current_user: User = Depends(require_role("admin")),  # noqa: B008
+    service: AuthService = Depends(get_service),  # noqa: B008
+) -> None:
+    """Delete user data for GDPR right-to-erasure compliance.
+
+    Admin-only. Permanently removes user record and clears associated
+    Redis tracking data. Cannot delete own account.
+    """
+    _ = request
+    deleted = await service.delete_user_data(user_id, current_user.id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")

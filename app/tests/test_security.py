@@ -7,6 +7,7 @@ Validates fixes for all 13 findings from the third-party security audit.
 Each test class maps to a specific audit finding (C1-C3, M1-M5, etc.).
 """
 
+from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -655,7 +656,7 @@ class TestAllEndpointsRequireAuth:
     """
 
     # Endpoints that are legitimately public (no auth required)
-    PUBLIC_ALLOWLIST = {
+    PUBLIC_ALLOWLIST: ClassVar[set[str]] = {
         "login",
         "refresh_token",
         "read_root",
@@ -910,3 +911,227 @@ class TestSecurityHeadersInNginx:
 
         conf = Path("nginx/nginx.conf").read_text()
         assert "X-Content-Type-Options" in conf
+
+
+# === Convention Enforcement: No Raw SQL with User Input ===
+
+
+class TestNoRawSqlInjection:
+    """All database queries must use SQLAlchemy ORM, not raw SQL with user input."""
+
+    def test_repositories_use_orm_not_raw_sql(self) -> None:
+        """Repository files must not use text() with f-strings or .format()."""
+        import ast
+        from pathlib import Path
+
+        app_dir = Path("app")
+        violations: list[str] = []
+
+        for repo_file in sorted(app_dir.rglob("repository.py")):
+            source = repo_file.read_text()
+            tree = ast.parse(source)
+
+            for node in ast.walk(tree):
+                # Check for text(f"...") or text("...".format(...))
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "text"
+                    and node.args
+                ):
+                    arg = node.args[0]
+                    if isinstance(arg, ast.JoinedStr):  # f-string
+                        violations.append(f"{repo_file}:{node.lineno}: text() with f-string")
+                    elif (
+                        isinstance(arg, ast.Call)
+                        and isinstance(arg.func, ast.Attribute)
+                        and arg.func.attr == "format"
+                    ):
+                        violations.append(f"{repo_file}:{node.lineno}: text() with .format()")
+
+        assert violations == [], (
+            f"Raw SQL with user input found: {violations}. "
+            f"Use SQLAlchemy ORM or parameterized queries."
+        )
+
+    def test_health_check_text_is_safe(self) -> None:
+        """Health check uses text('SELECT 1') which is safe (no user input)."""
+        import inspect
+
+        from app.core.health import database_health_check
+
+        source = inspect.getsource(database_health_check)
+        assert 'text("SELECT 1")' in source
+        # Verify no f-strings in text() calls
+        assert "text(f" not in source
+
+
+# === Convention Enforcement: Container Security ===
+
+
+class TestContainerHardening:
+    """Docker containers must have security hardening options."""
+
+    def test_backend_dockerfile_nonroot(self) -> None:
+        """Backend Dockerfile must run as non-root user."""
+        from pathlib import Path
+
+        dockerfile = Path("Dockerfile").read_text()
+        assert "USER vtv" in dockerfile or "USER 1001" in dockerfile
+
+    def test_frontend_dockerfile_nonroot(self) -> None:
+        """Frontend Dockerfile must run as non-root user."""
+        from pathlib import Path
+
+        dockerfile = Path("cms/apps/web/Dockerfile").read_text()
+        assert "USER nextjs" in dockerfile or "USER 1001" in dockerfile
+
+    def test_nginx_dockerfile_nonroot(self) -> None:
+        """Nginx Dockerfile must run as non-root user."""
+        from pathlib import Path
+
+        dockerfile = Path("nginx/Dockerfile").read_text()
+        assert "USER nginx" in dockerfile
+
+    def test_compose_app_no_new_privileges(self) -> None:
+        """docker-compose.yml app service must have no-new-privileges."""
+        from pathlib import Path
+
+        compose = Path("docker-compose.yml").read_text()
+        assert "no-new-privileges:true" in compose
+
+    def test_prod_compose_app_read_only(self) -> None:
+        """docker-compose.prod.yml app service must be read-only."""
+        from pathlib import Path
+
+        compose = Path("docker-compose.prod.yml").read_text()
+        assert "read_only: true" in compose
+
+
+# === Convention Enforcement: Dependency Security ===
+
+
+class TestDependencySecurity:
+    """CI pipeline must include dependency vulnerability scanning."""
+
+    def test_ci_has_dependency_audit(self) -> None:
+        """CI pipeline must have a pip-audit step."""
+        from pathlib import Path
+
+        ci = Path(".github/workflows/ci.yml").read_text()
+        assert "pip-audit" in ci
+
+    def test_ci_has_lock_integrity_check(self) -> None:
+        """CI pipeline must verify lock file integrity."""
+        from pathlib import Path
+
+        ci = Path(".github/workflows/ci.yml").read_text()
+        assert "uv lock --check" in ci
+
+    def test_pip_audit_in_dev_dependencies(self) -> None:
+        """pip-audit must be in dev dependencies."""
+        from pathlib import Path
+
+        pyproject = Path("pyproject.toml").read_text()
+        assert "pip-audit" in pyproject
+
+
+# === Convention Enforcement: Backup Infrastructure ===
+
+
+class TestBackupInfrastructure:
+    """Automated backup script must exist and be executable."""
+
+    def test_backup_script_exists(self) -> None:
+        """Automated backup script must exist."""
+        from pathlib import Path
+
+        assert Path("scripts/db-backup.sh").exists()
+
+    def test_backup_script_executable(self) -> None:
+        """Backup script must be executable."""
+        import os
+        from pathlib import Path
+
+        script = Path("scripts/db-backup.sh")
+        assert os.access(script, os.X_OK)
+
+    def test_backup_script_has_retention(self) -> None:
+        """Backup script must implement retention policy."""
+        from pathlib import Path
+
+        script = Path("scripts/db-backup.sh").read_text()
+        assert "RETENTION" in script
+        assert "mtime" in script or "find" in script
+
+    def test_makefile_has_backup_auto(self) -> None:
+        """Makefile must have db-backup-auto target."""
+        from pathlib import Path
+
+        makefile = Path("Makefile").read_text()
+        assert "db-backup-auto" in makefile
+
+
+# === Convention Enforcement: GDPR Right to Erasure ===
+
+
+class TestGdprDeletion:
+    """Platform must support GDPR right-to-erasure for user data."""
+
+    def test_auth_routes_has_delete_endpoint(self) -> None:
+        """Auth routes must have a DELETE /users/{user_id} endpoint."""
+        import inspect
+
+        from app.auth.routes import delete_user_data
+
+        source = inspect.getsource(delete_user_data)
+        assert "require_role" in source
+        assert "admin" in source
+
+    def test_delete_requires_admin(self) -> None:
+        """User deletion must require admin role."""
+        import inspect
+
+        from app.auth.routes import delete_user_data
+
+        source = inspect.getsource(delete_user_data)
+        assert 'require_role("admin")' in source
+
+    def test_cannot_self_delete(self) -> None:
+        """Service must prevent admins from deleting their own account."""
+        import inspect
+
+        from app.auth.service import AuthService
+
+        source = inspect.getsource(AuthService.delete_user_data)
+        assert "requesting_user_id" in source
+        assert "Cannot delete your own account" in source
+
+
+# === Convention Enforcement: CSRF Protection Posture ===
+
+
+class TestCsrfProtection:
+    """JWT in Authorization header is inherently CSRF-safe.
+    Verify no endpoints use cookie-based auth that would need CSRF tokens.
+    """
+
+    def test_auth_uses_bearer_not_cookies(self) -> None:
+        """Authentication must use Bearer token, not cookies."""
+        import inspect
+
+        from app.auth.dependencies import get_current_user
+
+        source = inspect.getsource(get_current_user)
+        assert "HTTPBearer" in source or "Authorization" in source
+        # Must not read auth from cookies
+        assert "request.cookies" not in source
+
+    def test_cors_allows_credentials_with_explicit_origins(self) -> None:
+        """CORS must not use allow_origins=['*'] with allow_credentials=True."""
+        import inspect
+
+        from app.core.middleware import setup_middleware
+
+        source = inspect.getsource(setup_middleware)
+        assert 'allow_origins=["*"]' not in source

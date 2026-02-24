@@ -3,6 +3,10 @@
 Runs alembic upgrade head, then verifies tables actually exist.
 If tables are missing (stale alembic_version stamp), resets and re-runs.
 Optionally auto-imports GTFS data if the routes table is empty.
+
+NOTE: This script avoids importing from `app.*` for table checks because
+the app package may not be installed in the migrate container's virtualenv.
+Only the GTFS import path needs `app` (it uses the ScheduleService).
 """
 
 import asyncio
@@ -12,6 +16,18 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+
+
+def _get_database_url() -> str:
+    """Get async database URL from environment."""
+    url = os.environ.get("DATABASE_URL", "")
+    if not url:
+        print("[migrate] FATAL: DATABASE_URL not set")
+        sys.exit(1)
+    # Ensure async driver
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
 
 
 def run_alembic_upgrade() -> int:
@@ -35,18 +51,21 @@ def run_alembic_stamp_base() -> int:
 async def check_tables_exist() -> bool:
     """Check if core tables exist in the database."""
     from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
 
-    from app.core.database import engine
-
+    engine = create_async_engine(_get_database_url())
     required_tables = {"agencies", "routes", "stops", "calendars", "trips"}
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            text(
-                "SELECT tablename FROM pg_tables "
-                "WHERE schemaname='public' AND tablename != 'alembic_version'"
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(
+                text(
+                    "SELECT tablename FROM pg_tables "
+                    "WHERE schemaname='public' AND tablename != 'alembic_version'"
+                )
             )
-        )
-        existing = {row[0] for row in result}
+            existing = {row[0] for row in result}
+    finally:
+        await engine.dispose()
 
     return required_tables.issubset(existing)
 
@@ -54,12 +73,15 @@ async def check_tables_exist() -> bool:
 async def check_routes_empty() -> bool:
     """Check if routes table has zero rows."""
     from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
 
-    from app.core.database import engine
-
-    async with engine.connect() as conn:
-        result = await conn.execute(text("SELECT count(*) FROM routes"))
-        count = result.scalar()
+    engine = create_async_engine(_get_database_url())
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text("SELECT count(*) FROM routes"))
+            count = result.scalar()
+    finally:
+        await engine.dispose()
     return count == 0
 
 
@@ -81,15 +103,21 @@ async def auto_import_gtfs() -> None:
 
     print("[migrate] Importing GTFS data...")
     start = time.time()
-    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.core.database import engine
+    # Add parent dir to sys.path so `app` package is importable
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
     from app.schedules.service import ScheduleService
 
+    engine = create_async_engine(_get_database_url())
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with session_factory() as session:
-        service = ScheduleService(session)
-        result = await service.import_gtfs(gtfs_path.read_bytes())
+    try:
+        async with session_factory() as session:
+            service = ScheduleService(session)
+            result = await service.import_gtfs(gtfs_path.read_bytes())
+    finally:
+        await engine.dispose()
 
     elapsed = time.time() - start
     print(
@@ -108,17 +136,18 @@ async def auto_import_gtfs() -> None:
 async def seed_users() -> None:
     """Seed default users if none exist."""
     from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
 
-    from app.core.database import engine
-
-    async with engine.connect() as conn:
-        result = await conn.execute(text("SELECT count(*) FROM users"))
-        count = result.scalar()
+    engine = create_async_engine(_get_database_url())
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text("SELECT count(*) FROM users"))
+            count = result.scalar()
+    finally:
+        await engine.dispose()
 
     if count == 0:
         print("[migrate] Seeding default users...")
-        import urllib.request
-
         req = urllib.request.Request(
             "http://localhost:8123/api/v1/auth/seed",
             method="POST",
@@ -127,8 +156,6 @@ async def seed_users() -> None:
             urllib.request.urlopen(req, timeout=10)  # noqa: S310
             print("[migrate] Users seeded")
         except Exception:
-            # Auth seed endpoint may not be available in migrate container
-            # Users will be seeded on first app startup via /auth/seed
             print("[migrate] Skipping user seed (app not running yet)")
 
 
