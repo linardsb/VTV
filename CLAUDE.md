@@ -16,7 +16,7 @@ VTV is a unified transit operations platform targeting all of Latvia's public tr
 
 **Type Safety (CRITICAL)** — Strict MyPy + Pyright enforced. All functions must have complete type annotations. No `Any` without justification. Test files have relaxed rules (see `pyproject.toml`).
 
-**Python Anti-Patterns** — 45 documented patterns that cause lint/type errors (includes security patterns). See `docs/python-anti-patterns.md`. Also embedded in `/be-execute` and `/be-planning` Known Pitfalls sections.
+**Python Anti-Patterns** — 47 documented patterns that cause lint/type errors (includes security and schema validation patterns). See `docs/python-anti-patterns.md`. Also embedded in `/be-execute` and `/be-planning` Known Pitfalls sections.
 
 **Structured Logging** — `domain.component.action_state` pattern via structlog. Logger: `from app.core.logging import get_logger`. Full taxonomy: `docs/logging-standard.md`.
 

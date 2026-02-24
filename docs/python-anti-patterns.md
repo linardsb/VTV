@@ -49,6 +49,8 @@ Avoid these — they cause lint/type errors. Referenced from root `CLAUDE.md`.
 
 29. **Pydantic constraints on shared models affect all paths** — `max_length` on shared model blocks input AND output. Move input-only validation to `field_validator` on the REQUEST model.
 30. **Adding optional fields to existing schemas breaks ALL constructors** — `Field(None)` confuses pyright. Grep for `SchemaName(` and update ALL call sites.
+31. **Adding validators to input schemas can reject existing data** — `@field_validator` on `LoginRequest` password field rejects existing users with weak passwords (422 before auth service is reached). Password complexity goes on `PasswordResetRequest`/`RegisterRequest`, NEVER on `LoginRequest`. Always ask: "Will this validator reject data that already exists in production?"
+32. **Removing response fields breaks downstream tests** — When redacting fields from health endpoints, version info, or any response dict, grep for the field name across `app/*/tests/` and `app/tests/` and update all assertions in the SAME step.
 
 ## Testing Gotchas
 

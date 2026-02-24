@@ -161,6 +161,12 @@ IMPORTANT: Execute every step in order, top to bottom. Do not skip steps.
 Create one task per file — each task targets exactly one file path.
 Use action keywords: CREATE, UPDATE, ADD, REMOVE, REFACTOR, MIRROR
 
+**Schema Impact Tracing:** For any task that adds validators to existing schemas or removes/renames response fields, include a sub-step: "Grep for `SchemaName(` and update all constructors and test assertions." See Known Pitfalls #58-59.
+
+**Import Completeness:** Every code change in a task that adds a function call (e.g., `logger.warning(...)`, `get_redis()`) MUST also specify the required import if it's not already present in the file. Don't assume imports exist — check the file first, include the import in the task.
+
+**Plan Code Quality:** Code snippets included in tasks must follow project lint rules. No `except Exception: pass` (violates Ruff S110 — always include `logger.warning()`). No missing imports. No patterns that the executor would copy verbatim and then fail validation.
+
 CRITICAL: Every task MUST include a **Per-task validation** block with ALL applicable checks in this order:
 1. `uv run ruff format [file path]` — auto-format (ALWAYS include)
 2. `uv run ruff check --fix [file path]` — lint + auto-fix (ALWAYS include; `--fix` resolves import sorting I001 which `ruff format` does NOT handle)
@@ -420,6 +426,13 @@ The executing agent MUST follow these rules to avoid common errors:
 55. **FastAPI `HTTPBearer(auto_error=True)` returns 403, not 401** — The default `HTTPBearer()` returns 403 when the Authorization header is missing (FastAPI framework design), but RFC 7235 requires 401 for missing authentication. Plan must specify `HTTPBearer(auto_error=False)` and a manual check that raises `HTTPException(status_code=401, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"})` when credentials are `None`.
 56. **`app.dependency_overrides` is global and leaks between test modules** — FastAPI's `dependency_overrides` dict lives on the shared global `app` object. If one test module sets `app.dependency_overrides[get_current_user] = mock_user`, that override persists into ALL subsequent test modules in the same pytest session. Plan must include a pytest fixture that saves, clears, and restores overrides: `saved = app.dependency_overrides.copy(); app.dependency_overrides.clear(); yield; app.dependency_overrides = saved`. Apply this fixture to any test module that manipulates `dependency_overrides`.
 57. **Never expose role names or permission details in authorization error messages** — Error messages like `"Requires one of roles: admin, editor"` leak internal authorization structure to attackers. Plan must specify generic messages for all 403 responses: `"Insufficient permissions"`. The HTTP status code already communicates "forbidden" — the detail should NOT enumerate allowed roles, scopes, or permissions.
+58. **Adding validators to existing schemas can reject previously-valid data** — When a plan adds `@field_validator` to an existing Pydantic schema, the planner MUST trace ALL code paths that construct or submit data through that schema:
+    - **INPUT schemas (login, search, filter):** Existing stored data or user credentials must still pass. Password complexity goes on `PasswordResetRequest`/`RegisterRequest`, NEVER on `LoginRequest` — existing users with weak passwords get 422 at login.
+    - **UPDATE schemas (PATCH endpoints):** Existing records being re-saved must still validate.
+    - **Grep for `SchemaName(` across the codebase** to find all constructors (tests, conftest, services, routes).
+    - **Ask: "Will this validator reject data that already exists in production?"** If yes, the validator belongs on a different schema (creation/reset, not submission/login).
+    - Plan must also include updating ALL test files that construct the schema with data that would fail the new validator.
+59. **Tasks that remove or rename response fields must update downstream tests** — When a plan task removes a field from a response dict, renames a schema field, or changes response shape, the SAME task (or an immediately adjacent task) MUST include: grep for the old field name across `app/*/tests/` and `app/tests/`, then update or remove all assertions on that field. Health endpoint redaction, version info removal, and similar changes always break tests that assert on the old response structure.
 
 ## Migration (if applicable)
 
