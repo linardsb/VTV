@@ -1,14 +1,14 @@
 # Agent Module
 
-Pydantic AI agent (`Agent[UnifiedDeps, str]`) with 10 tools across 3 domains. Follows vertical slice pattern with `tools/` subdirectory.
+Pydantic AI agent (`Agent[UnifiedDeps, str]`) with 11 tools across 4 domains. Follows vertical slice pattern with `tools/` subdirectory.
 
 ## Directory Structure
 
 ```
 app/core/agents/
-├── agent.py           # Agent creation, 10 tool registrations
+├── agent.py           # Agent creation, 11 tool registrations + build_instructions_with_skills()
 ├── routes.py          # /v1/chat/completions, /v1/models (rate limited + quota)
-├── service.py         # Orchestration, deps injection, model building (singleton)
+├── service.py         # Orchestration, deps injection, model building (singleton), skills injection via instructions param
 ├── schemas.py         # OpenAI-compatible request/response schemas
 ├── config.py          # LLM provider settings (model names, tokens, timeouts)
 ├── quota.py           # Daily per-IP quota tracker (50/day, auto-reset)
@@ -29,9 +29,11 @@ app/core/agents/
 │   │   ├── manage_folders.py        # Tool 8: folder CRUD (delete requires confirm)
 │   │   ├── bulk_operations.py       # Tool 9: batch ops with dry_run preview
 │   │   └── tests/                   # 68 tests
-│   └── knowledge/     # 1 read-only RAG search tool
-│       ├── search_knowledge.py      # Tool 10: hybrid vector+fulltext, citations
-│       └── tests/                   # 7 tests
+│   ├── knowledge/     # 1 read-only RAG search tool
+│   │   ├── search_knowledge.py      # Tool 10: hybrid vector+fulltext, citations
+│   │   └── tests/                   # 7 tests
+│   └── skills/        # 1 skills management tool
+│       └── manage_skills.py         # Tool 11: list/create operational skills
 └── tests/             # 22 agent-level tests
 ```
 
@@ -95,4 +97,12 @@ def process_request(user_id: str, query: str) -> dict[str, Any]:
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
 | #16775 | 5:07 PM | 🔵 | Data privacy and GDPR compliance features searched | ~347 |
+
+### Feb 25, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #16918 | 6:15 AM | ⚖️ | Agent Skills System implementation plan completed | ~1484 |
+| #16875 | 5:58 AM | 🔵 | VTV Background Task & Lifespan Architecture Analysis | ~1313 |
+| #16874 | 5:56 AM | 🔵 | VTV Architecture Deep Dive - Complete Transit Management Platform Analysis | ~738 |
 </claude-mem-context>

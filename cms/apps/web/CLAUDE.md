@@ -73,6 +73,23 @@ Use `/fe-create-page {name}` or manually:
 - `src/app/[locale]/layout.tsx` — Root locale layout (server component)
 - `src/components/app-sidebar.tsx` — Responsive sidebar navigation (desktop aside + mobile hamburger)
 
+## Data Fetching Pattern (Session Gate)
+
+All dashboard pages that fetch authenticated data **must** gate `useEffect` on session status. Without this, `useEffect` fires before Auth.js establishes the session, `getSession()` returns null, `authFetch` sends a request without a Bearer token, the backend returns 401, and the catch block silently sets empty state with no retry.
+
+```tsx
+const { data: session, status } = useSession();
+
+useEffect(() => {
+  if (status !== "authenticated") return;
+  void loadData();
+}, [loadData, status]);
+```
+
+**Why Dashboard hooks work without this:** `useDashboardMetrics` and `useCalendarEvents` poll every 30-60s, so even if the first fetch fails, subsequent polls succeed after session establishment. Page-level `useEffect`s run once on mount with no retry — they need the session gate.
+
+**Applied to:** Routes, Stops, Schedules, Drivers, Documents pages.
+
 ## Conventions
 
 - Use semantic tokens (`var(--color-surface-primary)`) not hardcoded colors
