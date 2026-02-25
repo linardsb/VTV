@@ -683,5 +683,40 @@
     "mobile": {
       "showFilters": "Filtri"
     }
+  },
+  "gtfs": {
+    "title": "GTFS datu pārvaldība",
+    "description": "Importējiet, eksportējiet un pārvaldiet GTFS tranzīta datus",
+    "tabs": {
+      "overview": "Pārskats",
+      "import": "Imports",
+      "export": "Eksports"
+    },
+    "overview": {
+      "dataTitle": "Datu statistika",
+      "agencies": "Operatori",
+      "routes": "Maršruti",
+      "calendars": "Kalendāri",
+      "trips": "Reisi",
+      "stops": "Pieturas",
+      "feedsTitle": "GTFS-RT datu plūsmas",
+      "feedEnabled": "Aktīvs",
+      "feedDisabled": "Neaktīvs",
+      "pollInterval": "Intervāls: {seconds}s",
+      "noFeeds": "Nav konfigurētu datu plūsmu",
+      "loadError": "Neizdevās ielādēt datus",
+      "refreshButton": "Atjaunot"
+    },
+    "export": {
+      "title": "Eksportēt GTFS datus",
+      "description": "Lejupielādējiet GTFS datus kā ZIP arhīvu standarta formātā",
+      "agencyFilter": "Operators",
+      "allAgencies": "Visi operatori",
+      "downloadButton": "Lejupielādēt GTFS ZIP",
+      "downloading": "Lejupielādē...",
+      "downloadSuccess": "GTFS dati veiksmīgi lejupielādēti",
+      "downloadError": "GTFS datu lejupielāde neizdevās",
+      "includesNote": "Ietver: agency.txt, routes.txt, calendar.txt, calendar_dates.txt, trips.txt, stop_times.txt, stops.txt"
+    }
   }
 }

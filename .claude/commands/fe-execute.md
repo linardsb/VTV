@@ -180,6 +180,26 @@ Grep for common violations in new/modified `.tsx` files:
 
 If violations found, fix them by replacing with the appropriate semantic class. Use the mapping table from Step 2.
 
+### 7. Automated security verification
+
+Run the same security pattern scans as `/fe-validate` Check 7a:
+
+```bash
+# Hardcoded API URLs
+grep -rn "http://localhost:8123\|http://127.0.0.1:8123" cms/apps/web/src/ --include="*.ts" --include="*.tsx" | grep -v node_modules | grep -v ".next"
+
+# Auth tokens in localStorage
+grep -rn 'localStorage\.\(set\|get\)Item.*\(token\|auth\|session\|jwt\)' cms/apps/web/src/ --include="*.ts" --include="*.tsx"
+
+# Unsanitized innerHTML
+grep -rn "dangerouslySetInnerHTML" cms/apps/web/src/ --include="*.tsx" | grep -v "DOMPurify"
+
+# Hardcoded credentials
+grep -rn "password.*=.*['\"]" cms/apps/web/src/ --include="*.ts" --include="*.tsx" | grep -v 'type\|interface\|placeholder\|label\|name='
+```
+
+If any violations found, fix them immediately before proceeding to the Security Checklist.
+
 ## Security Checklist (verify before marking step complete)
 - [ ] All cookies set with `SameSite=Lax` (or `Strict` for auth cookies)
 - [ ] Redirects preserve user's current locale (extract from pathname, validate against allowed list)

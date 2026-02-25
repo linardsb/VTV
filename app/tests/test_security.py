@@ -1307,3 +1307,143 @@ class TestDatabaseContainerHardening:
         db_section = db_match.group(0)
         assert "cap_drop:" in db_section, "db service in docker-compose.yml must have cap_drop"
         assert "ALL" in db_section, "db service cap_drop must include ALL"
+
+
+# === SDLC Security Framework Verification ===
+
+
+class TestSDLCSecurityGates:
+    """Verify that all SDLC security gates are properly configured."""
+
+    def test_precommit_hook_exists(self) -> None:
+        """Pre-commit hook must exist."""
+        from pathlib import Path
+
+        assert Path("scripts/pre-commit").exists(), "Pre-commit hook missing at scripts/pre-commit"
+
+    def test_precommit_has_bandit_check(self) -> None:
+        """Pre-commit hook must include Bandit security lint."""
+        from pathlib import Path
+
+        content = Path("scripts/pre-commit").read_text()
+        assert "ruff check --select=S" in content, "Pre-commit must run ruff --select=S"
+
+    def test_precommit_has_sensitive_file_check(self) -> None:
+        """Pre-commit hook must block sensitive files."""
+        from pathlib import Path
+
+        content = Path("scripts/pre-commit").read_text()
+        assert ".env" in content
+        assert ".pem" in content
+        assert ".key" in content
+
+    def test_precommit_has_secrets_detection(self) -> None:
+        """Pre-commit hook must detect leaked secrets (AWS keys, private keys, JWTs)."""
+        from pathlib import Path
+
+        content = Path("scripts/pre-commit").read_text()
+        assert "AKIA" in content, "Pre-commit must detect AWS access keys"
+        assert "PRIVATE KEY" in content, "Pre-commit must detect private key material"
+
+    def test_ci_has_security_audit_step(self) -> None:
+        """CI pipeline must have a dedicated security audit step."""
+        from pathlib import Path
+
+        ci_content = Path(".github/workflows/ci.yml").read_text()
+        assert "ruff check" in ci_content and "--select=S" in ci_content
+
+    def test_ci_has_dependency_audit(self) -> None:
+        """CI pipeline must include dependency vulnerability scanning."""
+        from pathlib import Path
+
+        ci_content = Path(".github/workflows/ci.yml").read_text()
+        assert "pip-audit" in ci_content
+
+    def test_ci_has_lock_file_integrity(self) -> None:
+        """CI pipeline must verify lock file integrity."""
+        from pathlib import Path
+
+        ci_content = Path(".github/workflows/ci.yml").read_text()
+        assert "uv lock --check" in ci_content
+
+    def test_security_audit_script_exists(self) -> None:
+        """Comprehensive security audit script must exist."""
+        from pathlib import Path
+
+        assert Path("scripts/security-audit.sh").exists()
+
+    def test_scheduled_security_workflow_exists(self) -> None:
+        """Scheduled security workflow must exist with cron trigger."""
+        from pathlib import Path
+
+        workflow = Path(".github/workflows/security.yml")
+        assert workflow.exists(), "Scheduled security workflow missing"
+        content = workflow.read_text()
+        assert "cron" in content, "Security workflow must have cron schedule"
+
+    def test_audit_tracking_exists(self) -> None:
+        """Audit tracking registry must exist."""
+        from pathlib import Path
+
+        assert Path(".agents/audits/tracking.md").exists()
+
+
+class TestAuditCoverageCompleteness:
+    """Verify all historical audit finding categories have convention test coverage."""
+
+    REQUIRED_TEST_CLASSES: ClassVar[list[str]] = [
+        "TestStreamingUploadSizeLimit",
+        "TestFilenameSanitization",
+        "TestPathTraversalPrevention",
+        "TestDemoCredentials",
+        "TestIlikeWildcardEscape",
+        "TestRateLimiterIp",
+        "TestRedisUrlRedaction",
+        "TestDockerCredentials",
+        "TestTransitInputValidation",
+        "TestNginxSecurity",
+        "TestMiddlewareUploadLimit",
+        "TestConfigSecurity",
+        "TestEventsAuthentication",
+        "TestPasswordComplexity",
+        "TestTokenRevocation",
+        "TestBruteForceRedis",
+        "TestCorsRestricted",
+        "TestHealthRedaction",
+        "TestDockerNoHardcodedCreds",
+        "TestVersionRedaction",
+        "TestAllEndpointsRequireAuth",
+        "TestNoDebugSecurityLogging",
+        "TestJwtAlgorithmNotNone",
+        "TestBcryptRoundsSufficient",
+        "TestPasswordComplexityOnCorrectSchema",
+        "TestSecurityHeadersInNginx",
+        "TestNoRawSqlInjection",
+        "TestContainerHardening",
+        "TestDependencySecurity",
+        "TestBackupInfrastructure",
+        "TestGdprDeletion",
+        "TestCsrfProtection",
+        "TestQuotaUsesRealIP",
+        "TestLogoutEndpointExists",
+        "TestRefreshRevokesOldToken",
+        "TestZipBombProtection",
+        "TestTimingAttackPrevention",
+        "TestNoFilePathExposure",
+        "TestRequestIdSanitization",
+        "TestDatabaseContainerHardening",
+        "TestSDLCSecurityGates",
+        "TestAuditCoverageCompleteness",
+    ]
+
+    def test_all_audit_categories_have_tests(self) -> None:
+        """Every required test class must exist in this module."""
+        import app.tests.test_security as mod
+
+        actual_classes = [
+            name
+            for name in dir(mod)
+            if name.startswith("Test") and isinstance(getattr(mod, name), type)
+        ]
+        missing = [c for c in self.REQUIRED_TEST_CLASSES if c not in actual_classes]
+        assert missing == [], f"Missing required test classes: {missing}"

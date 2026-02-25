@@ -683,5 +683,40 @@
     "mobile": {
       "showFilters": "Filters"
     }
+  },
+  "gtfs": {
+    "title": "GTFS Data Management",
+    "description": "Import, export, and manage GTFS transit data",
+    "tabs": {
+      "overview": "Overview",
+      "import": "Import",
+      "export": "Export"
+    },
+    "overview": {
+      "dataTitle": "Data Statistics",
+      "agencies": "Agencies",
+      "routes": "Routes",
+      "calendars": "Calendars",
+      "trips": "Trips",
+      "stops": "Stops",
+      "feedsTitle": "GTFS-RT Data Feeds",
+      "feedEnabled": "Active",
+      "feedDisabled": "Inactive",
+      "pollInterval": "Interval: {seconds}s",
+      "noFeeds": "No feeds configured",
+      "loadError": "Failed to load data",
+      "refreshButton": "Refresh"
+    },
+    "export": {
+      "title": "Export GTFS Data",
+      "description": "Download GTFS data as a standard-format ZIP archive",
+      "agencyFilter": "Agency",
+      "allAgencies": "All Agencies",
+      "downloadButton": "Download GTFS ZIP",
+      "downloading": "Downloading...",
+      "downloadSuccess": "GTFS data downloaded successfully",
+      "downloadError": "Failed to download GTFS data",
+      "includesNote": "Includes: agency.txt, routes.txt, calendar.txt, calendar_dates.txt, trips.txt, stop_times.txt, stops.txt"
+    }
   }
 }

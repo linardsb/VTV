@@ -79,12 +79,31 @@ Scan `.tsx` files under `cms/apps/web/src/app/` for common accessibility issues:
 
 Report findings with file paths and line numbers.
 
-### Check 7: Security Patterns
-- Grep for hardcoded API URLs (should use env vars)
-- Grep for `localStorage.setItem` with auth/token/session keys
-- Grep for `dangerouslySetInnerHTML` without sanitization
-- Grep for `document.cookie` without SameSite
-- Grep for hardcoded credentials/passwords
+### 7. Security Patterns (HARD GATE)
+
+**7a. Automated pattern scan** — Run these greps and FAIL if any match:
+
+```bash
+# Hardcoded API URLs (should use NEXT_PUBLIC_* env vars)
+grep -rn "http://localhost:8123\|http://127.0.0.1:8123" cms/apps/web/src/ --include="*.ts" --include="*.tsx" | grep -v node_modules | grep -v ".next"
+
+# Auth tokens in localStorage (must use httpOnly cookies)
+grep -rn 'localStorage\.\(set\|get\)Item.*\(token\|auth\|session\|jwt\)' cms/apps/web/src/ --include="*.ts" --include="*.tsx"
+
+# Unsanitized innerHTML (XSS vector)
+grep -rn "dangerouslySetInnerHTML" cms/apps/web/src/ --include="*.tsx" | grep -v "DOMPurify"
+
+# Hardcoded credentials
+grep -rn "password.*=.*['\"]" cms/apps/web/src/ --include="*.ts" --include="*.tsx" | grep -v 'type\|interface\|placeholder\|label\|name='
+```
+
+Each grep that returns results is a FAIL. Report file:line for each match.
+
+**7b. Manual verification checklist** (report as WARN, not FAIL):
+- [ ] Cookies use `SameSite=Lax` or `Strict`
+- [ ] Redirects preserve locale
+- [ ] External links use `rel="noopener noreferrer"`
+- [ ] File uploads validate type AND size client-side
 
 ## OUTPUT
 
@@ -93,15 +112,17 @@ Frontend Validation Results:
   1. TypeScript:          PASS / FAIL  [N errors]
   2. Lint:                PASS / FAIL  [N issues]
   3. Build:               PASS / FAIL
-  4. Design system:       PASS / WARN  [N violations]
-  5. i18n completeness:   PASS / FAIL  [N missing keys]
-  6. Accessibility:       PASS / WARN  [N issues]
+  4. Security patterns:   PASS / FAIL  [N violations]
+  --- Soft Gates ---
+  5. Design system:       PASS / WARN  [N violations]
+  6. i18n completeness:   PASS / FAIL  [N missing keys]
+  7. Accessibility:       PASS / WARN  [N issues]
 
 Overall: ALL PASS / X FAILURES / Y WARNINGS
 ```
 
-Checks 1-3 are **hard gates** — must pass before committing.
-Checks 4-6 are **soft gates** — warnings are reported but don't block commits. Fix them when practical.
+Checks 1-4 are **hard gates** — must pass before committing.
+Checks 5-7 are **soft gates** — warnings are reported but don't block commits. Fix them when practical.
 
 If any hard gate fails, list the specific errors with file paths and line numbers so they can be fixed.
 

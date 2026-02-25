@@ -100,11 +100,20 @@ uv run pytest -v -m "not integration"
 docker-compose ps 2>/dev/null && uv run pytest -v -m integration || echo "Skipped — Docker not running"
 ```
 
+**Security gate (explicit - must pass):**
+
+```bash
+uv run pytest app/tests/test_security.py -v --tb=short
+```
+
+Verify all security convention tests pass. If this feature added new endpoints, `TestAllEndpointsRequireAuth` will catch missing auth dependencies. If new SDLC tooling was modified, `TestSDLCSecurityGates` will catch broken gates.
+
 Fix any failures before moving on. Do not proceed to commit with failing checks.
 
 **Error recovery rules:**
 - **CRITICAL: After ANY code edit to fix a validation error, re-run from Level 1 (ruff format + ruff check --fix).** Code changes to fix type errors frequently introduce import sorting or lint regressions.
 - If a check fails, attempt to fix the issue, then re-run ALL checks from Level 1
+- Security test failures are treated as hard failures - do NOT proceed to Phase 5
 - Maximum 3 fix attempts per check
 - If still failing after 3 attempts: STOP the entire pipeline and report to the user
   - Do NOT proceed to Phase 5 (Execution Report)

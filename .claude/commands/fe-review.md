@@ -84,6 +84,7 @@ Read all files in the target path. For each file, check against VTV's frontend s
 
 ### 8. Security
 
+**Frontend application code:**
 - No hardcoded secrets, API keys, or credentials
 - No hardcoded demo credentials in auth flows — passwords must come from env vars
 - User input sanitized before rendering (XSS prevention)
@@ -95,6 +96,12 @@ Read all files in the target path. For each file, check against VTV's frontend s
 - All `document.cookie` calls include `SameSite=Lax` (or Strict for auth)
 - Redirects preserve user's current locale (never hardcode /lv/ or /en/)
 - No auth tokens in localStorage (must use httpOnly cookies via Auth.js)
+- No hardcoded API URLs (`http://localhost:8123`) — use environment variables (`NEXT_PUBLIC_API_URL`)
+
+**Configuration/infrastructure (when in scope):**
+- `next.config.ts` security headers properly configured
+- Environment variables used for all API URLs and secrets (no hardcoded values)
+- Middleware RBAC covers all protected routes
 
 ## OUTPUT
 

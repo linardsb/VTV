@@ -6,9 +6,9 @@ Planned features and improvements. Each item links to its detailed planning docu
 
 ```
 Backend API       ██████████████████████░░  95%  (8/8 features: auth, knowledge, drivers, events, stops, schedules, transit, skills)
-CMS Frontend      █████████████████████░░░  90%  (8/8 pages live, real API on 7/8, mock calendar on dashboard only)
-Testing           ████████████████████░░░░  80%  (679 unit tests, 81 e2e tests, CI pipeline live with security gates)
-Infrastructure    ██████████████████████░░  92%  (Docker, nginx, Makefile, 24 slash commands, CI/CD, 5 security audits)
+CMS Frontend      ██████████████████████░░  93%  (9/9 pages live, real API on 8/9, mock calendar on dashboard only)
+Testing           ████████████████████░░░░  80%  (690 unit tests, 81 e2e tests, CI pipeline live with security gates)
+Infrastructure    ██████████████████████░░  95%  (Docker, nginx, Makefile, 24 slash commands, CI/CD, 6 security audits, SDLC security framework)
 Latvia Platform   ████░░░░░░░░░░░░░░░░░░░  15%  (Riga GTFS only, no PostGIS/TimescaleDB/multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
@@ -109,6 +109,8 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [x] **Drivers Page** - Real API CRUD against backend `/api/v1/drivers`. Driver profiles, shift management, availability tracking, search and filters. 10 e2e tests.
 
+- [x] **GTFS Page** - Dedicated GTFS data management page at `/[locale]/gtfs` with 3 tabs: Data Overview (5 stat cards — agencies, routes, calendars, trips, stops + GTFS-RT feed status), Import (reuses GTFSImport from Schedules), Export (agency filter + download). Semantic tokens, full i18n (30 keys per locale). Backend data from `/api/v1/schedules` + `/api/v1/transit/feeds`.
+
 - [x] **Mobile Responsive** - All pages: tab-based Table/Map switching, collapsible filter Sheet, hamburger sidebar. (commit 032e617)
 
 - [x] **Design Tokens** - Three-tier tokens (primitive, semantic, component), active state styling. (commit 801640d)
@@ -145,6 +147,9 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 - [x] **Security Hardening v5** - 16 findings (4 CRIT, 5 HIGH, 7 MED): quota IP bypass fix, logout endpoint, refresh token single-use, ZIP bomb protection, streaming GTFS upload, SSRF localhost validation, request ID sanitization, file path redaction. 94 security tests. (commit 6eb1ed0, 2026-02-25)
   - Plan: [.agents/plans/security-hardening-v5.md](../.agents/plans/security-hardening-v5.md)
   - Audit: [docs/security_audit_5.txt](security_audit_5.txt)
+
+- [x] **SDLC Security Audit Framework** - Three-tiered security scanning (quick/standard/full) integrated into development lifecycle. `scripts/security-audit.sh` runner with Docker/nginx validators (`scripts/check-docker-security.py`, `scripts/check-nginx-security.py`). GitHub Actions scheduled workflow (`.github/workflows/security.yml`, weekly cron + manual dispatch). Audit tracking registry (`.agents/audits/tracking.md`). 11 new convention tests (TestSDLCSecurityGates + TestAuditCoverageCompleteness). Security checks integrated into 7 slash commands. `make security-audit-quick/standard/full` targets. 690 total unit tests, 105 security tests. (2026-02-25)
+  - Plan: [.agents/plans/sdlc-security-audits.md](../.agents/plans/sdlc-security-audits.md)
 
 - [x] **CI Pipeline** - GitHub Actions workflow (`.github/workflows/ci.yml`): backend checks (ruff lint + dedicated security audit via `ruff --select=S` + mypy + pyright + pytest with PostgreSQL + Redis), frontend checks (TypeScript + ESLint + build), e2e tests (docker-compose + Playwright). Dependency scanning via pip-audit. (2026-02-24)
 

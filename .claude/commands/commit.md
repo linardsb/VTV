@@ -32,7 +32,17 @@ Review changes, scan for secrets, stage explicitly, and create a conventional co
 
 - STOP if any of these files appear in the changes: `.env`, `*.pem`, `*.key`, `credentials.*`, `secrets.*`
 - Warn the user and ask for confirmation before proceeding
-- **Note:** If the pre-commit hook is installed (`make install-hooks`), it will also automatically block Bandit security violations, sensitive files, and hardcoded postgres credentials before the commit completes
+- Run a quick security lint on staged Python files (same as pre-commit hook):
+  ```bash
+  git diff --cached --name-only --diff-filter=ACMR | grep '\.py$' | xargs -r uv run ruff check --select=S --no-fix
+  ```
+  If violations found, STOP and report them. This catches Bandit-level issues even when the pre-commit hook isn't installed.
+- For frontend changes, run quick pattern scan on staged `.ts`/`.tsx` files:
+  ```bash
+  git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx)$' | xargs -r grep -n 'dangerouslySetInnerHTML\|localStorage.*token\|localStorage.*auth'
+  ```
+  If violations found, WARN the user (soft gate for commit, hard gate in `/fe-validate`).
+- **Note:** The inline checks above work even WITHOUT the pre-commit hook. If the hook IS installed (`make install-hooks`), it provides additional coverage (secrets detection, hardcoded postgres credentials).
 
 ### 3. Stage files
 

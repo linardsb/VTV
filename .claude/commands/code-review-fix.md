@@ -53,6 +53,12 @@ uv run pyright app/
 uv run pytest -v -m "not integration"
 ```
 
+**Security convention tests (explicit gate):**
+
+```bash
+uv run pytest app/tests/test_security.py -v --tb=short
+```
+
 **Integration tests (if Docker is running):**
 
 ```bash

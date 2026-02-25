@@ -379,11 +379,12 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ⬜ Timetable grid view (frontend — rows = trips, columns = stops)
 - ✅ GTFS export (generate ZIP from database — `GET /api/v1/schedules/export`)
 
-### 7.4 GTFS Import/Export
+### 7.4 GTFS Import/Export ✅ (Backend + Dedicated CMS Page)
 
 - ✅ Import: upload GTFS ZIP, parse 6 core CSV files, validate references, bulk insert (via `/api/v1/schedules/import`), streaming 8KB chunked upload with 10MB hard limit, ZIP bomb detection (compression ratio, uncompressed size, per-file size limits)
 - ✅ Export: generate GTFS-compliant ZIP from database (7 CSV files: agency, routes, calendar, calendar_dates, trips, stop_times, stops — via `GET /api/v1/schedules/export`)
 - ✅ Validation: check referential integrity, time consistency, required fields (via `/api/v1/schedules/validate`)
+- ✅ Dedicated CMS page at `/[locale]/gtfs` — 3 tabs: Data Overview (stat cards for agencies/routes/calendars/trips/stops + GTFS-RT feed status), Import (reuses Schedules import component), Export (agency filter + ZIP download)
 - ⬜ Seed database from RS public feed (`https://saraksti.rigassatiksme.lv/gtfs.zip`)
 
 ### 7.5 Authentication & Authorization ✅ (JWT + RBAC — Backend enforced, security hardened)

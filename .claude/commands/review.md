@@ -73,6 +73,7 @@ Read all files in the target path. For each file, check against VTV's standards 
 
 ### 8. Security
 
+**Application code (Python):**
 - No hardcoded secrets, demo passwords, or credentials in source code
 - ILIKE/LIKE queries use `escape_like()` from `app.shared.utils` (not raw f-strings)
 - File uploads enforce size limits via streaming chunks (not just middleware `Content-Length`)
@@ -94,6 +95,22 @@ Read all files in the target path. For each file, check against VTV's standards 
 - **Security logging at warning+** — no `logger.debug` in `except` blocks in auth paths (enforced by `TestNoDebugSecurityLogging` convention test)
 - **JWT algorithm safety** — must use HS256, not `none` (enforced by `TestJwtAlgorithmNotNone` convention test)
 - **Bcrypt rounds >= 12** — no weakened hash rounds (enforced by `TestBcryptRoundsSufficient` convention test)
+
+**Shell scripts (`scripts/`):**
+- No `eval` — use `bash -c "$cmd"` or direct function calls
+- All shell variables that hold file lists must be quoted or piped through `xargs` to prevent word splitting on filenames with spaces
+- `set -euo pipefail` at top of every script (fail on undefined vars, pipe errors)
+- CVE ignore flags (`--ignore-vuln`) must have inline comments explaining why and when to re-evaluate
+- Error output must not be swallowed — capture and display stderr on failure
+
+**GitHub Actions workflows (`.github/workflows/`):**
+- `${{ }}` expressions in `run:` blocks must use intermediate `env:` variables to prevent expression injection (even for `choice` inputs — defense in depth)
+- CI-only credentials (ephemeral DB) must have a comment noting they are CI-only
+- `continue-on-error: true` should only be on steps that upload artifacts (not on the check itself, unless results are captured)
+
+**YAML/Docker config:**
+- `yaml.safe_load()` (never `yaml.load()`) and null-check the result before accessing keys
+- Python scripts parsing YAML/config files must handle malformed input gracefully (try/except or None checks)
 
 ## OUTPUT
 

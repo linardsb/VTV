@@ -172,6 +172,14 @@ uv run pytest -v -m "not integration"
 docker-compose ps 2>/dev/null && uv run pytest -v -m integration || echo "Skipped — Docker not running"
 ```
 
+**Security convention tests (explicit gate):**
+
+```bash
+uv run pytest app/tests/test_security.py -v --tb=short
+```
+
+Security convention tests verify all endpoints require auth, JWT safety, bcrypt rounds, nginx headers, container hardening, and SDLC gates. This runs separately from the general test suite to ensure security regressions are immediately visible — not buried in 600+ test results.
+
 **Error recovery rules:**
 - **CRITICAL: After ANY code edit to fix a validation error, re-run from Level 1 (ruff format + ruff check --fix) before continuing.** Code changes made to fix type errors (mypy/pyright) frequently introduce import sorting (I001), formatting, or lint regressions. Never skip back to the level you were fixing — always restart the validation sequence from the top.
 - If a check fails, attempt to fix the issue, then re-run ALL checks from Level 1 (format → lint → mypy → pyright → pytest)
@@ -194,7 +202,7 @@ Verify:
 - [ ] Update schemas have `reject_empty_body` model_validator (rejects empty PATCH/PUT)
 - [ ] Constrained string fields use `Literal[...]` types, not bare `str`
 - [ ] **All route endpoints have `get_current_user` or `require_role()` dependency** — `TestAllEndpointsRequireAuth` auto-discovers all routes and fails if auth is missing. If a new endpoint is legitimately public, add it to the `PUBLIC_ALLOWLIST` in `app/tests/test_security.py`
-- [ ] **Security convention tests pass**: `uv run pytest app/tests/test_security.py -v`
+- [ ] **Security convention tests pass** (already verified in Step 4 — confirm no regressions from post-impl edits)
 
 ## OUTPUT
 

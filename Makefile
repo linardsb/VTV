@@ -1,4 +1,4 @@
-.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check dep-audit
+.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit
 
 # === Local Development (terminals) ===
 
@@ -101,6 +101,15 @@ install-hooks: ## Install git pre-commit hook
 
 security-check: ## Run security lint (Ruff Bandit rules)
 	uv run ruff check app/ --select=S --no-fix
+
+security-audit-quick: ## Security audit (quick - pre-commit equivalent, <10s)
+	./scripts/security-audit.sh --level quick
+
+security-audit: ## Security audit (standard - CI equivalent, ~60s)
+	./scripts/security-audit.sh --level standard
+
+security-audit-full: ## Security audit (full - all checks including container + nginx, ~120s)
+	./scripts/security-audit.sh --level full
 
 dep-audit: ## Scan dependencies for known vulnerabilities
 	uv run pip-audit --desc --ignore-vuln CVE-2025-69872 --ignore-vuln CVE-2024-23342

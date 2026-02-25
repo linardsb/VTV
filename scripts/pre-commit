@@ -14,7 +14,7 @@ FAILED=0
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
 if [ -n "$STAGED_PY" ]; then
     echo "Running security lint (ruff --select=S)..."
-    if ! uv run ruff check --select=S --no-fix $STAGED_PY 2>/dev/null; then
+    if ! echo "$STAGED_PY" | xargs uv run ruff check --select=S --no-fix 2>/dev/null; then
         echo -e "${RED}BLOCKED: Security lint violations found${NC}"
         FAILED=1
     fi
@@ -30,9 +30,9 @@ if [ -n "$STAGED_SENSITIVE" ]; then
 fi
 
 # 3. Check for hardcoded postgres credentials in config files (not tests/docs/scripts)
-STAGED_CONFIG=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(yml|yaml|py|toml|cfg|ini)$' | grep -v -E '(test_|tests/|docs/|scripts/|CLAUDE\.md)' || true)
+STAGED_CONFIG=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(yml|yaml|py|toml|cfg|ini)$' | grep -v -E '(test_|tests/|docs/|scripts/|\.github/|CLAUDE\.md)' || true)
 if [ -n "$STAGED_CONFIG" ]; then
-    if git diff --cached -- $STAGED_CONFIG | grep '^+' | grep -v '^+++' | grep -q 'postgres:postgres@' 2>/dev/null; then
+    if echo "$STAGED_CONFIG" | xargs git diff --cached -- | grep '^+' | grep -v '^+++' | grep -q 'postgres:postgres@' 2>/dev/null; then
         echo -e "${RED}BLOCKED: Hardcoded postgres credentials found in staged changes${NC}"
         echo "Check these files:"
         for f in $STAGED_CONFIG; do
@@ -40,6 +40,24 @@ if [ -n "$STAGED_CONFIG" ]; then
                 echo "  $f"
             fi
         done
+        FAILED=1
+    fi
+fi
+
+# 4. Secrets detection in staged diffs (exclude test files and docs)
+STAGED_NON_TEST=$(git diff --cached --name-only --diff-filter=ACM | grep -v -E '(test_|/tests/|docs/|\.md$|\.env\.example)' || true)
+if [ -n "$STAGED_NON_TEST" ]; then
+    DIFF_CONTENT=$(echo "$STAGED_NON_TEST" | xargs git diff --cached -- | grep '^+' | grep -v '^+++' || true)
+    if echo "$DIFF_CONTENT" | grep -qE 'AKIA[0-9A-Z]{16}' 2>/dev/null; then
+        echo -e "${RED}BLOCKED: AWS access key detected in staged changes${NC}"
+        FAILED=1
+    fi
+    if echo "$DIFF_CONTENT" | grep -qE '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' 2>/dev/null; then
+        echo -e "${RED}BLOCKED: Private key material detected in staged changes${NC}"
+        FAILED=1
+    fi
+    if echo "$DIFF_CONTENT" | grep -qE 'eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}' 2>/dev/null; then
+        echo -e "${RED}BLOCKED: JWT token detected in staged changes${NC}"
         FAILED=1
     fi
 fi

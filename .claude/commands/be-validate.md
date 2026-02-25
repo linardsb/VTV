@@ -109,6 +109,10 @@ Run the security convention test suite separately and report results. These test
 
 If any convention test fails, it indicates a security regression that must be fixed before committing.
 
+Steps 9-10 are **hard gates** — security lint violations or convention test failures MUST be fixed before committing. These are not warnings.
+
+**Note:** For comprehensive infrastructure security checks (Docker hardening, nginx headers), run `make security-audit-full`. Steps 9-10 cover application-level security; the full audit also validates container and proxy configuration.
+
 ## OUTPUT
 
 ```
@@ -121,6 +125,7 @@ Validation Results:
   6. Pytest (integration): PASS / FAIL / SKIPPED (Docker not running)
   7. SDK sync:             IN SYNC / OUT OF SYNC / SKIPPED (FastAPI not running)
   8. Server:               PASS / FAIL / SKIPPED (Docker not running)
+  --- Security Gates ---
   9. Security lint:        PASS / FAIL  [N violations]
  10. Security conventions: PASS / FAIL  [X passed, Y failed]
 

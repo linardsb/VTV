@@ -78,7 +78,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (679 tests, ~15s)
+make test            # Unit tests (690 tests, ~18s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -94,8 +94,11 @@ make docker-logs     # Tail all service logs
 make docker-down     # Stop all services
 
 # Security
-make install-hooks   # Install git pre-commit hook (security lint + sensitive file check)
-make security-check  # Run Ruff Bandit security rules standalone
+make install-hooks        # Install git pre-commit hook (security lint + secrets detection)
+make security-check       # Run Ruff Bandit security rules standalone
+make security-audit-quick # Security audit (<10s) - Bandit, sensitive files, creds
+make security-audit       # Security audit (~60s) - quick + deps, types, convention tests
+make security-audit-full  # Security audit (~120s) - standard + full tests, Docker, nginx
 
 # Database
 make db-migrate                    # Run migrations
@@ -124,7 +127,7 @@ VTV/
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
 ├── reference/          # Architecture docs (vsa-patterns.md, PRD.md, feature-readme-template.md)
-├── scripts/           # Git hooks (pre-commit: security lint + sensitive file check)
+├── scripts/           # Security tools (pre-commit hook, audit runner, Docker/nginx validators)
 ├── nginx/             # Reverse proxy (rate limiting, security headers)
 ├── .claude/commands/   # 24 slash commands
 ├── .agents/            # Plans, code reviews, execution reports, system reviews
@@ -163,7 +166,7 @@ Environment variables via Pydantic Settings (`app.core.config`). Copy `.env.exam
 Turborepo monorepo under `cms/` with pnpm workspaces. **Full documentation in `cms/CLAUDE.md` and `cms/apps/web/CLAUDE.md`.**
 
 - **Stack:** Next.js 16 + React 19, Tailwind CSS v4 + three-tier design tokens, shadcn/ui + CVA, Auth.js v5 with 4-role RBAC (DB-backed via `POST /api/v1/auth/login`), next-intl (lv/en)
-- **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, Documents, Chat, Login
+- **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, GTFS, Documents, Chat, Login
 - **New page checklist:** page component → i18n keys (lv + en) → sidebar nav → middleware RBAC → semantic tokens only
 - **Design system:** `cms/design-system/vtv/MASTER.md` (global) → `pages/{page}.md` (overrides) → `packages/ui/src/tokens.css` (tokens)
 
@@ -189,7 +192,7 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 
 **CI Pipeline:** GitHub Actions (`.github/workflows/ci.yml`) runs on push/PR to `main`. Three jobs: `backend-checks` (ruff + dedicated security audit via `ruff --select=S` + mypy + pyright + pytest with PostgreSQL + Redis services), `frontend-checks` (TypeScript + ESLint + build), `e2e-tests` (docker-compose full stack + Playwright, depends on first two jobs). Playwright report uploaded as artifact (14-day retention).
 
-**Pre-commit hook:** `scripts/pre-commit` — fast (<5s) shell script that blocks commits with Bandit security violations, staged sensitive files (`.env`, `*.pem`, `*.key`), or hardcoded postgres credentials. Install via `make install-hooks`.
+**Pre-commit hook:** `scripts/pre-commit` — fast (<5s) shell script that blocks commits with Bandit security violations, staged sensitive files (`.env`, `*.pem`, `*.key`), hardcoded postgres credentials, and leaked secrets (AWS keys, private keys, JWT tokens). Install via `make install-hooks`.
 
 ## Security Practices
 
@@ -217,7 +220,7 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 - **CORS hardened** — Explicit method/header allowlists (no wildcards); `GET, POST, PATCH, DELETE, OPTIONS` only
 - **Health endpoint redaction** — No provider names, environment, or error details leaked to unauthenticated callers
 - **nginx CSP/HTTPS** — Content-Security-Policy headers, full HTTPS server block with modern TLS ciphers, HSTS
-- **Convention enforcement tests** — `app/tests/test_security.py` (94 tests) auto-discovers all route functions and verifies authentication, checks JWT algorithm safety, bcrypt rounds, password complexity on correct schema, nginx security headers, no debug-level logging in security paths, SQL injection posture, container hardening, dependency scanning, backup infrastructure, GDPR deletion, CSRF protection, quota IP tracking, logout/revocation, refresh token single-use, ZIP bomb protection, timing attack prevention, file path exposure, request ID sanitization, and database container capability restrictions
+- **Convention enforcement tests** — `app/tests/test_security.py` (105 tests) auto-discovers all route functions and verifies authentication, checks JWT algorithm safety, bcrypt rounds, password complexity on correct schema, nginx security headers, no debug-level logging in security paths, SQL injection posture, container hardening, dependency scanning, backup infrastructure, GDPR deletion, CSRF protection, quota IP tracking, logout/revocation, refresh token single-use, ZIP bomb protection, timing attack prevention, file path exposure, request ID sanitization, and database container capability restrictions
 - **Container hardening** — All containers run as non-root, `no-new-privileges:true`, `cap_drop: ALL`; production adds `read_only: true` with tmpfs
 - **Dependency scanning** — `pip-audit` in CI pipeline as dedicated step; `uv lock --check` verifies lock file integrity
 - **Automated backups** — `scripts/db-backup.sh` with configurable retention (default 90 days GDPR); `make db-backup-auto` for cron integration
@@ -233,19 +236,21 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 - **Quota IP tracking** — LLM daily quota uses `_get_client_ip(request)` (X-Real-IP from nginx) instead of `request.client.host` (proxy IP)
 - **Out of scope (future):** Full HTTPS/TLS deployment (certs), WebSocket security, API key rotation, SIEM/monitoring integration, database encryption at rest, self-service password reset (needs SMTP), secrets management (Vault/SSM)
 
-### Automated Security Enforcement (5 layers)
+### Automated Security Enforcement (6 layers)
 
 Security is enforced automatically at every stage of the development lifecycle — no manual review required to catch common security regressions:
 
 1. **Pre-commit hook** (`scripts/pre-commit`, install via `make install-hooks`) — Runs in <5s before every `git commit`. Blocks: Bandit security violations (hardcoded creds, `assert` in prod, `exec`/`eval`), staged sensitive files (`.env`, `*.pem`, `*.key`), hardcoded `postgres:postgres@` in diffs.
 
-2. **Convention tests** (`app/tests/test_security.py`, 94 tests) — Run in every `make test`, `make check`, and `/be-validate`. The auto-discovery test `TestAllEndpointsRequireAuth` dynamically scans every `routes.py` — adding an endpoint without auth breaks CI. Also enforces: JWT uses HS256 (not `none`), bcrypt >= 12 rounds, password complexity on `PasswordResetRequest` (not `LoginRequest`), security logging at `warning+` (not `debug`), nginx has CSP/HSTS/X-Frame-Options/X-Content-Type-Options, SQL injection posture (no raw SQL with user input), container hardening (non-root, no-new-privileges, cap_drop ALL), dependency scanning in CI, backup infrastructure, GDPR deletion, CSRF protection, quota IP tracking (X-Real-IP), logout with token revocation, refresh token single-use, ZIP bomb detection, timing attack prevention, API response path redaction, request ID sanitization.
+2. **Convention tests** (`app/tests/test_security.py`, 105 tests) — Run in every `make test`, `make check`, and `/be-validate`. The auto-discovery test `TestAllEndpointsRequireAuth` dynamically scans every `routes.py` — adding an endpoint without auth breaks CI. Also enforces: JWT uses HS256 (not `none`), bcrypt >= 12 rounds, password complexity on `PasswordResetRequest` (not `LoginRequest`), security logging at `warning+` (not `debug`), nginx has CSP/HSTS/X-Frame-Options/X-Content-Type-Options, SQL injection posture (no raw SQL with user input), container hardening (non-root, no-new-privileges, cap_drop ALL), dependency scanning in CI, backup infrastructure, GDPR deletion, CSRF protection, quota IP tracking (X-Real-IP), logout with token revocation, refresh token single-use, ZIP bomb detection, timing attack prevention, API response path redaction, request ID sanitization.
 
 3. **Secure scaffold** (`/be-create-feature`) — New features generate routes with `get_current_user`/`require_role` already in every endpoint signature. Security by default, not by remembering.
 
 4. **CI security gate** (`.github/workflows/ci.yml`) — Dedicated "Security audit" step runs `ruff --select=S` as its own GitHub Actions status check between Lint and Type check. Security violations are a hard PR failure with their own status line — not buried in general lint output.
 
 5. **CI dependency audit** (`.github/workflows/ci.yml`) — `pip-audit` scans all packages for known CVEs as a dedicated step. Lock file integrity verified via `uv lock --check`. Vulnerable dependencies are a hard PR failure.
+
+6. **Scheduled security audit** (`.github/workflows/security.yml`) — Weekly full security audit (Bandit, pip-audit, type checkers, convention tests, Docker security, nginx headers). Results as artifacts with 90-day retention. On-demand via `workflow_dispatch`. See `docs/sdlc-security-framework.md`.
 
 ## Key Reference Documents
 
@@ -269,6 +274,9 @@ Security is enforced automatically at every stage of the development lifecycle �
 - `docs/security_audit_5.txt` — Fifth security audit: runtime vulnerabilities — quota bypass, missing logout, token replay, ZIP bombs, timing attacks (2026-02-25)
 - `.agents/plans/security-hardening-v5.md` — Security hardening v5 plan (16 findings: 4 CRIT, 5 HIGH, 7 MED)
 - `.agents/code-reviews/AUDIT-SUMMARY.md` — Full codebase health audit (120 findings, 2026-02-21)
+- `docs/sdlc-security-framework.md` — SDLC security audit framework (6 layers, 5 phases, automated gates)
+- `.agents/audits/tracking.md` — Living security audit finding tracker (5 audits, ~185 findings)
+- `scripts/security-audit.sh` — Comprehensive security audit runner (quick/standard/full levels)
 
 
 <claude-mem-context>

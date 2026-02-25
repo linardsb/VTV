@@ -1,0 +1,85 @@
+name: Security Audit
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly Sunday 02:00 UTC
+  workflow_dispatch:
+    inputs:
+      level:
+        description: 'Audit level'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - quick
+          - standard
+          - full
+
+concurrency:
+  group: security-audit
+  cancel-in-progress: false
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vtv_db
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 3
+
+    env:
+      # CI-only ephemeral database credentials (destroyed after each run)
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/vtv_db
+      REDIS_URL: redis://localhost:6379/0
+      ENVIRONMENT: development
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run migrations
+        run: uv run alembic upgrade head
+
+      - name: Run security audit
+        continue-on-error: true
+        env:
+          AUDIT_LEVEL: ${{ github.event.inputs.level || 'full' }}
+        run: ./scripts/security-audit.sh --level "${AUDIT_LEVEL}" 2>&1 | tee audit-results.txt
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-audit-results
+          path: audit-results.txt
+          retention-days: 90

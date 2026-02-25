@@ -91,11 +91,32 @@ cd cms && pnpm --filter @vtv/web build
 - **i18n completeness**: Compare keys in `lv.json` and `en.json` — flag any mismatches.
 - **Accessibility spot-check**: Check for `<img` without `alt`, `<button` without `aria-label` (when no visible text), `<input` without `<label` or `aria-label`.
 
+**Security gate (hard - must pass):**
+
+Run automated security pattern scans on all new/modified `.tsx` and `.ts` files:
+
+```bash
+# Hardcoded API URLs
+grep -rn "http://localhost:8123\|http://127.0.0.1:8123" cms/apps/web/src/ --include="*.ts" --include="*.tsx" | grep -v node_modules | grep -v ".next"
+
+# Auth tokens in localStorage
+grep -rn 'localStorage\.\(set\|get\)Item.*\(token\|auth\|session\|jwt\)' cms/apps/web/src/ --include="*.ts" --include="*.tsx"
+
+# Unsanitized innerHTML without sanitization
+grep -rn "dangerouslySetInnerHTML" cms/apps/web/src/ --include="*.tsx" | grep -v "DOMPurify"
+
+# Hardcoded credentials
+grep -rn "password.*=.*['\"]" cms/apps/web/src/ --include="*.ts" --include="*.tsx" | grep -v 'type\|interface\|placeholder\|label\|name='
+```
+
+Any match is a FAIL. Fix before proceeding to Phase 5.
+
 Fix any hard gate failures before moving on. Do not proceed to commit with failing checks.
 
 **Error recovery rules:**
 - **CRITICAL: After ANY code edit to fix a validation error, re-run from Level 1 (type-check).** Code changes to fix build errors can introduce new TypeScript errors.
 - If a check fails, attempt to fix the issue, then re-run ALL checks from Level 1
+- Security pattern violations are hard failures - do NOT proceed to Phase 5
 - Maximum 3 fix attempts per check
 - If still failing after 3 attempts: STOP the entire pipeline and report to the user
   - Do NOT proceed to Phase 5 (Execution Report)
