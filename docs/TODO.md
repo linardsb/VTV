@@ -5,10 +5,10 @@ Planned features and improvements. Each item links to its detailed planning docu
 ## Progress Overview
 
 ```
-Backend API       ████████████████████░░░░  85%  (6/7 features, schedules + stops + transit + knowledge + DMS + auth done)
-CMS Frontend      █████████████████████░░░  88%  (7/7 pages live, real API on 6/7, mock calendar on dashboard only)
-Testing           ██████████████░░░░░░░░░░  65%  (554 unit tests, 69 e2e tests, no CI pipeline yet)
-Infrastructure    ████████████████████░░░░  80%  (Docker, nginx, Makefile, 24 slash commands, e2e framework)
+Backend API       ██████████████████████░░  95%  (8/8 features: auth, knowledge, drivers, events, stops, schedules, transit, skills)
+CMS Frontend      █████████████████████░░░  90%  (8/8 pages live, real API on 7/8, mock calendar on dashboard only)
+Testing           ████████████████████░░░░  80%  (679 unit tests, 81 e2e tests, CI pipeline live with security gates)
+Infrastructure    ██████████████████████░░  92%  (Docker, nginx, Makefile, 24 slash commands, CI/CD, 5 security audits)
 Latvia Platform   ████░░░░░░░░░░░░░░░░░░░  15%  (Riga GTFS only, no PostGIS/TimescaleDB/multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
@@ -17,8 +17,7 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 ### E2E Testing Maturity
 
-- [ ] **CI Pipeline** - GitHub Actions workflow for e2e tests on PR. Currently runs locally only via `make e2e`.
-- [ ] **CRUD E2E Tests** - Tests that create/edit/delete records and verify persistence. Current 69 tests cover page loads, filters, navigation, and UI interactions but don't test full write operations (require seeded test data).
+- [ ] **CRUD E2E Tests** - Tests that create/edit/delete records and verify persistence. Current 81 tests cover page loads, filters, navigation, and UI interactions but don't test full write operations (require seeded test data).
 
 ### Dashboard Real Data
 
@@ -85,6 +84,14 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [x] **DDoS Defense** - nginx rate limiting, connection limits, security headers, slowapi per-IP limits, body size middleware, query quota tracker. (commit 643b23e)
 
+- [x] **JWT Auth + RBAC** - 7 endpoints: login, logout, refresh, seed, reset-password, delete-user. bcrypt with timing attack prevention, Redis brute-force tracking (5 attempts = 15min lockout), token revocation denylist, refresh token single-use, 4-role RBAC (admin/editor/dispatcher/viewer). 52 unit tests. (commit 4c34c33)
+
+- [x] **Driver Management** - 5 endpoints: CRUD + availability. HR profiles, shift/availability tracking, agent tool integration. 27 unit tests.
+
+- [x] **Event Management** - 5 endpoints: CRUD + date range filter. Dashboard calendar integration, operational event tracking. 18 unit tests.
+
+- [x] **Agent Skills System** - 7 endpoints: CRUD + activation/deactivation + agent context injection. Reusable knowledge packages that dynamically extend agent capabilities. 11th agent tool. 23 unit tests. (commit ed9662f)
+
 ### CMS Frontend Pages
 
 - [x] **Dashboard** - 4 metric cards (real API: vehicles + routes, 30s polling), multi-view calendar (week/month/3-month/year, mock events), live timeline, resizable panels. (commit 852ee95, updated 2026-02-23)
@@ -100,6 +107,8 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [x] **Login Page** - Auth.js v5 credentials provider, DB-backed via `POST /api/v1/auth/login`, brute-force protection (5 attempts = 15min lockout).
 
+- [x] **Drivers Page** - Real API CRUD against backend `/api/v1/drivers`. Driver profiles, shift management, availability tracking, search and filters. 10 e2e tests.
+
 - [x] **Mobile Responsive** - All pages: tab-based Table/Map switching, collapsible filter Sheet, hamburger sidebar. (commit 032e617)
 
 - [x] **Design Tokens** - Three-tier tokens (primitive, semantic, component), active state styling. (commit 801640d)
@@ -108,7 +117,7 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 ### Infrastructure & Tooling
 
-- [x] **Playwright E2E Testing** - 69 tests across 9 files (dashboard, routes, stops, schedules, documents, navigation, login, smoke). Auto-detection of changed features via `detect-changed.sh`. Auth setup with session reuse. `make e2e` / `/e2e` slash command.
+- [x] **Playwright E2E Testing** - 81 tests across 10 files (dashboard, routes, stops, schedules, documents, drivers, navigation, login, smoke). Auto-detection of changed features via `detect-changed.sh`. Auth setup with session reuse. `make e2e` / `/e2e` slash command.
 
 - [x] **Slash Commands (24)** - 16 backend + 7 frontend + 1 e2e. Full pipeline: prime -> planning -> execute -> validate -> commit.
 
@@ -125,6 +134,19 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [x] **Security Audit 2 Remediation** - Second audit addressing code quality, data integrity, and testing gaps. `ValidationError` → `DomainValidationError` rename (Pydantic clash), Content-Length header hardening, transit tool deduplication (6 functions → `utils.py`), GTFS time validation (min/sec range), unique constraints on `(trip_id, stop_sequence)` and `(calendar_id, date)` + 2 migrations, knowledge empty update rejection, unknown file type rejection, exception handling improvements, cookie SameSite, locale-aware auth redirects, schedule edge case tests, knowledge repository + route layer tests. 34 new tests (520 → 554). (2026-02-23)
   - Audit: [docs/security_audit_2.txt](security_audit_2.txt)
+
+- [x] **Security Hardening v3** - 19-task, 4-phase hardening: bcrypt timing normalization, password complexity on reset, CORS method/header allowlists, health endpoint redaction, convention enforcement tests (auto-discover all endpoints for auth). 84 security tests. (2026-02-24)
+  - Plan: [.agents/plans/security-hardening-v3.md](../.agents/plans/security-hardening-v3.md)
+
+- [x] **Security Hardening v4** - 15-task, 4-phase hardening: CI/CD security gates (dedicated Ruff Bandit step, pip-audit), container hardening (non-root, cap_drop ALL, no-new-privileges), automated backups with GDPR retention, GDPR right-to-erasure endpoint, pre-commit hook (Bandit + sensitive file check). (2026-02-24)
+  - Plan: [.agents/plans/security-hardening-v4.md](../.agents/plans/security-hardening-v4.md)
+  - Audit: [docs/security_audit_4.txt](security_audit_4.txt)
+
+- [x] **Security Hardening v5** - 16 findings (4 CRIT, 5 HIGH, 7 MED): quota IP bypass fix, logout endpoint, refresh token single-use, ZIP bomb protection, streaming GTFS upload, SSRF localhost validation, request ID sanitization, file path redaction. 94 security tests. (commit 6eb1ed0, 2026-02-25)
+  - Plan: [.agents/plans/security-hardening-v5.md](../.agents/plans/security-hardening-v5.md)
+  - Audit: [docs/security_audit_5.txt](security_audit_5.txt)
+
+- [x] **CI Pipeline** - GitHub Actions workflow (`.github/workflows/ci.yml`): backend checks (ruff lint + dedicated security audit via `ruff --select=S` + mypy + pyright + pytest with PostgreSQL + Redis), frontend checks (TypeScript + ESLint + build), e2e tests (docker-compose + Playwright). Dependency scanning via pip-audit. (2026-02-24)
 
 ## Planning Documents
 
