@@ -5,11 +5,12 @@ import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { Pencil, Trash2 } from "lucide-react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -70,16 +71,19 @@ export function RouteDetail({
   });
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:w-[400px]">
-        <SheetHeader>
-          <SheetTitle className="font-heading text-heading font-semibold">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[28rem] max-h-[90vh] overflow-y-auto" showCloseButton>
+        <DialogHeader>
+          <DialogTitle className="font-heading text-heading font-semibold">
             {route.route_short_name} — {route.route_long_name}
-          </SheetTitle>
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {route.route_short_name} — {route.route_long_name}
+          </DialogDescription>
           <RouteTypeBadge type={route.route_type} />
-        </SheetHeader>
+        </DialogHeader>
 
-        <div className="px-4 pb-4 space-y-(--spacing-card)">
+        <div className="space-y-(--spacing-card)">
           {/* Color preview */}
           <div className="flex items-center gap-(--spacing-inline)">
             <span
@@ -154,7 +158,7 @@ export function RouteDetail({
             </>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

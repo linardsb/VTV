@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { X } from "lucide-react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -378,17 +379,20 @@ export function StopForm({
     );
   }
 
-  // Sheet mode: wrap form in Sheet overlay (mobile)
+  // Dialog mode: wrap form in Dialog overlay (mobile)
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:w-[400px]">
-        <SheetHeader>
-          <SheetTitle className="font-heading text-heading font-semibold">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[28rem] max-h-[90vh] overflow-y-auto" showCloseButton>
+        <DialogHeader>
+          <DialogTitle className="font-heading text-heading font-semibold">
             {title}
-          </SheetTitle>
-        </SheetHeader>
-        <div className="mt-(--spacing-grid)">{formBody}</div>
-      </SheetContent>
-    </Sheet>
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {title}
+          </DialogDescription>
+        </DialogHeader>
+        {formBody}
+      </DialogContent>
+    </Dialog>
   );
 }

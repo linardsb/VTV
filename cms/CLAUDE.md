@@ -35,7 +35,8 @@ pnpm --filter @vtv/web e2e:headed   # Visible browser
 pnpm --filter @vtv/web e2e:report   # View HTML test report
 
 # Generate SDK client (requires FastAPI running on port 8123)
-pnpm --filter @vtv/sdk generate-sdk
+pnpm --filter @vtv/sdk generate-sdk   # Regenerate from local openapi.json
+pnpm --filter @vtv/sdk refresh        # Fetch fresh schema from backend + regenerate
 ```
 
 ## Design System
@@ -71,6 +72,7 @@ Workflow: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` �
 | Drivers | `/[locale]/drivers` | Live | Backend `/api/v1/drivers` (5 endpoints: CRUD, search, shift/status filters, agent integration) |
 | GTFS | `/[locale]/gtfs` | Live | Backend `/api/v1/schedules` + `/api/v1/transit/feeds` (3 tabs: data overview stats, GTFS ZIP import, GTFS export with agency filter) |
 | Documents | `/[locale]/documents` | Live | Backend `/api/v1/knowledge` endpoints (upload, list, detail, delete, download) |
+| Users | `/[locale]/users` | Live | Backend `/api/v1/auth/users` (admin-only CRUD, role/status filters, search, reset-password) |
 | Login | `/[locale]/login` | Live | Auth.js credentials → `POST /api/v1/auth/login` (DB-backed, bcrypt) |
 | Unauthorized | `/[locale]/unauthorized` | Live | — |
 

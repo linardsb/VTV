@@ -546,6 +546,12 @@
       "processing": "Apstrādā dokumentu...",
       "submit": "Augšupielādēt"
     },
+    "domains": {
+      "general": "Vispārīgi",
+      "operations": "Operācijas",
+      "safety": "Drošība",
+      "training": "Apmācība"
+    },
     "delete": {
       "title": "Dzēst dokumentu",
       "confirmation": "Vai tiešām vēlaties dzēst \"{name}\"?",
@@ -739,6 +745,103 @@
       "downloadSuccess": "GTFS dati veiksmīgi lejupielādēti",
       "downloadError": "GTFS datu lejupielāde neizdevās",
       "includesNote": "Ietver: agency.txt, routes.txt, calendar.txt, calendar_dates.txt, trips.txt, stop_times.txt, stops.txt"
+    }
+  },
+  "users": {
+    "title": "Lietotāju pārvaldība",
+    "description": "Pārvaldiet sistēmas lietotājus un piekļuves tiesības",
+    "search": "Meklēt lietotājus...",
+    "filters": {
+      "allRoles": "Visas lomas",
+      "admin": "Administrators",
+      "dispatcher": "Dispečers",
+      "editor": "Redaktors",
+      "viewer": "Skatītājs",
+      "allStatuses": "Visi statusi",
+      "active": "Aktīvs",
+      "inactive": "Neaktīvs",
+      "role": "Loma",
+      "status": "Statuss"
+    },
+    "table": {
+      "name": "Vārds",
+      "email": "E-pasts",
+      "role": "Loma",
+      "status": "Statuss",
+      "created": "Izveidots",
+      "actions": "Darbības",
+      "noResults": "Lietotāji nav atrasti",
+      "showing": "Rāda {from}-{to} no {total}"
+    },
+    "detail": {
+      "title": "Lietotāja informācija",
+      "name": "Vārds",
+      "email": "E-pasts",
+      "role": "Loma",
+      "status": "Statuss",
+      "createdAt": "Izveidots",
+      "updatedAt": "Atjaunināts",
+      "active": "Aktīvs",
+      "inactive": "Neaktīvs"
+    },
+    "roles": {
+      "admin": "Administrators",
+      "dispatcher": "Dispečers",
+      "editor": "Redaktors",
+      "viewer": "Skatītājs"
+    },
+    "form": {
+      "createTitle": "Pievienot lietotāju",
+      "editTitle": "Rediģēt lietotāju",
+      "name": "Vārds",
+      "namePlaceholder": "piem., Jānis Bērziņš",
+      "email": "E-pasts",
+      "emailPlaceholder": "piem., janis@vtv.lv",
+      "password": "Parole",
+      "passwordPlaceholder": "Vismaz 10 rakstzīmes",
+      "passwordHelp": "Vismaz 10 rakstzīmes, 1 lielais burts, 1 mazais burts, 1 cipars",
+      "role": "Loma",
+      "selectRole": "Izvēlieties lomu",
+      "isActive": "Aktīvs",
+      "required": "Obligāts lauks"
+    },
+    "actions": {
+      "create": "Pievienot lietotāju",
+      "edit": "Rediģēt",
+      "delete": "Dzēst",
+      "save": "Saglabāt",
+      "cancel": "Atcelt",
+      "resetPassword": "Atjaunot paroli"
+    },
+    "delete": {
+      "title": "Dzēst lietotāju",
+      "confirmation": "Vai tiešām vēlaties dzēst lietotāju \"{name}\"?",
+      "warning": "Šī darbība ir neatgriezeniska. Lietotājs tiks neatgriezeniski dzēsts no sistēmas.",
+      "confirm": "Dzēst",
+      "cancel": "Atcelt"
+    },
+    "resetPassword": {
+      "title": "Atjaunot paroli",
+      "description": "Iestatiet jaunu paroli lietotājam \"{name}\"",
+      "newPassword": "Jauna parole",
+      "placeholder": "Vismaz 10 rakstzīmes",
+      "help": "Vismaz 10 rakstzīmes, 1 lielais burts, 1 mazais burts, 1 cipars",
+      "confirm": "Atjaunot",
+      "cancel": "Atcelt"
+    },
+    "toast": {
+      "created": "Lietotājs veiksmīgi izveidots",
+      "updated": "Lietotājs veiksmīgi atjaunināts",
+      "deleted": "Lietotājs veiksmīgi dzēsts",
+      "passwordReset": "Parole veiksmīgi atjaunota",
+      "createError": "Neizdevās izveidot lietotāju",
+      "updateError": "Neizdevās atjaunināt lietotāju",
+      "deleteError": "Neizdevās dzēst lietotāju",
+      "resetError": "Neizdevās atjaunot paroli",
+      "loadError": "Neizdevās ielādēt lietotājus"
+    },
+    "mobile": {
+      "showFilters": "Filtri"
     }
   }
 }

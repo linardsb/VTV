@@ -5,11 +5,12 @@ import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { Pencil, Trash2 } from "lucide-react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -96,15 +97,18 @@ export function TripDetail({
   });
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:w-[480px]">
-        <SheetHeader>
-          <SheetTitle className="font-heading text-heading font-semibold">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[36rem] max-h-[90vh] overflow-y-auto" showCloseButton>
+        <DialogHeader>
+          <DialogTitle className="font-heading text-heading font-semibold">
             {trip.gtfs_trip_id}
-          </SheetTitle>
-        </SheetHeader>
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {trip.gtfs_trip_id}
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="px-4 pb-4 space-y-(--spacing-card)">
+        <div className="space-y-(--spacing-card)">
           <div className="space-y-(--spacing-card)">
             <DetailRow label={t("route")}>
               {routeName ? `${routeName.route_short_name} - ${routeName.route_long_name}` : "-"}
@@ -190,7 +194,7 @@ export function TripDetail({
             </>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

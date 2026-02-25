@@ -5,32 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VTV Platforma — Lietotāju Plūsmas un Lietošanas Scenāriji</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
         :root {
-            --vtv-primary: #1a73e8;
-            --vtv-primary-dark: #1557b0;
-            --vtv-primary-light: #e8f0fe;
-            --vtv-accent: #FF6B35;
-            --vtv-accent-light: #fff3ed;
-            --vtv-success: #0d9488;
-            --vtv-success-light: #ccfbf1;
+            --vtv-navy-900: #0c1929;
+            --vtv-navy-800: #122240;
+            --vtv-navy-700: #1a3358;
+            --vtv-navy-600: #234570;
+            --vtv-primary: #2563eb;
+            --vtv-primary-dark: #1d4ed8;
+            --vtv-primary-light: #eff6ff;
+            --vtv-primary-lighter: #f0f7ff;
+            --vtv-accent: #f97316;
+            --vtv-accent-light: #fff7ed;
+            --vtv-success: #059669;
+            --vtv-success-light: #ecfdf5;
             --vtv-warning: #d97706;
-            --vtv-warning-light: #fef3c7;
-            --vtv-text: #1f2937;
-            --vtv-text-secondary: #6b7280;
-            --vtv-border: #e5e7eb;
-            --vtv-bg: #f9fafb;
+            --vtv-warning-light: #fffbeb;
+            --vtv-error: #dc2626;
+            --vtv-error-light: #fef2f2;
+            --vtv-text: #0f172a;
+            --vtv-text-secondary: #64748b;
+            --vtv-text-muted: #94a3b8;
+            --vtv-border: #e2e8f0;
+            --vtv-border-light: #f1f5f9;
+            --vtv-bg: #f8fafc;
             --vtv-card: #ffffff;
-            --vtv-gradient-start: #1a73e8;
-            --vtv-gradient-end: #6366f1;
+            --vtv-gradient-start: #1e40af;
+            --vtv-gradient-mid: #3b82f6;
+            --vtv-gradient-end: #7c3aed;
+            --vtv-gradient-accent: #6366f1;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+            --shadow-lg: 0 8px 30px rgba(0,0,0,0.08);
+            --shadow-xl: 0 20px 60px rgba(0,0,0,0.1);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --radius-2xl: 24px;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -38,13 +54,24 @@
             background: var(--vtv-bg);
             line-height: 1.7;
             font-size: 15px;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* ─── Hero Section ─── */
+        code {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.85em;
+            background: var(--vtv-primary-light);
+            color: var(--vtv-primary-dark);
+            padding: 2px 7px;
+            border-radius: 5px;
+            font-weight: 500;
+        }
+
+        /* ═══ Hero ═══ */
         .hero {
-            background: linear-gradient(135deg, var(--vtv-gradient-start) 0%, var(--vtv-gradient-end) 100%);
+            background: linear-gradient(135deg, var(--vtv-navy-900) 0%, var(--vtv-navy-700) 40%, var(--vtv-primary-dark) 100%);
             color: white;
-            padding: 80px 40px 60px;
+            padding: 80px 40px 64px;
             position: relative;
             overflow: hidden;
         }
@@ -52,12 +79,13 @@
         .hero::before {
             content: '';
             position: absolute;
-            top: -50%;
-            right: -20%;
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+            top: -40%;
+            right: -15%;
+            width: 700px;
+            height: 700px;
+            background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
             border-radius: 50%;
+            animation: float 20s ease-in-out infinite;
         }
 
         .hero::after {
@@ -65,14 +93,20 @@
             position: absolute;
             bottom: -30%;
             left: -10%;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
             border-radius: 50%;
+            animation: float 25s ease-in-out infinite reverse;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(20px, -20px); }
         }
 
         .hero-content {
-            max-width: 900px;
+            max-width: 940px;
             margin: 0 auto;
             position: relative;
             z-index: 1;
@@ -80,225 +114,166 @@
 
         .hero-badge {
             display: inline-block;
-            background: rgba(255,255,255,0.15);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-            padding: 6px 16px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.15);
+            padding: 6px 18px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             letter-spacing: 1.5px;
             text-transform: uppercase;
-            margin-bottom: 24px;
+            margin-bottom: 28px;
         }
 
         .hero h1 {
-            font-size: 42px;
-            font-weight: 800;
-            line-height: 1.15;
+            font-size: 48px;
+            font-weight: 900;
+            line-height: 1.1;
             margin-bottom: 16px;
-            letter-spacing: -0.5px;
+            letter-spacing: -1px;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, #93c5fd, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .hero-subtitle {
             font-size: 17px;
-            opacity: 0.9;
-            max-width: 680px;
-            line-height: 1.6;
+            opacity: 0.85;
+            max-width: 700px;
+            line-height: 1.7;
             font-weight: 300;
         }
 
         .hero-meta {
             display: flex;
-            gap: 32px;
-            margin-top: 32px;
-            padding-top: 24px;
-            border-top: 1px solid rgba(255,255,255,0.15);
+            gap: 36px;
+            margin-top: 36px;
+            padding-top: 28px;
+            border-top: 1px solid rgba(255,255,255,0.12);
         }
 
-        .hero-meta-item {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
+        .hero-meta-item { display: flex; flex-direction: column; gap: 4px; }
+        .hero-meta-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; opacity: 0.5; font-weight: 600; }
+        .hero-meta-value { font-size: 16px; font-weight: 700; }
 
-        .hero-meta-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            opacity: 0.7;
-        }
+        /* ═══ Container ═══ */
+        .container { max-width: 940px; margin: 0 auto; padding: 48px 40px; }
 
-        .hero-meta-value {
-            font-size: 15px;
-            font-weight: 600;
-        }
-
-        /* ─── Container ─── */
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px;
-        }
-
-        /* ─── Summary Card ─── */
+        /* ═══ Summary Card ═══ */
         .summary-card {
             background: var(--vtv-card);
-            border-radius: 16px;
-            padding: 32px;
-            margin: -40px auto 40px;
-            max-width: 900px;
+            border-radius: var(--radius-xl);
+            padding: 36px;
+            margin: -44px auto 48px;
+            max-width: 940px;
             position: relative;
             z-index: 2;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            box-shadow: var(--shadow-xl);
             border: 1px solid var(--vtv-border);
         }
 
-        .summary-card p {
-            color: var(--vtv-text-secondary);
-            font-size: 15px;
-            line-height: 1.8;
-        }
+        .summary-card p { color: var(--vtv-text-secondary); font-size: 15px; line-height: 1.85; }
+        .summary-card strong { color: var(--vtv-text); }
 
-        .summary-card strong {
-            color: var(--vtv-text);
-        }
-
-        /* ─── Roles Grid ─── */
-        .roles-section {
-            margin-bottom: 48px;
-        }
-
-        .roles-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-            margin-top: 20px;
-        }
+        /* ═══ Roles ═══ */
+        .roles-section { margin-bottom: 48px; }
+        .roles-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 20px; }
 
         .role-card {
             background: var(--vtv-card);
-            border-radius: 12px;
+            border-radius: var(--radius-md);
             padding: 24px;
             border: 1px solid var(--vtv-border);
             transition: transform 0.2s, box-shadow 0.2s;
         }
 
-        .role-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-        }
+        .role-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 
         .role-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
         }
 
-        .role-icon.admin { background: #ede9fe; }
-        .role-icon.editor { background: #dbeafe; }
-        .role-icon.dispatcher { background: #d1fae5; }
-        .role-icon.viewer { background: #fef3c7; }
+        .role-icon svg { width: 22px; height: 22px; }
+        .role-icon.admin { background: #ede9fe; color: #7c3aed; }
+        .role-icon.editor { background: #dbeafe; color: #2563eb; }
+        .role-icon.dispatcher { background: #d1fae5; color: #059669; }
+        .role-icon.viewer { background: #fef3c7; color: #d97706; }
 
-        .role-card h4 {
-            font-size: 15px;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
+        .role-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+        .role-card .role-who { font-size: 13px; color: var(--vtv-text-secondary); margin-bottom: 10px; }
+        .role-card .role-access { font-size: 13px; color: var(--vtv-primary); background: var(--vtv-primary-light); display: inline-block; padding: 5px 12px; border-radius: 8px; font-weight: 500; line-height: 1.5; }
+        .role-card .role-detail { font-size: 12px; color: var(--vtv-text-muted); margin-top: 10px; line-height: 1.6; }
 
-        .role-card .role-who {
-            font-size: 13px;
-            color: var(--vtv-text-secondary);
-            margin-bottom: 8px;
-        }
-
-        .role-card .role-access {
-            font-size: 13px;
-            color: var(--vtv-primary);
-            background: var(--vtv-primary-light);
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-weight: 500;
-        }
-
-        /* ─── Section Headers ─── */
+        /* ═══ Section Headers ═══ */
         .section-number {
-            width: 48px;
-            height: 48px;
+            width: 52px;
+            height: 52px;
             background: linear-gradient(135deg, var(--vtv-gradient-start), var(--vtv-gradient-end));
             color: white;
-            border-radius: 14px;
+            border-radius: 15px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
-            font-weight: 800;
+            font-size: 22px;
+            font-weight: 900;
             flex-shrink: 0;
+            box-shadow: 0 4px 14px rgba(37,99,235,0.25);
         }
 
-        h3 {
-            font-size: 16px;
-            font-weight: 700;
-            margin: 24px 0 12px;
-            color: var(--vtv-text);
-        }
+        h3 { font-size: 16px; font-weight: 700; margin: 28px 0 14px; color: var(--vtv-text); }
 
-        /* ─── Scenario Card ─── */
+        /* ═══ Scenario Card ═══ */
         .scenario-card {
             background: var(--vtv-card);
-            border-radius: 16px;
-            padding: 32px;
+            border-radius: var(--radius-lg);
+            padding: 36px;
             border: 1px solid var(--vtv-border);
-            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-            margin-bottom: 32px;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 36px;
         }
 
         .scenario-desc {
-            background: var(--vtv-bg);
+            background: linear-gradient(135deg, var(--vtv-primary-lighter), #f5f3ff);
             border-left: 3px solid var(--vtv-primary);
-            padding: 16px 20px;
-            border-radius: 0 10px 10px 0;
-            margin-bottom: 24px;
+            padding: 18px 22px;
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            margin-bottom: 28px;
             font-size: 14px;
             color: var(--vtv-text-secondary);
-            line-height: 1.7;
+            line-height: 1.8;
         }
 
-        /* ─── Flow Steps ─── */
-        .flow-steps {
-            list-style: none;
-            padding: 0;
-            position: relative;
-        }
+        /* ═══ Flow Steps ═══ */
+        .flow-steps { list-style: none; padding: 0; position: relative; }
 
         .flow-steps::before {
             content: '';
             position: absolute;
-            left: 15px;
-            top: 24px;
-            bottom: 24px;
+            left: 16px;
+            top: 28px;
+            bottom: 28px;
             width: 2px;
             background: linear-gradient(to bottom, var(--vtv-primary), var(--vtv-gradient-end));
-            opacity: 0.2;
+            opacity: 0.15;
             border-radius: 1px;
         }
 
-        .flow-step {
-            display: flex;
-            gap: 16px;
-            padding: 12px 0;
-            position: relative;
-        }
+        .flow-step { display: flex; gap: 18px; padding: 14px 0; position: relative; }
 
         .step-dot {
-            width: 32px;
-            height: 32px;
+            width: 34px;
+            height: 34px;
             background: var(--vtv-primary-light);
             border: 2px solid var(--vtv-primary);
             border-radius: 50%;
@@ -306,347 +281,178 @@
             align-items: center;
             justify-content: center;
             font-size: 13px;
-            font-weight: 700;
+            font-weight: 800;
             color: var(--vtv-primary);
             flex-shrink: 0;
             z-index: 1;
         }
 
-        .step-content {
-            flex: 1;
-            padding-top: 4px;
-        }
+        .step-content { flex: 1; padding-top: 5px; }
+        .step-content strong { display: block; font-size: 14px; font-weight: 700; margin-bottom: 5px; }
+        .step-content p, .step-content ul { font-size: 14px; color: var(--vtv-text-secondary); line-height: 1.75; }
+        .step-content ul { padding-left: 18px; margin-top: 8px; }
+        .step-content li { margin-bottom: 5px; }
+        .step-content em { background: var(--vtv-primary-light); padding: 2px 9px; border-radius: 5px; font-style: normal; color: var(--vtv-primary-dark); font-size: 13px; font-weight: 500; }
 
-        .step-content strong {
-            display: block;
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .step-content p, .step-content ul {
-            font-size: 14px;
-            color: var(--vtv-text-secondary);
-            line-height: 1.7;
-        }
-
-        .step-content ul {
-            padding-left: 18px;
-            margin-top: 6px;
-        }
-
-        .step-content li {
-            margin-bottom: 4px;
-        }
-
-        .step-content em {
-            background: var(--vtv-primary-light);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-style: normal;
-            color: var(--vtv-primary-dark);
-            font-size: 13px;
-        }
-
-        /* ─── Business Value ─── */
-        .business-value {
-            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
-            border: 1px solid #a7f3d0;
-            border-radius: 12px;
-            padding: 16px 20px;
-            margin-top: 20px;
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-        }
-
-        .business-value-icon {
-            font-size: 20px;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-
-        .business-value p {
-            font-size: 14px;
-            color: #065f46;
-            line-height: 1.7;
-            font-weight: 500;
-        }
-
-        .business-value .label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 700;
-            color: #047857;
-            margin-bottom: 4px;
-            display: block;
-        }
-
-        /* ─── Access Matrix Table ─── */
-        .matrix-table-wrapper {
-            overflow-x: auto;
-            border-radius: 12px;
-            border: 1px solid var(--vtv-border);
-            margin: 20px 0;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-
-        thead {
-            background: linear-gradient(135deg, var(--vtv-gradient-start), var(--vtv-gradient-end));
-            color: white;
-        }
-
-        th {
-            padding: 14px 16px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        td {
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--vtv-border);
-        }
-
-        tbody tr:last-child td {
-            border-bottom: none;
-        }
-
-        tbody tr:nth-child(even) {
+        .step-tech {
             background: var(--vtv-bg);
-        }
-
-        .badge-yes {
-            display: inline-block;
-            background: #d1fae5;
-            color: #065f46;
-            padding: 2px 10px;
-            border-radius: 12px;
+            border: 1px solid var(--vtv-border-light);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            margin-top: 10px;
             font-size: 12px;
-            font-weight: 600;
-        }
-
-        .badge-no {
-            display: inline-block;
-            background: #fee2e2;
-            color: #991b1b;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        /* ─── AI Tools Section ─── */
-        .tools-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin: 20px 0;
-        }
-
-        .tool-card {
-            background: var(--vtv-card);
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid var(--vtv-border);
-        }
-
-        .tool-card .tool-category {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--vtv-text-secondary);
-            margin-bottom: 8px;
-            font-weight: 600;
-        }
-
-        .tool-card h4 {
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .tool-card p {
-            font-size: 13px;
-            color: var(--vtv-text-secondary);
+            color: var(--vtv-text-muted);
             line-height: 1.6;
         }
 
-        .tool-count {
-            display: inline-block;
-            background: var(--vtv-primary-light);
-            color: var(--vtv-primary);
-            padding: 2px 8px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 700;
-            margin-left: 4px;
+        .step-tech strong { display: inline; font-size: 12px; margin-bottom: 0; color: var(--vtv-text-secondary); }
+
+        /* ═══ Business Value ═══ */
+        .business-value {
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+            border: 1px solid #a7f3d0;
+            border-radius: var(--radius-md);
+            padding: 18px 22px;
+            margin-top: 24px;
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
         }
 
-        /* ─── Query Examples ─── */
-        .query-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
+        .business-value-icon { flex-shrink: 0; margin-top: 2px; width: 28px; height: 28px; }
+        .business-value-icon svg { width: 28px; height: 28px; }
+        .business-value p { font-size: 14px; color: #065f46; line-height: 1.75; font-weight: 500; }
+        .business-value .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; color: #047857; margin-bottom: 4px; display: block; }
+
+        /* ═══ Access Matrix Table ═══ */
+        .matrix-table-wrapper {
+            overflow-x: auto;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--vtv-border);
             margin: 20px 0;
+            box-shadow: var(--shadow-sm);
         }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        thead { background: linear-gradient(135deg, var(--vtv-navy-800), var(--vtv-navy-700)); color: white; }
+        th { padding: 14px 16px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; }
+        td { padding: 12px 16px; border-bottom: 1px solid var(--vtv-border-light); }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:nth-child(even) { background: var(--vtv-bg); }
+        tbody tr:hover { background: var(--vtv-primary-light); }
+
+        .badge-yes { display: inline-block; background: #d1fae5; color: #065f46; padding: 3px 11px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .badge-no { display: inline-block; background: #fee2e2; color: #991b1b; padding: 3px 11px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .badge-view { display: inline-block; background: #fef3c7; color: #92400e; padding: 3px 11px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .badge-na { display: inline-block; background: #f1f5f9; color: #94a3b8; padding: 3px 11px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+
+        /* ═══ AI Tools ═══ */
+        .tools-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 20px 0; }
+
+        .tool-card {
+            background: var(--vtv-card);
+            border-radius: var(--radius-md);
+            padding: 22px;
+            border: 1px solid var(--vtv-border);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .tool-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+        .tool-card .tool-category { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--vtv-text-muted); margin-bottom: 8px; font-weight: 700; }
+        .tool-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+        .tool-card p { font-size: 13px; color: var(--vtv-text-secondary); line-height: 1.65; }
+        .tool-count { display: inline-block; background: var(--vtv-primary-light); color: var(--vtv-primary); padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 700; margin-left: 4px; }
+
+        /* ═══ Query Examples ═══ */
+        .query-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 20px 0; }
 
         .query-group {
             background: var(--vtv-card);
-            border-radius: 12px;
-            padding: 20px;
+            border-radius: var(--radius-md);
+            padding: 22px;
             border: 1px solid var(--vtv-border);
         }
 
-        .query-group h4 {
-            font-size: 13px;
-            font-weight: 700;
-            margin-bottom: 12px;
-            color: var(--vtv-primary);
-        }
+        .query-group h4 { font-size: 13px; font-weight: 700; margin-bottom: 12px; color: var(--vtv-primary); }
+        .query-group ul { list-style: none; padding: 0; }
+        .query-group li { font-size: 13px; color: var(--vtv-text-secondary); padding: 7px 0; border-bottom: 1px solid #f1f5f9; font-style: italic; }
+        .query-group li:last-child { border-bottom: none; }
 
-        .query-group ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .query-group li {
-            font-size: 13px;
-            color: var(--vtv-text-secondary);
-            padding: 6px 0;
-            border-bottom: 1px solid #f3f4f6;
-            font-style: italic;
-        }
-
-        .query-group li:last-child {
-            border-bottom: none;
-        }
-
-        /* ─── Security Features ─── */
-        .security-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            margin: 16px 0;
-        }
+        /* ═══ Security ═══ */
+        .security-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }
 
         .security-item {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             background: var(--vtv-card);
-            border-radius: 10px;
+            border-radius: var(--radius-sm);
             padding: 14px 16px;
             border: 1px solid var(--vtv-border);
             font-size: 13px;
             font-weight: 500;
+            line-height: 1.5;
         }
 
         .security-icon {
-            width: 28px;
-            height: 28px;
-            background: var(--vtv-primary-light);
-            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 14px;
             flex-shrink: 0;
         }
 
-        /* ─── i18n ─── */
-        .lang-pills {
-            display: flex;
-            gap: 12px;
-            margin: 16px 0;
-        }
+        .security-icon svg { width: 16px; height: 16px; }
+        .security-icon.blue { background: #dbeafe; color: #2563eb; }
+        .security-icon.green { background: #d1fae5; color: #059669; }
+        .security-icon.amber { background: #fef3c7; color: #d97706; }
+        .security-icon.red { background: #fee2e2; color: #dc2626; }
+        .security-icon.purple { background: #ede9fe; color: #7c3aed; }
+
+        /* ═══ i18n ═══ */
+        .lang-pills { display: flex; gap: 14px; margin: 18px 0; }
 
         .lang-pill {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 14px;
             background: var(--vtv-card);
-            border-radius: 12px;
-            padding: 16px 24px;
+            border-radius: var(--radius-md);
+            padding: 18px 26px;
             border: 1px solid var(--vtv-border);
             flex: 1;
         }
 
-        .lang-pill.primary {
-            border-color: var(--vtv-primary);
-            background: var(--vtv-primary-light);
-        }
+        .lang-pill.primary { border-color: var(--vtv-primary); background: var(--vtv-primary-light); }
+        .lang-flag { font-size: 32px; }
+        .lang-info h4 { font-size: 14px; font-weight: 700; }
+        .lang-info p { font-size: 12px; color: var(--vtv-text-secondary); }
 
-        .lang-flag {
-            font-size: 28px;
-        }
-
-        .lang-info h4 {
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .lang-info p {
-            font-size: 12px;
-            color: var(--vtv-text-secondary);
-        }
-
-        /* ─── Tech Stack ─── */
-        .tech-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            margin: 20px 0;
-        }
+        /* ═══ Tech Grid ═══ */
+        .tech-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 20px 0; }
 
         .tech-item {
             background: var(--vtv-card);
-            border-radius: 12px;
-            padding: 20px;
+            border-radius: var(--radius-md);
+            padding: 22px;
             border: 1px solid var(--vtv-border);
         }
 
-        .tech-item .tech-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--vtv-text-secondary);
-            font-weight: 600;
-            margin-bottom: 6px;
-        }
-
-        .tech-item h4 {
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .tech-item .tech-status {
-            display: inline-block;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 8px;
-            margin-top: 4px;
-        }
-
+        .tech-item .tech-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--vtv-text-muted); font-weight: 700; margin-bottom: 6px; }
+        .tech-item h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; line-height: 1.4; }
+        .tech-item .tech-detail { font-size: 12px; color: var(--vtv-text-secondary); line-height: 1.6; margin-bottom: 6px; }
+        .tech-item .tech-status { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 8px; margin-top: 4px; }
         .tech-status.production { background: #d1fae5; color: #065f46; }
         .tech-status.configurable { background: #fef3c7; color: #92400e; }
 
-        /* ─── Status Badges ─── */
+        /* ═══ Status Badges ═══ */
         .status-badge {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 4px 12px;
+            padding: 5px 14px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: 700;
@@ -657,58 +463,31 @@
             flex-shrink: 0;
         }
 
-        .status-badge.done {
-            background: #d1fae5;
-            color: #065f46;
-        }
+        .status-badge.done { background: #d1fae5; color: #065f46; }
+        .status-badge.partial { background: #fef3c7; color: #92400e; }
+        .status-badge.planned { background: #e0e7ff; color: #3730a3; }
 
-        .status-badge.partial {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .status-badge.planned {
-            background: #e0e7ff;
-            color: #3730a3;
-        }
-
-        .status-badge::before {
-            content: '';
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
+        .status-badge::before { content: ''; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
         .status-badge.done::before { background: #059669; }
         .status-badge.partial::before { background: #d97706; }
         .status-badge.planned::before { background: #6366f1; }
 
-        /* ─── Progress Dashboard ─── */
+        /* ═══ Progress Dashboard ═══ */
         .progress-dashboard {
             background: var(--vtv-card);
-            border-radius: 16px;
-            padding: 32px;
+            border-radius: var(--radius-xl);
+            padding: 36px;
             border: 1px solid var(--vtv-border);
-            margin-bottom: 40px;
+            margin-bottom: 48px;
+            box-shadow: var(--shadow-md);
         }
 
-        .progress-dashboard h3 {
-            margin-top: 0;
-            margin-bottom: 20px;
-            font-size: 18px;
-        }
-
-        .progress-overall {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 24px;
-        }
+        .progress-dashboard h3 { margin-top: 0; margin-bottom: 24px; font-size: 20px; }
+        .progress-overall { display: flex; align-items: center; gap: 20px; margin-bottom: 28px; }
 
         .progress-percent {
-            font-size: 48px;
-            font-weight: 800;
+            font-size: 56px;
+            font-weight: 900;
             background: linear-gradient(135deg, var(--vtv-gradient-start), var(--vtv-gradient-end));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -716,151 +495,48 @@
             line-height: 1;
         }
 
-        .progress-label {
-            font-size: 14px;
-            color: var(--vtv-text-secondary);
-            line-height: 1.5;
-        }
+        .progress-label { font-size: 14px; color: var(--vtv-text-secondary); line-height: 1.5; }
+        .progress-label strong { color: var(--vtv-text); display: block; font-size: 17px; margin-bottom: 2px; }
 
-        .progress-label strong {
-            color: var(--vtv-text);
-            display: block;
-            font-size: 16px;
-        }
+        .progress-bar-outer { width: 100%; height: 14px; background: #f1f5f9; border-radius: 7px; overflow: hidden; margin-bottom: 28px; }
+        .progress-bar-inner { height: 100%; border-radius: 7px; background: linear-gradient(90deg, var(--vtv-gradient-start), var(--vtv-gradient-mid), var(--vtv-gradient-end)); transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
 
-        .progress-bar-outer {
-            width: 100%;
-            height: 12px;
-            background: #f3f4f6;
-            border-radius: 6px;
-            overflow: hidden;
-            margin-bottom: 24px;
-        }
+        .progress-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 
-        .progress-bar-inner {
-            height: 100%;
-            border-radius: 6px;
-            background: linear-gradient(90deg, var(--vtv-gradient-start), var(--vtv-gradient-end));
-            transition: width 0.6s ease;
-        }
-
-        .progress-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-        }
-
-        .progress-stat {
-            background: var(--vtv-bg);
-            border-radius: 10px;
-            padding: 16px;
-            text-align: center;
-        }
-
-        .progress-stat-value {
-            font-size: 28px;
-            font-weight: 800;
-            color: var(--vtv-text);
-            line-height: 1;
-            margin-bottom: 4px;
-        }
-
-        .progress-stat-label {
-            font-size: 12px;
-            color: var(--vtv-text-secondary);
-            font-weight: 500;
-        }
-
+        .progress-stat { background: var(--vtv-bg); border-radius: var(--radius-md); padding: 20px; text-align: center; }
+        .progress-stat-value { font-size: 32px; font-weight: 900; color: var(--vtv-text); line-height: 1; margin-bottom: 6px; }
+        .progress-stat-label { font-size: 12px; color: var(--vtv-text-secondary); font-weight: 500; }
         .progress-stat-value.green { color: #059669; }
         .progress-stat-value.amber { color: #d97706; }
         .progress-stat-value.blue { color: #6366f1; }
 
-        /* ─── Module Progress List ─── */
-        .module-progress {
-            margin-top: 24px;
-        }
+        /* ═══ Module Progress ═══ */
+        .module-progress { margin-top: 28px; }
 
-        .module-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 0;
-            border-bottom: 1px solid #f3f4f6;
-        }
+        .module-row { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+        .module-row:last-child { border-bottom: none; }
+        .module-name { font-size: 13px; font-weight: 600; flex: 1; }
+        .module-bar-outer { width: 200px; height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden; flex-shrink: 0; }
+        .module-bar-inner { height: 100%; border-radius: 4px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+        .module-bar-inner.green { background: linear-gradient(90deg, #059669, #34d399); }
+        .module-bar-inner.amber { background: linear-gradient(90deg, #d97706, #fbbf24); }
+        .module-bar-inner.blue { background: linear-gradient(90deg, #6366f1, #a5b4fc); }
+        .module-percent { font-size: 13px; font-weight: 700; width: 44px; text-align: right; flex-shrink: 0; }
 
-        .module-row:last-child {
-            border-bottom: none;
-        }
+        /* ═══ Section Header ═══ */
+        .section-header { display: flex; align-items: center; gap: 18px; margin-bottom: 28px; margin-top: 64px; flex-wrap: wrap; }
+        .section-header-text { flex: 1; min-width: 200px; }
+        .section-header-text h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.3; }
 
-        .module-name {
-            font-size: 13px;
-            font-weight: 600;
-            flex: 1;
-        }
-
-        .module-bar-outer {
-            width: 180px;
-            height: 8px;
-            background: #f3f4f6;
-            border-radius: 4px;
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-
-        .module-bar-inner {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.6s ease;
-        }
-
-        .module-bar-inner.green { background: linear-gradient(90deg, #059669, #10b981); }
-        .module-bar-inner.amber { background: linear-gradient(90deg, #d97706, #f59e0b); }
-        .module-bar-inner.blue { background: linear-gradient(90deg, #6366f1, #818cf8); }
-
-        .module-percent {
-            font-size: 13px;
-            font-weight: 700;
-            width: 40px;
-            text-align: right;
-            flex-shrink: 0;
-        }
-
-        /* ─── Section header flex fix ─── */
-        .section-header {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 24px;
-            margin-top: 56px;
-            flex-wrap: wrap;
-        }
-
-        .section-header-text {
-            flex: 1;
-            min-width: 200px;
-        }
-
-        .section-header-text h2 {
-            font-size: 24px;
-            font-weight: 800;
-            letter-spacing: -0.3px;
-            line-height: 1.3;
-        }
-
-        /* ─── Status details inside scenario card ─── */
-        .status-detail {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
+        /* ═══ Status Chips ═══ */
+        .status-detail { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
 
         .status-chip {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            padding: 3px 10px;
-            border-radius: 6px;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 8px;
             font-size: 12px;
             font-weight: 600;
         }
@@ -869,47 +545,32 @@
         .status-chip.wip { background: #fef3c7; color: #92400e; }
         .status-chip.next { background: #e0e7ff; color: #3730a3; }
 
-        .status-chip::before {
-            content: '';
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-        }
-
+        .status-chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
         .status-chip.live::before { background: #059669; }
         .status-chip.wip::before { background: #d97706; }
         .status-chip.next::before { background: #6366f1; }
 
-        .updated-date {
-            font-size: 12px;
-            color: var(--vtv-text-secondary);
-            margin-top: 8px;
-            font-style: italic;
-        }
+        .updated-date { font-size: 12px; color: var(--vtv-text-muted); margin-top: 10px; font-style: italic; }
 
-        /* ─── Roadmap ─── */
-        .roadmap {
-            position: relative;
-            padding-left: 32px;
-            margin: 20px 0;
-        }
+        /* ═══ Roadmap ═══ */
+        .roadmap { position: relative; padding-left: 36px; margin: 24px 0; }
 
         .roadmap::before {
             content: '';
             position: absolute;
-            left: 11px;
-            top: 16px;
-            bottom: 16px;
+            left: 12px;
+            top: 18px;
+            bottom: 18px;
             width: 2px;
-            background: linear-gradient(to bottom, var(--vtv-primary), var(--vtv-accent), var(--vtv-success));
+            background: linear-gradient(to bottom, var(--vtv-primary), var(--vtv-gradient-accent), var(--vtv-accent), var(--vtv-success));
             border-radius: 1px;
         }
 
         .roadmap-item {
             position: relative;
             background: var(--vtv-card);
-            border-radius: 12px;
-            padding: 20px;
+            border-radius: var(--radius-md);
+            padding: 22px;
             border: 1px solid var(--vtv-border);
             margin-bottom: 16px;
         }
@@ -917,8 +578,8 @@
         .roadmap-item::before {
             content: '';
             position: absolute;
-            left: -26px;
-            top: 24px;
+            left: -30px;
+            top: 26px;
             width: 12px;
             height: 12px;
             background: var(--vtv-primary);
@@ -930,54 +591,38 @@
         .roadmap-item:nth-child(3)::before { background: var(--vtv-accent); border-color: var(--vtv-accent-light); }
         .roadmap-item:nth-child(4)::before { background: var(--vtv-success); border-color: var(--vtv-success-light); }
 
-        .roadmap-phase {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 700;
-            color: var(--vtv-primary);
-            margin-bottom: 6px;
+        .roadmap-phase { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; color: var(--vtv-primary); margin-bottom: 6px; }
+        .roadmap-item h4 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+        .roadmap-item p { font-size: 13px; color: var(--vtv-text-secondary); line-height: 1.7; }
+        .roadmap-time { font-size: 12px; color: var(--vtv-text-muted); margin-top: 10px; font-weight: 600; }
+
+        /* ═══ Info Box ═══ */
+        .info-box {
+            border-radius: var(--radius-md);
+            padding: 18px 22px;
+            margin-top: 22px;
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
         }
 
-        .roadmap-item h4 {
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
+        .info-box.warning { background: #fffbeb; border: 1px solid #fde68a; }
+        .info-box.warning p { color: #78350f; }
+        .info-box.warning .label { color: #92400e; }
 
-        .roadmap-item p {
-            font-size: 13px;
-            color: var(--vtv-text-secondary);
-        }
+        .info-box.info { background: #eff6ff; border: 1px solid #bfdbfe; }
+        .info-box.info p { color: #1e3a5f; }
+        .info-box.info .label { color: #1d4ed8; }
 
-        .roadmap-time {
-            font-size: 12px;
-            color: var(--vtv-text-secondary);
-            margin-top: 8px;
-            font-weight: 600;
-        }
+        .info-box-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+        .info-box .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; display: block; margin-bottom: 4px; }
+        .info-box p { font-size: 14px; line-height: 1.75; font-weight: 500; }
 
-        /* ─── Footer ─── */
-        .footer {
-            text-align: center;
-            padding: 48px 40px;
-            color: var(--vtv-text-secondary);
-            font-size: 13px;
-            border-top: 1px solid var(--vtv-border);
-            margin-top: 48px;
-        }
+        /* ═══ Footer ═══ */
+        .footer { text-align: center; padding: 56px 40px; color: var(--vtv-text-muted); font-size: 13px; border-top: 1px solid var(--vtv-border); margin-top: 56px; }
+        .footer-logo { font-size: 28px; font-weight: 900; background: linear-gradient(135deg, var(--vtv-gradient-start), var(--vtv-gradient-end)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px; letter-spacing: -0.5px; }
 
-        .footer-logo {
-            font-size: 24px;
-            font-weight: 800;
-            background: linear-gradient(135deg, var(--vtv-gradient-start), var(--vtv-gradient-end));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 8px;
-        }
-
-        /* ─── Print Styles ─── */
+        /* ═══ Print ═══ */
         @media print {
             body { background: white; font-size: 12px; }
             .hero { padding: 40px 30px 30px; }
@@ -991,23 +636,26 @@
 
         @media (max-width: 768px) {
             .hero { padding: 48px 24px 40px; }
-            .hero h1 { font-size: 28px; }
+            .hero h1 { font-size: 30px; }
             .container { padding: 24px; }
             .roles-grid, .query-grid, .security-grid, .tech-grid { grid-template-columns: 1fr; }
             .tools-grid { grid-template-columns: 1fr; }
             .hero-meta { flex-wrap: wrap; gap: 16px; }
             .lang-pills { flex-direction: column; }
+            .progress-grid { grid-template-columns: 1fr; }
+            .module-bar-outer { width: 120px; }
+            .summary-card, .scenario-card { padding: 24px; }
         }
     </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════ HERO ═══════════════════════════ -->
+<!-- ═══════════════════ HERO ═══════════════════ -->
 <header class="hero">
     <div class="hero-content">
-        <div class="hero-badge">Valdei un Ieinteresētajām Pusēm &middot; Atjaunots 2026-02-23</div>
-        <h1>VTV Platforma</h1>
-        <p class="hero-subtitle">Lietotāju plūsmas un lietošanas scenāriji — apraksta, kā platforma tiek izmantota ikdienas sabiedriskā transporta pārvaldībā. Iekļauj pašreizējo izstrādes statusu.</p>
+        <div class="hero-badge">Valdei un Ieinteresētajām Pusēm &middot; Atjaunots 2026-02-25</div>
+        <h1>VTV <span>Platforma</span></h1>
+        <p class="hero-subtitle">Lietotāju plūsmas un lietošanas scenāriji — detalizēts apraksts par to, kā platforma tiek izmantota ikdienas sabiedriskā transporta pārvaldībā Rīgā. Iekļauj pašreizējo izstrādes statusu, tehniskās detaļas un biznesa vērtību.</p>
         <div class="hero-meta">
             <div class="hero-meta-item">
                 <span class="hero-meta-label">Operators</span>
@@ -1023,33 +671,37 @@
             </div>
             <div class="hero-meta-item">
                 <span class="hero-meta-label">Pieturas</span>
-                <span class="hero-meta-value">~1 500</span>
+                <span class="hero-meta-value">~1 600</span>
+            </div>
+            <div class="hero-meta-item">
+                <span class="hero-meta-label">CMS Lapas</span>
+                <span class="hero-meta-value">9</span>
             </div>
         </div>
     </div>
 </header>
 
-<!-- ═══════════════════════════ SUMMARY ═══════════════════════════ -->
+<!-- ═══════════════════ SUMMARY ═══════════════════ -->
 <div class="summary-card">
-    <p>VTV ir vienota sabiedriskā transporta operāciju pārvaldības platforma Rīgas pilsētas transportam. Tā aizstāj sadrumstalotus manuālus procesus — izklājlapas, neapstrādātus GTFS failus, telefona zvanus — ar <strong>vienu tīmekļa CMS sistēmu</strong> (8 lapas, 55+ API galapunkti), kas papildināta ar <strong>AI asistentu</strong> (10 rīki). Sistēma ietver <strong>JWT autentifikāciju</strong> ar 4 lomu RBAC, <strong>GTFS grafiku pārvaldību</strong> (23 galapunkti), <strong>šoferu HR pārvaldību</strong>, <strong>operatīvo notikumu kalendāru</strong> un <strong>reāllaika transportlīdzekļu izsekošanu</strong>.</p>
+    <p>VTV ir vienota sabiedriskā transporta operāciju pārvaldības platforma Rīgas pilsētas transportam. Tā aizstāj sadrumstalotus manuālus procesus — izklājlapas, neapstrādātus GTFS failus, telefona zvanus — ar <strong>vienu tīmekļa CMS sistēmu</strong> (9 lapas, 55+ API galapunkti), kas papildināta ar <strong>AI asistentu</strong> (10 rīki, RAG dokumentu meklēšana). Sistēma ietver <strong>JWT autentifikāciju</strong> ar 4 lomu RBAC pieejas kontroli, <strong>GTFS grafiku pārvaldību</strong> (23 galapunkti ar importu, eksportu un validāciju), <strong>šoferu HR pārvaldību</strong> (maiņas, licences, medicīniskās izziņas), <strong>operatīvo notikumu kalendāru</strong> ar reāllaika aptauju, <strong>reāllaika transportlīdzekļu izsekošanu</strong> uz Leaflet kartes (GTFS-RT, 10s aptauja), <strong>dokumentu zināšanu bāzi</strong> ar vektoru meklēšanu (pgvector) un <strong>SDLC drošības audita ietvaru</strong> ar automatizētām drošības pārbaudēm.</p>
 </div>
 
 <div class="container">
 
-<!-- ═══════════════════════════ PROGRESS DASHBOARD ═══════════════════════════ -->
+<!-- ═══════════════════ PROGRESS DASHBOARD ═══════════════════ -->
 <div class="progress-dashboard">
     <h3>Izstrādes Progress</h3>
 
     <div class="progress-overall">
-        <div class="progress-percent">95%</div>
+        <div class="progress-percent">96%</div>
         <div class="progress-label">
             <strong>MVP pabeigts</strong>
-            8 CMS lapas, 55+ API galapunkti, 10 AI rīki, 609 vienību testi, 81 E2E testi, JWT autentifikācija, Docker izvietošana
+            9 CMS lapas, 55+ API galapunkti, 10 AI rīki, 714 vienību testi, 81 E2E testi, JWT autentifikācija, SDLC drošības ietvars, Docker izvietošana
         </div>
     </div>
 
     <div class="progress-bar-outer">
-        <div class="progress-bar-inner" style="width: 95%;"></div>
+        <div class="progress-bar-inner" style="width: 96%;"></div>
     </div>
 
     <div class="progress-grid">
@@ -1058,7 +710,7 @@
             <div class="progress-stat-label">Scenāriji gatavi</div>
         </div>
         <div class="progress-stat">
-            <div class="progress-stat-value green">690</div>
+            <div class="progress-stat-value green">795</div>
             <div class="progress-stat-label">Testi izturēti</div>
         </div>
         <div class="progress-stat">
@@ -1074,12 +726,12 @@
             <span class="module-percent" style="color:#059669">100%</span>
         </div>
         <div class="module-row">
-            <span class="module-name">AI Aģents (10 rīki)</span>
+            <span class="module-name">AI Aģents (10 rīki, RAG, straumēšana)</span>
             <div class="module-bar-outer"><div class="module-bar-inner green" style="width:100%"></div></div>
             <span class="module-percent" style="color:#059669">100%</span>
         </div>
         <div class="module-row">
-            <span class="module-name">CMS Priekšgals (8 lapas)</span>
+            <span class="module-name">CMS Priekšgals (9 lapas, Next.js 16)</span>
             <div class="module-bar-outer"><div class="module-bar-inner green" style="width:100%"></div></div>
             <span class="module-percent" style="color:#059669">100%</span>
         </div>
@@ -1089,27 +741,32 @@
             <span class="module-percent" style="color:#059669">100%</span>
         </div>
         <div class="module-row">
-            <span class="module-name">Šoferu pārvaldība (5 galapunkti)</span>
+            <span class="module-name">SDLC Drošības Ietvars</span>
             <div class="module-bar-outer"><div class="module-bar-inner green" style="width:100%"></div></div>
             <span class="module-percent" style="color:#059669">100%</span>
         </div>
         <div class="module-row">
-            <span class="module-name">Operatīvie notikumi (5 galapunkti)</span>
+            <span class="module-name">Šoferu pārvaldība (5 galapunkti, HR)</span>
             <div class="module-bar-outer"><div class="module-bar-inner green" style="width:100%"></div></div>
             <span class="module-percent" style="color:#059669">100%</span>
         </div>
         <div class="module-row">
-            <span class="module-name">Daudzvalodība (LV/EN)</span>
+            <span class="module-name">Operatīvie notikumi (5 galapunkti, kalendārs)</span>
             <div class="module-bar-outer"><div class="module-bar-inner green" style="width:100%"></div></div>
             <span class="module-percent" style="color:#059669">100%</span>
         </div>
         <div class="module-row">
-            <span class="module-name">Infrastruktūra (Docker, nginx, Redis)</span>
+            <span class="module-name">Daudzvalodība (LV/EN, 720+ atslēgas)</span>
             <div class="module-bar-outer"><div class="module-bar-inner green" style="width:100%"></div></div>
             <span class="module-percent" style="color:#059669">100%</span>
         </div>
         <div class="module-row">
-            <span class="module-name">Reāllaika izsekošana</span>
+            <span class="module-name">Infrastruktūra (Docker, nginx, Redis 7)</span>
+            <div class="module-bar-outer"><div class="module-bar-inner green" style="width:100%"></div></div>
+            <span class="module-percent" style="color:#059669">100%</span>
+        </div>
+        <div class="module-row">
+            <span class="module-name">Reāllaika izsekošana (GTFS-RT)</span>
             <div class="module-bar-outer"><div class="module-bar-inner amber" style="width:85%"></div></div>
             <span class="module-percent" style="color:#d97706">85%</span>
         </div>
@@ -1119,10 +776,10 @@
             <span class="module-percent" style="color:#6366f1">10%</span>
         </div>
     </div>
-    <p class="updated-date">Pēdējais atjauninājums: 2026. gada 23. februāris</p>
+    <p class="updated-date">Pēdējais atjauninājums: 2026. gada 25. februāris</p>
 </div>
 
-<!-- ═══════════════════════════ ROLES ═══════════════════════════ -->
+<!-- ═══════════════════ ROLES ═══════════════════ -->
 <section class="roles-section">
     <div class="section-header" style="margin-top: 0;">
         <h2>Lietotāju Lomas</h2>
@@ -1130,33 +787,45 @@
 
     <div class="roles-grid">
         <div class="role-card">
-            <div class="role-icon admin">&#x1F6E1;</div>
+            <div class="role-icon admin">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
             <h4>Administrators</h4>
             <p class="role-who">IT personāls, sistēmas vadītāji</p>
-            <span class="role-access">Pilna piekļuve — datu pārvaldība, lietotāju vadība, GTFS imports/eksports</span>
+            <span class="role-access">Pilna piekļuve — visu datu pārvaldība, lietotāju vadība, GTFS imports/eksports, AI asistents</span>
+            <p class="role-detail">Piekļūst visām 9 CMS lapām. Vienīgā loma ar piekļuvi lietotāju pārvaldībai (kad tiks ieviesta). Var veidot, rediģēt un dzēst visus sistēmas datus, pārvaldīt maršrutus, pieturas, grafikus, šoferus, dokumentus un operatīvos notikumus. Middleware atļauj: routes, stops, schedules, drivers, gtfs, users, chat, documents.</p>
         </div>
         <div class="role-card">
-            <div class="role-icon editor">&#x270F;</div>
+            <div class="role-icon editor">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </div>
             <h4>Redaktors</h4>
             <p class="role-who">Grafiku plānotāji, maršrutu projektētāji</p>
-            <span class="role-access">Maršrutu, grafiku, pieturu un dokumentu izveide un rediģēšana</span>
+            <span class="role-access">Maršrutu, grafiku, pieturu, šoferu, dokumentu pārvaldība un GTFS datu imports/eksports</span>
+            <p class="role-detail">Nav piekļuves AI čatam un lietotāju pārvaldībai. Fokusēts uz satura un datu kvalitāti — maršrutu izveide un rediģēšana, pieturu kartēšana, grafiku plānošana, GTFS failu importēšana un eksportēšana. Middleware atļauj: routes, stops, schedules, drivers, gtfs, documents.</p>
         </div>
         <div class="role-card">
-            <div class="role-icon dispatcher">&#x1F4E1;</div>
+            <div class="role-icon dispatcher">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            </div>
             <h4>Dispečers</h4>
             <p class="role-who">Operāciju centra darbinieki</p>
-            <span class="role-access">Operatīvais pārskats, AI asistents, reāllaika izsekošana</span>
+            <span class="role-access">Operatīvais pārskats, AI asistents, reāllaika izsekošana, šoferu un pieturu pārvaldība</span>
+            <p class="role-detail">Nav piekļuves GTFS datu pārvaldībai un lietotāju vadībai. Var skatīt maršrutus (tikai lasīšana), bet pilnībā pārvaldīt pieturas, grafikus un šoferus. Var izmantot AI asistentu operatīvajiem vaicājumiem. Middleware atļauj: routes, stops, schedules, drivers, chat, documents.</p>
         </div>
         <div class="role-card">
-            <div class="role-icon viewer">&#x1F441;</div>
+            <div class="role-icon viewer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
             <h4>Skatītājs</h4>
             <p class="role-who">Auditori, ārējās ieinteresētās puses</p>
-            <span class="role-access">Tikai lasīšanas piekļuve visiem datiem</span>
+            <span class="role-access">Tikai lasīšanas piekļuve maršrutiem, pieturam, grafikiem, šoferiem un dokumentiem</span>
+            <p class="role-detail">Nav piekļuves GTFS lapai, AI čatam vai lietotāju pārvaldībai. Visas pieejamās lapas ir tikai lasīšanas režīmā — nav rediģēšanas, izveides vai dzēšanas pogu. Var lejupielādēt dokumentus. Middleware atļauj: routes, stops, schedules, drivers, documents.</p>
         </div>
     </div>
 </section>
 
-<!-- ═══════════════════════════ FLOW 1 ═══════════════════════════ -->
+<!-- ═══════════════════ FLOW 1: Dispečera Rīts ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">1</div>
     <div class="section-header-text"><h2>Rīta Maiņas Sākums — Dispečera Darba Diena</h2></div>
@@ -1173,71 +842,90 @@
         <span class="status-chip live">Dokumentu RAG</span>
     </div>
     <div class="scenario-desc">
-        Dispečers ierodas operāciju centrā plkst. 5:30 un atver VTV platformu, lai sagatavotu rīta maiņu.
+        Dispečers ierodas operāciju centrā plkst. 5:30 un atver VTV platformu, lai sagatavotu rīta maiņu. Sistēma nodrošina pilnu operatīvo ainu vienā ekrānā — no pieslēgšanās līdz lēmumu pieņemšanai.
     </div>
 
     <ol class="flow-steps">
         <li class="flow-step">
             <div class="step-dot">1</div>
             <div class="step-content">
-                <strong>JWT pieslēgšanās</strong>
-                <p>Ievada e-pastu un paroli. Sistēma izsniedz JWT piekļuves žetonu (30 min) un atjaunošanas žetonu (7 dienas). Atpazīst dispečera lomu un parāda atbilstošo saskarni latviešu valodā.</p>
+                <strong>JWT pieslēgšanās ar lomu atpazīšanu</strong>
+                <p>Ievada e-pastu un paroli pieslēgšanās formā (<code>/lv/login</code>). Sistēma autentificē pret aizmugures API (<code>POST /api/v1/auth/login</code>) un izsniedz JWT piekļuves žetonu (30 min derīgums) un atjaunošanas žetonu (7 dienas). Auth.js v5 saglabā žetonus httpOnly sīkdatnēs — JavaScript nevar piekļūt tiem tieši, kas novērš XSS uzbrukumus.</p>
+                <div class="step-tech">
+                    <strong>Tehniski:</strong> Proaktīva žetonu atjaunošana — sistēma automātiski atjauno piekļuves žetonu 5 minūtes pirms derīguma termiņa beigām (<code>POST /api/v1/auth/refresh</code>). Ja atjaunošana neizdodas, lietotājs tiek novirzīts uz pieslēgšanās lapu. Brutāla spēka aizsardzība: 5 neveiksmīgi mēģinājumi = 15 minūšu bloķēšana. Saskarnes valoda tiek automātiski noteikta no <code>locale</code> sīkdatnes (noklusējums: latviešu).
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">2</div>
             <div class="step-content">
-                <strong>Paneļa pārskats (reāli dati)</strong>
-                <p>Sākumlapā divi paneļi ar reāllaika datiem:</p>
+                <strong>Paneļa pārskats ar reāllaika metriku</strong>
+                <p>Sākumlapā (<code>/lv</code>) divi maināma izmēra paneļi (ResizablePanel — noklusējums 20%/80%):</p>
                 <ul>
-                    <li><strong>Metriku panelis</strong> — aktīvo transportlīdzekļu skaits, maršrutu statuss (aptauja ik pēc 30s no GTFS-RT)</li>
-                    <li><strong>Notikumu kalendārs</strong> — šodienas un turpmākie operatīvie notikumi: apkope, maršrutu izmaiņas, šoferu maiņas (aptauja ik pēc 60s)</li>
+                    <li><strong>Metriku panelis</strong> — 4 kartiņas ar reāllaika datiem (aptauja ik pēc 30s no GTFS-RT): aktīvo transportlīdzekļu skaits, punktualitātes procents (kavējums ≤5 min = savlaicīgs), aizkavēto maršrutu skaits, aktīvo maršrutu skaits. Katrai kartiņai ir ikona, galvenā vērtība un konteksta teksts.</li>
+                    <li><strong>Notikumu kalendārs</strong> — 4 skatu režīmi (nedēļa, mēnesis, 3 mēneši, gads) ar reāllaika laika līniju. Notikumi tiek aptaujāti ik pēc 60s trīs mēnešu logā. Katram notikumam ir prioritāte (augsta/vidēja/zema) un kategorija (apkope, maršrutu izmaiņas, šoferu maiņas, servisa brīdinājumi).</li>
                 </ul>
+                <div class="step-tech">
+                    <strong>Tehniski:</strong> Metriku aprēķini: <code>onTimePercentage = (vehicles where |delay_seconds| ≤ 300) / total × 100</code>. Aizkavētie maršruti = unikālie maršrutu ID ar <code>delay_seconds > 300</code>. Maršrutu statistika tiek ielādēta vienreiz un kešota ref mainīgajā.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">3</div>
             <div class="step-content">
-                <strong>Reāllaika karte</strong>
-                <p>Atver maršrutu lapu. Kartē redzami visi transportlīdzekļi, kas jau ir izbraukuši rīta reisā. Marķieri ir krāsoti pēc maršruta krāsas un atjaunojas ik pēc 10 sekundēm.</p>
+                <strong>Reāllaika karte ar transportlīdzekļu izsekošanu</strong>
+                <p>Atver maršrutu lapu (<code>/lv/routes</code>). Darbvirsmas izkārtojumā karte aizņem 40% no ekrāna (labajā pusē), tabula — 60% (kreisajā). Kartē redzami visi aktīvie transportlīdzekļi kā marķieri, kas ir krāsoti pēc maršruta krāsas un atjaunojas ik pēc 10 sekundēm.</p>
                 <ul>
-                    <li>Redz, ka 3. maršruta autobuss ir aizkavējies — marķieris ir tālu aiz grafika pozīcijas.</li>
-                    <li>Noklikšķina uz maršruta tabulas rindas, lai redzētu detalizētu informāciju.</li>
+                    <li>Katram marķierim ir maršruta numurs, krāsa un virziena bultiņa (bearing grādi no GTFS-RT).</li>
+                    <li>Redz, ka 3. maršruta autobuss ir aizkavējies — marķieris atrodas tālu aiz grafika pozīcijas.</li>
+                    <li>Noklikšķina uz maršruta tabulas rindas — sānu panelis (<code>Sheet</code>) parāda detalizētu informāciju: GTFS ID, īsais un garais nosaukums, transporta veids, aģentūra, krāsa, statuss, izveides un atjaunināšanas laiki.</li>
                 </ul>
+                <div class="step-tech">
+                    <strong>Tehniski:</strong> Leaflet karte centrēta uz Rīgu (56.9496, 24.1052), CARTO Voyager flīzes. Krāsu karte tiek veidota no <code>gtfs_route_id → route_color</code>, ja maršrutam nav piešķirta krāsa — deterministisks hash no nosaukuma uz 12 krāsu paleti. Transportlīdzekļu statusi: <code>IN_TRANSIT_TO → "in_transit"</code>, <code>STOPPED_AT → "stopped"</code>, <code>INCOMING_AT → "incoming"</code>.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">4</div>
             <div class="step-content">
-                <strong>AI asistenta vaicājums</strong>
-                <p>Atver čata lapu un jautā: <em>"Kāds ir 3. maršruta autobusa pašreizējais statuss?"</em></p>
+                <strong>AI asistenta vaicājums (daudzpakāpju saruna)</strong>
+                <p>Atver čata lapu (<code>/lv/chat</code>) un jautā: <em>"Kāds ir 3. maršruta autobusa pašreizējais statuss?"</em></p>
                 <ul>
-                    <li>AI asistents atbild latviski ar reāllaika datiem: transportlīdzekļa pozīciju, kavējuma apmēru, nākamo pieturu.</li>
-                    <li>Dispečers jautā tālāk: <em>"Vai ir pieejami rezerves šoferi rīta maiņai?"</em></li>
-                    <li>AI pārbauda šoferu pieejamību un atbild ar sarakstu.</li>
+                    <li>AI asistents atbild latviski ar reāllaika datiem — analizē GTFS-RT avotu, nosaka transportlīdzekļa pozīciju, kavējuma apmēru un nākamo pieturu.</li>
+                    <li>Dispečers turpina sarunu: <em>"Vai ir pieejami rezerves šoferi rīta maiņai?"</em></li>
+                    <li>AI pārbauda šoferu datubāzi (statuss "pieejams", maiņa "rīts") un atbild ar konkrētu sarakstu.</li>
+                    <li>Pilna sarunu vēsture tiek saglabāta un sūtīta ar katru pieprasījumu — AI saprot kontekstu.</li>
                 </ul>
+                <div class="step-tech">
+                    <strong>Tehniski:</strong> OpenAI saderīgs API galapunkts (<code>POST /v1/chat/completions</code>). Atbildes renderētas ar <code>react-markdown</code>. Ātruma ierobežojums: HTTP 429 tiek apstrādāts ar īpašu kļūdas paziņojumu. Pirmajā reizē redzamas 4 ieteikumu pogas (ātrs sākums jauniem lietotājiem). Kopēšanas poga katrai AI atbildei.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">5</div>
             <div class="step-content">
-                <strong>Dokumentu meklēšana</strong>
+                <strong>Dokumentu meklēšana ar RAG</strong>
                 <p>Jautā AI: <em>"Kāda ir maršruta novirzīšanas procedūra ceļa remonta laikā?"</em></p>
-                <p>AI meklē augšupielādētajos dokumentos (SOP, noteikumi) un atbild ar konkrētu procedūru un atsauci uz avota dokumentu.</p>
+                <p>AI aktivizē dokumentu meklēšanas rīku — veic vektoru meklēšanu (pgvector) augšupielādētajos dokumentos, atrod atbilstošākos gabalus un formulē atbildi ar atsauci uz avota dokumentu. Dispečers var lejupielādēt oriģinālo failu tieši no dokumentu lapas.</p>
+                <div class="step-tech">
+                    <strong>Tehniski:</strong> RAG cauruļvads: dokuments → teksta ekstrakcija → sadalīšana gabalos → OpenAI/Ollama vektoru iegulšanas → pgvector indeksēšana → kosinusu līdzības meklēšana. AI citē avota dokumentu un konkrēto gabalu.
+                </div>
             </div>
         </li>
     </ol>
 
     <div class="business-value">
-        <div class="business-value-icon">&#x1F4B0;</div>
+        <div class="business-value-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
         <div>
             <span class="label">Biznesa vērtība</span>
-            <p>Dispečers iegūst pilnu operatīvo ainu vienā ekrānā, nevis zvanot kolēģiem vai pārlūkojot vairākas sistēmas. AI asistents aizstāj manuālu datu meklēšanu.</p>
+            <p>Dispečers iegūst pilnu operatīvo ainu vienā ekrānā, nevis zvanot kolēģiem vai pārlūkojot vairākas sistēmas. AI asistents aizstāj manuālu datu meklēšanu. Dokumentu RAG nodrošina, ka procedūras ir pieejamas sekundes laikā, nevis meklējot papīra arhīvos.</p>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ FLOW 2 ═══════════════════════════ -->
+<!-- ═══════════════════ FLOW 2: Sezonas Grafiku Maiņa ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">2</div>
     <div class="section-header-text"><h2>Sezonas Grafiku Maiņa — Plānotāja Darbs</h2></div>
@@ -1249,70 +937,84 @@
         <span class="status-chip live">Kalendāru pārvaldība</span>
         <span class="status-chip live">Izņēmumi</span>
         <span class="status-chip live">Reisu CRUD</span>
+        <span class="status-chip live">Pieturlaiku pārvaldība</span>
         <span class="status-chip live">23 API galapunkti</span>
     </div>
     <div class="scenario-desc">
-        Maija sākumā plānotājs sagatavo vasaras grafiku maiņu, kas stājas spēkā 1. jūnijā. Vairākiem maršrutiem mainās reisu biežums un darba laiki.
+        Maija sākumā plānotājs (redaktora loma) sagatavo vasaras grafiku maiņu, kas stājas spēkā 1. jūnijā. Vairākiem maršrutiem mainās reisu biežums un darba laiki. Grafiku pārvaldības lapa (<code>/lv/schedules</code>) ir organizēta trīs cilnēs.
     </div>
 
     <ol class="flow-steps">
         <li class="flow-step">
             <div class="step-dot">1</div>
             <div class="step-content">
-                <strong>Esošā grafika pārskats</strong>
-                <p>Atver grafiku pārvaldības lapu, cilni "Kalendāri". Redz visus aktīvos servisa kalendārus:</p>
+                <strong>Esošā grafika pārskats (Kalendāru cilne)</strong>
+                <p>Atver grafiku pārvaldības lapu, 1. cilni "Kalendāri". Tabula ar servera puses lapošanu (20 ieraksti/lapā) rāda visus aktīvos servisa kalendārus:</p>
                 <ul>
-                    <li><code>DARBA_DIENAS</code> — Pr-Pk, 2. janvāris līdz 31. maijam</li>
+                    <li><code>DARBA_DIENAS</code> — Pr-Pk, 2. janvāris līdz 31. maijam (darba dienu badges kolonnā)</li>
                     <li><code>BRIVDIENAS</code> — Se-Sv, 2. janvāris līdz 31. maijam</li>
                     <li><code>VASARA_DARBA_DIENAS</code> — Pr-Pk, 1. jūnijs līdz 31. augustam</li>
                 </ul>
+                <p>Katra rinda rāda: servisa ID, datumu diapazonu, darba dienu badges (Pr-Sv), darbību pogas.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">2</div>
             <div class="step-content">
                 <strong>Jauna vasaras kalendāra izveide</strong>
-                <p>Noklikšķina "Izveidot kalendāru": Servisa ID <code>VASARA_2026</code>, darba dienas Pr-Pk, sākuma datums 2026-06-01, beigu datums 2026-08-31.</p>
+                <p>Noklikšķina "Izveidot kalendāru" — atveras Sheet sānu panelis ar formu: GTFS Servisa ID <code>VASARA_2026</code>, darba dienas Pr-Pk (izvēles rūtiņas katrai dienai), sākuma datums 2026-06-01, beigu datums 2026-08-31.</p>
+                <div class="step-tech">
+                    <strong>API:</strong> <code>POST /api/v1/schedules/calendars</code> ar ķermeni <code>{service_id, monday..sunday, start_date, end_date}</code>. Forma izmanto <code>formKey</code> skaitītāju, kas pieaug ar katru atvēršanu, lai React piespiestu atkārtotu renderēšanu un atiestatītu stāvokli.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">3</div>
             <div class="step-content">
                 <strong>Svētku izņēmumu pievienošana</strong>
-                <p>Pievieno izņēmumus:</p>
+                <p>Atver tikko izveidoto <code>VASARA_2026</code> kalendāru un pievieno izņēmumus:</p>
                 <ul>
-                    <li><code>2026-06-23</code> (Līgo vakars) — tips: <strong>Noņemts</strong></li>
-                    <li><code>2026-06-24</code> (Jāņi) — tips: <strong>Noņemts</strong></li>
+                    <li><code>2026-06-23</code> (Līgo vakars) — tips: <strong>Noņemts</strong> (exception_type=2)</li>
+                    <li><code>2026-06-24</code> (Jāņi) — tips: <strong>Noņemts</strong> (exception_type=2)</li>
                 </ul>
-                <p>Visi reisi, kas atsaucas uz <code>VASARA_2026</code>, automātiski izlaidīs šos datumus.</p>
+                <p>Visi reisi, kas atsaucas uz <code>VASARA_2026</code>, automātiski izlaidīs šos datumus — GTFS standarts to garantē.</p>
+                <div class="step-tech">
+                    <strong>API:</strong> <code>POST /api/v1/schedules/calendars/{id}/exceptions</code> ar <code>{date, exception_type}</code>. Izņēmumu dzēšana: <code>DELETE /api/v1/schedules/calendar-exceptions/{id}</code>.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">4</div>
             <div class="step-content">
-                <strong>Reisu pārskatīšana</strong>
-                <p>Filtrē pēc <code>VASARA_2026</code> kalendāra. Pārbauda, vai visi vasaras reisi ir pareizi piesaistīti. Noklikšķina uz konkrēta reisa, lai pārbaudītu pieturlaikus.</p>
+                <strong>Reisu pārskatīšana (Reisu cilne)</strong>
+                <p>Pārslēdzas uz 2. cilni "Reisi". Filtrē pēc <code>VASARA_2026</code> kalendāra, maršruta un virziena (turpceļš/atpakaļceļš). Tabula ar lapošanu (20/lapā) rāda: reisa ID, maršrutu (ar tipa badge), kalendāru, virzienu, galapunktu (headsign), izveides datumu.</p>
+                <p>Noklikšķina uz konkrēta reisa — Sheet panelī redzami reisa dati un pieturlaiku tabula (pieturvietu secība, ierašanās un atiešanas laiki katrai pieturai).</p>
+                <div class="step-tech">
+                    <strong>API:</strong> <code>GET /api/v1/schedules/trips?calendar_id=&route_id=&direction_id=&page=&page_size=</code>. Detaļas: <code>GET /api/v1/schedules/trips/{id}</code> atgriež TripDetail ar <code>stop_times[]</code> masīvu. Pieturlaiku masveida aizstāšana: <code>PUT /api/v1/schedules/trips/{id}/stop-times</code>.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">5</div>
             <div class="step-content">
                 <strong>Vecā kalendāra noslēgšana</strong>
-                <p>Atver <code>DARBA_DIENAS</code> kalendāru un maina beigu datumu uz 2026-05-31, lai automātiski apstājas pirms vasaras grafika sākuma.</p>
+                <p>Atver <code>DARBA_DIENAS</code> kalendāru un maina beigu datumu uz 2026-05-31, lai automātiski apstājas pirms vasaras grafika sākuma. Nav nepieciešams rediģēt nevienu reisu atsevišķi — datumu diapazons kontrolē visu.</p>
             </div>
         </li>
     </ol>
 
     <div class="business-value">
-        <div class="business-value-icon">&#x1F4B0;</div>
+        <div class="business-value-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
         <div>
             <span class="label">Biznesa vērtība</span>
-            <p>Sezonas maiņa, kas iepriekš aizņēma nedēļu manuāla darba ar CSV failiem, tagad ir paveicama dažu stundu laikā ar pilnu audita pierakstu par izmaiņām.</p>
+            <p>Sezonas maiņa, kas iepriekš aizņēma nedēļu manuāla darba ar CSV failiem un GTFS rīkiem, tagad ir paveicama dažu stundu laikā ar pilnu audita pierakstu. Kalendāra izņēmumu sistēma ļauj pārvaldīt simtiem reisu ar dažiem klikšķiem.</p>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ FLOW 3 ═══════════════════════════ -->
+<!-- ═══════════════════ FLOW 3: Svētku Diena ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">3</div>
     <div class="section-header-text"><h2>Svētku Dienas Pārvaldība — Izņēmumu Scenārijs</h2></div>
@@ -1326,7 +1028,7 @@
         <span class="status-chip live">Datumu filtrēšana</span>
     </div>
     <div class="scenario-desc">
-        18. novembris (Latvijas Proklamēšanas diena) iekrīt trešdienā. Plānotājam jānodrošina, ka darba dienu serviss nedarbojas, bet svētku serviss ir aktīvs.
+        18. novembris (Latvijas Proklamēšanas diena) iekrīt trešdienā. Plānotājam jānodrošina, ka darba dienu serviss nedarbojas, bet svētku serviss ir aktīvs. GTFS standarts atbalsta divus izņēmumu tipus: <code>exception_type=1</code> (pievienots — serviss darbojas šajā datumā) un <code>exception_type=2</code> (noņemts — serviss nedarbojas šajā datumā).
     </div>
 
     <ol class="flow-steps">
@@ -1334,49 +1036,51 @@
             <div class="step-dot">1</div>
             <div class="step-content">
                 <strong>Darba dienu kalendāra atvēršana</strong>
-                <p>Atver <code>DARBA_DIENAS</code> kalendāru grafiku pārvaldībā.</p>
+                <p>Atver <code>DARBA_DIENAS</code> kalendāru grafiku pārvaldībā. Detaļu Sheet panelī redzams: servisa ID, darba dienas (Pr-Pk ar badges), datumu diapazons un esošie izņēmumi.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">2</div>
             <div class="step-content">
-                <strong>Izņēmuma pievienošana</strong>
-                <p>Pievieno izņēmumu: datums <code>2026-11-18</code>, tips: <strong>Noņemts</strong>. Visi darba dienu reisi automātiski izlaiž šo dienu.</p>
+                <strong>Izņēmuma pievienošana — servisa noņemšana</strong>
+                <p>Pievieno izņēmumu: datums <code>2026-11-18</code>, tips: <strong>Noņemts</strong> (<code>exception_type=2</code>). Visi darba dienu reisi automātiski izlaiž šo dienu — nav jārediģē neviens reiss atsevišķi.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">3</div>
             <div class="step-content">
                 <strong>Svētku kalendāra atvēršana</strong>
-                <p>Atver <code>SVETKI</code> kalendāru.</p>
+                <p>Atver <code>SVETKI</code> kalendāru — tas parasti ir neaktīvs (visas dienas = false), bet tiek aktivizēts caur izņēmumiem konkrētos datumos.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">4</div>
             <div class="step-content">
-                <strong>Servisa pievienošana</strong>
-                <p>Pievieno izņēmumu: datums <code>2026-11-18</code>, tips: <strong>Pievienots</strong>. Svētku grafika reisi darbojas 18. novembrī.</p>
+                <strong>Servisa pievienošana svētku datumam</strong>
+                <p>Pievieno izņēmumu: datums <code>2026-11-18</code>, tips: <strong>Pievienots</strong> (<code>exception_type=1</code>). Svētku grafika reisi (retāks intervāls, citi laiki) darbojas 18. novembrī.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">5</div>
             <div class="step-content">
-                <strong>Pārbaude</strong>
-                <p>Filtrē reisus pēc datuma un pārliecinās, ka darba dienu reisi nav redzami 18. novembrim, bet svētku reisi ir aktīvi šajā datumā.</p>
+                <strong>Pārbaude un validācija</strong>
+                <p>Cilnē "Reisi" filtrē pēc datuma un pārliecinās, ka darba dienu reisi nav redzami 18. novembrim, bet svētku reisi ir aktīvi. Cilnē "Imports un validācija" palaiž validāciju, lai pārbaudītu, ka nav konfliktu vai trūkstošu atsauču.</p>
             </div>
         </li>
     </ol>
 
     <div class="business-value">
-        <div class="business-value-icon">&#x1F4B0;</div>
+        <div class="business-value-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
         <div>
             <span class="label">Biznesa vērtība</span>
-            <p>Viena svētku diena ietekmē simtiem reisu. Bez šīs sistēmas plānotājam būtu jārediģē katrs reiss atsevišķi. Ar kalendāra izņēmumiem — divas darbības, un viss ir pārvaldīts.</p>
+            <p>Viena svētku diena ietekmē simtiem reisu. Bez šīs sistēmas plānotājam būtu jārediģē katrs reiss atsevišķi. Ar kalendāra izņēmumiem — divas darbības, un viss ir pārvaldīts. Sistēma automātiski nodrošina GTFS atbilstību.</p>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ FLOW 4 ═══════════════════════════ -->
+<!-- ═══════════════════ FLOW 4: Jauns Maršruts ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">4</div>
     <div class="section-header-text"><h2>Jauna Maršruta Izveide — No Nulles Līdz Darbībai</h2></div>
@@ -1386,136 +1090,200 @@
 <div class="scenario-card">
     <div class="status-detail">
         <span class="status-chip live">Maršruta CRUD</span>
-        <span class="status-chip live">Pieturu karte</span>
+        <span class="status-chip live">Pieturu karte (click-to-place)</span>
         <span class="status-chip live">Grafiku piesaiste</span>
+        <span class="status-chip live">Reisu izveide</span>
         <span class="status-chip live">GTFS eksports</span>
     </div>
     <div class="scenario-desc">
-        Rīgas Satiksme atver jaunu autobusu maršrutu uz jaunbūvju rajonu. Redaktoram jāizveido maršruts, pieturas un grafiks sistēmā.
+        Rīgas Satiksme atver jaunu autobusu maršrutu uz jaunbūvju rajonu. Redaktoram jāizveido maršruts, pieturas un grafiks sistēmā — pilns cikls no kartes līdz GTFS eksportam.
     </div>
 
     <ol class="flow-steps">
         <li class="flow-step">
             <div class="step-dot">1</div>
             <div class="step-content">
-                <strong>Maršruta izveide</strong>
-                <p>Atver maršrutu lapu, noklikšķina "Izveidot maršrutu": Īsais nosaukums <code>99</code>, nosaukums "Centrs - Mežaparks - Jauncienā", transporta veids: Autobuss, krāsa: <span style="color:#FF6B35; font-weight:700;">#FF6B35</span>, aģentūra: Rīgas Satiksme.</p>
+                <strong>Maršruta izveide ar krāsas izvēli</strong>
+                <p>Atver maršrutu lapu (<code>/lv/routes</code>), noklikšķina "Izveidot maršrutu" — atveras Sheet sānu panelis ar formu:</p>
+                <ul>
+                    <li>GTFS maršruta ID (unikāls identifikators)</li>
+                    <li>Īsais nosaukums: <code>99</code></li>
+                    <li>Garais nosaukums: "Centrs - Mežaparks - Jauncienā"</li>
+                    <li>Transporta veids: Autobuss (route_type = 3)</li>
+                    <li>Krāsa: <span style="color:#FF6B35; font-weight:700;">#FF6B35</span> (HEX krāsu izvēlētājs)</li>
+                    <li>Teksta krāsa: <span style="font-weight:700;">#FFFFFF</span></li>
+                    <li>Aģentūra: Rīgas Satiksme (izvēle no API ielādētā saraksta)</li>
+                    <li>Kārtošanas secība</li>
+                </ul>
+                <div class="step-tech">
+                    <strong>API:</strong> <code>POST /api/v1/schedules/routes</code>. Aizmugure saglabā krāsas bez <code>#</code> prefiksa (GTFS standarts); priekšgals konvertē ar <code>toHexColor()</code> / <code>fromHexColor()</code> utilītām.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">2</div>
             <div class="step-content">
-                <strong>Pieturu izveide</strong>
-                <p>Pāriet uz pieturu lapu. Atver karti un noklikšķina uz kartes, lai novietotu jauno pieturu. Ievada nosaukumu, GTFS ID, ratiņkrēslu pieejamību. Atkārto katrai pieturai maršrutā (~15 pieturas).</p>
+                <strong>Pieturu izveide ar kartes klikšķi (click-to-place)</strong>
+                <p>Pāriet uz pieturu lapu (<code>/lv/stops</code>). Noklikšķina "Izveidot pieturu" — karte pāriet <strong>novietošanas režīmā</strong> (kursors mainās uz krustiņu). Noklikšķina uz kartes — formas lauki automātiski aizpildās ar koordinātām.</p>
+                <ul>
+                    <li>Ievada nosaukumu "Skanstes iela", GTFS ID <code>skanstes_01</code>, aprakstu, ratiņkrēslu pieejamību.</li>
+                    <li>Ja pozīcija nav precīza — <strong>velk marķieri</strong> uz pareizo vietu (pulsējošs zils marķieris ar divvirzienu sinhronizāciju starp karti un formu).</li>
+                    <li>Atkārto katrai pieturai maršrutā (~15 pieturas).</li>
+                </ul>
+                <div class="step-tech">
+                    <strong>Tehniski:</strong> Karte izmanto <code>CircleMarker</code> (SVG) 1600+ esošajām pieturam, lai novērstu DOM pārslodzi. Tikai rediģēšanas marķieris izmanto pilnu <code>L.Marker</code> (velkami). Gala pieturas iezīmētas zaļā krāsā (<code>GET /api/v1/stops/terminals</code>). Kartes un formas koordinātas sinhronizējas abos virzienos reāllaikā.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">3</div>
             <div class="step-content">
                 <strong>Kalendāra piesaiste</strong>
-                <p>Atver grafiku pārvaldību. Izveido jaunu kalendāru <code>MARSRUTS_99</code> vai piesaista esošo <code>DARBA_DIENAS</code>.</p>
+                <p>Atver grafiku pārvaldību (<code>/lv/schedules</code>). Izveido jaunu kalendāru <code>MARSRUTS_99</code> vai piesaista esošo <code>DARBA_DIENAS</code> — atkarībā no tā, vai maršrutam ir unikāls grafiks.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">4</div>
             <div class="step-content">
-                <strong>Reisu izveide</strong>
-                <p>Cilnē "Reisi" izveido katru reisu: Maršruts 99, kalendārs <code>DARBA_DIENAS</code>, virziens turpceļš/atpakaļceļš. Pieturlaiki tiek pievienoti caur GTFS importu vai manuāli.</p>
+                <strong>Reisu izveide ar pieturlaiku definēšanu</strong>
+                <p>Cilnē "Reisi" izveido katru reisu: maršruts 99, kalendārs <code>DARBA_DIENAS</code>, virziens 0 (turpceļš) vai 1 (atpakaļceļš), galapunkts (headsign). Pēc reisa izveides — pievieno pieturlaikus (pieturvietu secība, ierašanās un atiešanas laiki) vai importē tos caur GTFS.</p>
+                <div class="step-tech">
+                    <strong>API:</strong> Reisa izveide: <code>POST /api/v1/schedules/trips</code>. Pieturlaiku masveida aizstāšana: <code>PUT /api/v1/schedules/trips/{id}/stop-times</code> ar <code>[{stop_id, stop_sequence, arrival_time, departure_time}]</code> masīvu.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">5</div>
             <div class="step-content">
-                <strong>GTFS eksports</strong>
-                <p>Kad viss ir gatavs, eksportē GTFS ZIP failu integrācijai ar Google Maps un citām pasažieru informācijas sistēmām.</p>
+                <strong>GTFS eksports integrācijai</strong>
+                <p>Atver GTFS lapu (<code>/lv/gtfs</code>), cilni "Eksports". Izvēlas aģentūru (vai visas) un lejupielādē GTFS ZIP failu. Fails satur 7 GTFS failus: <code>agency.txt</code>, <code>routes.txt</code>, <code>calendar.txt</code>, <code>calendar_dates.txt</code>, <code>trips.txt</code>, <code>stop_times.txt</code>, <code>stops.txt</code>. Gatavs integrācijai ar Google Maps, Apple Maps un ES pasažieru informācijas sistēmām.</p>
+                <div class="step-tech">
+                    <strong>API:</strong> <code>GET /api/v1/schedules/export?agency_id=</code> → ZIP blob ar <code>Content-Disposition</code> galveni, no kuras priekšgals nolasa faila nosaukumu.
+                </div>
             </div>
         </li>
     </ol>
 
     <div class="business-value">
-        <div class="business-value-icon">&#x1F4B0;</div>
+        <div class="business-value-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
         <div>
             <span class="label">Biznesa vērtība</span>
-            <p>Jauna maršruta izveide no nulles — ar pieturu kartēšanu, grafiku un reisu plānošanu — ir pilnībā paveicama platformā bez ārējiem rīkiem.</p>
+            <p>Jauna maršruta izveide no nulles — ar pieturu kartēšanu (click-to-place), grafiku un reisu plānošanu — ir pilnībā paveicama platformā bez ārējiem rīkiem. Vizuālā kartēšana novērš koordinātu kļūdas, ko izklājlapas slēpj.</p>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ FLOW 5 ═══════════════════════════ -->
+<!-- ═══════════════════ FLOW 5: GTFS Imports ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">5</div>
-    <div class="section-header-text"><h2>GTFS Datu Atjaunināšana — Regulārais Imports</h2></div>
+    <div class="section-header-text"><h2>GTFS Datu Pārvaldība — Imports, Eksports, Uzraudzība</h2></div>
     <span class="status-badge done">Gatavs</span>
 </div>
 
 <div class="scenario-card">
     <div class="status-detail">
-        <span class="status-chip live">ZIP parsēšana</span>
-        <span class="status-chip live">7 GTFS faili</span>
-        <span class="status-chip live">Merge/upsert</span>
+        <span class="status-chip live">3 cilnes (Pārskats/Imports/Eksports)</span>
+        <span class="status-chip live">ZIP parsēšana (7 GTFS faili)</span>
+        <span class="status-chip live">Merge/upsert stratēģija</span>
         <span class="status-chip live">Validācija</span>
+        <span class="status-chip live">GTFS-RT avotu uzraudzība</span>
+        <span class="status-chip live">Statistikas panelis</span>
     </div>
     <div class="scenario-desc">
-        Rīgas Satiksme katru nedēļu publicē atjauninātu GTFS datu kopu. Administratoram jāimportē jaunākie dati, nesabojājot esošos pielāgojumus.
+        Rīgas Satiksme katru nedēļu publicē atjauninātu GTFS datu kopu. Administratoram (vai redaktoram) jāimportē jaunākie dati, jāuzrauga sistēmas stāvoklis un jāeksportē GTFS dati integrācijai. GTFS pārvaldības lapa (<code>/lv/gtfs</code>) ir pieejama tikai administratoriem un redaktoriem (middleware ierobežojums).
     </div>
 
+    <h3>Cilne 1: Datu pārskats</h3>
     <ol class="flow-steps">
         <li class="flow-step">
             <div class="step-dot">1</div>
             <div class="step-content">
-                <strong>Datu lejupielāde</strong>
-                <p>GTFS ZIP fails ir pieejams Rīgas Satiksmes atvērtajos datos.</p>
+                <strong>Statistikas panelis (5 paralēli API izsaukumi)</strong>
+                <p>Pārskata cilne rāda 5 statistikas kartiņas režģī (2→3→5 kolonnas atkarībā no ekrāna platuma):</p>
+                <ul>
+                    <li><strong>Aģentūras</strong> — kopējais skaits no <code>GET /api/v1/schedules/agencies</code></li>
+                    <li><strong>Maršruti</strong> — kopējais skaits no <code>GET /api/v1/schedules/routes?page_size=1</code> (lasa tikai <code>total</code>)</li>
+                    <li><strong>Kalendāri</strong> — servisa kalendāru skaits</li>
+                    <li><strong>Reisi</strong> — kopējais reisu skaits</li>
+                    <li><strong>Pieturas</strong> — kopējais pieturu skaits</li>
+                </ul>
+                <p>Katrai kartiņai ir ikona, skaitliskā vērtība un apraksta teksts. Kļūdu gadījumā kartiņa rāda "—" ar kļūdas paziņojumu.</p>
+                <div class="step-tech">
+                    <strong>Tehniski:</strong> 5 API izsaukumi tiek izpildīti paralēli ar <code>Promise.allSettled</code> — ja viens neizdodas, pārējie turpina darboties. Atjaunošanas poga atkārtoti ielādē visus datus.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">2</div>
             <div class="step-content">
-                <strong>Importa cilne</strong>
-                <p>Atver grafiku pārvaldībā cilni "Imports un validācija".</p>
+                <strong>GTFS-RT avotu uzraudzība</strong>
+                <p>Zem statistikas kartiņām redzama sadaļa ar konfigurētajiem GTFS-RT datu avotiem no <code>GET /api/v1/transit/feeds</code>. Katra avota kartiņa rāda: operatora nosaukumu, avota ID, aptaujas intervālu un ieslēgts/izslēgts statusu (ar krāsu badge). Šī sadaļa ļauj uzraudzīt, vai reāllaika datu avoti darbojas pareizi.</p>
             </div>
         </li>
+    </ol>
+
+    <h3>Cilne 2: Imports un validācija</h3>
+    <ol class="flow-steps">
         <li class="flow-step">
             <div class="step-dot">3</div>
             <div class="step-content">
-                <strong>Faila augšupielāde</strong>
-                <p>Velk un nomet GTFS ZIP failu augšupielādes zonā. Sistēma parsē 7 standarta GTFS failus:</p>
-                <ul>
-                    <li><code>agency.txt</code> — transporta aģentūras</li>
-                    <li><code>routes.txt</code> — maršruti</li>
-                    <li><code>stops.txt</code> — pieturas</li>
-                    <li><code>calendar.txt</code> — servisa kalendāri</li>
-                    <li><code>calendar_dates.txt</code> — kalendāra izņēmumi</li>
-                    <li><code>trips.txt</code> — reisi</li>
-                    <li><code>stop_times.txt</code> — pieturlaiki</li>
-                </ul>
+                <strong>GTFS ZIP faila augšupielāde</strong>
+                <p>Velk un nomet GTFS ZIP failu augšupielādes zonā (react-dropzone, maks. 100 MB). Sistēma parsē 7 standarta GTFS failus: <code>agency.txt</code>, <code>routes.txt</code>, <code>stops.txt</code>, <code>calendar.txt</code>, <code>calendar_dates.txt</code>, <code>trips.txt</code>, <code>stop_times.txt</code>.</p>
+                <p>Augšupielādes laikā redzama progresa josla. Sistēma izmanto <strong>merge/upsert</strong> stratēģiju — esošie manuālie pielāgojumi netiek pārrakstīti.</p>
+                <div class="step-tech">
+                    <strong>API:</strong> <code>POST /api/v1/schedules/import</code> (multipart/form-data). Atbildē: katram GTFS failam — <code>created</code> un <code>updated</code> skaiti, kā arī <code>warnings[]</code> masīvs ar brīdinājumiem par potenciālām problēmām.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">4</div>
             <div class="step-content">
-                <strong>Importa rezultāti</strong>
-                <p>Sistēma ziņo: cik ierakstu izveidoti, atjaunināti, izlaisti un kļūdas. Izmanto apvienošanas/upsert stratēģiju — esošie manuālie pielāgojumi netiek pārrakstīti.</p>
+                <strong>Importa rezultātu pārskats</strong>
+                <p>Pēc importa sistēma rāda detalizētu sadalījumu: cik aģentūru, maršrutu, kalendāru, kalendāra datumu, reisu un pieturlaiku tika izveidoti vai atjaunināti. Brīdinājumi tiek parādīti atsevišķā sarakstā (piemēram, dublikāti, trūkstošas atsauces).</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">5</div>
             <div class="step-content">
-                <strong>Validācija</strong>
-                <p>Palaiž validācijas pārbaudi, lai atklātu problēmas: trūkstošas atsauces, nederīgi datumu diapazoni, bāreņu pieturlaiki.</p>
+                <strong>Datu validācija</strong>
+                <p>Palaiž validācijas pārbaudi (<code>POST /api/v1/schedules/validate</code>), kas analizē importētos datus un ziņo par:</p>
+                <ul>
+                    <li><strong>Kļūdas</strong> — trūkstošas atsauces (reiss atsaucas uz neesošu maršrutu), nederīgi datumu diapazoni</li>
+                    <li><strong>Brīdinājumi</strong> — bāreņu pieturlaiki, kalendāri bez reisiem, neizmantotās pieturas</li>
+                </ul>
+                <p>Rezultāts: derīgs/nederīgs statuss ar kļūdu un brīdinājumu sarakstiem.</p>
+            </div>
+        </li>
+    </ol>
+
+    <h3>Cilne 3: Eksports</h3>
+    <ol class="flow-steps">
+        <li class="flow-step">
+            <div class="step-dot">6</div>
+            <div class="step-content">
+                <strong>GTFS ZIP eksports ar aģentūras filtru</strong>
+                <p>Izvēlas aģentūru no nolaižamā saraksta (vai "Visas aģentūras") un noklikšķina "Lejupielādēt GTFS ZIP". Sistēma ģenerē standarta GTFS ZIP failu ar visiem 7 obligātajiem failiem, kas ir gatavs augšupielādei Google Transit, Apple Maps vai citā GTFS patērētāja sistēmā.</p>
+                <div class="step-tech">
+                    <strong>API:</strong> <code>GET /api/v1/schedules/export?agency_id=</code> → ZIP blob. Faila nosaukums tiek nolasīts no <code>Content-Disposition</code> HTTP galvenes; ja galvene nav pieejama, tiek izmantots noklusējuma nosaukums ar laika zīmogu.
+                </div>
             </div>
         </li>
     </ol>
 
     <div class="business-value">
-        <div class="business-value-icon">&#x1F4B0;</div>
+        <div class="business-value-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
         <div>
             <span class="label">Biznesa vērtība</span>
-            <p>GTFS atbilstība ir obligāta integrācijai ar Google Maps, Apple Maps un ES pasažieru informācijas sistēmām. Regulārs imports nodrošina, ka dati ir aktuāli ar minimālu manuālo darbu.</p>
+            <p>GTFS atbilstība ir obligāta integrācijai ar Google Maps, Apple Maps un ES pasažieru informācijas sistēmām. Regulārs imports ar merge/upsert stratēģiju nodrošina, ka dati ir aktuāli ar minimālu manuālo darbu, saglabājot lokālos pielāgojumus. Validācija novērš kļūdu publicēšanu.</p>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ FLOW 6 ═══════════════════════════ -->
+<!-- ═══════════════════ FLOW 6: Reāllaika Uzraudzība ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">6</div>
     <div class="section-header-text"><h2>Reāllaika Operatīvā Uzraudzība</h2></div>
@@ -1524,66 +1292,81 @@
 
 <div class="scenario-card">
     <div class="status-detail">
-        <span class="status-chip live">GTFS-RT karte</span>
+        <span class="status-chip live">GTFS-RT karte (Leaflet)</span>
         <span class="status-chip live">10s HTTP polling</span>
-        <span class="status-chip live">Maršrutu krāsas</span>
+        <span class="status-chip live">Maršrutu krāsas + bearing</span>
+        <span class="status-chip live">Transporta veida filtrs</span>
         <span class="status-chip live">AI vaicājumi</span>
+        <span class="status-chip live">Redis 7 kešatmiņa</span>
         <span class="status-chip wip">WebSocket (plānots)</span>
-        <span class="status-chip wip">Kavējumu brīdinājumi</span>
+        <span class="status-chip wip">Push brīdinājumi</span>
     </div>
     <div class="scenario-desc">
-        Dispečers uzrauga rīta sastrēgumstundu. Vairāki autobusi ir aizkavējušies satiksmes sastrēguma dēļ Brīvības ielā.
+        Dispečers uzrauga rīta sastrēgumstundu. Vairāki autobusi ir aizkavējušies satiksmes sastrēguma dēļ Brīvības ielā. Reāllaika izsekošanas sistēma aptaujā GTFS-RT avotus un kešo rezultātus Redis 7 datubāzē.
     </div>
 
     <ol class="flow-steps">
         <li class="flow-step">
             <div class="step-dot">1</div>
             <div class="step-content">
-                <strong>Kartes pārskats</strong>
-                <p>Maršrutu lapā karte rāda visus aktīvos transportlīdzekļus reāllaikā. Marķieri krāsoti pēc maršruta un atjaunojas ik pēc 10 sekundēm.</p>
+                <strong>Interaktīvā kartes pārskata</strong>
+                <p>Maršrutu lapā karte rāda visus aktīvos transportlīdzekļus reāllaikā. Katrs marķieris satur: maršruta numuru, krāsu (no maršruta datiem) un virziena bultiņu (bearing grādi no GTFS-RT). Marķieri atjaunojas ik pēc 10 sekundēm (<code>useVehiclePositions</code> hook ar noklusējuma 10 000 ms intervālu).</p>
+                <div class="step-tech">
+                    <strong>Tehniski:</strong> <code>GET /api/v1/transit/vehicles</code> aptauja → Redis kešatmiņa → GTFS-RT Protobuf dekodēšana. Katra transportlīdzekļa pozīcija ietver: <code>latitude</code>, <code>longitude</code>, <code>bearing</code>, <code>speed</code>, <code>delay_seconds</code>, <code>current_status</code>, <code>route_id</code>, <code>trip_id</code>. Krāsu kartēšana: <code>gtfs_route_id → route_color</code> no maršrutu datiem; ja krāsa nav definēta — deterministisks hash no <code>route_short_name</code> uz 12 krāsu paleti.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">2</div>
             <div class="step-content">
-                <strong>Kavējumu identificēšana</strong>
-                <p>Dispečers pamana, ka 18. trolejbusa marķieri ir sastrēgumā Brīvības ielas posmā — vairāki transportlīdzekļi atrodas tuvu viens otram.</p>
+                <strong>Filtrēšana pēc transporta veida</strong>
+                <p>Sānu panelis (darbvirsmā) vai Sheet pārklājums (mobilajā) ļauj filtrēt pēc transporta veida (autobuss, trolejbuss, tramvajs), statusa (aktīvs/neaktīvs) un meklēt pēc nosaukuma vai numura (ar 300 ms debounce). Karte automātiski filtrē transportlīdzekļus atbilstoši izvēlētajam veidam.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">3</div>
             <div class="step-content">
-                <strong>Detaļu pārbaude</strong>
-                <p>Noklikšķina uz maršruta tabulā, lai redzētu reisu skaitu, kalendāra piederību, galapunktus un virzienus.</p>
+                <strong>Kavējumu identificēšana kartē</strong>
+                <p>Dispečers pamana, ka 18. trolejbusa marķieri ir sastrēgumā Brīvības ielas posmā — vairāki transportlīdzekļi atrodas tuvu viens otram. Noklikšķina uz maršruta tabulas rindas — detaļu Sheet panelī redzams GTFS maršruta ID, aģentūra, krāsas, reisu skaits un statuss.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">4</div>
             <div class="step-content">
-                <strong>AI vaicājums</strong>
+                <strong>AI vaicājums par kavējumu analīzi</strong>
                 <p>Čatā jautā: <em>"Cik lielā mērā 18. trolejbuss šodien kavējas?"</em></p>
-                <p>AI analizē GTFS-RT datus un atbild: vidējais kavējums, visvairāk ietekmētie reisi, salīdzinājums ar parasto darbību.</p>
+                <p>AI analizē GTFS-RT datus: vidējais kavējums, visvairāk ietekmētie reisi, salīdzinājums ar parasto darbību. Atbilde tiek formatēta ar <code>react-markdown</code> — ietver sarakstus, treknrakstu un koda blokus.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">5</div>
             <div class="step-content">
-                <strong>Lēmuma pieņemšana</strong>
-                <p>Balstoties uz datiem, dispečers pieņem lēmumu — izsauc papildu transportlīdzekli no depo vai gaida situācijas uzlabošanos.</p>
+                <strong>Operatīvā lēmuma pieņemšana</strong>
+                <p>Balstoties uz datiem, dispečers pieņem lēmumu — izsauc papildu transportlīdzekli no depo vai gaida situācijas uzlabošanos. Lēmums tiek dokumentēts kā operatīvais notikums (kalendāra panelī).</p>
             </div>
         </li>
     </ol>
 
+    <div class="info-box info">
+        <div class="info-box-icon">&#x2139;&#xFE0F;</div>
+        <div>
+            <span class="label">Nākamie uzlabojumi</span>
+            <p>1. fāzē plānots aizstāt HTTP polling ar <strong>WebSocket straumēšanu</strong> (zemāka latentuma, mazāks servera noslodze). Plānots arī ieviest automātiskus <strong>push brīdinājumus</strong>, kad kavējums pārsniedz noteiktu slieksni.</p>
+        </div>
+    </div>
+
     <div class="business-value">
-        <div class="business-value-icon">&#x1F4B0;</div>
+        <div class="business-value-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
         <div>
             <span class="label">Biznesa vērtība</span>
-            <p>Dispečers redz visa tīkla stāvokli vienā skatā, nevis zvana katram šoferim. Kavējumi ir redzami acumirklī, nevis pēc pasažieru sūdzībām.</p>
+            <p>Dispečers redz visa tīkla stāvokli vienā skatā, nevis zvana katram šoferim. Kavējumi ir redzami acumirklī, nevis pēc pasažieru sūdzībām. Redis kešatmiņa nodrošina ātrus datu pieprasījumus pat pie lielas noslodzes.</p>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ FLOW 7 ═══════════════════════════ -->
+<!-- ═══════════════════ FLOW 7: Dokumenti un RAG ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">7</div>
     <div class="section-header-text"><h2>Dokumentu un Zināšanu Pārvaldība</h2></div>
@@ -1592,262 +1375,322 @@
 
 <div class="scenario-card">
     <div class="status-detail">
-        <span class="status-chip live">PDF/DOCX/Excel/CSV</span>
-        <span class="status-chip live">RAG + pgvector</span>
-        <span class="status-chip live">AI citēšana</span>
-        <span class="status-chip live">Lejupielāde</span>
-        <span class="status-chip wip">OCR, auto-tagi (nākamais)</span>
+        <span class="status-chip live">PDF/DOCX/Excel/CSV/attēli</span>
+        <span class="status-chip live">RAG cauruļvads + pgvector</span>
+        <span class="status-chip live">AI citēšana no avotiem</span>
+        <span class="status-chip live">Domēnu pārvaldība</span>
+        <span class="status-chip live">Gabalu priekšskatījums</span>
+        <span class="status-chip live">Failu lejupielāde</span>
     </div>
     <div class="scenario-desc">
-        Jauns noteikums par minimālo reisu intervālu stājas spēkā. Administratoram jāaugšupielādē dokuments un jānodrošina, ka tas ir pieejams visiem darbiniekiem.
+        Jauns noteikums par minimālo reisu intervālu stājas spēkā. Administratoram jāaugšupielādē dokuments un jānodrošina, ka tas ir pieejams visiem darbiniekiem caur AI asistentu un tiešo meklēšanu. Dokumentu lapa (<code>/lv/documents</code>) ir pieejama visām lomām (skatīšanai), bet augšupielāde un dzēšana — tikai administratoriem un redaktoriem.
     </div>
 
     <ol class="flow-steps">
         <li class="flow-step">
             <div class="step-dot">1</div>
             <div class="step-content">
-                <strong>Dokumenta augšupielāde</strong>
-                <p>Atver dokumentu lapu, izvēlas failu, ievada nosaukumu "Minimālā reisu intervāla noteikums 2026", aprakstu, valodu un domēnu.</p>
+                <strong>Dokumenta augšupielāde ar react-dropzone</strong>
+                <p>Atver dokumentu lapu, noklikšķina "Augšupielādēt" — atveras Sheet panelis ar dropzone zonu. Velk un nomet failu vai noklikšķina, lai izvēlētos. Atbalstītie formāti: PDF, DOCX, XLSX, CSV, TXT, attēli (maks. 50 MB). Ievada:</p>
+                <ul>
+                    <li><strong>Nosaukums</strong> (neobligāts) — "Minimālā reisu intervāla noteikums 2026"</li>
+                    <li><strong>Apraksts</strong> (neobligāts) — konteksts par dokumentu</li>
+                    <li><strong>Domēns</strong> — izvēle no API ielādētā saraksta vai jauna domēna ievade</li>
+                    <li><strong>Valoda</strong> — LV vai EN</li>
+                </ul>
+                <div class="step-tech">
+                    <strong>API:</strong> <code>POST /api/v1/knowledge/documents</code> (multipart/form-data: <code>file</code>, <code>domain</code>, <code>language</code>, <code>title?</code>, <code>description?</code>). Failu nosaukumi tiek sanitizēti servera pusē, ceļu pārmeklēšana (<code>../</code>) tiek novērsta.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">2</div>
             <div class="step-content">
-                <strong>Automātiska apstrāde</strong>
-                <p>Sistēma automātiski izvilina tekstu no PDF, sadala gabalos AI meklēšanai un izveido vektoru iegulšanas meklēšanas indeksam.</p>
+                <strong>Automātiskā RAG apstrādes cauruļvads</strong>
+                <p>Pēc augšupielādes sistēma automātiski izpilda 4 soļu cauruļvadu:</p>
+                <ul>
+                    <li><strong>Teksta ekstrakcija</strong> — PDF/DOCX/Excel/CSV saturs tiek pārvērsts vienkāršā tekstā</li>
+                    <li><strong>Sadalīšana gabalos</strong> — teksts tiek sadalīts semantiski nozīmīgos gabalos (chunks) AI meklēšanai</li>
+                    <li><strong>Vektoru iegulšanas</strong> — katrs gabals tiek pārvērsts skaitliskā vektorā ar OpenAI vai Ollama iegulšanas modeli</li>
+                    <li><strong>pgvector indeksēšana</strong> — vektori tiek saglabāti PostgreSQL pgvector paplašinājumā kosinusu līdzības meklēšanai</li>
+                </ul>
+                <p>Statuss mainās: "Gaida" → "Apstrāde" → "Pabeigts" (vai "Kļūda"). Progresa indikators redzams tabulā.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">3</div>
             <div class="step-content">
-                <strong>Dokumenta pārskats</strong>
-                <p>Pēc apstrādes: Statuss "Apstrādāts", gabalu skaits: 47, satura priekšskatījums ar izvērsāmām sadaļām.</p>
+                <strong>Dokumenta detaļu pārskats</strong>
+                <p>Noklikšķinot uz dokumenta — Sheet panelī redzami: faila nosaukums, tips, izmērs, gabalu skaits (piemēram, 47 gabali), domēns, valoda, augšupielādes un atjaunināšanas laiki, apraksts. Zem metadatiem — <strong>satura priekšskatījums</strong> ar izvērsāmām gabalu sadaļām (<code>GET /api/v1/knowledge/documents/{id}/content</code>).</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">4</div>
             <div class="step-content">
-                <strong>AI meklēšana darbībā</strong>
-                <p>Jebkurš darbinieks tagad čatā var jautāt: <em>"Kāds ir minimālais reisu intervāls 3. maršrutam?"</em> — AI atrod atbildi augšupielādētajā dokumentā.</p>
+                <strong>AI meklēšana zināšanu bāzē</strong>
+                <p>Jebkurš darbinieks ar AI piekļuvi tagad čatā var jautāt: <em>"Kāds ir minimālais reisu intervāls 3. maršrutam?"</em> — AI aktivizē dokumentu meklēšanas rīku, veic vektoru meklēšanu pgvector datubāzē, atrod atbilstošākos gabalus un formulē atbildi ar atsauci uz avota dokumentu.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">5</div>
             <div class="step-content">
-                <strong>Dokumenta lejupielāde</strong>
-                <p>Jebkurš darbinieks var lejupielādēt oriģinālo PDF failu tieši no platformas.</p>
+                <strong>Filtrēšana, meklēšana un lejupielāde</strong>
+                <p>Dokumentu tabulā redzami: nosaukums, tips (badge), izmērs, domēns, statuss, valoda, augšupielādes datums. Filtrēšana pa servera pusi: domēns, statuss, valoda. Klienta puses meklēšana: nosaukums/faila vārds, avota tips. Jebkurš darbinieks var lejupielādēt oriģinālo failu (<code>GET /api/v1/knowledge/documents/{id}/download</code>).</p>
             </div>
         </li>
     </ol>
 
     <div class="business-value">
-        <div class="business-value-icon">&#x1F4B0;</div>
+        <div class="business-value-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
         <div>
             <span class="label">Biznesa vērtība</span>
-            <p>Noteikumi un procedūras ir pieejami sekundes laikā caur AI asistentu, nevis meklējot e-pastos vai papīra arhīvos.</p>
+            <p>Noteikumi un procedūras ir pieejami sekundes laikā caur AI asistentu ar precīzām atsaucēm uz avotu, nevis meklējot e-pastos vai papīra arhīvos. RAG nodrošina, ka AI atbildes ir balstītas uz reāliem dokumentiem, nevis ģenerētas.</p>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ FLOW 8 ═══════════════════════════ -->
+<!-- ═══════════════════ FLOW 8: Pieturas ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">8</div>
-    <div class="section-header-text"><h2>Pieturu Tīkla Pārvaldība</h2></div>
+    <div class="section-header-text"><h2>Pieturu Tīkla Pārvaldība — Vizuālā Kartēšana</h2></div>
     <span class="status-badge done">Gatavs</span>
 </div>
 
 <div class="scenario-card">
     <div class="status-detail">
-        <span class="status-chip live">Karte + marķieri</span>
-        <span class="status-chip live">Haversine meklēšana</span>
-        <span class="status-chip live">CRUD</span>
-        <span class="status-chip live">Filtrēšana</span>
-        <span class="status-chip wip">PostGIS (1. fāze)</span>
+        <span class="status-chip live">Interaktīvā karte (1600+ pieturas)</span>
+        <span class="status-chip live">Click-to-place novietošana</span>
+        <span class="status-chip live">Draggable marķieris</span>
+        <span class="status-chip live">Gala pieturu iezīmēšana</span>
+        <span class="status-chip live">Tuvāko pieturu meklēšana</span>
+        <span class="status-chip live">CRUD + filtrēšana</span>
     </div>
     <div class="scenario-desc">
-        Redaktors saņem uzdevumu pievienot 5 jaunas pieturas jaunajam maršrutam un pārbaudīt esošo pieturu precizitāti.
+        Redaktors saņem uzdevumu pievienot 5 jaunas pieturas jaunajam maršrutam un pārbaudīt esošo pieturu precizitāti. Pieturu lapa (<code>/lv/stops</code>) apvieno tabulas pārskatu ar interaktīvu karti, kur var vizuāli novietot un pārvietot pieturas.
     </div>
 
     <ol class="flow-steps">
         <li class="flow-step">
             <div class="step-dot">1</div>
             <div class="step-content">
-                <strong>Kartes pārskats</strong>
-                <p>Atver pieturu lapu ar karti. Visas esošās pieturas redzamas kā marķieri. Gala pieturas atzīmētas ar atšķirīgiem marķieriem.</p>
+                <strong>Kartes pārskats ar 1600+ pieturu vizualizāciju</strong>
+                <p>Atver pieturu lapu. Darbvirsmas izkārtojumā: kreisā puse (55%) — filtri un tabula vai forma; labā puse (45%) — interaktīvā karte. Visas pieturas redzamas kā <strong>CircleMarker</strong> (SVG apļi, ne DOM elementi) — šī tehnoloģija nodrošina veiktspēju ar 1600+ marķieriem bez DOM pārslodzes.</p>
+                <ul>
+                    <li><strong>Zilas</strong> aplītis — parastā pietura</li>
+                    <li><strong>Zaļas</strong> aplītis — stacija/gala pietura (ielādēts no <code>GET /api/v1/stops/terminals</code>)</li>
+                    <li><strong>Tumšas</strong> aplītis — pašlaik atlasītā pietura</li>
+                </ul>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">2</div>
             <div class="step-content">
-                <strong>Tuvāko pieturu meklēšana</strong>
-                <p>Ievada koordinātas vai adresi. Sistēma aprēķina attālumu (Haversine formula) un parāda rezultātus.</p>
+                <strong>Pieturas izveide ar click-to-place režīmu</strong>
+                <p>Noklikšķina "Izveidot pieturu" — karte pāriet <strong>novietošanas režīmā</strong>: kursors mainās uz krustiņu (<code>crosshair</code>), un nākamais klikšķis uz kartes iestata koordinātas. Forma automātiski aizpildās ar platuma un garuma grādiem.</p>
+                <p>Formas lauki: nosaukums, GTFS ID (tikai lasāms pēc izveides), apraksts, atrašanās vietas tips (pietura/stacija/gala), ģeogrāfiskais platums un garums (sinhronizēti ar karti), vecākstacija, ratiņkrēslu pieejamība, aktīvs/neaktīvs.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">3</div>
             <div class="step-content">
-                <strong>Jaunas pieturas izveide</strong>
-                <p>Noklikšķina uz kartes: nosaukums "Skanstes iela", GTFS ID <code>skanstes_01</code>, ratiņkrēslu pieejamība, apraksts.</p>
+                <strong>Pozīcijas precizēšana ar velkami marķieri</strong>
+                <p>Rediģēšanas laikā kartē parādās <strong>pulsējošs zils marķieris</strong> (pilns <code>L.Marker</code>, ne CircleMarker), ko var vilkt uz jauno pozīciju. Koordinātas sinhronizējas <strong>abos virzienos</strong> reāllaikā — mainot formas laukus, marķieris pārvietojas; velkot marķieri, formas lauki atjaunojas.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">4</div>
             <div class="step-content">
-                <strong>Pozīcijas korekcija</strong>
-                <p>Velk marķieri uz karti, lai precīzi novietotu pieturu. Koordinātas atjaunojas automātiski.</p>
+                <strong>Kartes un tabulas sasaiste</strong>
+                <p>Noklikšķinot uz pieturas tabulā — karte automātiski pārlido (<code>flyTo</code>) uz attiecīgo pieturu un atver tās Leaflet popup ar "Detaļas" un "Rediģēt" pogām. Šī divvirzienu navigācija ļauj ātri atrast un verificēt pieturas gan vizuāli, gan tabulāri.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">5</div>
             <div class="step-content">
-                <strong>Filtrēšana</strong>
-                <p>Filtrē pēc atrašanās vietas tipa, aktīvā/neaktīvā statusa, nosaukuma meklēšana.</p>
+                <strong>Filtrēšana un tuvāko pieturu meklēšana</strong>
+                <p>Filtri: nosaukuma meklēšana, aktīvā/neaktīvā statuss, atrašanās vietas tips (pietura/stacija/gala). Tuvāko pieturu meklēšana (Haversine formula): ievada koordinātas, rādiusu metros un ierobežojumu — sistēma atgriež tuvākās pieturas sakārtotas pēc attāluma.</p>
+                <div class="step-tech">
+                    <strong>API:</strong> <code>GET /api/v1/stops/nearby?latitude=&longitude=&radius_meters=&limit=</code> (Haversine aprēķins servera pusē). Kartes dati: <code>GET /api/v1/stops/map</code> (visas pieturas bez lapošanas kartes vizualizācijai).
+                </div>
             </div>
         </li>
     </ol>
 
     <div class="business-value">
-        <div class="business-value-icon">&#x1F4B0;</div>
+        <div class="business-value-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
         <div>
             <span class="label">Biznesa vērtība</span>
-            <p>Vizuālā kartēšana novērš kļūdas, ko izklājlapas slēpj — nepareizi novietotas pieturas, robus pārklājumā, dublikātus.</p>
+            <p>Vizuālā kartēšana ar click-to-place un velkami marķieriem novērš kļūdas, ko izklājlapas slēpj — nepareizi novietotas pieturas, robus pārklājumā, dublikātus. CircleMarker tehnoloģija nodrošina veiktspēju pat ar pilnu Rīgas pieturu tīklu (1600+ punkti).</p>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ FLOW 9 ═══════════════════════════ -->
+<!-- ═══════════════════ FLOW 9: Maršrutu Pārvaldība ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">9</div>
-    <div class="section-header-text"><h2>Maršrutu Pārvaldība un Analītika</h2></div>
+    <div class="section-header-text"><h2>Maršrutu Pārvaldība un Reāllaika Karte</h2></div>
     <span class="status-badge done">Gatavs</span>
 </div>
 
 <div class="scenario-card">
     <div class="status-detail">
-        <span class="status-chip live">Tabula + lapošana</span>
-        <span class="status-chip live">Filtrēšana</span>
-        <span class="status-chip live">CRUD</span>
-        <span class="status-chip live">Reāllaika karte</span>
-        <span class="status-chip live">Multi-feed GTFS-RT</span>
+        <span class="status-chip live">Tabula + servera lapošana</span>
+        <span class="status-chip live">Daudzdimensiju filtrēšana</span>
+        <span class="status-chip live">CRUD (admin/editor)</span>
+        <span class="status-chip live">Reāllaika karte (GTFS-RT)</span>
+        <span class="status-chip live">Maināma izmēra paneļi</span>
+        <span class="status-chip live">Responsīvs izkārtojums</span>
     </div>
     <div class="scenario-desc">
-        Administrators pārvalda pilnu maršrutu katalogu — ~80 maršruti ar autobusiem, trolejbusiem un tramvajiem.
+        Administrators pārvalda pilnu maršrutu katalogu — ~80 maršruti ar autobusiem, trolejbusiem un tramvajiem. Maršrutu lapa (<code>/lv/routes</code>) ir galvenā darba vieta operatīvajai uzraudzībai, apvienojot maršrutu datu tabulu ar reāllaika transportlīdzekļu karti.
     </div>
 
     <ol class="flow-steps">
         <li class="flow-step">
             <div class="step-dot">1</div>
             <div class="step-content">
-                <strong>Maršrutu saraksts</strong>
-                <p>Tabula ar visiem maršrutiem: numurs, nosaukums, transporta veids, statuss. Servera puses lapošana apstrādā lielu datu apjomu.</p>
+                <strong>Darbvirsmas izkārtojums ar maināmiem paneļiem</strong>
+                <p>Darbvirsmā: <code>ResizablePanelGroup</code> ar horizontālu orientāciju — kreisais panelis (noklusējums 60%) ar filtriem un tabulu, labais panelis (40%) ar reāllaika karti. Panelī starp tiem ir velkama apmale, kas ļauj pielāgot proporcijas. Mobilajā: cilnes (Tabula | Karte) un filtru Sheet pārklājums.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">2</div>
             <div class="step-content">
-                <strong>Filtrēšana un meklēšana</strong>
-                <p>Filtrē pēc transporta veida (autobuss, trolejbuss, tramvajs), aktīvā statusa, meklē pēc numura vai nosaukuma.</p>
+                <strong>Daudzdimensiju filtrēšana ar debounce</strong>
+                <p>Filtru panelis piedāvā 4 filtrēšanas dimensijas:</p>
+                <ul>
+                    <li><strong>Meklēšana</strong> — pēc nosaukuma vai numura (300 ms debounce, lai nesūtītu pieprasījumu ar katru taustiņspiedienu)</li>
+                    <li><strong>Transporta veids</strong> — autobuss (3), trolejbuss (11), tramvajs (0), visi</li>
+                    <li><strong>Statuss</strong> — aktīvs, neaktīvs, visi</li>
+                    <li><strong>Aģentūra</strong> — dinamisks saraksts no API (<code>GET /api/v1/schedules/agencies</code>)</li>
+                </ul>
+                <p>Rezultātu skaits redzams filtru paneļa apakšā. Filtrēšana notiek servera pusē — pieprasījumam tiek pievienoti <code>route_type</code>, <code>is_active</code>, <code>agency_id</code>, <code>search</code> parametri.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">3</div>
             <div class="step-content">
-                <strong>Maršruta detaļas</strong>
-                <p>GTFS maršruta ID, aģentūra, krāsa, kārtošanas secība, statuss, izveides un atjaunināšanas laiki.</p>
+                <strong>Maršrutu tabula ar tipa badges un krāsām</strong>
+                <p>Tabula ar servera puses lapošanu (20/lapā). Kolonnas: numurs, nosaukums, transporta veids (<code>RouteTypeBadge</code> — krāsains badge ar ikonas un tipa nosaukumu), operators, statuss, krāsas paraugs (HEX), darbības (rediģēt/dzēst). Pielāgota lapošanas navigācija ar lapu skaitītājiem.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">4</div>
             <div class="step-content">
-                <strong>Maršruta rediģēšana</strong>
-                <p>Nosaukuma korekcija, krāsas maiņa, statusa maiņa (aktīvs/neaktīvs sezonas maršrutam).</p>
+                <strong>Maršruta detaļas un rediģēšana</strong>
+                <p>Noklikšķina uz rindas — atveras detaļu Sheet ar: GTFS ID, īso/garo nosaukumu, transporta veidu, aģentūru, maršruta un teksta krāsām, kārtošanas secību, statusu, izveides un atjaunināšanas laikiem. "Rediģēt" poga atver formu Sheet ar: GTFS maršruta ID, aģentūru (izvēle), īso/garo nosaukumu, tipu, krāsu (HEX picker), teksta krāsu, kārtošanas secību.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">5</div>
             <div class="step-content">
-                <strong>Transportlīdzekļu izsekošana kartē</strong>
-                <p>Kartē redzami visi aktīvie transportlīdzekļi, krāsoti pēc maršruta krāsas. Atbalsta vairākus GTFS-RT avotus.</p>
+                <strong>Reāllaika transportlīdzekļu karte</strong>
+                <p>Labajā panelī karte rāda visus aktīvos transportlīdzekļus (<code>BusMarker</code> komponentes), krāsotus pēc maršruta krāsas ar virziena bultiņām. Karte automātiski filtrē transportlīdzekļus atbilstoši izvēlētajam transporta veida filtram. Kartes centrs: Rīga (56.9496, 24.1052), CARTO Voyager flīzes.</p>
             </div>
         </li>
     </ol>
 
     <div class="business-value">
-        <div class="business-value-icon">&#x1F4B0;</div>
+        <div class="business-value-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
         <div>
             <span class="label">Biznesa vērtība</span>
-            <p>Vienots pārskats par visu maršrutu tīklu ar reāllaika operatīvajiem datiem vienā skatā.</p>
+            <p>Vienots pārskats par visu maršrutu tīklu ar reāllaika operatīvajiem datiem vienā skatā. Maināmie paneļi ļauj katram lietotājam pielāgot izkārtojumu savām vajadzībām — dispečers var palielināt karti, plānotājs — tabulu.</p>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ FLOW 10 - DRIVERS ═══════════════════════════ -->
+<!-- ═══════════════════ FLOW 10: Šoferi ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">10</div>
-    <div class="section-header-text"><h2>Šoferu Pārvaldība — HR un Maiņu Plānošana</h2></div>
+    <div class="section-header-text"><h2>Šoferu Pārvaldība — HR, Maiņas un Licences</h2></div>
     <span class="status-badge done">Gatavs</span>
 </div>
 
 <div class="scenario-card">
     <div class="status-detail">
         <span class="status-chip live">CRUD + meklēšana</span>
-        <span class="status-chip live">Maiņu filtrs</span>
-        <span class="status-chip live">Statusa pārvaldība</span>
+        <span class="status-chip live">4 maiņu tipi</span>
+        <span class="status-chip live">4 statusa tipi</span>
         <span class="status-chip live">Licenču izsekošana</span>
-        <span class="status-chip live">5 API galapunkti</span>
+        <span class="status-chip live">Medicīnisko izziņu izsekošana</span>
+        <span class="status-chip live">Kvalificēto maršrutu pārvaldība</span>
+        <span class="status-chip live">Apmācību pieraksti</span>
     </div>
     <div class="scenario-desc">
-        Dispečers plāno rīta maiņu un pārbauda, kuri šoferi ir pieejami, kuriem beidzas vadītāja apliecības derīguma termiņš, un piešķir maiņas jaunā nedēļā.
+        Dispečers plāno rīta maiņu un pārbauda, kuri šoferi ir pieejami, kuriem beidzas vadītāja apliecības derīguma termiņš, un piešķir maiņas jaunā nedēļā. Šoferu lapa (<code>/lv/drivers</code>) ir pieejama visām lomām (skatīšana), bet izveide/rediģēšana/dzēšana — administratoriem, redaktoriem un dispečeriem (skatītājam — tikai lasīšana).
     </div>
 
     <ol class="flow-steps">
         <li class="flow-step">
             <div class="step-dot">1</div>
             <div class="step-content">
-                <strong>Šoferu saraksts</strong>
-                <p>Atver šoferu lapu. Tabula ar visiem reģistrētajiem šoferiem: vārds, statuss, maiņa, kontaktinformācija. Servera puses lapošana un meklēšana pēc vārda vai e-pasta.</p>
+                <strong>Šoferu saraksts ar servera puses filtrēšanu</strong>
+                <p>Tabula ar servera puses lapošanu un meklēšanu. Kolonnas: darbinieka numurs, vārds/uzvārds, statuss (badge), maiņa, tālrunis, vadītāja apliecības derīgums, darbību pogas. Filtru panelis (vai Sheet mobilajā) ar:</p>
+                <ul>
+                    <li><strong>Meklēšana</strong> — pēc vārda, uzvārda vai e-pasta</li>
+                    <li><strong>Statuss</strong> — pieejams (<code>available</code>), darbā (<code>on_duty</code>), atvaļinājumā (<code>on_leave</code>), slims (<code>sick</code>)</li>
+                    <li><strong>Maiņa</strong> — rīta (05:00-13:00), pēcpusdienas (13:00-21:00), vakara (17:00-01:00), nakts (22:00-06:00)</li>
+                </ul>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">2</div>
             <div class="step-content">
-                <strong>Filtrēšana pēc maiņas un statusa</strong>
-                <p>Filtrē pēc maiņas (rīta/pēcpusdienas/vakara/nakts) un statusa (pieejams/darbā/atvaļinājumā/slims). Redz, ka 3 šoferi ir pieejami rīta maiņai.</p>
+                <strong>Šofera detaļu pārskats (Sheet panelis)</strong>
+                <p>Noklikšķinot uz šofera — detaļu Sheet ar organizētām sadaļām:</p>
+                <ul>
+                    <li><strong>Personīgā informācija</strong> — vārds, uzvārds, dzimšanas datums, tālrunis, e-pasts, adrese</li>
+                    <li><strong>Ārkārtas kontaktpersona</strong> — vārds un tālrunis</li>
+                    <li><strong>Nodarbinātība</strong> — pieņemšanas datums, noklusējuma maiņa, pašreizējais statuss</li>
+                    <li><strong>Licence un medicīna</strong> — vadītāja apliecības kategorijas (A, B, C, D, DE...), derīguma termiņš, medicīniskās izziņas derīgums</li>
+                    <li><strong>Kvalificētie maršruti</strong> — saraksts ar maršrutu ID, kuriem šoferis ir kvalificēts</li>
+                    <li><strong>Piezīmes</strong> — brīvā teksta lauks</li>
+                    <li><strong>Apmācību pieraksti</strong> — kursu un sertifikāciju vēsture</li>
+                    <li><strong>Ieraksta informācija</strong> — izveides un atjaunināšanas laiki</li>
+                </ul>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">3</div>
             <div class="step-content">
                 <strong>Jauna šofera reģistrācija</strong>
-                <p>Noklikšķina "Pievienot šoferi": vārds, dzimšanas datums, e-pasts, tālrunis, darbinieka numurs, pieņemšanas datums, vadītāja apliecības kategorijas un derīguma termiņš, medicīniskā izziņa.</p>
+                <p>Noklikšķina "Pievienot šoferi" — Sheet forma ar visiem laukiem: vārds, uzvārds, dzimšanas datums, e-pasts, tālrunis, adrese, darbinieka numurs, pieņemšanas datums, ārkārtas kontaktpersona, vadītāja apliecības kategorijas un derīguma termiņš, medicīniskā izziņa, noklusējuma maiņa, kvalificētie maršruti, piezīmes, apmācību pieraksti.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">4</div>
             <div class="step-content">
-                <strong>Statusa un maiņas atjaunināšana</strong>
-                <p>Atlasa šoferi, maina statusu uz "Darbā" un piešķir rīta maiņu. Pievieno piezīmi par maršruta kvalifikācijām.</p>
+                <strong>Statusa un maiņas operatīvā atjaunināšana</strong>
+                <p>Atlasa šoferi, maina statusu uz "Darbā" un piešķir rīta maiņu. Pievieno piezīmi par maršruta kvalifikācijām un maiņas izmaiņu iemeslu. Visas izmaiņas tiek saglabātas ar laika zīmogu audita vajadzībām.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">5</div>
             <div class="step-content">
-                <strong>Licenču uzraudzība</strong>
-                <p>Pārbauda šoferus, kuriem tuvākajā mēnesī beidzas vadītāja apliecība vai medicīniskā izziņa. Sistēma saglabā derīguma termiņus automatizētai izsekošanai.</p>
+                <strong>Licenču un medicīnisko izziņu uzraudzība</strong>
+                <p>Sistēma saglabā vadītāja apliecības un medicīniskās izziņas derīguma termiņus. Administrators vai dispečers var filtrēt šoferus, lai identificētu tos, kuriem tuvākajā mēnesī beidzas dokumentu derīguma termiņš, un savlaicīgi organizēt atjaunošanu.</p>
             </div>
         </li>
     </ol>
 
     <div class="business-value">
-        <div class="business-value-icon">&#x1F4B0;</div>
+        <div class="business-value-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
         <div>
             <span class="label">Biznesa vērtība</span>
-            <p>Centralizēta šoferu pārvaldība aizstāj Excel tabulas un papīra grafikus. Maiņu plānošana, pieejamības izsekošana un licenču uzraudzība vienā sistēmā.</p>
+            <p>Centralizēta šoferu pārvaldība aizstāj Excel tabulas un papīra grafikus. Maiņu plānošana, pieejamības izsekošana, licenču un medicīnisko izziņu uzraudzība — viss vienā sistēmā ar strukturētiem datiem un audita pierakstiem.</p>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ FLOW 11 - EVENTS ═══════════════════════════ -->
+<!-- ═══════════════════ FLOW 11: Notikumi ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">11</div>
     <div class="section-header-text"><h2>Operatīvo Notikumu Pārvaldība — Kalendāra Panelis</h2></div>
@@ -1856,70 +1699,67 @@
 
 <div class="scenario-card">
     <div class="status-detail">
-        <span class="status-chip live">Notikumu CRUD</span>
-        <span class="status-chip live">Kalendāra panelis</span>
-        <span class="status-chip live">Datumu filtrs</span>
-        <span class="status-chip live">Prioritātes</span>
-        <span class="status-chip live">Kategorijas</span>
+        <span class="status-chip live">Notikumu CRUD (5 API galapunkti)</span>
+        <span class="status-chip live">Kalendāra panelis (4 skati)</span>
+        <span class="status-chip live">60s reāllaika aptauja</span>
+        <span class="status-chip live">3 prioritātes līmeņi</span>
+        <span class="status-chip live">4 kategorijas</span>
+        <span class="status-chip live">AI integrācija</span>
     </div>
     <div class="scenario-desc">
-        Administrators reģistrē plānotos apkopes darbus, maršrutu izmaiņas un citus operatīvos notikumus, kas automātiski parādās sākumlapas kalendārā visiem darbiniekiem.
+        Administrators reģistrē plānotos apkopes darbus, maršrutu izmaiņas un citus operatīvos notikumus, kas automātiski parādās sākumlapas kalendāra panelī visiem darbiniekiem reāllaikā. Notikumi tiek aptaujāti ik pēc 60 sekundēm.
     </div>
 
     <ol class="flow-steps">
         <li class="flow-step">
             <div class="step-dot">1</div>
             <div class="step-content">
-                <strong>Notikuma izveide</strong>
-                <p>Administrators izveido jaunu notikumu: nosaukums "Tramvaja līnijas remonts Barona ielā", sākuma un beigu datums/laiks, prioritāte (augsta/vidēja/zema), kategorija:</p>
+                <strong>Notikuma izveide ar prioritāti un kategoriju</strong>
+                <p>Administrators izveido jaunu notikumu: nosaukums "Tramvaja līnijas remonts Barona ielā", sākuma un beigu datums/laiks, apraksts. Prioritāte un kategorija:</p>
                 <ul>
-                    <li><strong>Apkope</strong> — infrastruktūras remonts, depo apkope</li>
-                    <li><strong>Maršrutu izmaiņas</strong> — novirzīšana, pagaidu pieturas</li>
-                    <li><strong>Šoferu maiņas</strong> — aizstāšana, virsstundas</li>
-                    <li><strong>Servisa brīdinājumi</strong> — ārkārtas situācijas, laikapstākļi</li>
+                    <li><strong>Prioritātes:</strong> augsta (sarkans — ārkārtas situācijas), vidēja (dzeltens — plānoti darbi), zema (zils — informatīvi)</li>
+                    <li><strong>Kategorijas:</strong> apkope (infrastruktūras remonts), maršrutu izmaiņas (novirzīšana, pagaidu pieturas), šoferu maiņas (aizstāšana, virsstundas), servisa brīdinājumi (ārkārtas, laikapstākļi)</li>
                 </ul>
+                <div class="step-tech">
+                    <strong>API:</strong> <code>POST /api/v1/events/</code> ar ķermeni <code>{title, description, start_date, end_date, priority, category}</code>. Visi CRUD galapunkti: <code>GET/POST/PATCH/DELETE /api/v1/events/{id}</code>.
+                </div>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">2</div>
             <div class="step-content">
-                <strong>Automātiska rādīšana panelī</strong>
-                <p>Notikums nekavējoties parādās sākumlapas kalendāra panelī. Visi pieslēgušies darbinieki redz notikumu nākamajā aptaujas ciklā (60 sekundes).</p>
+                <strong>Automātiska rādīšana kalendāra panelī</strong>
+                <p>Notikums nekavējoties parādās sākumlapas kalendāra panelī. Visi pieslēgušies darbinieki redz notikumu nākamajā aptaujas ciklā (60 sekundes). Kalendārs piedāvā 4 skatu režīmus: nedēļas (detalizēts), mēneša (kompakts), 3 mēnešu (pārskats) un gada (kopskats). Reāllaika laika līnija rāda pašreizējo brīdi.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">3</div>
             <div class="step-content">
-                <strong>Datumu filtrēšana</strong>
-                <p>Kalendāra panelis rāda notikumus pašreizējam mēnesim. Var filtrēt pēc datumu diapazona, lai redzētu nākotnes plānotos darbus.</p>
+                <strong>Notikuma atjaunināšana un izsekošana</strong>
+                <p>Remonts ilgst vairāk par plānoto — administrators maina beigu datumu. Dispečeri automātiski redz atjaunināto informāciju panelī nākamajā aptaujas ciklā. Visu izmaiņu vēsture saglabājas ar laika zīmogiem.</p>
             </div>
         </li>
         <li class="flow-step">
             <div class="step-dot">4</div>
             <div class="step-content">
-                <strong>Notikuma atjaunināšana</strong>
-                <p>Remonts ilgst vairāk par plānoto — administrators maina beigu datumu. Dispečeri redz atjaunināto informāciju panelī.</p>
-            </div>
-        </li>
-        <li class="flow-step">
-            <div class="step-dot">5</div>
-            <div class="step-content">
-                <strong>AI integrācija</strong>
-                <p>Darbinieki čatā jautā: <em>"Kādi operatīvie notikumi ir plānoti šonedēļ?"</em> — AI pārbauda notikumu datubāzi un atbild ar pilnu sarakstu.</p>
+                <strong>AI integrācija ar notikumu datubāzi</strong>
+                <p>Darbinieki čatā jautā: <em>"Kādi operatīvie notikumi ir plānoti šonedēļ?"</em> — AI aktivizē notikumu vaicājuma rīku, pārbauda datubāzi un atbild ar pilnu sarakstu, sakārtotu pēc prioritātes un datuma. Var arī jautāt par konkrētu maršrutu vai laika periodu.</p>
             </div>
         </li>
     </ol>
 
     <div class="business-value">
-        <div class="business-value-icon">&#x1F4B0;</div>
+        <div class="business-value-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
         <div>
             <span class="label">Biznesa vērtība</span>
-            <p>Operatīvie notikumi ir redzami visai komandai reāllaikā, nevis izplatīti pa e-pastu vai telefonu. Kalendāra panelis nodrošina, ka neviens notikums nepaliek nepamanīts.</p>
+            <p>Operatīvie notikumi ir redzami visai komandai reāllaikā ar 60s latentumu, nevis izplatīti pa e-pastu vai telefonu. Kalendāra panelis ar 4 skatu režīmiem nodrošina, ka neviens notikums nepaliek nepamanīts — ne šodienas remonts, ne nākammēnes plānotā infrastruktūras atjaunināšana.</p>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ FLOW 12 - AI ═══════════════════════════ -->
+<!-- ═══════════════════ FLOW 12: AI Asistents ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">12</div>
     <div class="section-header-text"><h2>AI Asistenta Iespējas — Pilns Pārskats</h2></div>
@@ -1927,26 +1767,47 @@
 </div>
 
 <div class="scenario-card">
-    <p style="margin-bottom: 20px; color: var(--vtv-text-secondary);">Visi autentificētie lietotāji (izņemot skatītāja lomu) var izmantot AI asistentu.</p>
+    <div class="status-detail">
+        <span class="status-chip live">Daudzpakāpju saruna</span>
+        <span class="status-chip live">10 rīki</span>
+        <span class="status-chip live">Markdown renderēšana</span>
+        <span class="status-chip live">Ātruma ierobežojumi</span>
+        <span class="status-chip live">Ieteikumu pogas</span>
+        <span class="status-chip live">Kopēšana + mēģināt vēlreiz</span>
+    </div>
+
+    <p style="margin-bottom: 20px; color: var(--vtv-text-secondary);">AI čata lapa (<code>/lv/chat</code>) ir pieejama administratoriem un dispečeriem. Redaktori un skatītāji nevar piekļūt čatam (middleware ierobežojums). Čats atbalsta daudzpakāpju sarunas ar pilnu vēstures kontekstu.</p>
 
     <h3>Pieejamie AI rīki <span class="tool-count">10 kopā</span></h3>
     <div class="tools-grid">
         <div class="tool-card">
             <div class="tool-category">Transports <span class="tool-count">5</span></div>
             <h4>Operatīvie rīki</h4>
-            <p>Autobusu statuss, maršrutu grafiki, pieturu meklēšana, punktualitātes atskaites, šoferu pieejamība</p>
+            <p>Autobusu statuss un pozīcija (GTFS-RT), maršrutu grafiki un reisu saraksti, pieturu meklēšana (tuvākās, pēc nosaukuma), punktualitātes atskaites (kavējumu analīze), šoferu pieejamība un maiņu pārskats</p>
         </div>
         <div class="tool-card">
             <div class="tool-category">Zināšanu bāze <span class="tool-count">1</span></div>
-            <h4>Dokumentu meklēšana</h4>
-            <p>RAG meklēšana augšupielādētajos dokumentos — noteikumos, procedūrās, SOP</p>
+            <h4>Dokumentu meklēšana (RAG)</h4>
+            <p>Vektoru meklēšana augšupielādētajos dokumentos — noteikumos, procedūrās, SOP. Atbild ar citātiem un atsaucēm uz avota dokumentu un gabalu</p>
         </div>
         <div class="tool-card">
-            <div class="tool-category">Obsidian <span class="tool-count">4</span></div>
-            <h4>Zināšanu pārvaldība</h4>
-            <p>Krātuves vaicājumi, piezīmju pārvaldība, mapju pārvaldība, masveida operācijas</p>
+            <div class="tool-category">Notikumi <span class="tool-count">4</span></div>
+            <h4>Operatīvā informācija</h4>
+            <p>Operatīvo notikumu vaicājumi (šodien, šonedēļ, pēc kategorijas), notikumu pārvaldība, maršrutu ietekmju analīze</p>
         </div>
     </div>
+
+    <h3>Tehniskie parametri</h3>
+    <ul style="margin: 12px 0 20px; padding-left: 20px; color: var(--vtv-text-secondary); font-size: 14px; line-height: 2;">
+        <li><strong>API:</strong> OpenAI saderīgs galapunkts (<code>POST /v1/chat/completions</code>) — pilna sarunu vēsture tiek sūtīta ar katru pieprasījumu</li>
+        <li><strong>Renderēšana:</strong> AI atbildes tiek formatētas ar <code>react-markdown</code> — atbalsta virsrakstus, sarakstus, treknrakstu, kodu, tabulas</li>
+        <li><strong>Ātruma ierobežojums:</strong> HTTP 429 tiek apstrādāts ar draudzīgu kļūdas paziņojumu (<code>"rate_limit"</code> kļūdas tips)</li>
+        <li><strong>Tukšais stāvoklis:</strong> Pirmajā reizē redzamas 4 ieteikumu pogas — noklikšķinot, teksts tiek automātiski aizpildīts un nosūtīts</li>
+        <li><strong>Kopēšana:</strong> Katra AI atbilde satur kopēšanas pogu (teksta kopēšana starpliktuvē)</li>
+        <li><strong>Mēģināt vēlreiz:</strong> Kļūdas gadījumā — "Mēģināt vēlreiz" poga atkārtoti nosūta pēdējo lietotāja ziņu</li>
+        <li><strong>Sarunas dzēšana:</strong> "Notīrīt sarunu" poga (redzama tikai, kad ir ziņas) ar rīkjoslas paskaidrojumu</li>
+        <li><strong>LLM nodrošinātājs:</strong> Anthropic Claude vai lokāls Ollama (konfigurējams)</li>
+    </ul>
 
     <h3>Tipiski vaicājumi</h3>
     <div class="query-grid">
@@ -1956,6 +1817,7 @@
                 <li>"Kāds ir 18. trolejbusa pašreizējais statuss?"</li>
                 <li>"Vai kāds autobuss šodien kavējas vairāk par 10 minūtēm?"</li>
                 <li>"Parādi 3. maršruta grafiku darba dienās."</li>
+                <li>"Cik transportlīdzekļu pašlaik ir aktīvi?"</li>
             </ul>
         </div>
         <div class="query-group">
@@ -1963,6 +1825,7 @@
             <ul>
                 <li>"Kādas pieturas atrodas 500 metru rādiusā no Brīvības ielas?"</li>
                 <li>"Parādi pieturas nosaukuma meklēšanā — Mežaparks."</li>
+                <li>"Cik pieturu ir Rīgas tramvaju tīklā?"</li>
             </ul>
         </div>
         <div class="query-group">
@@ -1970,27 +1833,29 @@
             <ul>
                 <li>"Kāda ir procedūra maršruta novirzīšanai ceļa remonta laikā?"</li>
                 <li>"Kāds ir minimālais reisu intervāls saskaņā ar jaunajiem noteikumiem?"</li>
+                <li>"Parādi drošības noteikumus šoferiem ziemas apstākļos."</li>
             </ul>
         </div>
         <div class="query-group">
-            <h4>Analītika</h4>
+            <h4>HR un notikumi</h4>
             <ul>
-                <li>"Kāda ir 2. maršruta punktualitāte šonedēļ?"</li>
-                <li>"Kuri maršruti visvairāk kavējas rīta sastrēgumstundā?"</li>
+                <li>"Cik šoferu ir pieejami rītdienas rīta maiņai?"</li>
+                <li>"Kādi operatīvie notikumi ir plānoti šonedēļ?"</li>
+                <li>"Kuriem šoferiem tuvākajā mēnesī beidzas vadītāja apliecība?"</li>
             </ul>
         </div>
     </div>
 
-    <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 12px; padding: 16px 20px; margin-top: 20px; display: flex; gap: 12px; align-items: flex-start;">
-        <div style="font-size: 20px; flex-shrink: 0;">&#x1F512;</div>
+    <div class="info-box warning">
+        <div class="info-box-icon">&#x1F512;</div>
         <div>
-            <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: #92400e; display: block; margin-bottom: 4px;">Drošības ierobežojums</span>
-            <p style="font-size: 14px; color: #78350f; line-height: 1.7; font-weight: 500;">Visi transporta rīki ir <strong>tikai lasīšanai</strong>. AI var vaicāt un ziņot, bet nevar izveidot, mainīt vai dzēst transporta datus. <strong>AI konsultē — cilvēki pieņem lēmumus.</strong></p>
+            <span class="label">Drošības ierobežojums</span>
+            <p>Visi transporta un HR rīki ir <strong>tikai lasīšanai</strong>. AI var vaicāt, analizēt un ziņot, bet nevar izveidot, mainīt vai dzēst transporta vai personāla datus. <strong>AI konsultē — cilvēki pieņem lēmumus un veic darbības.</strong></p>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ SECTION 13 - SECURITY ═══════════════════════════ -->
+<!-- ═══════════════════ SECTION 13: Drošība ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">13</div>
     <div class="section-header-text"><h2>Drošība un Piekļuves Kontrole</h2></div>
@@ -1998,7 +1863,7 @@
 </div>
 
 <div class="scenario-card">
-    <h3>Piekļuves matrica</h3>
+    <h3>Piekļuves matrica (atbilst faktiskajai koda implementācijai)</h3>
 
     <div class="matrix-table-wrapper">
         <table>
@@ -2012,21 +1877,22 @@
                 </tr>
             </thead>
             <tbody>
+                <tr><td>Panelis (sākumlapa)</td><td><span class="badge-yes">Skatīt</span></td><td><span class="badge-yes">Skatīt</span></td><td><span class="badge-yes">Skatīt</span></td><td><span class="badge-yes">Skatīt</span></td></tr>
                 <tr><td>Maršruti — skatīt</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td></tr>
                 <tr><td>Maršruti — veidot/rediģēt/dzēst</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-no">Nē</span></td></tr>
                 <tr><td>Pieturas — skatīt</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td></tr>
-                <tr><td>Pieturas — veidot/rediģēt/dzēst</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-no">Nē</span></td></tr>
+                <tr><td>Pieturas — veidot/rediģēt/dzēst</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td></tr>
                 <tr><td>Grafiki — skatīt</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td></tr>
-                <tr><td>Grafiki — veidot/rediģēt/dzēst</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-no">Nē</span></td></tr>
-                <tr><td>GTFS imports/eksports</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-no">Nē</span></td></tr>
+                <tr><td>Grafiki — veidot/rediģēt/dzēst</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td></tr>
+                <tr><td>GTFS imports/eksports/uzraudzība</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-no">Nē</span></td></tr>
                 <tr><td>Šoferi — skatīt</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td></tr>
-                <tr><td>Šoferi — veidot/rediģēt/dzēst</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td></tr>
+                <tr><td>Šoferi — veidot/rediģēt/dzēst</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td></tr>
                 <tr><td>Notikumi — skatīt</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td></tr>
                 <tr><td>Notikumi — veidot/rediģēt/dzēst</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-no">Nē</span></td></tr>
                 <tr><td>Dokumenti — skatīt/lejupielādēt</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td></tr>
                 <tr><td>Dokumenti — augšupielādēt/dzēst</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-no">Nē</span></td></tr>
-                <tr><td>AI asistents</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td></tr>
-                <tr><td>Lietotāju pārvaldība</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-no">Nē</span></td></tr>
+                <tr><td>AI asistents (čats)</td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-yes">Jā</span></td><td><span class="badge-no">Nē</span></td></tr>
+                <tr><td>Lietotāju pārvaldība</td><td><span class="badge-na">Nav ieviesta</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-no">Nē</span></td><td><span class="badge-no">Nē</span></td></tr>
             </tbody>
         </table>
     </div>
@@ -2034,44 +1900,89 @@
     <h3>Drošības pasākumi</h3>
     <div class="security-grid">
         <div class="security-item">
-            <div class="security-icon">&#x1F511;</div>
-            JWT autentifikācija: HS256 piekļuves žetoni (30 min) + atjaunošanas žetoni (7 dienas)
+            <div class="security-icon blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+            </div>
+            JWT autentifikācija: HS256 piekļuves žetoni (30 min) + atjaunošanas žetoni (7 dienas), httpOnly sīkdatnes
         </div>
         <div class="security-item">
-            <div class="security-icon">&#x1F6E1;</div>
-            RBAC autorizācija: 4 lomas ar funkciju līmeņa piekļuves kontroli
+            <div class="security-icon purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            4 lomu RBAC: middleware līmeņa maršruta piekļuves kontrole + lapas līmeņa IS_READ_ONLY pārbaudes
         </div>
         <div class="security-item">
-            <div class="security-icon">&#x1F510;</div>
-            Paroļu šifrēšana ar bcrypt (Passlib)
+            <div class="security-icon green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+            </div>
+            Paroļu šifrēšana ar bcrypt (Passlib) — vienvirziena hash, nav atšifrējams
         </div>
         <div class="security-item">
-            <div class="security-icon">&#x1F6AB;</div>
-            Brutāla spēka aizsardzība: 5 mēģinājumi = 15 min bloķēšana
+            <div class="security-icon red">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            </div>
+            Brutāla spēka aizsardzība: 5 mēģinājumi = 15 min bloķēšana (priekšgals + aizmugure)
         </div>
         <div class="security-item">
-            <div class="security-icon">&#x26A1;</div>
-            Ātruma ierobežojumi visiem API galapunktiem (slowapi)
+            <div class="security-icon amber">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </div>
+            Ātruma ierobežojumi visiem API galapunktiem (slowapi) — novērš DDoS un pārmērīgu izmantošanu
         </div>
         <div class="security-item">
-            <div class="security-icon">&#x1F6E1;</div>
-            Drošības galvenes (CSP, HSTS, X-Frame-Options, X-Content-Type-Options)
+            <div class="security-icon blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            Drošības galvenes: CSP, HSTS, X-Frame-Options, X-Content-Type-Options — novērš XSS un clickjacking
         </div>
         <div class="security-item">
-            <div class="security-icon">&#x1F4C1;</div>
-            Failu augšupielādes drošība: 50 MB limits, failu nosaukumu sanitizācija, ceļu pārmeklēšanas novēršana
+            <div class="security-icon green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            Failu augšupielādes drošība: 50 MB limits, nosaukumu sanitizācija, ceļu pārmeklēšanas novēršana
         </div>
         <div class="security-item">
-            <div class="security-icon">&#x1F50D;</div>
-            SQL injekciju aizsardzība: ILIKE speciālrakstzīmju aizsardzība, parametrizēti vaicājumi
+            <div class="security-icon purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            </div>
+            SQL injekciju aizsardzība: ILIKE speciālrakstzīmju escapēšana, parametrizēti vaicājumi (SQLAlchemy ORM)
+        </div>
+    </div>
+
+    <h3>SDLC Drošības Audita Ietvars</h3>
+    <p style="color: var(--vtv-text-secondary); font-size: 14px; margin-bottom: 16px;">Automatizēts drošības audita ietvars, kas integrēts izstrādes dzīves ciklā (SDLC):</p>
+    <div class="security-grid">
+        <div class="security-item">
+            <div class="security-icon blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </div>
+            Pre-commit hooks: noslēpumu detektēšana (.env, privātās atslēgas, API žetoni), failnosaukumu drošība
+        </div>
+        <div class="security-item">
+            <div class="security-icon green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            Docker drošības validators: YAML parsēšana, konteinerizācijas labākās prakses pārbaude
+        </div>
+        <div class="security-item">
+            <div class="security-icon amber">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            CI/CD drošības darbplūsma (GitHub Actions): automatizēta drošības audita izpilde ar katru push
+        </div>
+        <div class="security-item">
+            <div class="security-icon purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </div>
+            Drošības konvenciju testi: 105+ automatizēti testi, kas pārbauda drošības konfigurāciju
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ SECTION 14 - i18n ═══════════════════════════ -->
+<!-- ═══════════════════ SECTION 14: i18n ═══════════════════ -->
 <div class="section-header">
     <div class="section-number">14</div>
-    <div class="section-header-text"><h2>Daudzvalodība</h2></div>
+    <div class="section-header-text"><h2>Daudzvalodība — Pilns LV/EN Tulkojums</h2></div>
     <span class="status-badge done">Gatavs</span>
 </div>
 
@@ -2080,152 +1991,181 @@
         <div class="lang-pill primary">
             <div class="lang-flag">&#127473;&#127483;</div>
             <div class="lang-info">
-                <h4>Latviešu (lv)</h4>
-                <p>Primārā valoda, pilns UI tulkojums ar pareizām diakritiskajām zīmēm</p>
+                <h4>Latviešu (lv) — primārā</h4>
+                <p>Pilns UI tulkojums (720+ atslēgas) ar pareizām diakritiskajām zīmēm, URL: <code>/lv/...</code></p>
             </div>
         </div>
         <div class="lang-pill">
             <div class="lang-flag">&#127468;&#127463;</div>
             <div class="lang-info">
-                <h4>Angļu (en)</h4>
-                <p>Sekundārā valoda starptautiskajām ieinteresētajām pusēm</p>
+                <h4>Angļu (en) — sekundārā</h4>
+                <p>Pilns tulkojums starptautiskajām ieinteresētajām pusēm, URL: <code>/en/...</code></p>
             </div>
         </div>
     </div>
 
-    <ul style="margin-top: 16px; padding-left: 20px; color: var(--vtv-text-secondary); font-size: 14px;">
-        <li>Valodas pārslēgs sānjoslā (LV | EN)</li>
-        <li>Viss lietotājam redzamais teksts ir tulkots (142+ atslēgas katrā lokālē)</li>
-        <li>Datumi, skaitļi un laiki formatēti atbilstoši lokālei</li>
-        <li>AI asistents nosaka valodu un atbild atbilstoši</li>
+    <h3>Tulkojumu nosaukumtelpas (10)</h3>
+    <ul style="margin-top: 12px; padding-left: 20px; color: var(--vtv-text-secondary); font-size: 14px; line-height: 2;">
+        <li><code>common</code> — pieslēgšanās, nesankcionēta piekļuve, sānjoslas izrakstīšanās, kopīgie elementi</li>
+        <li><code>nav</code> — navigācijas elementi (panelis, maršruti, pieturas, grafiki, šoferi, dokumenti, GTFS, čats)</li>
+        <li><code>dashboard</code> — metrikas, kalendārs, notikumi, skatu režīmi</li>
+        <li><code>routes</code> — maršrutu tabula, filtri, forma, detaļas, tipa badges</li>
+        <li><code>stops</code> — pieturu tabula, karte, forma, click-to-place instrukcijas</li>
+        <li><code>schedules</code> — kalendāri, reisi, pieturlaiki, GTFS imports, validācija</li>
+        <li><code>drivers</code> — šoferu tabula, forma, statusi, maiņas, licences</li>
+        <li><code>documents</code> — augšupielāde, filtri, RAG gabali, domēni</li>
+        <li><code>gtfs</code> — datu pārskats, avotu uzraudzība, eksports</li>
+        <li><code>chat</code> — AI asistents, ieteikumi, kļūdu ziņojumi</li>
+    </ul>
+
+    <h3>Tehniskie parametri</h3>
+    <ul style="margin-top: 12px; padding-left: 20px; color: var(--vtv-text-secondary); font-size: 14px; line-height: 2;">
+        <li><strong>Bibliotēka:</strong> next-intl v4 ar <code>NextIntlClientProvider</code></li>
+        <li><strong>Valodas noteikšana:</strong> <code>locale</code> sīkdatne (1 gada derīgums), noklusējums: <code>lv</code></li>
+        <li><strong>Pārslēgšana:</strong> <code>LocaleToggle</code> komponents sānjoslas kājenē (LV | EN radio pogas)</li>
+        <li><strong>URL struktūra:</strong> <code>/{locale}/{lapa}</code> — lokāle vienmēr ir pirmais ceļa segments</li>
+        <li><strong>Failu lielums:</strong> ~722 rindas katrā lokālē (<code>messages/lv.json</code>, <code>messages/en.json</code>)</li>
+        <li><strong>AI valoda:</strong> AI asistents nosaka sarunas valodu un atbild atbilstoši</li>
     </ul>
 </div>
 
-<!-- ═══════════════════════════ TECH STACK ═══════════════════════════ -->
-<div class="section-header" style="margin-top: 56px;">
+<!-- ═══════════════════ TECH STACK ═══════════════════ -->
+<div class="section-header" style="margin-top: 64px;">
     <h2>Tehnoloģiju Kopsavilkums</h2>
 </div>
 
 <div class="tech-grid">
     <div class="tech-item">
         <div class="tech-label">CMS Priekšgals</div>
-        <h4>Next.js 16, React 19, Tailwind CSS v4, shadcn/ui, Auth.js v5</h4>
+        <h4>Next.js 16.1, React 19, Tailwind CSS v4, shadcn/ui (Radix), Auth.js v5</h4>
+        <p class="tech-detail">App Router, OKLCH dizaina žetoni (3 līmeņu arhitektūra), Lexend + Source Sans 3 fonti, tumšā režīma atbalsts, WCAG AAA fokusa gredzeni, skip-to-content, prefers-reduced-motion</p>
         <span class="tech-status production">Produkcijā</span>
     </div>
     <div class="tech-item">
         <div class="tech-label">Aizmugures API</div>
-        <h4>FastAPI, SQLAlchemy 2.0 (async), PostgreSQL + pgvector</h4>
+        <h4>FastAPI, SQLAlchemy 2.0 (async), PostgreSQL 16 + pgvector</h4>
+        <p class="tech-detail">55+ galapunkti, async ORM ar connection pooling, Alembic migrācijas, Pydantic v2 validācija</p>
         <span class="tech-status production">Produkcijā</span>
     </div>
     <div class="tech-item">
         <div class="tech-label">Autentifikācija</div>
         <h4>JWT (HS256) + Auth.js v5 + bcrypt + RBAC (4 lomas)</h4>
+        <p class="tech-detail">httpOnly sīkdatnes, proaktīva žetonu atjaunošana (5 min pirms derīguma), dubulta brutāla spēka aizsardzība (priekšgals + aizmugure)</p>
         <span class="tech-status production">Produkcijā</span>
     </div>
     <div class="tech-item">
         <div class="tech-label">AI Aģents</div>
-        <h4>Pydantic AI, 10 rīki, straumēšana (SSE), 50 vaicājumi/dienā</h4>
+        <h4>Pydantic AI, 10 rīki, SSE straumēšana, RAG (pgvector)</h4>
+        <p class="tech-detail">Anthropic Claude / Ollama (konfigurējams), OpenAI saderīgs API, vektoru meklēšana dokumentos, daudzpakāpju sarunas</p>
         <span class="tech-status production">Produkcijā</span>
     </div>
     <div class="tech-item">
-        <div class="tech-label">Reāllaika Kešatmiņa</div>
-        <h4>Redis 7 (transportlīdzekļu pozīciju kešatmiņa)</h4>
+        <div class="tech-label">Reāllaika Dati</div>
+        <h4>Redis 7 (autentificēts), GTFS-RT Protobuf, 10s polling</h4>
+        <p class="tech-detail">Transportlīdzekļu pozīciju kešatmiņa, kavējumu aprēķini, multi-feed atbalsts (konfigurējams)</p>
         <span class="tech-status production">Produkcijā</span>
     </div>
     <div class="tech-item">
         <div class="tech-label">Kartes</div>
-        <h4>Leaflet + OpenStreetMap (pieturas, transportlīdzekļi)</h4>
+        <h4>Leaflet 1.9 + react-leaflet 5, OpenStreetMap / CARTO Voyager</h4>
+        <p class="tech-detail">CircleMarker (SVG) 1600+ pieturam, BusMarker ar bearing, click-to-place, draggable marķieri, dinamisks imports (ssr: false)</p>
         <span class="tech-status production">Produkcijā</span>
     </div>
     <div class="tech-item">
         <div class="tech-label">Izvietošana</div>
-        <h4>Docker Compose (6 servisi, nginx reverss proksis, auto-migrācija)</h4>
+        <h4>Docker Compose (6+ servisi), nginx reverse proxy</h4>
+        <p class="tech-detail">Automātiska DB migrācija startā, veselības pārbaudes, produkcijas konfigurācija ar .env, servisu atkarību pārvaldība</p>
         <span class="tech-status production">Produkcijā</span>
     </div>
     <div class="tech-item">
         <div class="tech-label">Testēšana</div>
-        <h4>pytest (609 vienību testi) + Playwright (81 E2E testi)</h4>
+        <h4>pytest (714 vienību + drošības testi) + Playwright (81 E2E)</h4>
+        <p class="tech-detail">Kopā 795 testi; ietver SDLC drošības konvenciju testus, API galapunktu testus, autentifikācijas un RBAC testus</p>
         <span class="tech-status production">Produkcijā</span>
     </div>
     <div class="tech-item">
         <div class="tech-label">LLM Nodrošinātājs</div>
         <h4>Anthropic Claude / lokāls Ollama</h4>
+        <p class="tech-detail">Konfigurējams ar vides mainīgajiem, atbalsta dažādus modeļus (Claude 4, Llama 3, u.c.)</p>
         <span class="tech-status configurable">Konfigurējams</span>
     </div>
     <div class="tech-item">
         <div class="tech-label">Iegulšanas Nodrošinātājs</div>
         <h4>OpenAI / Ollama (vektoru meklēšanai)</h4>
+        <p class="tech-detail">Dokumentu gabalu vektorizācija RAG cauruļvadam, pgvector kosinusu līdzības meklēšana</p>
         <span class="tech-status configurable">Konfigurējams</span>
     </div>
 </div>
 
-<!-- ═══════════════════════════ ROADMAP ═══════════════════════════ -->
-<div class="section-header" style="margin-top: 56px;">
+<!-- ═══════════════════ ROADMAP ═══════════════════ -->
+<div class="section-header" style="margin-top: 64px;">
     <div class="section-header-text"><h2>Nākotnes Attīstība (Pēc MVP)</h2></div>
 </div>
 
 <div class="roadmap">
     <div class="roadmap-item">
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
             <span class="roadmap-phase" style="margin-bottom:0;">1. Fāze</span>
             <span class="status-badge partial" style="margin-left:auto;">~40% uzsākts</span>
         </div>
         <h4>PostGIS telpiskās vaicājumi, visa Latvijas GTFS, WebSocket</h4>
-        <p>Rīgas GTFS-RT un grafiku pārvaldība darbojas (23 galapunkti). Atlikušais: PostGIS paplašinājums, multi-feed GTFS imports visai Latvijai, WebSocket straumēšana (aizstāj HTTP polling), Redis kešatmiņas migrācija transportlīdzekļu pozīcijām.</p>
-        <div style="margin-top:8px;">
+        <p>Rīgas GTFS-RT un grafiku pārvaldība darbojas (23 galapunkti). Atlikušais: PostGIS paplašinājums (aizstāj Haversine ar telpiskajiem indeksiem), visa Latvijas GTFS datu imports (ATD, Daugavpils, Jūrmala, Pierīga), WebSocket straumēšana (aizstāj 10s HTTP polling ar reāllaika push), Redis kešatmiņas optimizācija transportlīdzekļu pozīcijām.</p>
+        <div style="margin-top:10px;">
             <div class="module-bar-outer"><div class="module-bar-inner amber" style="width:45%"></div></div>
         </div>
         <div class="roadmap-time">~4 nedēļas &middot; Plānots Q2 2026</div>
     </div>
     <div class="roadmap-item">
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
             <span class="roadmap-phase" style="margin-bottom:0;">2. Fāze</span>
             <span class="status-badge planned" style="margin-left:auto;">Nav uzsākts</span>
         </div>
         <h4>Visa Latvija — Daugavpils, Jūrmala, Pierīga, vilcieni</h4>
-        <p>Visu Latvijas pilsētu transporta dati, vilcienu izsekošana, Valhalla maršrutu saskaņošana, ETA kalkulators, adaptīvā aptauja.</p>
+        <p>Visu Latvijas pilsētu transporta dati, vilcienu izsekošana, Valhalla maršrutu saskaņošana, ETA kalkulators, adaptīvā aptauja, lietotāju pārvaldības lapas ieviešana.</p>
         <div class="roadmap-time">~4 nedēļas &middot; Prasa 1. fāzes pabeigšanu</div>
     </div>
     <div class="roadmap-item">
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
             <span class="roadmap-phase" style="margin-bottom:0;">3. Fāze</span>
             <span class="status-badge planned" style="margin-left:auto;">Nav uzsākts</span>
         </div>
         <h4>GPS izsekošana ar telefoniem un aparatūru</h4>
-        <p>OwnTracks integrācija tālruņu izsekošanai, Traccar/Teltonika FMB920 aparatūras GPS, OpenTripPlanner ceļojumu plānotājs, koplietojamas izsekošanas saites.</p>
+        <p>OwnTracks integrācija tālruņu izsekošanai, Traccar/Teltonika FMB920 aparatūras GPS, OpenTripPlanner ceļojumu plānotājs, koplietojamas izsekošanas saites pasažieriem.</p>
         <div class="roadmap-time">~8 nedēļas &middot; Prasa 2. fāzes pabeigšanu</div>
     </div>
     <div class="roadmap-item">
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
             <span class="roadmap-phase" style="margin-bottom:0;">4. Fāze</span>
             <span class="status-badge planned" style="margin-left:auto;">Nav uzsākts</span>
         </div>
         <h4>ML prognozēšana un publiskais API</h4>
-        <p>ML bāzēta ETA prognozēšana (TimescaleDB vēsture), laika apstākļu korekcija, pasažieru noslodzes prognozēšana (e-talons dati), anomāliju atklāšana, publiskais izstrādātāju API.</p>
+        <p>ML bāzēta ETA prognozēšana (TimescaleDB vēsture), laika apstākļu korekcija, pasažieru noslodzes prognozēšana (e-talons dati), anomāliju atklāšana, publiskais izstrādātāju API ar OpenAPI dokumentāciju.</p>
         <div class="roadmap-time">Turpinās &middot; Ilgtermiņa vīzija</div>
     </div>
 </div>
 
-<!-- ═══════════════════════════ WHAT'S NEXT ═══════════════════════════ -->
-<div style="background: linear-gradient(135deg, #eef2ff, #e0e7ff); border: 1px solid #c7d2fe; border-radius: 16px; padding: 28px; margin-top: 32px;">
-    <h3 style="margin-top: 0; font-size: 16px; color: #3730a3;">Kas ir nākamais?</h3>
-    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 16px;">
-        <div style="background: white; border-radius: 10px; padding: 16px; border: 1px solid #c7d2fe;">
-            <div style="font-size: 12px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">MVP uzlabojumi</div>
-            <ul style="font-size: 13px; color: #4b5563; padding-left: 16px; margin: 0; line-height: 1.8;">
-                <li>DMS uzlabojumi — OCR, LLM auto-tagi</li>
-                <li>RAG uzlabojumi — HTML/PPTX, lemmatizētājs</li>
-                <li>Žetonu atcelšana un sesiju pārvaldība</li>
-                <li>Redis kešatmiņa brutāla spēka aizsardzībai</li>
+<!-- ═══════════════════ WHAT'S NEXT ═══════════════════ -->
+<div style="background: linear-gradient(135deg, #eef2ff, #e0e7ff); border: 1px solid #c7d2fe; border-radius: var(--radius-xl); padding: 32px; margin-top: 36px;">
+    <h3 style="margin-top: 0; font-size: 18px; color: #3730a3;">Kas ir nākamais?</h3>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 20px;">
+        <div style="background: white; border-radius: var(--radius-md); padding: 20px; border: 1px solid #c7d2fe;">
+            <div style="font-size: 11px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;">MVP uzlabojumi</div>
+            <ul style="font-size: 13px; color: #4b5563; padding-left: 16px; margin: 0; line-height: 2;">
+                <li>DMS uzlabojumi — OCR teksta atpazīšana, LLM auto-tagi</li>
+                <li>RAG uzlabojumi — HTML/PPTX atbalsts, LV lemmatizētājs</li>
+                <li>Žetonu atcelšana un aktīvo sesiju pārvaldība</li>
+                <li>Redis kešatmiņa brutāla spēka aizsardzībai (aizstāj in-memory Map)</li>
+                <li>Lietotāju pārvaldības lapas ieviešana (tikai admin)</li>
             </ul>
         </div>
-        <div style="background: white; border-radius: 10px; padding: 16px; border: 1px solid #c7d2fe;">
-            <div style="font-size: 12px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">1. Fāzes prioritātes</div>
-            <ul style="font-size: 13px; color: #4b5563; padding-left: 16px; margin: 0; line-height: 1.8;">
+        <div style="background: white; border-radius: var(--radius-md); padding: 20px; border: 1px solid #c7d2fe;">
+            <div style="font-size: 11px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;">1. Fāzes prioritātes</div>
+            <ul style="font-size: 13px; color: #4b5563; padding-left: 16px; margin: 0; line-height: 2;">
                 <li>PostGIS paplašinājums pieturu telpiskajiem vaicājumiem</li>
                 <li>Visa Latvijas GTFS datu imports (ATD + pilsētas)</li>
-                <li>WebSocket straumēšana reāllaika kartei</li>
-                <li>Redis kešatmiņa transportlīdzekļu pozīcijām (mērogojamībai)</li>
+                <li>WebSocket straumēšana reāllaika kartei (aizstāj HTTP polling)</li>
+                <li>Redis kešatmiņas optimizācija transportlīdzekļu pozīcijām</li>
+                <li>Cloudflare Workers izvietošana (priekšizpēte pabeigta)</li>
             </ul>
         </div>
     </div>
@@ -2233,12 +2173,11 @@
 
 </div><!-- /container -->
 
-<!-- ═══════════════════════════ FOOTER ═══════════════════════════ -->
+<!-- ═══════════════════ FOOTER ═══════════════════ -->
 <footer class="footer">
     <div class="footer-logo">VTV</div>
     <p>Vienotā Transporta Vadība &mdash; Rīgas Satiksme</p>
-    <p style="margin-top: 8px; font-size: 12px; opacity: 0.6;">2026</p>
+    <p style="margin-top: 8px; font-size: 12px; opacity: 0.5;">2026 &middot; Atjaunots 25. februārī</p>
 </footer>
-
 </body>
 </html>

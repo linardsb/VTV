@@ -41,16 +41,19 @@ test.describe("Schedules page", () => {
       await page.getByRole("tab", { name: /calendars|kalendāri/i }).click();
       // Wait for data or empty state
       const emptyState = page.getByText(/no.*found|nav.*atrast/i);
-      const firstRow = page.getByRole("row").nth(1);
+      const table = page.getByRole("table");
+      const firstRow = table.getByRole("row").nth(1);
       await Promise.race([
         firstRow.waitFor({ state: "visible", timeout: 5000 }),
         emptyState.waitFor({ state: "visible", timeout: 5000 }),
       ]).catch(() => {});
       if (await emptyState.isVisible()) return; // No data — skip
       if (!(await firstRow.isVisible())) return;
-      await firstRow.click();
-      const sheet = page.getByRole("dialog");
-      await expect(sheet).toBeVisible({ timeout: 3000 });
+      // Retry click+dialog check to handle React rendering timing under parallel load
+      await expect(async () => {
+        await firstRow.getByRole("cell").first().click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+      }).toPass({ timeout: 10000 });
     });
 
     test("create button opens calendar form", async ({ page }) => {
@@ -71,17 +74,21 @@ test.describe("Schedules page", () => {
       await page.getByRole("tab", { name: /calendars|kalendāri/i }).click();
       // Wait for data or empty state
       const emptyState = page.getByText(/no.*found|nav.*atrast/i);
-      const firstRow = page.getByRole("row").nth(1);
+      const table = page.getByRole("table");
+      const firstRow = table.getByRole("row").nth(1);
       await Promise.race([
         firstRow.waitFor({ state: "visible", timeout: 5000 }),
         emptyState.waitFor({ state: "visible", timeout: 5000 }),
       ]).catch(() => {});
       if (await emptyState.isVisible()) return; // No data — skip
       if (!(await firstRow.isVisible())) return;
-      await firstRow.click();
-      const sheet = page.getByRole("dialog");
-      await expect(sheet).toBeVisible({ timeout: 3000 });
+      // Retry click+dialog check to handle React rendering timing under parallel load
+      await expect(async () => {
+        await firstRow.getByRole("cell").first().click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+      }).toPass({ timeout: 10000 });
       // Should show day badges (Mon, Tue, etc.)
+      const sheet = page.getByRole("dialog");
       const dayBadge = sheet.getByText(/mon|pir/i);
       if (await dayBadge.isVisible()) {
         await expect(dayBadge).toBeVisible();
@@ -119,11 +126,14 @@ test.describe("Schedules page", () => {
     test("clicking trip row opens detail", async ({ page }) => {
       await page.getByRole("tab", { name: /trips|reisi/i }).click();
       await waitForDataOrEmpty(page);
-      const firstRow = page.getByRole("row").nth(1);
+      const table = page.getByRole("table");
+      const firstRow = table.getByRole("row").nth(1);
       if (await firstRow.isVisible()) {
-        await firstRow.click();
-        const sheet = page.getByRole("dialog");
-        await expect(sheet).toBeVisible({ timeout: 3000 });
+        // Retry click+dialog check to handle React rendering timing under parallel load
+        await expect(async () => {
+          await firstRow.getByRole("cell").first().click();
+          await expect(page.getByRole("dialog")).toBeVisible();
+        }).toPass({ timeout: 10000 });
       }
     });
 

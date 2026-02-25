@@ -8,10 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.exceptions import AccountLockedError, InvalidCredentialsError
 from app.auth.models import User
 from app.auth.repository import UserRepository
-from app.auth.schemas import LoginResponse
+from app.auth.schemas import (
+    CreateUserRequest,
+    LoginResponse,
+    UpdateUserRequest,
+    UserDetailResponse,
+)
 from app.auth.token import create_access_token, create_refresh_token
 from app.core.logging import get_logger
 from app.shared.models import utcnow
+from app.shared.schemas import PaginatedResponse
 
 logger = get_logger(__name__)
 
@@ -237,6 +243,82 @@ class AuthService:
             requesting_user_id=requesting_user_id,
         )
         return True
+
+    async def list_users(
+        self,
+        *,
+        page: int = 1,
+        page_size: int = 20,
+        search: str | None = None,
+        role: str | None = None,
+        is_active: bool | None = None,
+    ) -> PaginatedResponse[UserDetailResponse]:
+        """List users with pagination and optional filters (admin only)."""
+        offset = (page - 1) * page_size
+        users = await self.repo.list(
+            offset=offset,
+            limit=page_size,
+            search=search,
+            role=role,
+            is_active=is_active,
+        )
+        total = await self.repo.count_filtered(
+            search=search,
+            role=role,
+            is_active=is_active,
+        )
+        return PaginatedResponse(
+            items=[UserDetailResponse.model_validate(u) for u in users],
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
+
+    async def get_user(self, user_id: int) -> UserDetailResponse:
+        """Get a single user by ID (admin only)."""
+        user = await self.repo.find_by_id(user_id)
+        if user is None:
+            raise InvalidCredentialsError("User not found")
+        return UserDetailResponse.model_validate(user)
+
+    async def create_user(self, data: CreateUserRequest) -> UserDetailResponse:
+        """Create a new user (admin only)."""
+        from app.core.exceptions import DomainValidationError
+
+        existing = await self.repo.find_by_email(data.email)
+        if existing is not None:
+            raise DomainValidationError("Email already in use")
+
+        user = User(
+            email=data.email,
+            name=data.name,
+            hashed_password=self.hash_password(data.password),
+            role=data.role,
+        )
+        user = await self.repo.create(user)
+        logger.info("auth.user_created", user_id=user.id, role=data.role)
+        return UserDetailResponse.model_validate(user)
+
+    async def update_user(self, user_id: int, data: UpdateUserRequest) -> UserDetailResponse:
+        """Update a user's profile (admin only)."""
+        from app.core.exceptions import DomainValidationError
+
+        user = await self.repo.find_by_id(user_id)
+        if user is None:
+            raise InvalidCredentialsError("User not found")
+
+        # Check email uniqueness if changing email
+        if data.email is not None and data.email != user.email:
+            existing = await self.repo.find_by_email(data.email)
+            if existing is not None:
+                raise DomainValidationError("Email already in use")
+
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(user, field, value)
+
+        user = await self.repo.update(user)
+        logger.info("auth.user_updated", user_id=user_id)
+        return UserDetailResponse.model_validate(user)
 
     async def seed_demo_users(self) -> list[User]:
         """Create demo users if no users exist. Returns created users.

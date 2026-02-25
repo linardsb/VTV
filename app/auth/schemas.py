@@ -1,5 +1,7 @@
 """Pydantic schemas for authentication."""
 
+import datetime
+
 from pydantic import BaseModel, EmailStr, field_validator
 
 PASSWORD_MIN_LENGTH = 10
@@ -90,3 +92,64 @@ class UserResponse(BaseModel):
     is_active: bool
 
     model_config = {"from_attributes": True}
+
+
+class UserDetailResponse(BaseModel):
+    """User detail with timestamps."""
+
+    id: int
+    email: str
+    name: str
+    role: str
+    is_active: bool
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
+    model_config = {"from_attributes": True}
+
+
+_VALID_ROLES = {"admin", "dispatcher", "editor", "viewer"}
+
+
+class CreateUserRequest(BaseModel):
+    """Admin creates a new user."""
+
+    email: EmailStr
+    name: str
+    password: str
+    role: str = "viewer"
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """Enforce password complexity."""
+        return _validate_password_complexity(v)
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        """Ensure role is one of the 4 valid VTV roles."""
+        if v not in _VALID_ROLES:
+            msg = f"Role must be one of: {', '.join(sorted(_VALID_ROLES))}"
+            raise ValueError(msg)
+        return v
+
+
+class UpdateUserRequest(BaseModel):
+    """Admin updates user fields."""
+
+    name: str | None = None
+    email: EmailStr | None = None
+    role: str | None = None
+    is_active: bool | None = None
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str | None) -> str | None:
+        """Ensure role is one of the 4 valid VTV roles."""
+        if v is None:
+            return v
+        if v not in _VALID_ROLES:
+            msg = f"Role must be one of: {', '.join(sorted(_VALID_ROLES))}"
+            raise ValueError(msg)
+        return v

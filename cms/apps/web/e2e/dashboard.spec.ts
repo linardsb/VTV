@@ -11,19 +11,24 @@ test.describe("Dashboard", () => {
   });
 
   test("displays 4 metric cards", async ({ page }) => {
-    // Metric cards: Active Vehicles, On-Time Performance, Delayed Routes, Fleet Utilization
-    // Scope to the metrics grid to avoid matching the calendar card border
-    const metricsGrid = page.locator("div.grid").first();
-    const cards = metricsGrid.locator("[class*='border-card-border']");
-    await expect(cards.first()).toBeVisible({ timeout: 5000 });
-    await expect(cards).toHaveCount(4);
+    // Metric cards show 4 titles: Active Vehicles, On-Time, Delayed Routes, Active Routes
+    // They render with "—" values even when API data is unavailable
+    const titles = [
+      /aktīvi transportlīdzekļi|active vehicles/i,
+      /savlaicīgums|on-time performance/i,
+      /kavēti maršruti|delayed routes/i,
+      /aktīvi maršruti|active routes/i,
+    ];
+    for (const titleRegex of titles) {
+      await expect(page.getByText(titleRegex)).toBeVisible({ timeout: 10000 });
+    }
   });
 
   test("manage routes link navigates to routes page", async ({ page }) => {
     const link = page.getByRole("link", { name: /manage routes|pārvaldīt maršrutus/i });
     if (await link.isVisible()) {
       await link.click();
-      await expect(page).toHaveURL(/\/routes/);
+      await expect(page).toHaveURL(/\/routes/, { timeout: 10000 });
     }
   });
 

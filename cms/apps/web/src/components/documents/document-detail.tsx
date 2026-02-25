@@ -4,11 +4,12 @@ import { useState, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Download, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -107,16 +108,19 @@ export function DocumentDetail({
   const displayedChunks = showAllChunks ? chunks : chunks.slice(0, 3);
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:w-[480px]">
-        <SheetHeader>
-          <SheetTitle className="font-heading text-heading font-semibold">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[36rem] max-h-[90vh] overflow-y-auto" showCloseButton>
+        <DialogHeader>
+          <DialogTitle className="font-heading text-heading font-semibold">
             {doc.title ?? doc.filename}
-          </SheetTitle>
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {doc.title ?? doc.filename}
+          </DialogDescription>
           <StatusBadge status={doc.status} />
-        </SheetHeader>
+        </DialogHeader>
 
-        <div className="px-4 pb-4 space-y-(--spacing-card)">
+        <div className="space-y-(--spacing-card)">
           {/* Metadata */}
           <div className="space-y-(--spacing-card)">
             <DetailRow label={t("fileName")}>{doc.filename}</DetailRow>
@@ -225,7 +229,7 @@ export function DocumentDetail({
             </>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

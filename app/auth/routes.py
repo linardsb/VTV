@@ -1,7 +1,7 @@
 # pyright: reportUnknownMemberType=false, reportUntypedFunctionDecorator=false
 """REST API routes for authentication."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.requests import Request
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,11 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import get_current_user, require_role, security
 from app.auth.models import User
 from app.auth.schemas import (
+    CreateUserRequest,
     LoginRequest,
     LoginResponse,
     PasswordResetRequest,
     RefreshRequest,
     RefreshResponse,
+    UpdateUserRequest,
+    UserDetailResponse,
     UserResponse,
 )
 from app.auth.service import AuthService
@@ -22,6 +25,7 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
+from app.shared.schemas import PaginatedResponse
 
 logger = get_logger(__name__)
 
@@ -119,6 +123,69 @@ async def seed_demo_users(
         return []
     users = await service.seed_demo_users()
     return [UserResponse.model_validate(u) for u in users]
+
+
+@router.get("/users", response_model=PaginatedResponse[UserDetailResponse])
+@limiter.limit("30/minute")
+async def list_users(
+    request: Request,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
+    role: str | None = Query(None),
+    is_active: bool | None = Query(None),
+    _admin: User = Depends(require_role("admin")),  # noqa: B008
+    service: AuthService = Depends(get_service),  # noqa: B008
+) -> PaginatedResponse[UserDetailResponse]:
+    """List all users with pagination and filters (admin only)."""
+    _ = request
+    return await service.list_users(
+        page=page,
+        page_size=page_size,
+        search=search,
+        role=role,
+        is_active=is_active,
+    )
+
+
+@router.get("/users/{user_id}", response_model=UserDetailResponse)
+@limiter.limit("30/minute")
+async def get_user(
+    request: Request,
+    user_id: int,
+    _admin: User = Depends(require_role("admin")),  # noqa: B008
+    service: AuthService = Depends(get_service),  # noqa: B008
+) -> UserDetailResponse:
+    """Get a single user by ID (admin only)."""
+    _ = request
+    return await service.get_user(user_id)
+
+
+@router.post("/users", response_model=UserDetailResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
+async def create_user(
+    request: Request,
+    body: CreateUserRequest,
+    _admin: User = Depends(require_role("admin")),  # noqa: B008
+    service: AuthService = Depends(get_service),  # noqa: B008
+) -> UserDetailResponse:
+    """Create a new user (admin only)."""
+    _ = request
+    return await service.create_user(body)
+
+
+@router.patch("/users/{user_id}", response_model=UserDetailResponse)
+@limiter.limit("10/minute")
+async def update_user(
+    request: Request,
+    user_id: int,
+    body: UpdateUserRequest,
+    _admin: User = Depends(require_role("admin")),  # noqa: B008
+    service: AuthService = Depends(get_service),  # noqa: B008
+) -> UserDetailResponse:
+    """Update a user's profile (admin only)."""
+    _ = request
+    return await service.update_user(user_id, body)
 
 
 @router.delete(

@@ -1,9 +1,10 @@
 """Database repository for user operations."""
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
+from app.shared.utils import escape_like
 
 
 class UserRepository:
@@ -40,9 +41,58 @@ class UserRepository:
         await self.db.delete(user)
         await self.db.flush()
 
+    async def list(
+        self,
+        *,
+        offset: int = 0,
+        limit: int = 20,
+        search: str | None = None,
+        role: str | None = None,
+        is_active: bool | None = None,
+    ) -> list[User]:
+        """List users with pagination and filtering."""
+        query = select(User)
+        if search:
+            pattern = f"%{escape_like(search)}%"
+            query = query.where(
+                or_(
+                    User.name.ilike(pattern),
+                    User.email.ilike(pattern),
+                )
+            )
+        if role is not None:
+            query = query.where(User.role == role)
+        if is_active is not None:
+            query = query.where(User.is_active.is_(is_active))
+        query = query.order_by(User.name).offset(offset).limit(limit)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def count_filtered(
+        self,
+        *,
+        search: str | None = None,
+        role: str | None = None,
+        is_active: bool | None = None,
+    ) -> int:
+        """Count users matching the given filters."""
+        query = select(func.count()).select_from(User)
+        if search:
+            pattern = f"%{escape_like(search)}%"
+            query = query.where(
+                or_(
+                    User.name.ilike(pattern),
+                    User.email.ilike(pattern),
+                )
+            )
+        if role is not None:
+            query = query.where(User.role == role)
+        if is_active is not None:
+            query = query.where(User.is_active.is_(is_active))
+        result = await self.db.execute(query)
+        return result.scalar_one()
+
     async def count(self) -> int:
         """Count total users."""
-        from sqlalchemy import func
-
         result = await self.db.execute(select(func.count()).select_from(User))
         return result.scalar_one()

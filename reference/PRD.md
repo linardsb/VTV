@@ -114,7 +114,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 | CMS Framework | Next.js 16 (App Router) | Full-stack, production-ready, enterprise patterns via implementation |
 | UI | Shadcn/ui + Tailwind v4 | No framework lock-in, CSS variable theming |
 | Data Tables | TanStack Table v8 | Server-side filtering/pagination |
-| API | REST + @vtv/sdk (OpenAPI-generated) | Type-safe client from FastAPI spec; tRPC v11 planned for CMS-native routes |
+| API | REST + @vtv/sdk (OpenAPI-generated) ✅ | Type-safe client from FastAPI spec (47 endpoints, 68 types, events domain migrated); tRPC v11 planned for CMS-native routes |
 | ORM | SQLAlchemy 2.0 (async) | Backend ORM with pgvector; Drizzle planned for CMS PostGIS layer |
 | Database | PostgreSQL 18 + pgvector | Vector search for RAG; PostGIS planned for spatial queries |
 | Maps | react-leaflet v5 + Leaflet 1.9 | OpenStreetMap tiles, marker clustering planned |
@@ -374,7 +374,8 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ✅ Trip CRUD with stop_times bulk replace (atomic PUT operation)
 - ✅ Schedule validation against GTFS spec (date ranges, references, time format, sequence ordering)
 - ✅ GTFS ZIP import (parse 6 CSV files, bulk insert with FK resolution, skip unknown stops)
-- ✅ Frontend CMS page with 3 tabs: Calendars (table, form, detail with exceptions), Trips (filterable table, form, detail with stop times), Import (ZIP upload + validation)
+- ✅ Calendar creator tracking — `created_by_id` FK to users, displayed in table and detail dialog
+- ✅ Frontend CMS page with 3 tabs: Calendars (unified dialog with live month grid, search, status badges), Trips (filterable table, form, detail with stop times), Import (ZIP upload + validation)
 - ✅ Frontend API client (22 endpoints: agencies, routes, calendars, trips, import, validate)
 - ⬜ Timetable grid view (frontend — rows = trips, columns = stops)
 - ✅ GTFS export (generate ZIP from database — `GET /api/v1/schedules/export`)
@@ -404,6 +405,7 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ✅ CORS hardened — explicit method/header allowlists (no wildcards)
 - ✅ Health endpoint redaction — no provider names, environment, or error details leaked
 - ✅ nginx CSP/HTTPS — Content-Security-Policy headers, full HTTPS server block with modern TLS ciphers
+- ✅ User management — admin-only CRUD (list, create, get, update, delete) with search, role/status filters, reset-password
 - ✅ GDPR right-to-erasure — admin-only user deletion endpoint with Redis cleanup
 - ✅ Container hardening — non-root users, `no-new-privileges`, `cap_drop: ALL`, read-only FS in production
 - ✅ Dependency scanning — `pip-audit` in CI, lock file integrity via `uv lock --check`

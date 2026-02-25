@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { CalendarEvent } from "@/types/dashboard";
 import type { OperationalEvent } from "@/types/event";
-import { fetchEvents } from "@/lib/events-client";
+import { fetchEvents } from "@/lib/events-sdk";
 
 function toCalendarEvent(event: OperationalEvent): CalendarEvent {
   return {

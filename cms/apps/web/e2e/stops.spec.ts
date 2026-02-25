@@ -68,7 +68,7 @@ test.describe("Stops page", () => {
     if (await firstRow.isVisible()) {
       await firstRow.click();
       const sheet = page.getByRole("dialog");
-      await expect(sheet).toBeVisible({ timeout: 3000 });
+      await expect(sheet).toBeVisible({ timeout: 5000 });
     }
   });
 

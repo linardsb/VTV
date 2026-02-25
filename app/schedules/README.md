@@ -67,6 +67,7 @@ GTFS-compliant schedule management for transit timetables, service calendars, tr
 | `monday` - `sunday` | Boolean | Not null | Day-of-week flags |
 | `start_date` | Date | Not null | Service period start |
 | `end_date` | Date | Not null | Service period end |
+| `created_by_id` | Integer | FK -> users.id SET NULL, nullable | User who created this calendar |
 | `created_at` / `updated_at` | DateTime | Not null | TimestampMixin |
 
 ### Table: `calendar_dates`
@@ -117,10 +118,13 @@ GTFS-compliant schedule management for transit timetables, service calendars, tr
 7. GTFS import clears ALL existing schedule data before inserting (full replace strategy)
 8. StopTimes for unknown stops (not in DB) are skipped during GTFS import with warning count
 9. Calendar exception_type: 1 = service added, 2 = service removed
+10. Calendar `created_by_id` is set from the authenticated user on manual creation; GTFS imports leave it NULL
+11. Creator relationship uses `lazy="noload"` — only loaded via `joinedload()` in API-serving queries to avoid unnecessary JOINs on bulk operations
 
 ## Integration Points
 
 - **Stops** (`app/stops/`): StopTime references `stops.id` via FK. GTFS import reads all stops via `StopRepository` to build `gtfs_stop_id -> db_stop_id` mapping. Read-only access.
+- **Auth** (`app/auth/`): Calendar `created_by_id` references `users.id` via FK (SET NULL on delete). Creator relationship loaded via explicit `joinedload()` in API-serving repository methods only. GTFS import and export bypass creator tracking.
 
 ## API Endpoints
 

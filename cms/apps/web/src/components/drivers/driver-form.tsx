@@ -16,11 +16,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { Driver, DriverCreate, DriverUpdate } from "@/types/driver";
 
 interface DriverFormProps {
@@ -120,15 +121,18 @@ export function DriverForm({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:w-[420px]">
-        <SheetHeader>
-          <SheetTitle className="font-heading text-heading font-semibold">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto" showCloseButton>
+        <DialogHeader>
+          <DialogTitle className="font-heading text-heading font-semibold">
             {isEdit ? t("form.editTitle") : t("form.createTitle")}
-          </SheetTitle>
-        </SheetHeader>
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {isEdit ? t("form.editTitle") : t("form.createTitle")}
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="px-4 pb-4 space-y-(--spacing-card)">
+        <div className="space-y-(--spacing-card)">
           {/* Personal Info */}
           <p className="text-xs font-medium text-label-text uppercase tracking-wide">
             {t("form.personalInfo")}
@@ -306,7 +310,7 @@ export function DriverForm({
             </Button>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -6,11 +6,12 @@ import { useTranslations } from "next-intl";
 import { Upload, FileIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +27,8 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { uploadDocument } from "@/lib/documents-client";
 import type { DocumentItem } from "@/types/document";
+
+const DEFAULT_DOMAINS = ["general", "operations", "safety", "training"];
 
 const ACCEPTED_TYPES: Record<string, string[]> = {
   "application/pdf": [".pdf"],
@@ -118,15 +121,18 @@ export function DocumentUploadForm({
   }, []);
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:w-[480px]">
-        <SheetHeader>
-          <SheetTitle className="font-heading text-heading font-semibold">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto" showCloseButton>
+        <DialogHeader>
+          <DialogTitle className="font-heading text-heading font-semibold">
             {t("upload.title")}
-          </SheetTitle>
-        </SheetHeader>
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {t("upload.title")}
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="mt-(--spacing-grid) space-y-(--spacing-grid)">
+        <div className="space-y-(--spacing-grid)">
           {/* Dropzone */}
           {!selectedFile ? (
             <div
@@ -203,13 +209,9 @@ export function DocumentUploadForm({
                 <SelectValue placeholder={t("upload.domainPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                {domains.map((d) => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                {[...new Set([...DEFAULT_DOMAINS, ...domains])].map((d) => (
+                  <SelectItem key={d} value={d}>{t(`domains.${d}` as Parameters<typeof t>[0])}</SelectItem>
                 ))}
-                <SelectItem value="general">general</SelectItem>
-                <SelectItem value="operations">operations</SelectItem>
-                <SelectItem value="safety">safety</SelectItem>
-                <SelectItem value="training">training</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -247,7 +249,7 @@ export function DocumentUploadForm({
             {isUploading ? t("upload.uploading") : t("upload.submit")}
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

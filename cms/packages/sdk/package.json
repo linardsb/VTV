@@ -3,13 +3,15 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "generate-sdk": "openapi-ts"
+    "generate-sdk": "openapi-ts",
+    "refresh": "curl -s http://localhost:8123/openapi.json | python3 -m json.tool > openapi.json && openapi-ts"
   },
   "exports": {
-    ".": "./src/client/index.ts"
+    ".": "./src/client/index.ts",
+    "./client": "./src/client/client.gen.ts"
   },
   "dependencies": {
-    "@hey-api/client-fetch": "^0.6.0"
+    "@hey-api/client-fetch": "^0.13.1"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.64.0"

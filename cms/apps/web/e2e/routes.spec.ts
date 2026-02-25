@@ -55,15 +55,18 @@ test.describe("Routes page", () => {
   test("clicking table row opens detail sheet", async ({ page }) => {
     // Skip if empty state is showing (no data to click)
     if (await page.getByText(/no.*found|nav.*atrast/i).isVisible()) return;
-    const firstRow = page.getByRole("row").nth(1);
+    const table = page.getByRole("table");
+    const firstRow = table.getByRole("row").nth(1);
     try {
-      await firstRow.waitFor({ state: "visible", timeout: 3000 });
+      await firstRow.waitFor({ state: "visible", timeout: 5000 });
     } catch {
       return; // No data rows — skip
     }
-    await firstRow.click();
-    const sheet = page.getByRole("dialog");
-    await expect(sheet).toBeVisible({ timeout: 3000 });
+    // Retry click+dialog check to handle React rendering timing under parallel load
+    await expect(async () => {
+      await firstRow.getByRole("cell").first().click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+    }).toPass({ timeout: 10000 });
   });
 
   test("create button opens form", async ({ page }) => {

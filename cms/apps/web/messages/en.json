@@ -546,6 +546,12 @@
       "processing": "Processing document...",
       "submit": "Upload"
     },
+    "domains": {
+      "general": "General",
+      "operations": "Operations",
+      "safety": "Safety",
+      "training": "Training"
+    },
     "delete": {
       "title": "Delete Document",
       "confirmation": "Are you sure you want to delete \"{name}\"?",
@@ -739,6 +745,103 @@
       "downloadSuccess": "GTFS data downloaded successfully",
       "downloadError": "Failed to download GTFS data",
       "includesNote": "Includes: agency.txt, routes.txt, calendar.txt, calendar_dates.txt, trips.txt, stop_times.txt, stops.txt"
+    }
+  },
+  "users": {
+    "title": "User Management",
+    "description": "Manage system users and access permissions",
+    "search": "Search users...",
+    "filters": {
+      "allRoles": "All Roles",
+      "admin": "Admin",
+      "dispatcher": "Dispatcher",
+      "editor": "Editor",
+      "viewer": "Viewer",
+      "allStatuses": "All Statuses",
+      "active": "Active",
+      "inactive": "Inactive",
+      "role": "Role",
+      "status": "Status"
+    },
+    "table": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "created": "Created",
+      "actions": "Actions",
+      "noResults": "No users found",
+      "showing": "Showing {from}-{to} of {total}"
+    },
+    "detail": {
+      "title": "User Information",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "createdAt": "Created",
+      "updatedAt": "Updated",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "roles": {
+      "admin": "Admin",
+      "dispatcher": "Dispatcher",
+      "editor": "Editor",
+      "viewer": "Viewer"
+    },
+    "form": {
+      "createTitle": "Add User",
+      "editTitle": "Edit User",
+      "name": "Name",
+      "namePlaceholder": "e.g., John Smith",
+      "email": "Email",
+      "emailPlaceholder": "e.g., john@vtv.lv",
+      "password": "Password",
+      "passwordPlaceholder": "At least 10 characters",
+      "passwordHelp": "Min 10 chars, 1 uppercase, 1 lowercase, 1 digit",
+      "role": "Role",
+      "selectRole": "Select role",
+      "isActive": "Active",
+      "required": "Required field"
+    },
+    "actions": {
+      "create": "Add User",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel",
+      "resetPassword": "Reset Password"
+    },
+    "delete": {
+      "title": "Delete User",
+      "confirmation": "Are you sure you want to delete user \"{name}\"?",
+      "warning": "This action cannot be undone. The user will be permanently removed from the system.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "resetPassword": {
+      "title": "Reset Password",
+      "description": "Set a new password for \"{name}\"",
+      "newPassword": "New Password",
+      "placeholder": "At least 10 characters",
+      "help": "Min 10 chars, 1 uppercase, 1 lowercase, 1 digit",
+      "confirm": "Reset",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "created": "User created successfully",
+      "updated": "User updated successfully",
+      "deleted": "User deleted successfully",
+      "passwordReset": "Password reset successfully",
+      "createError": "Failed to create user",
+      "updateError": "Failed to update user",
+      "deleteError": "Failed to delete user",
+      "resetError": "Failed to reset password",
+      "loadError": "Failed to load users"
+    },
+    "mobile": {
+      "showFilters": "Filters"
     }
   }
 }

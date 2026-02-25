@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { Driver } from "@/types/driver";
 
 interface DetailRowProps {
@@ -59,18 +60,21 @@ export function DriverDetail({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:w-[400px]">
-        <SheetHeader>
-          <SheetTitle className="font-heading text-heading font-semibold">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[28rem] max-h-[90vh] overflow-y-auto" showCloseButton>
+        <DialogHeader>
+          <DialogTitle className="font-heading text-heading font-semibold">
             {driver.first_name} {driver.last_name}
-          </SheetTitle>
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {driver.first_name} {driver.last_name}
+          </DialogDescription>
           <p className="text-xs font-mono text-foreground-muted">
             {driver.employee_number}
           </p>
-        </SheetHeader>
+        </DialogHeader>
 
-        <div className="px-4 pb-4 space-y-(--spacing-card)">
+        <div className="space-y-(--spacing-card)">
           {/* Status & Shift */}
           <div className="flex gap-2">
             <Badge variant="outline" className="text-xs">
@@ -189,7 +193,7 @@ export function DriverDetail({
             </>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

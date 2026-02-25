@@ -85,11 +85,12 @@ services:
       context: .
       dockerfile: Dockerfile
 
-    # SECURITY: Internal only - nginx proxies traffic. Uncomment ports for direct access during dev.
+    # SECURITY: Internal only in production - nginx proxies traffic.
+    # Ports exposed for development (browser needs direct access for client-side API calls).
     expose:
       - "8123"
-    # ports:
-    #   - "8123:8123"
+    ports:
+      - "8123:8123"
 
     # Volume mounts for development
     # Sync project files but preserve container's .venv

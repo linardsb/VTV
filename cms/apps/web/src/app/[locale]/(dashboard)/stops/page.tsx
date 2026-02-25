@@ -179,6 +179,7 @@ export default function StopsPage() {
   // Handlers
   const handleSelectStop = useCallback((stop: Stop) => {
     setSelectedStop(stop);
+    setDetailOpen(true);
     setPopupTrigger((n) => n + 1);
   }, []);
 
