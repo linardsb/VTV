@@ -11,27 +11,17 @@
  */
 
 import { client } from "@vtv/sdk/client";
+import { getToken } from "@/lib/auth-fetch";
 
 client.setConfig({
   baseUrl: process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123",
 });
 
 // Auth interceptor: injects JWT Bearer token into every request.
-// Uses the same dual-context pattern as authFetch:
-// - Server-side: auth() decodes httpOnly JWT cookie (cheap, no network)
-// - Client-side: getSession() fetches from /api/auth/session
+// Uses the shared getToken() from auth-fetch which caches client-side tokens
+// for 60s, avoiding redundant /api/auth/session round trips.
 client.interceptors.request.use(async (request) => {
-  let token: string | undefined;
-
-  if (typeof window === "undefined") {
-    const { auth } = await import("../../auth");
-    const session = await auth();
-    token = session?.accessToken;
-  } else {
-    const { getSession } = await import("next-auth/react");
-    const session = await getSession();
-    token = session?.accessToken;
-  }
+  const token = await getToken();
 
   if (token) {
     request.headers.set("Authorization", `Bearer ${token}`);

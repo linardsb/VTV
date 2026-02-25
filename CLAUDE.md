@@ -33,7 +33,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (690 tests, ~18s)
+make test            # Unit tests (693 tests, ~18s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -93,7 +93,7 @@ VTV/
 
 ### Database
 
-- **Async SQLAlchemy** with connection pooling (pool_size=5, max_overflow=10)
+- **Async SQLAlchemy** with configurable connection pooling (default pool_size=3, max_overflow=5 per worker; tuned for multi-worker Gunicorn)
 - Base class: `app.core.database.Base` (extends `DeclarativeBase`)
 - Session dependency: `get_db()` from `app.core.database`; standalone context: `get_db_context()` for agent tools
 - All models inherit `TimestampMixin` from `app.shared.models`
@@ -101,7 +101,7 @@ VTV/
 ### Middleware & Rate Limiting
 
 - `BodySizeLimitMiddleware` (100KB), `RequestLoggingMiddleware` (correlation IDs), `CORSMiddleware`
-- Rate limiting via slowapi: auth (10/min login, 30/min refresh, 5/min seed), chat (10/min), transit (30/min), knowledge (10-30/min), schedules (5-30/min), drivers (10-30/min), events (10-30/min), skills (5-30/min), health (60/min)
+- Rate limiting via slowapi with Redis storage (cross-worker enforcement, in-memory fallback): auth (10/min login, 30/min refresh, 5/min seed), chat (10/min), transit (30/min), knowledge (10-30/min), schedules (5-30/min), drivers (10-30/min), events (10-30/min), skills (5-30/min), health (60/min)
 - Query quota: 50/day per IP for LLM chat endpoint (`app.core.agents.quota`) — Redis-backed with in-memory fallback
 
 ### Shared Utilities
@@ -113,7 +113,7 @@ VTV/
 
 ### Configuration
 
-Environment variables via Pydantic Settings (`app.core.config`). Copy `.env.example` to `.env` for local development. Key settings: `DATABASE_URL` (required), `REDIS_URL`, `JWT_SECRET_KEY` (required in production), `TRANSIT_FEEDS_JSON`, `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL`, `OBSIDIAN_API_KEY`, `DEMO_USER_PASSWORD`. Full list in `.env.example` and `app/core/config.py`.
+Environment variables via Pydantic Settings (`app.core.config`). Copy `.env.example` to `.env` for local development. Key settings: `DATABASE_URL` (required), `REDIS_URL`, `JWT_SECRET_KEY` (required in production), `TRANSIT_FEEDS_JSON`, `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL`, `OBSIDIAN_API_KEY`, `DEMO_USER_PASSWORD`, `DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`/`DB_POOL_RECYCLE` (connection pool tuning), `POLLER_LEADER_LOCK_TTL` (multi-worker poller election). Full list in `.env.example` and `app/core/config.py`.
 
 ## Frontend (CMS)
 
@@ -143,7 +143,7 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 
 **Testing:** Tests in `tests/` subdirectory. `@pytest.mark.integration` for DB tests. Fast unit tests preferred.
 
-**Docker services:** `db` (PostgreSQL + pgvector), `redis` (vehicle position cache), `migrate` (Alembic auto-migration, runs once), `app` (FastAPI), `cms` (Next.js), `nginx` (reverse proxy on port 80). Services start in dependency order with healthchecks. All behind nginx.
+**Docker services:** `db` (PostgreSQL + pgvector), `redis` (vehicle position cache + rate limiting + leader election), `migrate` (Alembic auto-migration, runs once), `app` (Gunicorn + 4 UvicornWorkers in production, single uvicorn with --reload in dev), `cms` (Next.js), `nginx` (reverse proxy on port 80, Brotli + gzip compression, upstream keepalive, semi-static cache headers). Services start in dependency order with healthchecks. All behind nginx.
 
 **CI Pipeline:** GitHub Actions (`.github/workflows/ci.yml`) runs on push/PR to `main`. Three jobs: `backend-checks` (ruff + dedicated security audit via `ruff --select=S` + mypy + pyright + pytest with PostgreSQL + Redis services), `frontend-checks` (TypeScript + ESLint + build), `e2e-tests` (docker-compose full stack + Playwright, depends on first two jobs). Playwright report uploaded as artifact (14-day retention).
 

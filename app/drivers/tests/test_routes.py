@@ -1,8 +1,10 @@
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 """Unit tests for driver management REST API routes."""
 
+from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.auth.dependencies import get_current_user
@@ -30,8 +32,12 @@ def _mock_admin_user() -> User:
     return user
 
 
-# Override auth dependencies for testing
-app.dependency_overrides[get_current_user] = _mock_admin_user
+@pytest.fixture(autouse=True)
+def _setup_auth_override() -> Generator[None, None, None]:
+    """Ensure auth override is set before each test and restored after."""
+    app.dependency_overrides[get_current_user] = _mock_admin_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 def _make_response(driver_id: int = 1, **overrides: object) -> DriverResponse:
@@ -65,8 +71,7 @@ def test_list_drivers():
         assert data["total"] == 2
         assert len(data["items"]) == 2
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_get_driver():
@@ -83,8 +88,7 @@ def test_get_driver():
         assert data["id"] == 1
         assert data["first_name"] == "Janis"
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_get_driver_not_found():
@@ -97,8 +101,7 @@ def test_get_driver_not_found():
         response = client.get("/api/v1/drivers/999")
         assert response.status_code == 404
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_create_driver():
@@ -121,8 +124,7 @@ def test_create_driver():
         data = response.json()
         assert data["employee_number"] == "DRV-099"
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_update_driver():
@@ -141,8 +143,7 @@ def test_update_driver():
         data = response.json()
         assert data["first_name"] == "Updated"
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_delete_driver():
@@ -155,5 +156,4 @@ def test_delete_driver():
         response = client.delete("/api/v1/drivers/1")
         assert response.status_code == 204
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)

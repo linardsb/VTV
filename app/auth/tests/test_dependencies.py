@@ -7,12 +7,15 @@ import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.auth.dependencies import get_current_user, require_role
+from app.auth.dependencies import clear_user_cache, get_current_user, require_role
 from app.auth.models import User
 from app.auth.token import create_access_token
 
 
 class TestGetCurrentUser:
+    def setup_method(self):
+        clear_user_cache()
+
     @pytest.mark.asyncio
     async def test_valid_token_returns_user(self):
         token = create_access_token(user_id=1, role="admin")

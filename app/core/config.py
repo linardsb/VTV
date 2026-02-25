@@ -128,6 +128,14 @@ class Settings(BaseSettings):
     rate_limit_health: str = "60/minute"
     rate_limit_default: str = "120/minute"
 
+    # Poller leader election (multi-worker safe)
+    poller_leader_lock_ttl: int = 60
+
+    # Database connection pool (tuned for multi-worker deployment)
+    db_pool_size: int = 3
+    db_pool_max_overflow: int = 5
+    db_pool_recycle: int = 3600
+
     # Query quota (daily per IP)
     agent_daily_quota: int = 50
 

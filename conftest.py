@@ -16,8 +16,17 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.auth.dependencies import clear_user_cache
 from app.core.config import get_settings
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def _clear_auth_cache() -> Generator[None, None, None]:
+    """Clear the auth user TTL cache between tests to prevent cross-test pollution."""
+    clear_user_cache()
+    yield
+    clear_user_cache()
 
 
 @pytest.fixture(scope="function")

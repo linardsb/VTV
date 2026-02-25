@@ -107,6 +107,52 @@
       "oct": "October",
       "nov": "November",
       "dec": "December"
+    },
+    "roster": {
+      "title": "Drivers",
+      "empty": "No available drivers",
+      "loading": "Loading drivers...",
+      "dragHint": "Drag onto calendar to schedule",
+      "shift": "Shift",
+      "employee": "No.",
+      "status": {
+        "available": "Available",
+        "on_duty": "On Duty",
+        "on_leave": "On Leave",
+        "sick": "Sick"
+      }
+    },
+    "dropAction": {
+      "title": "Schedule Driver",
+      "description": "Choose an action for {name} on {date}",
+      "assignShift": "Assign Shift",
+      "assignShiftDesc": "Schedule {shift} shift on this day",
+      "markLeave": "Mark Leave",
+      "markLeaveDesc": "Record planned absence for the full day",
+      "markSick": "Mark Sick Day",
+      "markSickDesc": "Record a sick day",
+      "scheduleTraining": "Schedule Training",
+      "scheduleTrainingDesc": "Add a training session (2 hours)",
+      "customEvent": "Custom Event",
+      "customEventDesc": "Create a custom event with driver name",
+      "startTime": "Start time",
+      "endTime": "End time",
+      "eventTitle": "Event title",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "created": "Event created successfully",
+      "createError": "Failed to create event",
+      "shiftMorning": "Morning (05:00-13:00)",
+      "shiftAfternoon": "Afternoon (13:00-21:00)",
+      "shiftEvening": "Evening (17:00-01:00)",
+      "shiftNight": "Night (22:00-06:00)",
+      "eventTitleShift": "{name} - {shift}",
+      "eventTitleLeave": "{name} - Leave",
+      "eventTitleSick": "{name} - Sick Day",
+      "eventTitleTraining": "{name} - Training",
+      "eventTitleCustom": "{name} - {title}",
+      "eventDesc": "No. {number}"
     }
   },
   "routes": {

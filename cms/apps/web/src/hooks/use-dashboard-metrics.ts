@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
+import useSWR from "swr";
+import { useSession } from "next-auth/react";
 import { authFetch } from "@/lib/auth-fetch";
 
 interface VehicleApiResponse {
@@ -37,106 +39,88 @@ interface UseDashboardMetricsResult {
   error: string | null;
 }
 
-const POLL_INTERVAL = 30_000; // 30 seconds
+const API_BASE = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
 
 export function useDashboardMetrics(): UseDashboardMetricsResult {
-  const apiBase =
-    process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
-
-  const [data, setData] = useState<DashboardMetricsData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+  const { status } = useSession();
   const routesFetchedRef = useRef(false);
-  const routeDataRef = useRef({ activeRoutes: 0, totalRoutes: 0 });
+  const [routeData, setRouteData] = useState({ activeRoutes: 0, totalRoutes: 0 });
 
-  const fetchMetrics = useCallback(async () => {
-    try {
-      // Always fetch vehicle data (polled)
-      const vehicleRes = await authFetch(
-        `${apiBase}/api/v1/transit/vehicles`,
-      );
+  const fetchRouteCountsOnce = useCallback(async () => {
+    if (routesFetchedRef.current) return;
 
-      let activeVehicles = 0;
-      let onTimeCount = 0;
-      let totalVehicles = 0;
-      let delayedRoutes = 0;
-      let distinctRouteCount = 0;
+    const [activeRes, totalRes] = await Promise.all([
+      authFetch(`${API_BASE}/api/v1/schedules/routes?is_active=true&page_size=1`),
+      authFetch(`${API_BASE}/api/v1/schedules/routes?page_size=1`),
+    ]);
 
-      if (vehicleRes.ok) {
-        const vehicleData: VehicleApiResponse = await vehicleRes.json();
-        activeVehicles = vehicleData.count;
-        totalVehicles = vehicleData.vehicles.length;
+    let activeRoutes = 0;
+    let totalRoutes = 0;
 
-        const delayedRouteIds = new Set<string>();
-        const allRouteIds = new Set<string>();
+    if (activeRes.ok) {
+      const activeData: PaginatedApiResponse = await activeRes.json();
+      activeRoutes = activeData.total;
+    }
+    if (totalRes.ok) {
+      const totalData: PaginatedApiResponse = await totalRes.json();
+      totalRoutes = totalData.total;
+    }
 
-        for (const v of vehicleData.vehicles) {
-          allRouteIds.add(v.route_id);
-          if (Math.abs(v.delay_seconds) <= 300) {
-            onTimeCount++;
-          }
-          if (v.delay_seconds > 300) {
-            delayedRouteIds.add(v.route_id);
-          }
-        }
+    setRouteData({ activeRoutes, totalRoutes });
+    routesFetchedRef.current = true;
+  }, []);
 
-        delayedRoutes = delayedRouteIds.size;
-        distinctRouteCount = allRouteIds.size;
+  // SWR key is null when not authenticated (disables fetching)
+  const swrKey = status === "authenticated" ? `${API_BASE}/api/v1/transit/vehicles` : null;
+
+  const { data: vehicleData, error: swrError, isLoading } = useSWR<VehicleApiResponse>(
+    swrKey,
+    {
+      refreshInterval: 30_000,
+      onSuccess: () => {
+        // Fetch route counts once on first successful vehicle fetch
+        void fetchRouteCountsOnce();
+      },
+    },
+  );
+
+  let metrics: DashboardMetricsData | null = null;
+
+  if (vehicleData) {
+    let onTimeCount = 0;
+    const delayedRouteIds = new Set<string>();
+    const allRouteIds = new Set<string>();
+
+    for (const v of vehicleData.vehicles) {
+      allRouteIds.add(v.route_id);
+      if (Math.abs(v.delay_seconds) <= 300) {
+        onTimeCount++;
       }
+      if (v.delay_seconds > 300) {
+        delayedRouteIds.add(v.route_id);
+      }
+    }
 
-      const onTimePercentage =
+    const totalVehicles = vehicleData.vehicles.length;
+
+    metrics = {
+      activeVehicles: vehicleData.count,
+      onTimePercentage:
         totalVehicles > 0
           ? Math.round((onTimeCount / totalVehicles) * 1000) / 10
-          : 0;
+          : 0,
+      onTimeCount,
+      totalVehicles,
+      delayedRoutes: delayedRouteIds.size,
+      activeRoutes: routeData.activeRoutes,
+      totalRoutes: routeData.totalRoutes,
+      distinctRouteCount: allRouteIds.size,
+    };
+  }
 
-      // Fetch route counts only once
-      if (!routesFetchedRef.current) {
-        const [activeRes, totalRes] = await Promise.all([
-          authFetch(
-            `${apiBase}/api/v1/schedules/routes?is_active=true&page_size=1`,
-          ),
-          authFetch(`${apiBase}/api/v1/schedules/routes?page_size=1`),
-        ]);
-
-        if (activeRes.ok) {
-          const activeData: PaginatedApiResponse = await activeRes.json();
-          routeDataRef.current.activeRoutes = activeData.total;
-        }
-
-        if (totalRes.ok) {
-          const totalData: PaginatedApiResponse = await totalRes.json();
-          routeDataRef.current.totalRoutes = totalData.total;
-        }
-
-        routesFetchedRef.current = true;
-      }
-
-      setData({
-        activeVehicles,
-        onTimePercentage,
-        onTimeCount,
-        totalVehicles,
-        delayedRoutes,
-        activeRoutes: routeDataRef.current.activeRoutes,
-        totalRoutes: routeDataRef.current.totalRoutes,
-        distinctRouteCount,
-      });
-      setError(null);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Failed to fetch dashboard metrics",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [apiBase]);
-
-  useEffect(() => {
-    void fetchMetrics();
-    const timer = setInterval(() => void fetchMetrics(), POLL_INTERVAL);
-    return () => clearInterval(timer);
-  }, [fetchMetrics]);
-
-  return { data, isLoading, error };
+  return {
+    data: metrics,
+    isLoading,
+    error: swrError instanceof Error ? swrError.message : null,
+  };
 }

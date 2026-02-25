@@ -131,9 +131,9 @@ services:
   db:           # pgvector/pgvector:pg18 (PostgreSQL 18 + pgvector) — port 5433, healthcheck
   redis:        # redis:7-alpine — real-time vehicle position cache, healthcheck
   migrate:      # Alembic auto-migration (runs once, service_completed_successfully)
-  app:          # FastAPI + Pydantic AI (non-root) — internal only, healthcheck
+  app:          # FastAPI + Gunicorn (4 UvicornWorkers, non-root) — internal only, healthcheck
   cms:          # Next.js 16 — internal only, healthcheck
-  nginx:        # Reverse proxy — port 80 (rate limiting, granular body size limits, security headers)
+  nginx:        # Reverse proxy — port 80 (rate limiting, Brotli+gzip compression, upstream keepalive, cache headers, security headers)
 
 # All services have healthchecks and dependency ordering via depends_on conditions.
 # Planned additions (see docs/PLANNING/Implementation-Plan.md):

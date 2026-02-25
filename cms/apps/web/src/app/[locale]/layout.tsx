@@ -2,6 +2,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "@/components/ui/sonner";
+import { SWRProvider } from "@/components/swr-provider";
 
 export default async function LocaleLayout({
   children,
@@ -16,7 +17,9 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <SessionProvider>
-        {children}
+        <SWRProvider>
+          {children}
+        </SWRProvider>
         <Toaster />
       </SessionProvider>
     </NextIntlClientProvider>

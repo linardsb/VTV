@@ -4,6 +4,7 @@
 from collections.abc import Callable, Coroutine
 from typing import Any
 
+from cachetools import TTLCache  # pyright: ignore[reportMissingTypeStubs]
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,12 +19,38 @@ logger = get_logger(__name__)
 
 security = HTTPBearer(auto_error=False)
 
+# Per-worker TTL cache: avoids DB lookup on every authenticated request.
+# Token revocation is still checked via Redis (immediate). User deactivation
+# has max 30s delay — acceptable since JWT access tokens have 30min lifetime.
+# Each Gunicorn worker gets its own cache instance (separate processes).
+#
+# SAFETY: Caching ORM User objects works because expire_on_commit=False is set
+# in database.py:33 and all accessed fields (id, is_active, role, username) are
+# eagerly loaded columns — no lazy-loaded relationships. If relationships are
+# added to User in the future, they must be eagerly loaded or this cache will
+# raise DetachedInstanceError.
+_user_cache: TTLCache[int, User] = TTLCache(maxsize=200, ttl=30)
+
+
+def invalidate_user_cache(user_id: int) -> None:
+    """Remove a user from the auth cache (call on update/delete/deactivate)."""
+    _user_cache.pop(user_id, None)
+
+
+def clear_user_cache() -> None:
+    """Clear the entire auth user cache. Used by tests for isolation."""
+    _user_cache.clear()
+
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),  # noqa: B008
     db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> User:
     """Decode JWT access token, fetch user from DB, return User model.
+
+    Uses a TTL cache (30s, max 200 entries) to skip the DB lookup for
+    recently-authenticated users. Token revocation is still checked in
+    Redis on every request (no cache bypass).
 
     Raises:
         HTTPException(401): If token is missing, invalid, expired, or user not found.
@@ -45,7 +72,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Check token revocation denylist
+    # Check token revocation denylist (always, never cached)
     if await is_token_revoked(payload.jti):
         logger.warning("auth.token_revoked", jti=payload.jti)
         raise HTTPException(
@@ -54,6 +81,18 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Check user cache before DB
+    cached: User | None = _user_cache.get(payload.sub)
+    if cached is not None:
+        if not cached.is_active:
+            logger.warning("auth.unauthorized_access", reason="inactive_user", user_id=cached.id)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account is inactive",
+            )
+        return cached
+
+    # Cache miss — query DB
     repo = UserRepository(db)
     user = await repo.find_by_id(payload.sub)
     if user is None:
@@ -71,6 +110,7 @@ async def get_current_user(
             detail="Account is inactive",
         )
 
+    _user_cache[payload.sub] = user
     return user
 
 

@@ -178,10 +178,59 @@ class FeedPoller:
 
 _poller_tasks: list[asyncio.Task[None]] = []
 _feed_pollers: list[FeedPoller] = []
+_leader_refresh_task: asyncio.Task[None] | None = None
+_is_leader = False
+
+
+async def _try_acquire_leader_lock(redis_client: Redis, ttl: int) -> bool:
+    """Attempt to acquire the poller leader lock via Redis SETNX.
+
+    With multiple Gunicorn workers, each runs start_pollers() on startup.
+    Only the winner should actually start polling to avoid duplicate GTFS-RT requests.
+
+    Returns True if this worker is the leader.
+    """
+    import os
+
+    worker_id = str(os.getpid())
+    acquired = await redis_client.set(
+        "vtv:poller:leader",
+        worker_id,
+        nx=True,
+        ex=ttl,
+    )
+    return bool(acquired)
+
+
+async def _refresh_leader_lock(redis_client: Redis, ttl: int) -> None:
+    """Background task: refresh the leader lock every ttl/2 seconds."""
+    refresh_interval = ttl // 2
+    while True:
+        try:
+            await asyncio.sleep(refresh_interval)
+            await redis_client.expire("vtv:poller:leader", ttl)
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            logger.warning("transit.poller.leader_refresh_failed", exc_info=True)
+
+
+async def _release_leader_lock(redis_client: Redis) -> None:
+    """Release the leader lock on shutdown."""
+    try:
+        await redis_client.delete("vtv:poller:leader")
+    except Exception:
+        logger.debug("transit.poller.leader_release_failed", exc_info=True)
 
 
 async def start_pollers() -> None:
-    """Start background poller tasks for all enabled feeds."""
+    """Start background poller tasks for all enabled feeds.
+
+    Uses Redis-based leader election so only one worker runs pollers
+    in a multi-worker Gunicorn deployment.
+    """
+    global _leader_refresh_task, _is_leader
+
     settings = get_settings()
     if not settings.poller_enabled:
         logger.info("transit.poller.disabled")
@@ -197,6 +246,34 @@ async def start_pollers() -> None:
         )
         return
 
+    # Leader election: only one worker starts pollers
+    ttl = settings.poller_leader_lock_ttl
+    try:
+        is_leader = await _try_acquire_leader_lock(redis_client, ttl)
+    except Exception as e:
+        # Redis auth failure or connection issue — skip leader election,
+        # fall through to start pollers (single-worker behavior)
+        logger.warning(
+            "transit.poller.leader_election_failed",
+            error=str(e),
+            error_type=type(e).__name__,
+            detail="Starting pollers without leader lock (single-worker fallback)",
+        )
+        is_leader = True
+
+    if not is_leader:
+        logger.info("transit.poller.not_leader", reason="another_worker_holds_lock")
+        return
+
+    _is_leader = True
+    logger.info("transit.poller.leader_elected")
+
+    # Start leader lock refresh task (skip if leader election was bypassed)
+    try:
+        _leader_refresh_task = asyncio.create_task(_refresh_leader_lock(redis_client, ttl))
+    except Exception:
+        logger.warning("transit.poller.leader_refresh_setup_failed", exc_info=True)
+
     feeds = [f for f in settings.transit_feeds if f.enabled]
 
     for feed_config in feeds:
@@ -210,7 +287,20 @@ async def start_pollers() -> None:
 
 
 async def stop_pollers() -> None:
-    """Stop all poller tasks and close HTTP clients."""
+    """Stop all poller tasks, close HTTP clients, and release leader lock."""
+    global _leader_refresh_task, _is_leader
+
+    # Cancel leader refresh task
+    if _leader_refresh_task is not None:
+        _leader_refresh_task.cancel()
+        try:
+            await _leader_refresh_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.debug("transit.poller.leader_refresh_cleanup_error", exc_info=True)
+        _leader_refresh_task = None
+
     for poller in _feed_pollers:
         poller._running = False
 
@@ -225,6 +315,15 @@ async def stop_pollers() -> None:
 
     for poller in _feed_pollers:
         await poller.close()
+
+    # Release leader lock
+    if _is_leader:
+        try:
+            redis_client = await get_redis()
+            await _release_leader_lock(redis_client)
+        except Exception:
+            logger.debug("transit.poller.leader_release_failed", exc_info=True)
+        _is_leader = False
 
     _poller_tasks.clear()
     _feed_pollers.clear()

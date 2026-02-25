@@ -1,5 +1,6 @@
 """Tests for transit REST API routes."""
 
+from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -27,8 +28,12 @@ def _mock_admin_user() -> User:
     return user
 
 
-# Override auth dependencies for testing
-app.dependency_overrides[get_current_user] = _mock_admin_user
+@pytest.fixture(autouse=True)
+def _setup_auth_override() -> Generator[None, None, None]:
+    """Ensure auth override is set before each test and restored after."""
+    app.dependency_overrides[get_current_user] = _mock_admin_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 def _make_response(count: int = 2) -> VehiclePositionsResponse:

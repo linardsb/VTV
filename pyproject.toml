@@ -9,8 +9,10 @@ dependencies = [
     "asyncpg>=0.30.0",
     "bcrypt>=5.0.0",
     "email-validator>=2.0.0",
+    "cachetools>=5.5.0",
     "fastapi>=0.120.1",
     "google-genai>=1.0.0",
+    "gunicorn>=23.0.0",
     "gtfs-realtime-bindings>=1.0.0",
     "httpx>=0.28.1",
     "openai>=2.20.0",
@@ -168,6 +170,16 @@ ignore_missing_imports = true
 # redis has partial typing
 [[tool.mypy.overrides]]
 module = "redis.*"
+ignore_missing_imports = true
+
+# cachetools lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "cachetools.*"
+ignore_missing_imports = true
+
+# gunicorn lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "gunicorn.*"
 ignore_missing_imports = true
 
 # python-jose lacks py.typed marker

@@ -44,7 +44,7 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
   },
   experimental: {
-    optimizePackageImports: ["lucide-react", "radix-ui"],
+    optimizePackageImports: ["lucide-react", "radix-ui", "react-leaflet"],
   },
   async headers() {
     return [

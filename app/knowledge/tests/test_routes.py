@@ -7,6 +7,7 @@ search, filename sanitization, MIME detection, and empty PATCH rejection.
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from io import BytesIO
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -47,6 +48,16 @@ def _mock_admin_user() -> User:
     user.role = "admin"
     user.is_active = True
     return user
+
+
+@pytest.fixture(autouse=True)
+def _setup_auth_override() -> Generator[None, None, None]:
+    """Ensure auth override is set before each test and restored after."""
+    from app.main import app as _app
+
+    _app.dependency_overrides[get_current_user] = _mock_admin_user
+    yield
+    _app.dependency_overrides.pop(get_current_user, None)
 
 
 def _make_doc_response(**overrides: object) -> DocumentResponse:
@@ -119,8 +130,7 @@ def test_upload_document_success():
         assert call_kwargs.kwargs["filename"] == "report.pdf"
         assert call_kwargs.kwargs["source_type"] == "pdf"
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 # ---------------------------------------------------------------------------
@@ -217,8 +227,7 @@ def test_upload_unsupported_type():
         # Service should never be called for unsupported types
         mock_svc.ingest_document.assert_not_awaited()
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 # ---------------------------------------------------------------------------
@@ -252,8 +261,7 @@ def test_list_documents_with_filters():
         assert call_kwargs.kwargs["domain"] == "transit"
         assert call_kwargs.kwargs["status"] == "completed"
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 # ---------------------------------------------------------------------------
@@ -274,8 +282,7 @@ def test_get_document_not_found():
         data = response.json()
         assert "999" in data["error"]
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 # ---------------------------------------------------------------------------
@@ -296,8 +303,7 @@ def test_delete_document_success():
         assert response.content == b""
         mock_svc.delete_document.assert_awaited_once_with(1)
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 # ---------------------------------------------------------------------------
@@ -320,8 +326,7 @@ def test_download_document_path_traversal():
             # ProcessingError maps to 500 via the global exception handler
             assert response.status_code == 500
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 # ---------------------------------------------------------------------------
@@ -365,8 +370,7 @@ def test_search_documents():
         assert data["query"] == "transit schedule"
         mock_svc.search.assert_awaited_once()
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 # ---------------------------------------------------------------------------
@@ -407,8 +411,7 @@ def test_upload_filename_sanitization():
         # Original extension preserved
         assert sanitized.endswith(".pdf")
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_filename_sanitization_dot_prefix():
@@ -431,8 +434,7 @@ def test_filename_sanitization_dot_prefix():
         # Dot-prefixed files get 'upload' prefix
         assert not sanitized.startswith(".")
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_filename_sanitization_null_bytes():
@@ -460,8 +462,7 @@ def test_filename_sanitization_null_bytes():
         sanitized = call_kwargs.kwargs["filename"]
         assert "\x00" not in sanitized
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 # ---------------------------------------------------------------------------

@@ -1,8 +1,10 @@
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 """Unit tests for operational events REST API routes."""
 
+from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.auth.dependencies import get_current_user
@@ -28,6 +30,14 @@ def _mock_admin_user() -> User:
     user.role = "admin"
     user.is_active = True
     return user
+
+
+@pytest.fixture(autouse=True)
+def _setup_auth_override() -> Generator[None, None, None]:
+    """Ensure auth override is set before each test and restored after."""
+    app.dependency_overrides[get_current_user] = _mock_admin_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 def _make_response(event_id: int = 1, **overrides: object) -> EventResponse:
@@ -105,7 +115,6 @@ def test_create_event():
     resp = _make_response(10, title="New Event")
     mock_svc.create_event = AsyncMock(return_value=resp)
     app.dependency_overrides[get_service] = lambda: mock_svc
-    app.dependency_overrides[get_current_user] = _mock_admin_user
 
     try:
         client = TestClient(app)
@@ -123,7 +132,7 @@ def test_create_event():
         data = response.json()
         assert data["title"] == "New Event"
     finally:
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_update_event():
@@ -131,7 +140,6 @@ def test_update_event():
     resp = _make_response(1, title="Updated")
     mock_svc.update_event = AsyncMock(return_value=resp)
     app.dependency_overrides[get_service] = lambda: mock_svc
-    app.dependency_overrides[get_current_user] = _mock_admin_user
 
     try:
         client = TestClient(app)
@@ -143,18 +151,17 @@ def test_update_event():
         data = response.json()
         assert data["title"] == "Updated"
     finally:
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_delete_event():
     mock_svc = _mock_service()
     mock_svc.delete_event = AsyncMock()
     app.dependency_overrides[get_service] = lambda: mock_svc
-    app.dependency_overrides[get_current_user] = _mock_admin_user
 
     try:
         client = TestClient(app)
         response = client.delete("/api/v1/events/1")
         assert response.status_code == 204
     finally:
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_service, None)

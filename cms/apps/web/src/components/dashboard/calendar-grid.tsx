@@ -10,9 +10,10 @@ import { YearView } from "./year-view";
 
 interface CalendarGridProps {
   events: CalendarEvent[];
+  onDayDrop?: (date: Date, driverJson: string) => void;
 }
 
-export function CalendarGrid({ events }: CalendarGridProps) {
+export function CalendarGrid({ events, onDayDrop }: CalendarGridProps) {
   const [view, setView] = useState<CalendarViewMode>("week");
   const [currentDate, setCurrentDate] = useState(() => new Date());
 
@@ -26,10 +27,10 @@ export function CalendarGrid({ events }: CalendarGridProps) {
       />
       <div className="min-h-0 flex-1">
         {view === "week" && (
-          <WeekView currentDate={currentDate} events={events} />
+          <WeekView currentDate={currentDate} events={events} onDayDrop={onDayDrop} />
         )}
         {view === "month" && (
-          <MonthView currentDate={currentDate} events={events} />
+          <MonthView currentDate={currentDate} events={events} onDayDrop={onDayDrop} />
         )}
         {view === "3month" && (
           <ThreeMonthView currentDate={currentDate} events={events} />

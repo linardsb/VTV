@@ -15,11 +15,14 @@ from app.core.config import get_settings
 settings = get_settings()
 
 # Create async engine with connection pooling
+# Pool size is configurable for multi-worker deployments:
+# 4 workers x (pool_size + max_overflow) should stay under PostgreSQL max_connections (100)
 engine = create_async_engine(
     settings.database_url,
     pool_pre_ping=True,  # Test connections before using
-    pool_size=5,
-    max_overflow=10,
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_pool_max_overflow,
+    pool_recycle=settings.db_pool_recycle,  # Recycle after 1h to avoid PostgreSQL idle timeouts
     echo=settings.environment == "development",  # Log SQL in development
 )
 

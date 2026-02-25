@@ -5,6 +5,7 @@ import datetime
 import bcrypt
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import invalidate_user_cache
 from app.auth.exceptions import AccountLockedError, InvalidCredentialsError
 from app.auth.models import User
 from app.auth.repository import UserRepository
@@ -198,6 +199,9 @@ class AuthService:
         user.locked_until = None
         await self.repo.update(user)
 
+        # Invalidate auth cache so next request fetches fresh user
+        invalidate_user_cache(user_id)
+
         # Clear Redis brute force state for this user
         await _clear_redis_brute_force(user.email)
 
@@ -233,6 +237,9 @@ class AuthService:
 
         # Delete user record from database (reuse fetched object)
         await self.repo.delete(user)
+
+        # Invalidate auth cache for deleted user
+        invalidate_user_cache(user_id)
 
         # Clear any Redis brute-force keys for this user
         await _clear_redis_brute_force(email)
@@ -317,6 +324,10 @@ class AuthService:
             setattr(user, field, value)
 
         user = await self.repo.update(user)
+
+        # Invalidate auth cache so next request gets updated user data
+        invalidate_user_cache(user_id)
+
         logger.info("auth.user_updated", user_id=user_id)
         return UserDetailResponse.model_validate(user)
 

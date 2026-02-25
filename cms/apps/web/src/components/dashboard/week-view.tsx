@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "@/types/dashboard";
@@ -10,6 +10,7 @@ import { LiveTimeline } from "./live-timeline";
 interface WeekViewProps {
   currentDate: Date;
   events: CalendarEvent[];
+  onDayDrop?: (date: Date, driverJson: string) => void;
 }
 
 const START_HOUR = 6;
@@ -34,9 +35,11 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-export function WeekView({ currentDate, events }: WeekViewProps) {
+export function WeekView({ currentDate, events, onDayDrop }: WeekViewProps) {
   const t = useTranslations("dashboard");
   const today = new Date();
+
+  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
 
   const weekDays = useMemo(() => {
     const monday = getMonday(currentDate);
@@ -78,7 +81,8 @@ export function WeekView({ currentDate, events }: WeekViewProps) {
               key={i}
               className={cn(
                 "border-l border-border-subtle p-(--spacing-cell) text-center",
-                isToday && "bg-interactive/10"
+                isToday && "bg-interactive/10",
+                dragOverDay === i && "bg-interactive/10"
               )}
             >
               <p
@@ -122,10 +126,28 @@ export function WeekView({ currentDate, events }: WeekViewProps) {
         {weekDays.map((_, dayIdx) => (
           <div
             key={`col-${dayIdx}`}
-            className="relative border-l border-border-subtle"
+            className={cn(
+              "relative border-l border-border-subtle transition-colors duration-200",
+              dragOverDay === dayIdx && "bg-interactive/10"
+            )}
             style={{
               gridColumn: dayIdx + 2,
               gridRow: `1 / ${TOTAL_HOURS + 1}`,
+            }}
+            onDragOver={(e) => {
+              if (!onDayDrop) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "copy";
+              setDragOverDay(dayIdx);
+            }}
+            onDragLeave={() => setDragOverDay(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOverDay(null);
+              const driverJson = e.dataTransfer.getData("application/vtv-driver");
+              if (driverJson && onDayDrop) {
+                onDayDrop(weekDays[dayIdx], driverJson);
+              }
             }}
           >
             {/* Hour row borders */}
@@ -142,9 +164,11 @@ export function WeekView({ currentDate, events }: WeekViewProps) {
                 event.start.getHours() * 60 + event.start.getMinutes();
               const endMin =
                 event.end.getHours() * 60 + event.end.getMinutes();
+              // COUPLING: 48px must match --spacing-row token in tokens.css (3rem = 48px at 16px base)
+              const ROW_HEIGHT_PX = 48;
               const topPx =
-                ((startMin - START_HOUR * 60) / 60) * 48; // 48px = --spacing-row
-              const heightPx = ((endMin - startMin) / 60) * 48;
+                ((startMin - START_HOUR * 60) / 60) * ROW_HEIGHT_PX;
+              const heightPx = ((endMin - startMin) / 60) * ROW_HEIGHT_PX;
 
               return (
                 <div

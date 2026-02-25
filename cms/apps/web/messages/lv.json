@@ -107,6 +107,52 @@
       "oct": "Oktobris",
       "nov": "Novembris",
       "dec": "Decembris"
+    },
+    "roster": {
+      "title": "Vadītāji",
+      "empty": "Nav pieejamu vadītāju",
+      "loading": "Ielādē vadītājus...",
+      "dragHint": "Velciet uz kalendāru, lai plānotu",
+      "shift": "Maiņa",
+      "employee": "Nr.",
+      "status": {
+        "available": "Pieejams",
+        "on_duty": "Dežūrā",
+        "on_leave": "Atvaļinājumā",
+        "sick": "Slimo"
+      }
+    },
+    "dropAction": {
+      "title": "Plānot vadītāju",
+      "description": "Izvēlieties darbību priekš {name} uz {date}",
+      "assignShift": "Piešķirt maiņu",
+      "assignShiftDesc": "Ieplānot {shift} maiņu šajā dienā",
+      "markLeave": "Atzīmēt atvaļinājumu",
+      "markLeaveDesc": "Reģistrēt plānotu prombūtni visa diena",
+      "markSick": "Atzīmēt slimību",
+      "markSickDesc": "Reģistrēt slimības dienu",
+      "scheduleTraining": "Ieplānot apmācību",
+      "scheduleTrainingDesc": "Pievienot apmācības sesiju (2 stundas)",
+      "customEvent": "Brīvs notikums",
+      "customEventDesc": "Izveidot pielāgotu notikumu ar vadītāja vārdu",
+      "startTime": "Sākuma laiks",
+      "endTime": "Beigu laiks",
+      "eventTitle": "Notikuma nosaukums",
+      "save": "Saglabāt",
+      "cancel": "Atcelt",
+      "saving": "Saglabā...",
+      "created": "Notikums veiksmīgi izveidots",
+      "createError": "Neizdevās izveidot notikumu",
+      "shiftMorning": "Rīta (05:00-13:00)",
+      "shiftAfternoon": "Pēcpusdienas (13:00-21:00)",
+      "shiftEvening": "Vakara (17:00-01:00)",
+      "shiftNight": "Nakts (22:00-06:00)",
+      "eventTitleShift": "{name} - {shift}",
+      "eventTitleLeave": "{name} - Atvaļinājums",
+      "eventTitleSick": "{name} - Slimības diena",
+      "eventTitleTraining": "{name} - Apmācība",
+      "eventTitleCustom": "{name} - {title}",
+      "eventDesc": "Nr. {number}"
     }
   },
   "routes": {

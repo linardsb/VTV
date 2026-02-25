@@ -1,14 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, type RefObject } from "react";
 import { CalendarGrid } from "./calendar-grid";
 import { useCalendarEvents } from "@/hooks/use-calendar-events";
+
+interface CalendarPanelProps {
+  onDayDrop?: (date: Date, driverJson: string) => void;
+  refetchRef?: RefObject<(() => Promise<void>) | null>;
+}
 
 /**
  * Client-side wrapper that fetches real operational events from the API
  * and passes them to the CalendarGrid component.
  */
-export function CalendarPanel() {
+export function CalendarPanel({ onDayDrop, refetchRef }: CalendarPanelProps) {
   // Fetch events for a wide window (3 months back, 3 months forward)
   const dateRange = useMemo(() => {
     const now = new Date();
@@ -19,7 +24,14 @@ export function CalendarPanel() {
     return { start, end };
   }, []);
 
-  const { events } = useCalendarEvents(dateRange.start, dateRange.end);
+  const { events, refetch } = useCalendarEvents(dateRange.start, dateRange.end);
 
-  return <CalendarGrid events={events} />;
+  // Expose refetch to parent via ref (not a state update — safe in useEffect)
+  useEffect(() => {
+    if (refetchRef) {
+      refetchRef.current = refetch;
+    }
+  }, [refetch, refetchRef]);
+
+  return <CalendarGrid events={events} onDayDrop={onDayDrop} />;
 }

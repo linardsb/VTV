@@ -6,9 +6,9 @@ Planned features and improvements. Each item links to its detailed planning docu
 
 ```
 Backend API       ██████████████████████░░  95%  (8/8 features: auth, knowledge, drivers, events, stops, schedules, transit, skills)
-CMS Frontend      ██████████████████████░░  93%  (9/9 pages live, real API on 8/9, mock calendar on dashboard only)
-Testing           ████████████████████░░░░  80%  (690 unit tests, 81 e2e tests, CI pipeline live with security gates)
-Infrastructure    ██████████████████████░░  95%  (Docker, nginx, Makefile, 24 slash commands, CI/CD, 6 security audits, SDLC security framework)
+CMS Frontend      ██████████████████████░░  95%  (10/10 pages live, real API on all, SWR data fetching, drag-and-drop scheduling)
+Testing           ████████████████████░░░░  82%  (693 unit tests, 105 security tests, 81 e2e tests, CI pipeline live with security gates)
+Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 24 slash commands, CI/CD, 6 security audits, SDLC security framework)
 Latvia Platform   ████░░░░░░░░░░░░░░░░░░░  15%  (Riga GTFS only, no PostGIS/TimescaleDB/multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
@@ -19,9 +19,9 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [ ] **CRUD E2E Tests** - Tests that create/edit/delete records and verify persistence. Current 81 tests cover page loads, filters, navigation, and UI interactions but don't test full write operations (require seeded test data).
 
-### Dashboard Real Data
+### SDK Migration
 
-- [ ] **Dashboard Calendar Integration** - Replace mock calendar events with real backend data. Dashboard metrics now use real API data (vehicle positions + route counts, 30s polling via `useDashboardMetrics` hook). Calendar events still use `mock-dashboard-data.ts`.
+- [ ] **API Client Migration to @vtv/sdk** - Events domain migrated to `@vtv/sdk`; 8 remaining API clients (`stops-client.ts`, `schedules-client.ts`, `drivers-client.ts`, `documents-client.ts`, `gtfs-client.ts`, `users-client.ts`, `routes` in page, `agent-client.ts`) still use manual `authFetch` wrappers. Migrate each to use generated SDK types and methods.
 
 ## Planned Features
 
@@ -94,7 +94,7 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 ### CMS Frontend Pages
 
-- [x] **Dashboard** - 4 metric cards (real API: vehicles + routes, 30s polling), multi-view calendar (week/month/3-month/year, mock events), live timeline, resizable panels. (commit 852ee95, updated 2026-02-23)
+- [x] **Dashboard** - 4 metric cards (real API via SWR: vehicles + routes, 30s polling), multi-view calendar (week/month/3-month/year, real events via `useCalendarEvents` SWR hook), drag-and-drop driver scheduling (driver roster + 5 action types), live timeline, resizable panels. (commit 852ee95, updated 2026-02-25)
 
 - [x] **Routes Page** - Real API CRUD against backend `/api/v1/schedules/routes`, server pagination, search, type/agency/status filters, route detail sheet, route form, Leaflet map with live GTFS-RT vehicle positions (15s polling), resizable split panels, mobile tab layout. 142 i18n keys per locale.
 
@@ -152,6 +152,21 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
   - Plan: [.agents/plans/sdlc-security-audits.md](../.agents/plans/sdlc-security-audits.md)
 
 - [x] **CI Pipeline** - GitHub Actions workflow (`.github/workflows/ci.yml`): backend checks (ruff lint + dedicated security audit via `ruff --select=S` + mypy + pyright + pytest with PostgreSQL + Redis), frontend checks (TypeScript + ESLint + build), e2e tests (docker-compose + Playwright). Dependency scanning via pip-audit. (2026-02-24)
+
+- [x] **Performance Optimization (5 phases)** - Phase 1: Redis-backed rate limiting (cross-worker), poller leader election (Redis SETNX), Gunicorn multi-worker (4 UvicornWorkers), configurable connection pool. Phase 2: Auth user cache (TTLCache, 30s TTL, invalidate on update). Phase 3: Nginx upstream keepalive, Brotli compression (multi-stage Docker build), HTTP cache headers (GET-only on semi-static endpoints). Phase 4: SWR data fetching (request dedup, stale-while-revalidate, focus revalidation), session token caching (60s). Phase 5: Font weight reduction, react-leaflet tree-shaking. 12 code review findings fixed. 693 unit tests. (2026-02-25)
+  - Plan: plan mode session
+  - Review: [.agents/code-reviews/perf-optimization-review.md](../.agents/code-reviews/perf-optimization-review.md)
+  - Report: [.agents/execution-reports/perf-optimization.md](../.agents/execution-reports/perf-optimization.md)
+
+- [x] **Dashboard Drag-and-Drop Scheduling** - Driver roster sidebar with draggable cards (HTML5 DnD API), calendar drop zones on week/month views with precise time calculation. 5 action types: assign shift, mark leave, mark sick day, schedule training, custom event. RBAC-enforced (admin/editor only). SWR-based `useDriversSummary` hook (120s refresh). `DriverDropDialog` with i18n-templated event titles. 46 new i18n keys per locale. (2026-02-25)
+  - Plan: [.agents/plans/fe-dashboard-dnd.md](../.agents/plans/fe-dashboard-dnd.md)
+  - Review: [.agents/code-reviews/fe-dashboard-dnd-review.md](../.agents/code-reviews/fe-dashboard-dnd-review.md)
+
+- [x] **Users Page** - Admin-only user management page at `/[locale]/users`. CRUD with search, role/status filters, reset-password dialog. Backend: `/api/v1/auth/users` (5 endpoints). (commit b2d5e1d, 2026-02-25)
+  - Plan: [.agents/plans/fe-users-page.md](../.agents/plans/fe-users-page.md)
+
+- [x] **@vtv/sdk Generation** - Auto-generated TypeScript client from FastAPI OpenAPI schema. 47 endpoints, 68 types. Auth via request interceptor (JWT, dual server/client context). Events domain migrated as first consumer. (commit b2d5e1d, 2026-02-25)
+  - Plan: [.agents/plans/fe-sdk-generation.md](../.agents/plans/fe-sdk-generation.md)
 
 ## Planning Documents
 

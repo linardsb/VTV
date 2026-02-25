@@ -30,8 +30,9 @@ src/
 │   └── unauthorized/page.tsx   # Unauthorized redirect
 ├── components/
 │   ├── ui/                     # shadcn/ui components (button, table, dialog, tabs, switch, etc.)
+│   ├── swr-provider.tsx        # Global SWR config (fetcher, dedup, retries, focus revalidation)
 │   ├── app-sidebar.tsx         # Responsive sidebar (desktop: w-60 aside; mobile: hamburger + Sheet — only remaining Sheet usage)
-│   ├── dashboard/              # Dashboard components (metric-card, calendar-grid, calendar-panel)
+│   ├── dashboard/              # Dashboard components (metric-card, calendar-grid, calendar-panel, dashboard-content, driver-roster, driver-drop-dialog, week-view, month-view)
 │   ├── documents/              # Document management (table, filters, upload-form, detail, delete-dialog)
 │   ├── routes/                 # Route management (table, filters, form, detail, type-badge, map, bus-marker)
 │   ├── schedules/              # Schedule management (calendar-table/dialog/form/detail/month-grid/search/status-badge, trip-table/form/detail/filters/search, gtfs-import, delete dialogs)
@@ -41,11 +42,13 @@ src/
 │   └── gtfs/                   # GTFS data management (data-overview stats+feeds, gtfs-export with agency filter)
 ├── hooks/
 │   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
-│   ├── use-vehicle-positions.ts # useVehiclePositions() hook (polls backend every 15s)
-│   ├── use-dashboard-metrics.ts # useDashboardMetrics() hook (real API: vehicles + routes, 30s polling)
-│   └── use-calendar-events.ts  # useCalendarEvents() hook (real API via @vtv/sdk, 60s polling)
+│   ├── use-vehicle-positions.ts # useVehiclePositions() — SWR, 10s refresh, env-var API base
+│   ├── use-dashboard-metrics.ts # useDashboardMetrics() — SWR, 30s refresh (vehicles + routes)
+│   ├── use-calendar-events.ts  # useCalendarEvents() — SWR via @vtv/sdk, 60s refresh
+│   └── use-drivers-summary.ts  # useDriversSummary() — SWR, 120s refresh (active drivers)
 ├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts, driver.ts, event.ts, gtfs.ts, user.ts)
 ├── lib/
+│   ├── swr-fetcher.ts          # SWR fetcher wrapping authFetch (shared across all SWR hooks)
 │   ├── utils.ts                # cn() class merge utility
 │   ├── sdk.ts                  # @vtv/sdk client configuration (base URL + JWT auth interceptor, side-effect import)
 │   ├── events-sdk.ts           # Events SDK wrapper (drop-in replacement for events-client, uses @vtv/sdk)
@@ -81,9 +84,27 @@ Use `/fe-create-page {name}` or manually:
 - `src/app/[locale]/layout.tsx` — Root locale layout (server component)
 - `src/components/app-sidebar.tsx` — Responsive sidebar navigation (desktop aside + mobile hamburger)
 
-## Data Fetching Pattern (Session Gate)
+## Data Fetching Patterns
 
-All dashboard pages that fetch authenticated data **must** gate `useEffect` on session status. Without this, `useEffect` fires before Auth.js establishes the session, `getSession()` returns null, `authFetch` sends a request without a Bearer token, the backend returns 401, and the catch block silently sets empty state with no retry.
+### SWR Hooks (Dashboard)
+
+Dashboard data fetching uses SWR with a global `SWRProvider` (in root layout) and `swrFetcher` (wraps `authFetch`). Benefits: request deduplication, stale-while-revalidate, focus revalidation, automatic error retry.
+
+```tsx
+// SWR key is null when not authenticated (disables fetching)
+const { data, error, isLoading } = useSWR<ApiResponse>(
+  status === "authenticated" ? "/api/v1/endpoint" : null,
+  { refreshInterval: 30_000 }
+);
+```
+
+**Client-side token caching:** `getToken()` in `auth-fetch.ts` caches the JWT for 60s to avoid redundant `/api/auth/session` round trips. Both `authFetch` and the SDK client share this cache.
+
+**Applied to:** `use-dashboard-metrics`, `use-calendar-events`, `use-vehicle-positions`, `use-drivers-summary`.
+
+### Session Gate (Page-level)
+
+Page-level data fetching that uses raw `useEffect` (not SWR) **must** gate on session status:
 
 ```tsx
 const { data: session, status } = useSession();
@@ -93,8 +114,6 @@ useEffect(() => {
   void loadData();
 }, [loadData, status]);
 ```
-
-**Why Dashboard hooks work without this:** `useDashboardMetrics` and `useCalendarEvents` poll every 30-60s, so even if the first fetch fails, subsequent polls succeed after session establishment. Page-level `useEffect`s run once on mount with no retry — they need the session gate.
 
 **Applied to:** Routes, Stops, Schedules, Drivers, Documents pages.
 

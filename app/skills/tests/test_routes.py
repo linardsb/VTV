@@ -1,8 +1,10 @@
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 """Unit tests for agent skills REST API routes."""
 
+from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.auth.dependencies import get_current_user
@@ -30,6 +32,14 @@ def _mock_admin_user() -> User:
     return user
 
 
+@pytest.fixture(autouse=True)
+def _setup_auth_override() -> Generator[None, None, None]:
+    """Ensure auth override is set before each test and restored after."""
+    app.dependency_overrides[get_current_user] = _mock_admin_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
+
+
 def _make_response(skill_id: int = 1, **overrides: object) -> SkillResponse:
     """Create a SkillResponse for test assertions."""
     skill = make_skill(id=skill_id, **overrides)
@@ -52,7 +62,6 @@ def test_list_skills():
         )
     )
     app.dependency_overrides[get_service] = lambda: mock_svc
-    app.dependency_overrides[get_current_user] = _mock_admin_user
 
     try:
         client = TestClient(app)
@@ -62,7 +71,7 @@ def test_list_skills():
         assert data["total"] == 2
         assert len(data["items"]) == 2
     finally:
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_get_skill():
@@ -70,7 +79,6 @@ def test_get_skill():
     resp = _make_response(1, name="Priority System")
     mock_svc.get_skill = AsyncMock(return_value=resp)
     app.dependency_overrides[get_service] = lambda: mock_svc
-    app.dependency_overrides[get_current_user] = _mock_admin_user
 
     try:
         client = TestClient(app)
@@ -80,21 +88,20 @@ def test_get_skill():
         assert data["id"] == 1
         assert data["name"] == "Priority System"
     finally:
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_get_skill_not_found():
     mock_svc = _mock_service()
     mock_svc.get_skill = AsyncMock(side_effect=SkillNotFoundError("Skill 999 not found"))
     app.dependency_overrides[get_service] = lambda: mock_svc
-    app.dependency_overrides[get_current_user] = _mock_admin_user
 
     try:
         client = TestClient(app)
         response = client.get("/api/v1/skills/999")
         assert response.status_code == 404
     finally:
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_create_skill():
@@ -102,7 +109,6 @@ def test_create_skill():
     resp = _make_response(10, name="New Skill")
     mock_svc.create_skill = AsyncMock(return_value=resp)
     app.dependency_overrides[get_service] = lambda: mock_svc
-    app.dependency_overrides[get_current_user] = _mock_admin_user
 
     try:
         client = TestClient(app)
@@ -119,7 +125,7 @@ def test_create_skill():
         data = response.json()
         assert data["name"] == "New Skill"
     finally:
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_update_skill():
@@ -127,7 +133,6 @@ def test_update_skill():
     resp = _make_response(1, name="Updated")
     mock_svc.update_skill = AsyncMock(return_value=resp)
     app.dependency_overrides[get_service] = lambda: mock_svc
-    app.dependency_overrides[get_current_user] = _mock_admin_user
 
     try:
         client = TestClient(app)
@@ -139,21 +144,20 @@ def test_update_skill():
         data = response.json()
         assert data["name"] == "Updated"
     finally:
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_delete_skill():
     mock_svc = _mock_service()
     mock_svc.delete_skill = AsyncMock()
     app.dependency_overrides[get_service] = lambda: mock_svc
-    app.dependency_overrides[get_current_user] = _mock_admin_user
 
     try:
         client = TestClient(app)
         response = client.delete("/api/v1/skills/1")
         assert response.status_code == 204
     finally:
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_seed_skills():
@@ -161,7 +165,6 @@ def test_seed_skills():
     skills = [make_skill(id=i, name=f"Skill {i}") for i in range(1, 6)]
     mock_svc.seed_default_skills = AsyncMock(return_value=skills)
     app.dependency_overrides[get_service] = lambda: mock_svc
-    app.dependency_overrides[get_current_user] = _mock_admin_user
 
     try:
         client = TestClient(app)
@@ -170,4 +173,4 @@ def test_seed_skills():
         data = response.json()
         assert len(data) == 5
     finally:
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_service, None)

@@ -55,4 +55,13 @@ USER vtv
 
 EXPOSE 8123
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8123"]
+# Production: Gunicorn with multiple UvicornWorkers for CPU parallelism.
+# 4 workers fits the prod cpus:"2.0" limit (2*CPU+1, capped at 4).
+# Each worker ~200MB, fits within 1G memory limit.
+# Dev override: docker-compose.yml sets single uvicorn with --reload.
+CMD ["gunicorn", "app.main:app", \
+     "-k", "uvicorn.workers.UvicornWorker", \
+     "-w", "4", \
+     "--bind", "0.0.0.0:8123", \
+     "--timeout", "120", \
+     "--graceful-timeout", "30"]

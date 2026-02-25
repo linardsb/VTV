@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { authFetch } from "@/lib/auth-fetch";
+import { useMemo } from "react";
+import useSWR from "swr";
 import type { BusPosition } from "@/types/route";
 
 /** Raw vehicle from backend API (snake_case). */
@@ -72,7 +72,7 @@ interface UseVehiclePositionsOptions {
   interval?: number;
   /** Route color map: routeId -> hex color. */
   colorMap?: Record<string, string>;
-  /** Backend API base URL. Default http://localhost:8123. */
+  /** Backend API base URL. Defaults to NEXT_PUBLIC_AGENT_URL env var. */
   apiBase?: string;
 }
 
@@ -89,39 +89,26 @@ export function useVehiclePositions(
   const {
     interval = 10000,
     colorMap = {},
-    apiBase = "http://localhost:8123",
+    apiBase = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123",
   } = options;
 
-  const [vehicles, setVehicles] = useState<BusPosition[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
-  const colorMapRef = useRef(colorMap);
-  colorMapRef.current = colorMap;
+  // SWR key includes apiBase so different bases get separate cache entries
+  const { data, error: swrError, isLoading } = useSWR<ApiResponse>(
+    `${apiBase}/api/v1/transit/vehicles`,
+    { refreshInterval: interval },
+  );
 
-  const fetchVehicles = useCallback(async () => {
-    try {
-      const res = await authFetch(`${apiBase}/api/v1/transit/vehicles`);
-      if (!res.ok) {
-        setError(`API error: ${res.status}`);
-        return;
-      }
-      const data: ApiResponse = await res.json();
-      setVehicles(data.vehicles.map((v) => mapVehicle(v, colorMapRef.current)));
-      setLastFetchedAt(data.fetched_at);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to fetch vehicles");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [apiBase]);
+  const vehicles = useMemo(
+    () => (data?.vehicles ?? []).map((v) => mapVehicle(v, colorMap)),
+    [data, colorMap],
+  );
 
-  useEffect(() => {
-    void fetchVehicles();
-    const timer = setInterval(() => void fetchVehicles(), interval);
-    return () => clearInterval(timer);
-  }, [fetchVehicles, interval]);
+  const lastFetchedAt = data?.fetched_at ?? null;
 
-  return { vehicles, isLoading, error, lastFetchedAt };
+  return {
+    vehicles,
+    isLoading,
+    error: swrError instanceof Error ? swrError.message : null,
+    lastFetchedAt,
+  };
 }

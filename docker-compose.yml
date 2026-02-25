@@ -85,6 +85,9 @@ services:
       context: .
       dockerfile: Dockerfile
 
+    # Dev: single uvicorn with hot-reload (overrides Dockerfile's gunicorn CMD)
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8123", "--reload"]
+
     # SECURITY: Internal only in production - nginx proxies traffic.
     # Ports exposed for development (browser needs direct access for client-side API calls).
     expose:

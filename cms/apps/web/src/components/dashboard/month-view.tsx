@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "@/types/dashboard";
@@ -8,6 +8,7 @@ import type { CalendarEvent } from "@/types/dashboard";
 interface MonthViewProps {
   currentDate: Date;
   events: CalendarEvent[];
+  onDayDrop?: (date: Date, driverJson: string) => void;
 }
 
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -60,11 +61,13 @@ function getMonthGrid(year: number, month: number): (Date | null)[][] {
   return weeks;
 }
 
-export function MonthView({ currentDate, events }: MonthViewProps) {
+export function MonthView({ currentDate, events, onDayDrop }: MonthViewProps) {
   const t = useTranslations("dashboard");
   const today = new Date();
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
+
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
 
   const weeks = useMemo(() => getMonthGrid(year, month), [year, month]);
 
@@ -117,8 +120,24 @@ export function MonthView({ currentDate, events }: MonthViewProps) {
                   key={day.getDate()}
                   className={cn(
                     "overflow-hidden rounded-sm border border-border-subtle p-(--spacing-tight) transition-colors duration-200",
-                    isToday && "border-interactive bg-interactive/10"
+                    isToday && "border-interactive bg-interactive/10",
+                    dragOverDate === dateKey && "ring-2 ring-interactive bg-interactive/10"
                   )}
+                  onDragOver={(e) => {
+                    if (!onDayDrop) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "copy";
+                    setDragOverDate(dateKey);
+                  }}
+                  onDragLeave={() => setDragOverDate(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverDate(null);
+                    const driverJson = e.dataTransfer.getData("application/vtv-driver");
+                    if (driverJson && onDayDrop) {
+                      onDayDrop(day, driverJson);
+                    }
+                  }}
                 >
                   <p
                     className={cn(

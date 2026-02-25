@@ -1,8 +1,10 @@
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 """Unit tests for schedule management REST API routes."""
 
+from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.auth.dependencies import get_current_user
@@ -44,8 +46,12 @@ def _mock_admin_user() -> User:
     return user
 
 
-# Override auth dependencies for testing
-app.dependency_overrides[get_current_user] = _mock_admin_user
+@pytest.fixture(autouse=True)
+def _setup_auth_override() -> Generator[None, None, None]:
+    """Ensure auth override is set before each test and restored after."""
+    app.dependency_overrides[get_current_user] = _mock_admin_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 def _mock_service() -> AsyncMock:
@@ -78,8 +84,7 @@ def test_list_routes_200():
         assert data["total"] == 2
         assert len(data["items"]) == 2
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_list_routes_filter_is_active():
@@ -101,8 +106,7 @@ def test_list_routes_filter_is_active():
         assert data["total"] == 1
         mock_svc.list_routes.assert_called_once()
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_create_route_201():
@@ -127,8 +131,7 @@ def test_create_route_201():
         data = response.json()
         assert data["gtfs_route_id"] == "bus_22"
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_get_route_200():
@@ -143,8 +146,7 @@ def test_get_route_200():
         assert response.status_code == 200
         assert response.json()["route_short_name"] == "22"
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_update_route_200():
@@ -159,8 +161,7 @@ def test_update_route_200():
         assert response.status_code == 200
         assert response.json()["route_long_name"] == "Updated"
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_delete_route_204():
@@ -173,8 +174,7 @@ def test_delete_route_204():
         response = client.delete("/api/v1/schedules/routes/1")
         assert response.status_code == 204
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 # --- Calendar endpoint tests ---
@@ -195,8 +195,7 @@ def test_list_calendars_200():
         assert response.status_code == 200
         assert response.json()["total"] == 1
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_create_calendar_201():
@@ -225,8 +224,7 @@ def test_create_calendar_201():
         assert response.status_code == 201
         assert response.json()["gtfs_service_id"] == "weekday_1"
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_add_exception_201():
@@ -246,8 +244,7 @@ def test_add_exception_201():
         assert response.status_code == 201
         assert response.json()["exception_type"] == 2
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_remove_exception_204():
@@ -260,8 +257,7 @@ def test_remove_exception_204():
         response = client.delete("/api/v1/schedules/calendar-exceptions/1")
         assert response.status_code == 204
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 # --- Trip endpoint tests ---
@@ -282,8 +278,7 @@ def test_list_trips_200():
         assert response.status_code == 200
         assert response.json()["total"] == 1
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_create_trip_201():
@@ -307,8 +302,7 @@ def test_create_trip_201():
         assert response.status_code == 201
         assert response.json()["gtfs_trip_id"] == "trip_22_1"
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_get_trip_with_stop_times_200():
@@ -330,8 +324,7 @@ def test_get_trip_with_stop_times_200():
         assert data["gtfs_trip_id"] == "trip_22_1"
         assert len(data["stop_times"]) == 2
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 def test_replace_stop_times_200():
@@ -366,8 +359,7 @@ def test_replace_stop_times_200():
         assert response.status_code == 200
         assert len(response.json()) == 2
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 # --- Import endpoint test ---
@@ -417,8 +409,7 @@ def test_import_gtfs_200():
         assert data["stops_count"] == 50
         assert data["stops_created"] == 40
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)
 
 
 # --- Validation endpoint test ---
@@ -439,5 +430,4 @@ def test_validate_200():
         assert data["valid"] is True
         assert data["errors"] == []
     finally:
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user] = _mock_admin_user
+        app.dependency_overrides.pop(get_service, None)

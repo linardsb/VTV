@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useMemo, useCallback } from "react";
+import useSWR from "swr";
+import { useSession } from "next-auth/react";
 import type { CalendarEvent } from "@/types/dashboard";
 import type { OperationalEvent } from "@/types/event";
 import { fetchEvents } from "@/lib/events-sdk";
@@ -17,36 +19,48 @@ function toCalendarEvent(event: OperationalEvent): CalendarEvent {
   };
 }
 
+interface EventsApiResult {
+  items: OperationalEvent[];
+  total: number;
+}
+
 /**
  * Hook to fetch operational events from the API and transform them
  * into CalendarEvent[] for the calendar grid.
  *
- * Polls every 60 seconds. Falls back to empty array on error.
+ * Uses SWR with 60s refresh interval. Falls back to empty array on error.
  */
 export function useCalendarEvents(startDate: Date, endDate: Date) {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { status } = useSession();
 
-  const load = useCallback(async () => {
-    try {
-      const result = await fetchEvents({
+  // Stable SWR key based on date range; null disables fetching when unauthenticated
+  const swrKey =
+    status === "authenticated"
+      ? `events:${startDate.toISOString()}:${endDate.toISOString()}`
+      : null;
+
+  const { data, isLoading, mutate } = useSWR<EventsApiResult>(
+    swrKey,
+    async () =>
+      fetchEvents({
         page_size: 200,
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
-      });
-      setEvents(result.items.map(toCalendarEvent));
-    } catch {
-      // Silently fall back to empty on error — dashboard stays functional
-    } finally {
-      setIsLoading(false);
-    }
-  }, [startDate, endDate]);
+      }),
+    {
+      refreshInterval: 60_000,
+      fallbackData: { items: [], total: 0 },
+    },
+  );
 
-  useEffect(() => {
-    void load();
-    const interval = setInterval(() => void load(), 60_000);
-    return () => clearInterval(interval);
-  }, [load]);
+  const events = useMemo(
+    () => (data?.items ?? []).map(toCalendarEvent),
+    [data],
+  );
 
-  return { events, isLoading };
+  const refetch = useCallback(async () => {
+    await mutate();
+  }, [mutate]);
+
+  return { events, isLoading, refetch };
 }
