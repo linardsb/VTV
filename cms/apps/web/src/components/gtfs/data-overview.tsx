@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import type { GTFSStats, GTFSFeed } from "@/types/gtfs";
 
 /* ---- Module-scope helper components (React 19: no nested definitions) ---- */
@@ -107,7 +108,7 @@ export function DataOverview({
             disabled={isLoading}
           >
             <RefreshCw
-              className={`size-4 mr-1 ${isLoading ? "animate-spin" : ""}`}
+              className={cn("size-4 mr-1", isLoading && "animate-spin")}
               aria-hidden="true"
             />
             {t("refreshButton")}

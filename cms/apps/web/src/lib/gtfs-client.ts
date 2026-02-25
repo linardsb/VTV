@@ -8,7 +8,6 @@
 import { authFetch } from "@/lib/auth-fetch";
 import { fetchAgencies } from "@/lib/schedules-client";
 import type { GTFSStats, GTFSFeed } from "@/types/gtfs";
-import type { PaginatedResponse } from "@/types/schedule";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
@@ -23,31 +22,34 @@ export class GTFSApiError extends Error {
   }
 }
 
+/** Fetch a paginated endpoint and return its total count, or 0 on failure. */
+async function fetchCount(url: string): Promise<number> {
+  try {
+    const response = await authFetch(url);
+    if (!response.ok) return 0;
+    const data = (await response.json()) as { total: number };
+    return data.total;
+  } catch {
+    return 0;
+  }
+}
+
 /** Fetch aggregate GTFS data statistics by calling multiple endpoints in parallel. */
 export async function fetchGTFSStats(): Promise<GTFSStats> {
-  const [agencies, routesRes, calendarsRes, tripsRes, stopsRes] =
-    await Promise.all([
-      fetchAgencies(),
-      authFetch(
-        `${BASE_URL}/api/v1/schedules/routes?page=1&page_size=1`,
-      ).then((r) => r.json() as Promise<PaginatedResponse<unknown>>),
-      authFetch(
-        `${BASE_URL}/api/v1/schedules/calendars?page=1&page_size=1`,
-      ).then((r) => r.json() as Promise<PaginatedResponse<unknown>>),
-      authFetch(
-        `${BASE_URL}/api/v1/schedules/trips?page=1&page_size=1`,
-      ).then((r) => r.json() as Promise<PaginatedResponse<unknown>>),
-      authFetch(`${BASE_URL}/api/v1/stops/?page=1&page_size=1`).then(
-        (r) => r.json() as Promise<PaginatedResponse<unknown>>,
-      ),
-    ]);
+  const [agencies, routes, calendars, trips, stops] = await Promise.all([
+    fetchAgencies().catch(() => []),
+    fetchCount(`${BASE_URL}/api/v1/schedules/routes?page=1&page_size=1`),
+    fetchCount(`${BASE_URL}/api/v1/schedules/calendars?page=1&page_size=1`),
+    fetchCount(`${BASE_URL}/api/v1/schedules/trips?page=1&page_size=1`),
+    fetchCount(`${BASE_URL}/api/v1/stops/?page=1&page_size=1`),
+  ]);
 
   return {
     agencies: agencies.length,
-    routes: routesRes.total,
-    calendars: calendarsRes.total,
-    trips: tripsRes.total,
-    stops: stopsRes.total,
+    routes,
+    calendars,
+    trips,
+    stops,
   };
 }
 
@@ -77,10 +79,14 @@ export async function exportGTFS(agencyId?: number): Promise<void> {
   }
 
   const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition");
+  const filenameMatch = disposition?.match(/filename="?([^";\n]+)"?/);
+  const filename = filenameMatch?.[1] ?? "gtfs.zip";
+
   const downloadUrl = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = downloadUrl;
-  a.download = "gtfs.zip";
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
