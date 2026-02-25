@@ -22,7 +22,16 @@ JWT-based authentication and role-based access control (RBAC) for all backend AP
 2. Fetch user by ID from token payload — reject if not found or inactive
 3. Check lockout status — reject if `locked_until` > now (locked users cannot refresh)
 4. Issue new access token with current role from DB
-5. Return `{access_token}`
+5. **Revoke the used refresh token** — `revoke_token(jti, ttl_seconds=604800)` prevents replay attacks
+6. Return `{access_token}`
+
+### Logout (POST /api/v1/auth/logout)
+
+1. Authenticate via `get_current_user` dependency (rejects invalid/expired tokens)
+2. Extract credentials from Authorization header
+3. Decode token to get JTI claim
+4. Revoke the access token JTI in Redis denylist (`auth:revoked:{jti}`)
+5. Return 204 No Content
 
 ### Authentication Dependency (get_current_user)
 
@@ -138,9 +147,11 @@ Table: `users`
 9. Startup validation fails hard if `JWT_SECRET_KEY` is default or < 32 chars in non-dev environments
 10. `HTTPBearer(auto_error=False)` returns 401 (not 403) for missing Authorization header
 11. Password complexity enforced on password reset only (not login — avoids locking out existing users with weak passwords)
-12. Token revocation is fail-open: if Redis is unavailable, tokens are not considered revoked
+12. Token revocation is fail-open: if Redis is unavailable, tokens are not considered revoked (logged at warning level as `auth.token.revocation_check_degraded`)
 13. Admin password reset clears brute-force state (both Redis keys and DB fields)
 14. Redis unavailability falls back to DB-only brute-force tracking (logged at warning level)
+15. Refresh tokens are single-use — revoked after generating a new access token (prevents replay attacks)
+16. Login performs dummy bcrypt hash when user not found (prevents email enumeration via timing attack)
 15. Admins cannot delete their own account (prevents lockout)
 16. User deletion cascades to related data via database foreign keys
 17. User deletion clears Redis brute-force keys to prevent orphaned tracking data
@@ -158,7 +169,8 @@ Table: `users`
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/api/v1/auth/login` | Public | Authenticate with email + password, returns JWT tokens |
-| POST | `/api/v1/auth/refresh` | Public | Exchange refresh token for new access token |
+| POST | `/api/v1/auth/refresh` | Public | Exchange refresh token for new access token (revokes used token) |
+| POST | `/api/v1/auth/logout` | Authenticated | Revoke current access token JTI |
 | POST | `/api/v1/auth/seed` | Admin only | Create demo users (development only, idempotent) |
 | POST | `/api/v1/auth/reset-password` | Admin only | Reset any user's password (complexity enforced) |
 | DELETE | `/api/v1/auth/users/{user_id}` | Admin only | GDPR right-to-erasure — permanently delete user and clear Redis tracking |

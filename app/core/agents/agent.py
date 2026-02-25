@@ -14,6 +14,7 @@ from app.core.agents.tools.obsidian.bulk_operations import obsidian_bulk_operati
 from app.core.agents.tools.obsidian.manage_folders import obsidian_manage_folders
 from app.core.agents.tools.obsidian.manage_notes import obsidian_manage_notes
 from app.core.agents.tools.obsidian.query_vault import obsidian_query_vault
+from app.core.agents.tools.skills.manage_skills import manage_agent_skills
 from app.core.agents.tools.transit.check_driver_availability import check_driver_availability
 from app.core.agents.tools.transit.deps import UnifiedDeps
 from app.core.agents.tools.transit.get_adherence_report import get_adherence_report
@@ -132,8 +133,26 @@ def create_agent(model: str | Model | None = None) -> Agent[UnifiedDeps, str]:
             obsidian_bulk_operations,
             # Knowledge base (RAG)
             search_knowledge_base,
+            # Skills management
+            manage_agent_skills,
         ],
     )
+
+
+def build_instructions_with_skills(skills_content: str) -> str:
+    """Build additional instructions with active skills for agent.run().
+
+    Called by AgentService before each agent.run() to inject active skills
+    as additional instructions on top of the base system prompt.
+
+    Args:
+        skills_content: Formatted skills text from SkillService.get_active_skills_content().
+            Empty string if no active skills.
+
+    Returns:
+        Skills content string to pass as instructions parameter, or empty string.
+    """
+    return skills_content
 
 
 # Module-level singleton used by routes and service.

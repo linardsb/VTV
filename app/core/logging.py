@@ -19,6 +19,7 @@ Event Naming Pattern:
 """
 
 import logging
+import re
 import uuid
 from contextvars import ContextVar
 
@@ -27,6 +28,9 @@ from structlog.typing import EventDict, WrappedLogger
 
 # Context variable for request correlation ID
 request_id_var: ContextVar[str] = ContextVar("request_id", default="")
+
+# Safe pattern for client-provided request IDs (prevents log injection)
+_SAFE_REQUEST_ID = re.compile(r"^[a-zA-Z0-9\-_.]{1,64}$")
 
 
 def get_request_id() -> str:
@@ -41,13 +45,17 @@ def get_request_id() -> str:
 def set_request_id(request_id: str | None = None) -> str:
     """Set request ID in context, generating one if not provided.
 
+    Validates client-provided request IDs against a safe pattern to prevent
+    log injection attacks. Generates a fresh UUID if the value is missing or
+    contains unsafe characters (newlines, JSON escapes, control chars).
+
     Args:
-        request_id: Optional request ID to set. If None, generates a new UUID.
+        request_id: Optional request ID to set. If None or unsafe, generates a new UUID.
 
     Returns:
         The request ID that was set.
     """
-    if not request_id:
+    if not request_id or not _SAFE_REQUEST_ID.match(request_id):
         request_id = str(uuid.uuid4())
     request_id_var.set(request_id)
     return request_id

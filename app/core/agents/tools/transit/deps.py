@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,6 +56,16 @@ def create_unified_deps(settings: Settings | None = None) -> UnifiedDeps:
         timeout=httpx.Timeout(10.0, connect=5.0),
         limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
     )
+    # SECURITY: SSL verification is disabled for Obsidian (self-signed cert).
+    # Enforce localhost-only to prevent MITM if URL is misconfigured.
+    parsed_obsidian = urlparse(settings.obsidian_vault_url)
+    obsidian_host = (parsed_obsidian.hostname or "").lower()
+    if obsidian_host not in ("localhost", "127.0.0.1", "::1"):
+        msg = (
+            f"obsidian_vault_url must point to localhost when SSL verification is disabled. "
+            f"Got: {obsidian_host}"
+        )
+        raise ValueError(msg)
     obsidian_client = httpx.AsyncClient(
         timeout=httpx.Timeout(10.0, connect=5.0),
         limits=httpx.Limits(max_connections=5, max_keepalive_connections=3),

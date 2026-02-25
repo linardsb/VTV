@@ -45,12 +45,13 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 - Responsive dashboard layout (✅ dashboard + routes + chat pages are mobile responsive, dashboard metrics + calendar events on real API)
 
 **AI Agent Service (FastAPI + Pydantic AI)**
-- Single unified agent with transit + vault + knowledge tools
+- Single unified agent with transit + vault + knowledge + skills tools
 - OpenAI-compatible `/v1/chat/completions` endpoint
 - Streaming (SSE) and non-streaming support
 - 4 Obsidian vault tools (query, notes, folders, bulk)
 - 5 read-only transit tools (bus status, schedules, stops, adherence, drivers)
 - 1 knowledge base tool (RAG search over uploaded documents via pgvector) ✅
+- 1 skills management tool (list/create operational knowledge packages, DB-backed) ✅
 - Document management system (upload, metadata edit, download, content preview, Excel/CSV support) ✅
 - Chat UI embedded in CMS ✅ (dedicated `/chat` page with streaming SSE, bilingual LV/EN)
 
@@ -148,7 +149,7 @@ All services run locally via Docker Compose with resource limits. LLM is fully c
 
 ### 6.1 Design Philosophy
 
-One agent, all tools. The LLM decides which tools to use based on the user's query. No routing logic, no agent registry — the agent has access to 10 tools and selects the appropriate ones per request.
+One agent, all tools. The LLM decides which tools to use based on the user's query. No routing logic, no agent registry — the agent has access to 11 tools and selects the appropriate ones per request.
 
 ```python
 agent = Agent(
@@ -170,6 +171,8 @@ agent = Agent(
         obsidian_bulk_operations,
         # Knowledge base (1 RAG search)
         search_knowledge_base,
+        # Skills management (1 tool)
+        manage_agent_skills,
     ]
 )
 ```
@@ -378,7 +381,7 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 
 ### 7.4 GTFS Import/Export
 
-- ✅ Import: upload GTFS ZIP, parse 6 core CSV files, validate references, bulk insert (via `/api/v1/schedules/import`)
+- ✅ Import: upload GTFS ZIP, parse 6 core CSV files, validate references, bulk insert (via `/api/v1/schedules/import`), streaming 8KB chunked upload with 10MB hard limit, ZIP bomb detection (compression ratio, uncompressed size, per-file size limits)
 - ✅ Export: generate GTFS-compliant ZIP from database (7 CSV files: agency, routes, calendar, calendar_dates, trips, stop_times, stops — via `GET /api/v1/schedules/export`)
 - ✅ Validation: check referential integrity, time consistency, required fields (via `/api/v1/schedules/validate`)
 - ⬜ Seed database from RS public feed (`https://saraksti.rigassatiksme.lv/gtfs.zip`)
@@ -391,7 +394,10 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ✅ Centralized `authFetch()` wrapper adds Bearer token to all 6 API clients
 - ✅ Startup validation fails hard if `JWT_SECRET_KEY` is default or < 32 chars in non-dev environments
 - ✅ Redis-backed brute-force tracking — fast-path lockout check before DB query, 5 attempts trigger 15-min lockout, persists across server restarts
-- ✅ JWT token revocation — Redis denylist with TTL, checked on every authenticated request, fail-open when Redis unavailable
+- ✅ JWT token revocation — Redis denylist with TTL, checked on every authenticated request, fail-open when Redis unavailable (with degradation logging)
+- ✅ Logout endpoint — `POST /api/v1/auth/logout` revokes current access token JTI
+- ✅ Refresh token single-use — used refresh tokens revoked after issuing new access token (prevents replay)
+- ✅ Timing attack prevention — bcrypt dummy hash normalizes login response time for nonexistent emails
 - ✅ Password complexity enforcement — 10+ chars, mixed case, digit required on password reset (not login)
 - ✅ Admin password reset endpoint — `POST /api/v1/auth/reset-password` (admin-only, clears brute-force state)
 - ✅ CORS hardened — explicit method/header allowlists (no wildcards)

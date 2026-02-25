@@ -1,9 +1,10 @@
 """Pydantic schemas for knowledge base feature."""
 
+import json
 from datetime import datetime
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 
 class DocumentUpload(BaseModel):
@@ -14,6 +15,20 @@ class DocumentUpload(BaseModel):
     metadata_json: str | None = Field(None, description="Optional JSON metadata string")
     title: str | None = Field(None, max_length=200, description="Human-readable document title")
     description: str | None = Field(None, description="Optional document description")
+
+    @field_validator("metadata_json")
+    @classmethod
+    def validate_metadata_json(cls, v: str | None) -> str | None:
+        """Ensure metadata_json is valid JSON if provided."""
+        if v is None:
+            return v
+        if len(v) > 10_000:
+            raise ValueError("metadata_json must not exceed 10,000 characters")
+        try:
+            json.loads(v)
+        except (json.JSONDecodeError, TypeError) as e:
+            raise ValueError(f"metadata_json must be valid JSON: {e}") from e
+        return v
 
 
 class DocumentUpdate(BaseModel):
@@ -39,7 +54,6 @@ class DocumentResponse(BaseModel):
     filename: str
     title: str | None
     description: str | None
-    file_path: str | None
     domain: str
     source_type: str
     language: str
@@ -57,7 +71,7 @@ class DocumentResponse(BaseModel):
     @property
     def has_file(self) -> bool:
         """Whether the original file is stored on disk."""
-        return self.file_path is not None
+        return self.file_size_bytes is not None and self.file_size_bytes > 0
 
 
 class DocumentChunkResponse(BaseModel):

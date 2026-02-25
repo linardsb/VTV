@@ -17,7 +17,7 @@ from app.core.agents.schemas import ChatCompletionRequest, ChatCompletionRespons
 from app.core.agents.service import AgentService, get_agent_service
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.core.rate_limit import limiter
+from app.core.rate_limit import _get_client_ip, limiter
 
 logger = get_logger(__name__)
 
@@ -46,7 +46,7 @@ async def chat_completions(
         Chat completion response with the agent's message.
     """
     # Check daily quota before expensive LLM call
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = _get_client_ip(request)
     tracker = get_quota_tracker()
     if not await tracker.check_and_increment(client_ip):
         remaining = await tracker.get_remaining(client_ip)

@@ -35,7 +35,7 @@ const PAGE_SIZE = 20;
 
 export default function SchedulesPage() {
   const t = useTranslations("schedules");
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const userRole = session?.user?.role ?? "viewer";
   const IS_READ_ONLY = userRole === "viewer";
 
@@ -82,8 +82,8 @@ export default function SchedulesPage() {
       ]);
       setAllRoutes(routeData.items);
       setAllCalendars(calendarData.items);
-    } catch {
-      // Degrade gracefully
+    } catch (e) {
+      console.warn("[schedules] Failed to load lookups:", e);
     }
   }, []);
 
@@ -94,7 +94,8 @@ export default function SchedulesPage() {
       const result = await fetchCalendars({ page: calendarPage, page_size: PAGE_SIZE });
       setCalendars(result.items);
       setCalendarTotal(result.total);
-    } catch {
+    } catch (e) {
+      console.warn("[schedules] Failed to load calendars:", e);
       setCalendars([]);
       setCalendarTotal(0);
     } finally {
@@ -115,7 +116,8 @@ export default function SchedulesPage() {
       });
       setTrips(result.items);
       setTripTotal(result.total);
-    } catch {
+    } catch (e) {
+      console.warn("[schedules] Failed to load trips:", e);
       setTrips([]);
       setTripTotal(0);
     } finally {
@@ -123,9 +125,9 @@ export default function SchedulesPage() {
     }
   }, [tripPage, routeFilter, calendarFilter, directionFilter]);
 
-  useEffect(() => { void loadLookups(); }, [loadLookups]);
-  useEffect(() => { void loadCalendars(); }, [loadCalendars]);
-  useEffect(() => { void loadTrips(); }, [loadTrips]);
+  useEffect(() => { if (status !== "authenticated") return; void loadLookups(); }, [loadLookups, status]);
+  useEffect(() => { if (status !== "authenticated") return; void loadCalendars(); }, [loadCalendars, status]);
+  useEffect(() => { if (status !== "authenticated") return; void loadTrips(); }, [loadTrips, status]);
 
   // Calendar handlers
   const handleCalendarSelect = useCallback((cal: Calendar) => {

@@ -16,7 +16,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from app.core.agents.agent import agent
+from app.core.agents.agent import agent, build_instructions_with_skills
 from app.core.agents.exceptions import AgentExecutionError
 from app.core.agents.schemas import (
     ChatCompletionChoice,
@@ -27,7 +27,9 @@ from app.core.agents.schemas import (
 )
 from app.core.agents.tools.transit.deps import UnifiedDeps, create_unified_deps
 from app.core.config import get_settings
+from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger
+from app.skills.service import SkillService
 
 logger = get_logger(__name__)
 
@@ -92,11 +94,23 @@ class AgentService:
             user_prompt_length=len(current_prompt),
         )
 
+        # Load active skills for dynamic instructions
+        skills_instructions = ""
+        try:
+            async with AsyncSessionLocal() as db:
+                skill_service = SkillService(db)
+                skills_instructions = await skill_service.get_active_skills_content()
+        except Exception:
+            logger.warning("agent.skills_load_failed", exc_info=True)
+
+        instructions = build_instructions_with_skills(skills_instructions) or None
+
         try:
             result = await agent.run(
                 current_prompt,
                 deps=self._deps,
                 message_history=message_history,
+                instructions=instructions,
             )
         except Exception as e:
             logger.error(

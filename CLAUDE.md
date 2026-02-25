@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 10 tools (5 transit + 4 Obsidian vault + 1 knowledge base). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. Features multi-feed GTFS-RT tracking with Redis caching for sub-ms reads. The platform roadmap extends to PostGIS spatial queries, WebSocket streaming, and ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
+VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 11 tools (5 transit + 4 Obsidian vault + 1 knowledge base + 1 skills management). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. Features multi-feed GTFS-RT tracking with Redis caching for sub-ms reads. The platform roadmap extends to PostGIS spatial queries, WebSocket streaming, and ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
 
 ## Core Principles
 
@@ -78,7 +78,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (647 tests, ~15s)
+make test            # Unit tests (679 tests, ~15s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -110,14 +110,15 @@ make db-revision m="description"   # Create new migration
 VTV/
 ├── app/
 │   ├── core/           # Infrastructure (config, database, logging, middleware, health, rate_limit, redis)
-│   │   └── agents/     # AI agent module — 10 tools, see app/core/agents/CLAUDE.md
+│   │   └── agents/     # AI agent module — 11 tools, see app/core/agents/CLAUDE.md
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
-│   ├── auth/           # JWT auth + RBAC (6 endpoints: login, refresh, seed, reset-password, delete-user; bcrypt, Redis brute-force, token revocation)
+│   ├── auth/           # JWT auth + RBAC (7 endpoints: login, logout, refresh, seed, reset-password, delete-user; bcrypt, Redis brute-force, token revocation)
 │   ├── knowledge/      # RAG knowledge base + DMS (9 endpoints, pgvector, multi-format processing)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles, shift/availability, agent integration)
 │   ├── events/         # Operational events (5 endpoints, dashboard calendar, date range filter)
 │   ├── stops/          # Stop management (6 endpoints, Haversine proximity, location_type filter)
 │   ├── schedules/      # GTFS schedule management (23 endpoints, trip CRUD, ZIP import/export)
+│   ├── skills/         # Agent skills system (7 endpoints, reusable knowledge packages, agent context injection)
 │   ├── transit/        # Multi-feed GTFS-RT tracking (3 endpoints, Redis cache, background poller)
 │   ├── main.py         # FastAPI application entry point
 │   └── tests/          # Integration tests
@@ -143,7 +144,7 @@ VTV/
 ### Middleware & Rate Limiting
 
 - `BodySizeLimitMiddleware` (100KB), `RequestLoggingMiddleware` (correlation IDs), `CORSMiddleware`
-- Rate limiting via slowapi: auth (10/min login, 30/min refresh, 5/min seed), chat (10/min), transit (30/min), knowledge (10-30/min), schedules (5-30/min), drivers (10-30/min), events (10-30/min), health (60/min)
+- Rate limiting via slowapi: auth (10/min login, 30/min refresh, 5/min seed), chat (10/min), transit (30/min), knowledge (10-30/min), schedules (5-30/min), drivers (10-30/min), events (10-30/min), skills (5-30/min), health (60/min)
 - Query quota: 50/day per IP for LLM chat endpoint (`app.core.agents.quota`) — Redis-backed with in-memory fallback
 
 ### Shared Utilities
@@ -209,18 +210,27 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 - **JWT Authentication** — All backend endpoints protected via `Depends(get_current_user)` with HS256 JWT tokens (30min access + 7-day refresh). Startup fails hard if `JWT_SECRET_KEY` is default in non-dev environments.
 - **RBAC** — `require_role()` dependency enforces function-level authorization: admin (full), editor (data CRUD), dispatcher (driver management), viewer (read-only)
 - **authFetch dual-context** — `cms/apps/web/src/lib/auth-fetch.ts` uses dynamic imports: `auth()` on server (cheap, no network), `getSession()` on client (fetches from `/api/auth/session`). Never static-import server-only `auth()` in files used by `'use client'` components.
+- **Session hydration gate** — All dashboard pages gate data-fetching `useEffect`s on `useSession().status === "authenticated"`. Without this, effects fire before Auth.js establishes the session, causing silent 401 failures and empty state. Polling hooks (dashboard metrics, calendar events) self-recover and don't need the gate. See `cms/apps/web/CLAUDE.md` for pattern.
 - **Redis brute-force tracking** — Fast-path lockout check before DB query; 5 failed attempts trigger 15-min lockout persisted in Redis with in-memory fallback
 - **JWT token revocation** — Redis-backed denylist with TTL; `revoke_token(jti)` + `is_token_revoked(jti)` checked in `get_current_user` dependency; fail-open when Redis unavailable
 - **Password complexity** — 10+ chars, mixed case, digit required on password reset (not login); enforced via `PasswordResetRequest` schema validator
 - **CORS hardened** — Explicit method/header allowlists (no wildcards); `GET, POST, PATCH, DELETE, OPTIONS` only
 - **Health endpoint redaction** — No provider names, environment, or error details leaked to unauthenticated callers
 - **nginx CSP/HTTPS** — Content-Security-Policy headers, full HTTPS server block with modern TLS ciphers, HSTS
-- **Convention enforcement tests** — `app/tests/test_security.py` (84 tests) auto-discovers all route functions and verifies authentication, checks JWT algorithm safety, bcrypt rounds, password complexity on correct schema, nginx security headers, no debug-level logging in security paths, SQL injection posture, container hardening, dependency scanning, backup infrastructure, GDPR deletion, and CSRF protection
+- **Convention enforcement tests** — `app/tests/test_security.py` (94 tests) auto-discovers all route functions and verifies authentication, checks JWT algorithm safety, bcrypt rounds, password complexity on correct schema, nginx security headers, no debug-level logging in security paths, SQL injection posture, container hardening, dependency scanning, backup infrastructure, GDPR deletion, CSRF protection, quota IP tracking, logout/revocation, refresh token single-use, ZIP bomb protection, timing attack prevention, file path exposure, request ID sanitization, and database container capability restrictions
 - **Container hardening** — All containers run as non-root, `no-new-privileges:true`, `cap_drop: ALL`; production adds `read_only: true` with tmpfs
 - **Dependency scanning** — `pip-audit` in CI pipeline as dedicated step; `uv lock --check` verifies lock file integrity
 - **Automated backups** — `scripts/db-backup.sh` with configurable retention (default 90 days GDPR); `make db-backup-auto` for cron integration
 - **GDPR right-to-erasure** — Admin-only `DELETE /api/v1/auth/users/{id}` removes user data and clears Redis tracking
 - **SQL injection prevention** — All queries via SQLAlchemy ORM; convention test verifies no `text()` with f-strings in repositories
+- **Logout endpoint** — `POST /api/v1/auth/logout` revokes the current access token JTI via Redis denylist
+- **Refresh token single-use** — Refresh endpoint revokes the used refresh token (7-day TTL) after issuing new access token, preventing replay attacks
+- **Timing attack prevention** — `_DUMMY_HASH` bcrypt constant normalizes response time when user doesn't exist (prevents email enumeration)
+- **ZIP bomb protection** — GTFS import validates compression ratio (100:1 max), uncompressed size (500MB), and per-file size (100MB) before extraction
+- **Streaming GTFS upload** — Import endpoint reads ZIP in 8KB chunks with 10MB hard limit, independent of `Content-Length` header
+- **SSRF localhost validation** — Obsidian vault URL validated to point to localhost only (case-insensitive) when SSL verification is disabled
+- **Request ID sanitization** — `X-Request-ID` header validated against `^[a-zA-Z0-9\-_.]{1,64}$` regex to prevent log injection
+- **Quota IP tracking** — LLM daily quota uses `_get_client_ip(request)` (X-Real-IP from nginx) instead of `request.client.host` (proxy IP)
 - **Out of scope (future):** Full HTTPS/TLS deployment (certs), WebSocket security, API key rotation, SIEM/monitoring integration, database encryption at rest, self-service password reset (needs SMTP), secrets management (Vault/SSM)
 
 ### Automated Security Enforcement (5 layers)
@@ -229,7 +239,7 @@ Security is enforced automatically at every stage of the development lifecycle �
 
 1. **Pre-commit hook** (`scripts/pre-commit`, install via `make install-hooks`) — Runs in <5s before every `git commit`. Blocks: Bandit security violations (hardcoded creds, `assert` in prod, `exec`/`eval`), staged sensitive files (`.env`, `*.pem`, `*.key`), hardcoded `postgres:postgres@` in diffs.
 
-2. **Convention tests** (`app/tests/test_security.py`, 84 tests) — Run in every `make test`, `make check`, and `/be-validate`. The auto-discovery test `TestAllEndpointsRequireAuth` dynamically scans every `routes.py` — adding an endpoint without auth breaks CI. Also enforces: JWT uses HS256 (not `none`), bcrypt >= 12 rounds, password complexity on `PasswordResetRequest` (not `LoginRequest`), security logging at `warning+` (not `debug`), nginx has CSP/HSTS/X-Frame-Options/X-Content-Type-Options, SQL injection posture (no raw SQL with user input), container hardening (non-root, no-new-privileges), dependency scanning in CI, backup infrastructure, GDPR deletion, CSRF protection.
+2. **Convention tests** (`app/tests/test_security.py`, 94 tests) — Run in every `make test`, `make check`, and `/be-validate`. The auto-discovery test `TestAllEndpointsRequireAuth` dynamically scans every `routes.py` — adding an endpoint without auth breaks CI. Also enforces: JWT uses HS256 (not `none`), bcrypt >= 12 rounds, password complexity on `PasswordResetRequest` (not `LoginRequest`), security logging at `warning+` (not `debug`), nginx has CSP/HSTS/X-Frame-Options/X-Content-Type-Options, SQL injection posture (no raw SQL with user input), container hardening (non-root, no-new-privileges, cap_drop ALL), dependency scanning in CI, backup infrastructure, GDPR deletion, CSRF protection, quota IP tracking (X-Real-IP), logout with token revocation, refresh token single-use, ZIP bomb detection, timing attack prevention, API response path redaction, request ID sanitization.
 
 3. **Secure scaffold** (`/be-create-feature`) — New features generate routes with `get_current_user`/`require_role` already in every endpoint signature. Security by default, not by remembering.
 
@@ -256,6 +266,8 @@ Security is enforced automatically at every stage of the development lifecycle �
 - `docs/PLANNING/Implementation-Plan.md` — Latvia transit platform roadmap (4 phases)
 - `docs/TODO.md` — Planned features with effort estimates
 - `.agents/execution-reports/security-hardening-v4.md` — Security v4 execution report (15 tasks, 8 review fixes)
+- `docs/security_audit_5.txt` — Fifth security audit: runtime vulnerabilities — quota bypass, missing logout, token replay, ZIP bombs, timing attacks (2026-02-25)
+- `.agents/plans/security-hardening-v5.md` — Security hardening v5 plan (16 findings: 4 CRIT, 5 HIGH, 7 MED)
 - `.agents/code-reviews/AUDIT-SUMMARY.md` — Full codebase health audit (120 findings, 2026-02-21)
 
 

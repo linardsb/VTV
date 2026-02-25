@@ -1135,3 +1135,175 @@ class TestCsrfProtection:
 
         source = inspect.getsource(setup_middleware)
         assert 'allow_origins=["*"]' not in source
+
+
+# === Audit 5: CRIT-1 - Quota must use X-Real-IP ===
+
+
+class TestQuotaUsesRealIP:
+    """Audit 5 CRIT-1: Daily quota must use X-Real-IP, not request.client.host."""
+
+    def test_quota_uses_get_client_ip(self) -> None:
+        """Verify agent routes import and call _get_client_ip for quota tracking."""
+        import inspect
+
+        from app.core.agents.routes import chat_completions
+
+        source = inspect.getsource(chat_completions)
+        assert "_get_client_ip" in source, (
+            "chat_completions must use _get_client_ip(request) for quota tracking, "
+            "not request.client.host"
+        )
+        assert "request.client.host" not in source, (
+            "chat_completions must not use request.client.host - "
+            "behind nginx this resolves to the proxy IP, not the user"
+        )
+
+
+# === Audit 5: CRIT-2 - Logout endpoint must exist ===
+
+
+class TestLogoutEndpointExists:
+    """Audit 5 CRIT-2: A logout endpoint must exist to revoke tokens."""
+
+    def test_auth_router_has_logout(self) -> None:
+        """Verify POST /logout exists in auth routes."""
+        from fastapi.routing import APIRoute
+
+        from app.auth.routes import router
+
+        paths = [route.path for route in router.routes if isinstance(route, APIRoute)]
+        assert any("/logout" in p for p in paths), "POST /api/v1/auth/logout endpoint must exist"
+
+    def test_logout_calls_revoke_token(self) -> None:
+        """Verify logout endpoint calls revoke_token."""
+        import inspect
+
+        from app.auth.routes import logout
+
+        source = inspect.getsource(logout)
+        assert "revoke_token" in source, "logout must call revoke_token()"
+
+
+# === Audit 5: CRIT-3 - Refresh must revoke old token ===
+
+
+class TestRefreshRevokesOldToken:
+    """Audit 5 CRIT-3: Refresh endpoint must revoke the used refresh token."""
+
+    def test_refresh_calls_revoke_token(self) -> None:
+        """Verify refresh endpoint revokes the old refresh token."""
+        import inspect
+
+        from app.auth.routes import refresh_token
+
+        source = inspect.getsource(refresh_token)
+        assert "revoke_token" in source, (
+            "refresh_token must call revoke_token() on the used refresh token"
+        )
+
+
+# === Audit 5: CRIT-4 - ZIP bomb protection ===
+
+
+class TestZipBombProtection:
+    """Audit 5 CRIT-4: GTFS import must have ZIP bomb detection."""
+
+    def test_gtfs_importer_has_zip_validation(self) -> None:
+        """Verify GTFSImporter validates ZIP safety before parsing."""
+        import inspect
+
+        from app.schedules.gtfs_import import GTFSImporter
+
+        source = inspect.getsource(GTFSImporter)
+        assert "_validate_zip_safety" in source, (
+            "GTFSImporter must validate ZIP safety (compression ratio, uncompressed size)"
+        )
+
+    def test_import_route_uses_streaming(self) -> None:
+        """Verify import route streams the upload, not file.read()."""
+        import inspect
+
+        from app.schedules.routes import import_gtfs
+
+        source = inspect.getsource(import_gtfs)
+        assert "file.read(8192)" in source, "import_gtfs must stream upload in chunks"
+
+
+# === Audit 5: HIGH-1 - Timing attack prevention ===
+
+
+class TestTimingAttackPrevention:
+    """Audit 5 HIGH-1: Login must normalize timing for missing users."""
+
+    def test_authenticate_has_dummy_hash(self) -> None:
+        """Verify authenticate runs bcrypt even when user not found."""
+        import inspect
+
+        from app.auth.service import AuthService
+
+        source = inspect.getsource(AuthService.authenticate)
+        assert "_DUMMY_HASH" in source, (
+            "authenticate must run bcrypt (dummy hash) when user not found "
+            "to prevent timing-based email enumeration"
+        )
+
+
+# === Audit 5: HIGH-3 - No file_path in API responses ===
+
+
+class TestNoFilePathExposure:
+    """Audit 5 HIGH-3: DocumentResponse must not expose server file paths."""
+
+    def test_document_response_no_file_path(self) -> None:
+        """Verify file_path is not a field on DocumentResponse."""
+        from app.knowledge.schemas import DocumentResponse
+
+        field_names = set(DocumentResponse.model_fields.keys())
+        assert "file_path" not in field_names, (
+            "DocumentResponse must not expose file_path (server filesystem path)"
+        )
+
+
+# === Audit 5: MED-3 - Request ID sanitization ===
+
+
+class TestRequestIdSanitization:
+    """Audit 5 MED-3: X-Request-ID must be validated to prevent log injection."""
+
+    def test_set_request_id_rejects_unsafe_input(self) -> None:
+        """Verify set_request_id sanitizes or rejects dangerous characters."""
+        from app.core.logging import set_request_id
+
+        # Newline injection attempt
+        result = set_request_id('test\n{"injected": true}')
+        assert "\n" not in result, "Request ID must not contain newlines"
+
+        # JSON escape injection
+        result2 = set_request_id('test", "injected": "true')
+        assert '"' not in result2, "Request ID must not contain quotes"
+
+        # Valid UUID should pass through
+        valid = "550e8400-e29b-41d4-a716-446655440000"
+        result3 = set_request_id(valid)
+        assert result3 == valid, "Valid UUIDs should pass through unchanged"
+
+
+# === Audit 5: MED-1 - Database container cap_drop ===
+
+
+class TestDatabaseContainerHardening:
+    """Audit 5 MED-1: PostgreSQL container must drop all capabilities."""
+
+    def test_db_service_has_cap_drop(self) -> None:
+        """Verify docker-compose.yml db service has cap_drop: ALL."""
+        import re
+        from pathlib import Path
+
+        compose = Path("docker-compose.yml").read_text()
+        # Extract the db service block (from "  db:" to the next top-level service)
+        db_match = re.search(r"^\s{2}db:\s*\n((?:\s{4,}.+\n)*)", compose, re.MULTILINE)
+        assert db_match is not None, "db service not found in docker-compose.yml"
+        db_section = db_match.group(0)
+        assert "cap_drop:" in db_section, "db service in docker-compose.yml must have cap_drop"
+        assert "ALL" in db_section, "db service cap_drop must include ALL"

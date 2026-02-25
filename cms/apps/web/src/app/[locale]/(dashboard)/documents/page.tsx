@@ -25,7 +25,7 @@ const PAGE_SIZE = 10;
 export default function DocumentsPage() {
   const t = useTranslations("documents");
   const isMobile = useIsMobile();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const userRole = session?.user?.role ?? "viewer";
   const IS_READ_ONLY = userRole === "viewer" || userRole === "dispatcher";
 
@@ -91,8 +91,8 @@ export default function DocumentsPage() {
       });
       setDocuments(result.items);
       setTotalItems(result.total);
-    } catch {
-      // Silently handle — empty state will show
+    } catch (e) {
+      console.warn("[documents] Failed to load:", e);
       setDocuments([]);
       setTotalItems(0);
     } finally {
@@ -105,18 +105,20 @@ export default function DocumentsPage() {
     try {
       const result = await fetchDomains();
       setDomains(result.domains);
-    } catch {
-      // Silently handle
+    } catch (e) {
+      console.warn("[documents] Failed to load domains:", e);
     }
   }, []);
 
   useEffect(() => {
+    if (status !== "authenticated") return;
     void loadDocuments();
-  }, [loadDocuments]);
+  }, [loadDocuments, status]);
 
   useEffect(() => {
+    if (status !== "authenticated") return;
     void loadDomains();
-  }, [loadDomains]);
+  }, [loadDomains, status]);
 
   // Handlers
   const handleSelectDocument = useCallback((id: number) => {

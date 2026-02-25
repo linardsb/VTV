@@ -25,7 +25,7 @@ const PAGE_SIZE = 20;
 export default function DriversPage() {
   const t = useTranslations("drivers");
   const isMobile = useIsMobile();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const userRole = session?.user?.role ?? "viewer";
   const IS_READ_ONLY = userRole === "viewer";
 
@@ -74,7 +74,8 @@ export default function DriversPage() {
       });
       setDrivers(result.items);
       setTotalItems(result.total);
-    } catch {
+    } catch (e) {
+      console.warn("[drivers] Failed to load:", e);
       toast.error(t("toast.loadError"));
     } finally {
       setIsLoading(false);
@@ -82,8 +83,9 @@ export default function DriversPage() {
   }, [page, debouncedSearch, statusFilter, shiftFilter, t]);
 
   useEffect(() => {
+    if (status !== "authenticated") return;
     void loadDrivers();
-  }, [loadDrivers]);
+  }, [loadDrivers, status]);
 
   // Handlers
   const handleSelectDriver = (driver: Driver) => {

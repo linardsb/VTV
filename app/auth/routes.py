@@ -3,9 +3,10 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.requests import Request
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import require_role
+from app.auth.dependencies import get_current_user, require_role, security
 from app.auth.models import User
 from app.auth.schemas import (
     LoginRequest,
@@ -16,13 +17,16 @@ from app.auth.schemas import (
     UserResponse,
 )
 from app.auth.service import AuthService
-from app.auth.token import decode_token
+from app.auth.token import decode_token, revoke_token
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 
 logger = get_logger(__name__)
+
+# Refresh token lifetime in seconds (7 days) — used for revocation TTL
+REFRESH_TOKEN_TTL_SECONDS = 604800
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -63,8 +67,28 @@ async def refresh_token(
         )
 
     access_token = await service.refresh_access_token(payload.sub)
+    # Revoke the used refresh token to prevent replay attacks
+    await revoke_token(payload.jti, ttl_seconds=REFRESH_TOKEN_TTL_SECONDS)
     logger.info("auth.token.refresh_completed", user_id=payload.sub)
     return RefreshResponse(access_token=access_token)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("10/minute")
+async def logout(
+    request: Request,
+    current_user: User = Depends(get_current_user),  # noqa: B008
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),  # noqa: B008
+) -> None:
+    """Revoke the current access token, effectively logging out."""
+    _ = request
+    logger.info("auth.logout_started", user_id=current_user.id)
+    # get_current_user already validated the token; decode again to extract JTI for revocation
+    if credentials is not None:
+        payload = decode_token(credentials.credentials)
+        if payload is not None:
+            await revoke_token(payload.jti)
+    logger.info("auth.logout_completed", user_id=current_user.id)
 
 
 @router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)

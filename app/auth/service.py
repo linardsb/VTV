@@ -19,6 +19,9 @@ logger = get_logger(__name__)
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_DURATION = datetime.timedelta(minutes=15)
 
+# Pre-computed dummy hash for timing normalization (HIGH-1: email enumeration prevention)
+_DUMMY_HASH = bcrypt.hashpw(b"timing-normalization-dummy", bcrypt.gensalt()).decode("utf-8")
+
 
 async def _check_redis_brute_force(email: str) -> bool:
     """Check Redis for brute force lockout. Returns True if locked out."""
@@ -97,6 +100,8 @@ class AuthService:
 
         user = await self.repo.find_by_email(email)
         if not user or not user.is_active:
+            # Timing normalization: always run bcrypt to prevent email enumeration
+            self.verify_password(password, _DUMMY_HASH)
             logger.warning("auth.login_failed", email=email, reason="user_not_found")
             raise InvalidCredentialsError("Invalid email or password")
 

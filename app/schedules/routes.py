@@ -3,7 +3,7 @@
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from fastapi.requests import Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,6 +34,9 @@ from app.schedules.schemas import (
 )
 from app.schedules.service import ScheduleService
 from app.shared.schemas import PaginatedResponse, PaginationParams
+
+# Maximum GTFS ZIP upload size (matches nginx client_max_body_size for /api/v1/schedules/import)
+MAX_GTFS_UPLOAD_BYTES = 10 * 1024 * 1024  # 10MB
 
 router = APIRouter(prefix="/api/v1/schedules", tags=["schedules"])
 
@@ -366,7 +369,18 @@ async def import_gtfs(
 ) -> GTFSImportResponse:
     """Import schedule data from a GTFS ZIP file."""
     _ = request
-    zip_data = await file.read()
+    # Stream upload with size enforcement (defense-in-depth beyond nginx limit)
+    chunks: list[bytes] = []
+    total_size = 0
+    while chunk := await file.read(8192):
+        total_size += len(chunk)
+        if total_size > MAX_GTFS_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File exceeds {MAX_GTFS_UPLOAD_BYTES // (1024 * 1024)}MB upload limit",
+            )
+        chunks.append(chunk)
+    zip_data = b"".join(chunks)
     return await service.import_gtfs(zip_data)
 
 

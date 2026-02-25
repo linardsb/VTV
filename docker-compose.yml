@@ -18,6 +18,14 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
     deploy:
       resources:
         limits:
@@ -26,14 +34,15 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-}"]
+    # SECURITY: Production MUST override REDIS_PASSWORD via environment variable
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-devpassword}"]
     ports:
       # SECURITY: Consider removing in production - only needed for direct Redis access during development
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD:-}\" ping || redis-cli ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD:-devpassword}\" ping"]
       interval: 5s
       timeout: 3s
       retries: 3
@@ -85,7 +94,11 @@ services:
     # Volume mounts for development
     # Sync project files but preserve container's .venv
     volumes:
-      - .:/app
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./scripts:/app/scripts
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./alembic.ini:/app/alembic.ini
       - /app/.venv  # Anonymous volume to preserve container's virtual environment
       - document_data:/app/data/documents
 
@@ -99,7 +112,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # Uses env var interpolation for credentials - override via .env
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-vtv_db}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-devpassword}@redis:6379/0
 
     # Wait for database, redis, and migrations before starting app
     depends_on:

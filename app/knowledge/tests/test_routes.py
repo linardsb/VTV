@@ -56,7 +56,6 @@ def _make_doc_response(**overrides: object) -> DocumentResponse:
         "filename": "test.pdf",
         "title": None,
         "description": None,
-        "file_path": None,
         "domain": "transit",
         "source_type": "pdf",
         "language": "lv",

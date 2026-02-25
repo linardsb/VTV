@@ -21,6 +21,11 @@ from app.schedules.models import (
 )
 from app.stops.models import Stop
 
+# ZIP bomb protection limits
+MAX_UNCOMPRESSED_SIZE = 500_000_000  # 500MB total uncompressed limit
+MAX_COMPRESSION_RATIO = 100  # Reject if ratio > 100:1
+MAX_SINGLE_FILE_SIZE = 100_000_000  # 100MB per file inside ZIP
+
 
 @dataclass
 class GTFSParseResult:
@@ -62,6 +67,31 @@ class GTFSImporter:
         self.zip_data = zip_data
         self.warnings: list[str] = []
 
+    def _validate_zip_safety(self) -> None:
+        """Check ZIP for bomb patterns before extraction.
+
+        Raises:
+            ValueError: If ZIP exceeds safety limits.
+        """
+        with zipfile.ZipFile(io.BytesIO(self.zip_data)) as zf:
+            total_uncompressed = sum(info.file_size for info in zf.infolist())
+            compressed_size = len(self.zip_data)
+
+            if total_uncompressed > MAX_UNCOMPRESSED_SIZE:
+                msg = f"ZIP uncompressed size ({total_uncompressed} bytes) exceeds {MAX_UNCOMPRESSED_SIZE} byte limit"
+                raise ValueError(msg)
+
+            if compressed_size > 0:
+                ratio = total_uncompressed / compressed_size
+                if ratio > MAX_COMPRESSION_RATIO:
+                    msg = f"ZIP compression ratio ({ratio:.0f}:1) exceeds {MAX_COMPRESSION_RATIO}:1 limit"
+                    raise ValueError(msg)
+
+            for info in zf.infolist():
+                if info.file_size > MAX_SINGLE_FILE_SIZE:
+                    msg = f"File {info.filename} ({info.file_size} bytes) exceeds {MAX_SINGLE_FILE_SIZE} byte limit"
+                    raise ValueError(msg)
+
     def parse(self, stop_map: dict[str, int]) -> GTFSParseResult:
         """Parse all GTFS files from the ZIP.
 
@@ -73,6 +103,7 @@ class GTFSImporter:
         Returns:
             GTFSParseResult with all parsed entities.
         """
+        self._validate_zip_safety()
         with zipfile.ZipFile(io.BytesIO(self.zip_data)) as zf:
             file_names = zf.namelist()
 

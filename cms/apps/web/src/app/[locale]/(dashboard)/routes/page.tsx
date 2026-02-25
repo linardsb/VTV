@@ -53,7 +53,7 @@ const RouteMap = dynamic(
 export default function RoutesPage() {
   const t = useTranslations("routes");
   const isMobile = useIsMobile();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const userRole = session?.user?.role ?? "viewer";
   const IS_READ_ONLY = userRole === "viewer" || userRole === "dispatcher";
 
@@ -131,8 +131,8 @@ export default function RoutesPage() {
     try {
       const data = await fetchAgencies();
       setAgencies(data);
-    } catch {
-      // Agencies are non-critical — degrade gracefully
+    } catch (e) {
+      console.warn("[routes] Failed to load agencies:", e);
     }
   }, []);
 
@@ -150,7 +150,8 @@ export default function RoutesPage() {
       });
       setRoutes(result.items);
       setTotalItems(result.total);
-    } catch {
+    } catch (e) {
+      console.warn("[routes] Failed to load routes:", e);
       setRoutes([]);
       setTotalItems(0);
     } finally {
@@ -173,19 +174,22 @@ export default function RoutesPage() {
         collected.push(...result.items);
       }
       setAllRoutes(collected);
-    } catch {
+    } catch (e) {
+      console.warn("[routes] Failed to load all routes:", e);
       setAllRoutes([]);
     }
   }, []);
 
   useEffect(() => {
+    if (status !== "authenticated") return;
     void loadAgencies();
     void loadAllRoutes();
-  }, [loadAgencies, loadAllRoutes]);
+  }, [loadAgencies, loadAllRoutes, status]);
 
   useEffect(() => {
+    if (status !== "authenticated") return;
     void loadRoutes();
-  }, [loadRoutes]);
+  }, [loadRoutes, status]);
 
   // Handlers
   const handleSelectRoute = useCallback(

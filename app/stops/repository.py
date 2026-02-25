@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schedules.models import StopTime, Trip
+from app.schedules.models import StopTime
 from app.shared.utils import escape_like
 from app.stops.models import Stop
 from app.stops.schemas import StopCreate, StopUpdate
@@ -213,7 +213,11 @@ class StopRepository:
         # Join back to get the stop_id at the max sequence
         query = (
             select(StopTime.stop_id)
-            .join(max_seq, (StopTime.trip_id == max_seq.c.trip_id) & (StopTime.stop_sequence == max_seq.c.max_seq))
+            .join(
+                max_seq,
+                (StopTime.trip_id == max_seq.c.trip_id)
+                & (StopTime.stop_sequence == max_seq.c.max_seq),
+            )
             .distinct()
         )
         result = await self.db.execute(query)

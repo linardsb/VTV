@@ -51,7 +51,7 @@ const StopMap = dynamic(
 export default function StopsPage() {
   const t = useTranslations("stops");
   const isMobile = useIsMobile();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const userRole = session?.user?.role ?? "viewer";
   const IS_READ_ONLY = userRole === "viewer";
 
@@ -131,7 +131,8 @@ export default function StopsPage() {
       });
       setStops(result.items);
       setTotalItems(result.total);
-    } catch {
+    } catch (e) {
+      console.warn("[stops] Failed to load stops:", e);
       setStops([]);
       setTotalItems(0);
     } finally {
@@ -144,7 +145,8 @@ export default function StopsPage() {
     try {
       const stops = await fetchAllStopsForMap();
       setAllStops(stops);
-    } catch {
+    } catch (e) {
+      console.warn("[stops] Failed to load all stops:", e);
       setAllStops([]);
     }
   }, []);
@@ -154,19 +156,22 @@ export default function StopsPage() {
     try {
       const ids = await fetchTerminalStopIds();
       setTerminalStopIds(new Set(ids));
-    } catch {
+    } catch (e) {
+      console.warn("[stops] Failed to load terminal stop IDs:", e);
       setTerminalStopIds(new Set());
     }
   }, []);
 
   useEffect(() => {
+    if (status !== "authenticated") return;
     void loadStops();
-  }, [loadStops]);
+  }, [loadStops, status]);
 
   useEffect(() => {
+    if (status !== "authenticated") return;
     void loadAllStops();
     void loadTerminalStopIds();
-  }, [loadAllStops, loadTerminalStopIds]);
+  }, [loadAllStops, loadTerminalStopIds, status]);
 
   // Selected stop ID for map sync
   const selectedStopId = selectedStop?.id ?? null;

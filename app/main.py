@@ -36,6 +36,7 @@ from app.drivers.routes import router as drivers_router
 from app.events.routes import router as events_router
 from app.knowledge.routes import router as knowledge_router
 from app.schedules.routes import router as schedules_router
+from app.skills.routes import router as skills_router
 from app.stops.routes import router as stops_router
 from app.transit.poller import start_pollers, stop_pollers
 from app.transit.routes import router as transit_router
@@ -132,6 +133,7 @@ app.include_router(knowledge_router)
 app.include_router(schedules_router)
 app.include_router(drivers_router)
 app.include_router(events_router)
+app.include_router(skills_router)
 
 
 @app.get("/")

@@ -112,7 +112,12 @@ async def is_token_revoked(jti: str) -> bool:
         result = await redis_client.get(f"auth:revoked:{jti}")
         return result is not None
     except Exception:
-        return False  # Redis down = allow (fail-open for availability)
+        logger.warning(
+            "auth.token.revocation_check_degraded",
+            jti=jti,
+            detail="Redis unavailable - token revocation check skipped (fail-open)",
+        )
+        return False  # Redis down = allow (fail-open for availability, logged for operators)
 
 
 def decode_token(token: str) -> TokenPayload | None:
