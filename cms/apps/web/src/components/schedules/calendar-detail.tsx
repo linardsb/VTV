@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { addCalendarException, deleteCalendarException } from "@/lib/schedules-client";
+import { CalendarMonthGrid } from "@/components/schedules/calendar-month-grid";
 import type { Calendar, CalendarException } from "@/types/schedule";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
@@ -131,6 +132,11 @@ export function CalendarDetail({
           <DetailRow label={t("dateRange")}>
             {dateFormatter.format(new Date(calendar.start_date))} — {dateFormatter.format(new Date(calendar.end_date))}
           </DetailRow>
+
+          <Separator />
+
+          {/* Month grid */}
+          <CalendarMonthGrid calendar={calendar} />
 
           <Separator />
 

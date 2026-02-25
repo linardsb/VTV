@@ -90,6 +90,7 @@ def make_calendar(**overrides: object) -> Calendar:
         "sunday": False,
         "start_date": date(2026, 1, 1),
         "end_date": date(2026, 12, 31),
+        "created_by_id": None,
         "created_at": now,
         "updated_at": now,
     }

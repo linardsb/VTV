@@ -273,11 +273,14 @@ class ScheduleService:
             items=items, total=total, page=pagination.page, page_size=pagination.page_size
         )
 
-    async def create_calendar(self, data: CalendarCreate) -> CalendarResponse:
+    async def create_calendar(
+        self, data: CalendarCreate, *, user_id: int | None = None
+    ) -> CalendarResponse:
         """Create a new calendar.
 
         Args:
             data: Calendar creation data.
+            user_id: ID of the user creating the calendar (None for GTFS import).
 
         Returns:
             CalendarResponse for the created calendar.
@@ -291,12 +294,13 @@ class ScheduleService:
             raise CalendarAlreadyExistsError(
                 f"Calendar with gtfs_service_id '{data.gtfs_service_id}' already exists"
             )
-        calendar = Calendar(**data.model_dump())
+        calendar = Calendar(**data.model_dump(), created_by_id=user_id)
         calendar = await self.repository.create_calendar(calendar)
         logger.info(
             "schedules.calendar.create_completed",
             calendar_id=calendar.id,
             gtfs_service_id=calendar.gtfs_service_id,
+            created_by_id=user_id,
         )
         return CalendarResponse.model_validate(calendar)
 

@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { importGTFS, validateSchedule } from "@/lib/schedules-client";
 import type { GTFSImportResponse, ValidationResult } from "@/types/schedule";
@@ -21,7 +20,6 @@ export function GTFSImport({ onImportComplete }: GTFSImportProps) {
   const t = useTranslations("schedules.import");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [importResult, setImportResult] = useState<GTFSImportResponse | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [isValidating, setIsValidating] = useState(false);
@@ -43,11 +41,8 @@ export function GTFSImport({ onImportComplete }: GTFSImportProps) {
   const handleImport = useCallback(async () => {
     if (!selectedFile) return;
     setIsUploading(true);
-    setUploadProgress(20);
     try {
-      setUploadProgress(50);
       const result = await importGTFS(selectedFile);
-      setUploadProgress(100);
       setImportResult(result);
       toast.success(t("importSuccess"));
       onImportComplete();
@@ -115,7 +110,9 @@ export function GTFSImport({ onImportComplete }: GTFSImportProps) {
 
         {isUploading && (
           <div className="space-y-(--spacing-tight)">
-            <Progress value={uploadProgress} className="w-full" />
+            <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div className="absolute inset-0 h-full w-1/3 animate-pulse rounded-full bg-interactive" />
+            </div>
             <p className="text-xs text-foreground-muted text-center">{t("importing")}</p>
           </div>
         )}

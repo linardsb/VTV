@@ -1,7 +1,9 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useMemo } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import { Pencil, Trash2, MoreHorizontal, Check, X } from "lucide-react";
+import { CalendarStatusBadge } from "@/components/schedules/calendar-status-badge";
 import {
   Table,
   TableBody,
@@ -66,8 +68,19 @@ export function CalendarTable({
 }: CalendarTableProps) {
   const t = useTranslations("schedules.calendars");
   const tDays = useTranslations("schedules.days");
+  const locale = useLocale();
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }),
+    [locale]
+  );
+
+  const createdFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+    [locale]
+  );
 
   if (!isLoading && calendars.length === 0) {
     return (
@@ -93,6 +106,9 @@ export function CalendarTable({
                 </TableHead>
               ))}
               <TableHead className="hidden md:table-cell">{t("dateRange")}</TableHead>
+              <TableHead className="hidden lg:table-cell">{t("status")}</TableHead>
+              <TableHead className="hidden xl:table-cell">{t("createdBy")}</TableHead>
+              <TableHead className="hidden xl:table-cell">{t("createdAt")}</TableHead>
               {!isReadOnly && (
                 <TableHead className="w-16">
                   <span className="sr-only">{t("actions")}</span>
@@ -109,6 +125,9 @@ export function CalendarTable({
                       <TableCell key={day} className="hidden sm:table-cell"><Skeleton className="mx-auto h-4 w-4" /></TableCell>
                     ))}
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-5 w-16" /></TableCell>
+                    <TableCell className="hidden xl:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell className="hidden xl:table-cell"><Skeleton className="h-5 w-28" /></TableCell>
                     {!isReadOnly && <TableCell><Skeleton className="h-5 w-8" /></TableCell>}
                   </TableRow>
                 ))
@@ -125,7 +144,16 @@ export function CalendarTable({
                       </TableCell>
                     ))}
                     <TableCell className="hidden md:table-cell text-foreground-muted text-sm">
-                      {cal.start_date} — {cal.end_date}
+                      {dateFormatter.format(new Date(cal.start_date))} — {dateFormatter.format(new Date(cal.end_date))}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <CalendarStatusBadge startDate={cal.start_date} endDate={cal.end_date} />
+                    </TableCell>
+                    <TableCell className="hidden xl:table-cell text-foreground-muted text-sm whitespace-nowrap">
+                      {cal.created_by_name || "-"}
+                    </TableCell>
+                    <TableCell className="hidden xl:table-cell text-foreground-muted text-xs whitespace-nowrap">
+                      {createdFormatter.format(new Date(cal.created_at))}
                     </TableCell>
                     {!isReadOnly && (
                       <TableCell>

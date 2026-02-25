@@ -268,7 +268,27 @@
       "removed": "Noņemts",
       "exceptionAdded": "Izņēmums pievienots",
       "exceptionRemoved": "Izņēmums noņemts",
-      "exceptionError": "Izņēmuma atjaunināšana neizdevās"
+      "exceptionError": "Izņēmuma atjaunināšana neizdevās",
+      "search": "Meklēt kalendārus...",
+      "activeToday": "Aktīvi šodien",
+      "status": "Statuss",
+      "statusActive": "Aktīvs",
+      "statusExpired": "Beidzies",
+      "statusUpcoming": "Gaidāms",
+      "createdAt": "Izveidots",
+      "createdBy": "Izveidoja",
+      "presetWeekdays": "Darba dienas",
+      "presetWeekend": "Brīvdienas",
+      "presetDaily": "Katru dienu",
+      "presetClear": "Notīrīt",
+      "dateValidation": "Beigu datumam jābūt pēc sākuma datuma",
+      "monthGrid": "Mēneša skats",
+      "today": "Šodien",
+      "prevMonth": "Iepriekšējais mēnesis",
+      "nextMonth": "Nākamais mēnesis",
+      "gridActive": "Aktīva diena",
+      "gridInactive": "Neaktīva diena",
+      "gridHint": "Iestatiet sākuma un beigu datumu, lai redzētu mēneša skatu"
     },
     "trips": {
       "tripId": "Reisa ID",
@@ -310,7 +330,9 @@
       "deleted": "Reiss veiksmīgi dzēsts",
       "saveError": "Reisa saglabāšana neizdevās",
       "deleteError": "Reisa dzēšana neizdevās",
-      "createdAt": "Izveidots"
+      "createdAt": "Izveidots",
+      "search": "Meklēt reisus...",
+      "searchPlaceholder": "Reisa ID vai galapunkts..."
     },
     "import": {
       "uploadTitle": "GTFS imports",

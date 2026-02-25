@@ -40,6 +40,8 @@ export interface Calendar {
   sunday: boolean;
   start_date: string;
   end_date: string;
+  created_by_id: number | null;
+  created_by_name: string | null;
   created_at: string;
   updated_at: string;
 }

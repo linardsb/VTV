@@ -148,6 +148,8 @@ class CalendarResponse(BaseModel):
     sunday: bool
     start_date: datetime.date
     end_date: datetime.date
+    created_by_id: int | None = None
+    created_by_name: str | None = None
     created_at: datetime.datetime
     updated_at: datetime.datetime
 

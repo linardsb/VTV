@@ -7,6 +7,7 @@ import sqlalchemy as sa
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from app.schedules.models import (
@@ -262,12 +263,15 @@ class ScheduleRepository:
             calendar: Calendar model instance.
 
         Returns:
-            The persisted Calendar instance.
+            The persisted Calendar instance with creator loaded.
         """
         self.db.add(calendar)
         await self.db.commit()
-        await self.db.refresh(calendar)
-        return calendar
+        # Re-fetch with creator joined so CalendarResponse gets created_by_name
+        result = await self.db.execute(
+            select(Calendar).options(joinedload(Calendar.creator)).where(Calendar.id == calendar.id)
+        )
+        return result.scalar_one()
 
     async def get_calendar(self, calendar_id: int) -> Calendar | None:
         """Get a calendar by primary key.
@@ -278,7 +282,9 @@ class ScheduleRepository:
         Returns:
             Calendar instance or None.
         """
-        result = await self.db.execute(select(Calendar).where(Calendar.id == calendar_id))
+        result = await self.db.execute(
+            select(Calendar).options(joinedload(Calendar.creator)).where(Calendar.id == calendar_id)
+        )
         return result.scalar_one_or_none()
 
     async def get_calendar_by_gtfs_id(self, gtfs_service_id: str) -> Calendar | None:
@@ -312,12 +318,12 @@ class ScheduleRepository:
         Returns:
             List of Calendar instances.
         """
-        query = select(Calendar)
+        query = select(Calendar).options(joinedload(Calendar.creator))
         if active_on is not None:
             query = query.where(Calendar.start_date <= active_on, Calendar.end_date >= active_on)
         query = query.order_by(Calendar.gtfs_service_id).offset(offset).limit(limit)
         result = await self.db.execute(query)
-        return list(result.scalars().all())
+        return list(result.unique().scalars().all())
 
     async def count_calendars(self, *, active_on: date | None = None) -> int:
         """Count calendars matching filters.

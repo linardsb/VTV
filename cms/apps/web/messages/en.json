@@ -268,7 +268,27 @@
       "removed": "Removed",
       "exceptionAdded": "Exception added",
       "exceptionRemoved": "Exception removed",
-      "exceptionError": "Failed to update exception"
+      "exceptionError": "Failed to update exception",
+      "search": "Search calendars...",
+      "activeToday": "Active today",
+      "status": "Status",
+      "statusActive": "Active",
+      "statusExpired": "Expired",
+      "statusUpcoming": "Upcoming",
+      "createdAt": "Created",
+      "createdBy": "Created by",
+      "presetWeekdays": "Weekdays",
+      "presetWeekend": "Weekend",
+      "presetDaily": "Daily",
+      "presetClear": "Clear",
+      "dateValidation": "End date must be after start date",
+      "monthGrid": "Month view",
+      "today": "Today",
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "gridActive": "Active day",
+      "gridInactive": "Inactive day",
+      "gridHint": "Set start and end dates to see the month view"
     },
     "trips": {
       "tripId": "Trip ID",
@@ -310,7 +330,9 @@
       "deleted": "Trip deleted successfully",
       "saveError": "Failed to save trip",
       "deleteError": "Failed to delete trip",
-      "createdAt": "Created"
+      "createdAt": "Created",
+      "search": "Search trips...",
+      "searchPlaceholder": "Trip ID or headsign..."
     },
     "import": {
       "uploadTitle": "GTFS Import",

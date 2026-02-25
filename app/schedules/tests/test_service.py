@@ -2,6 +2,7 @@
 """Tests for schedule management service."""
 
 from datetime import date
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -165,12 +166,63 @@ async def test_create_calendar_success(service):
         start_date=date(2026, 1, 1),
         end_date=date(2026, 12, 31),
     )
-    calendar = make_calendar()
+    calendar = make_calendar(created_by_id=42)
+    service.repository.get_calendar_by_gtfs_id = AsyncMock(return_value=None)
+    service.repository.create_calendar = AsyncMock(return_value=calendar)
+
+    result = await service.create_calendar(data, user_id=42)
+    assert result.gtfs_service_id == "weekday_1"
+    assert result.created_by_id == 42
+
+
+@pytest.mark.asyncio
+async def test_create_calendar_created_by_name_resolved(service):
+    """When creator relationship is loaded, created_by_name returns the user's name."""
+    calendar = make_calendar(created_by_id=42)
+    # Simulate a loaded creator relationship (as the DB would provide via joinedload)
+    object.__setattr__(calendar, "creator", SimpleNamespace(name="Janis Berzins"))
+    service.repository.get_calendar_by_gtfs_id = AsyncMock(return_value=None)
+    service.repository.create_calendar = AsyncMock(return_value=calendar)
+
+    data = CalendarCreate(
+        gtfs_service_id="weekday_1",
+        monday=True,
+        tuesday=True,
+        wednesday=True,
+        thursday=True,
+        friday=True,
+        saturday=False,
+        sunday=False,
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+    )
+    result = await service.create_calendar(data, user_id=42)
+    assert result.created_by_name == "Janis Berzins"
+    assert result.created_by_id == 42
+
+
+@pytest.mark.asyncio
+async def test_create_calendar_without_user(service):
+    """Calendar created without user_id (e.g. GTFS import) has created_by_id=None."""
+    data = CalendarCreate(
+        gtfs_service_id="weekend_1",
+        monday=False,
+        tuesday=False,
+        wednesday=False,
+        thursday=False,
+        friday=False,
+        saturday=True,
+        sunday=True,
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+    )
+    calendar = make_calendar(gtfs_service_id="weekend_1", created_by_id=None)
     service.repository.get_calendar_by_gtfs_id = AsyncMock(return_value=None)
     service.repository.create_calendar = AsyncMock(return_value=calendar)
 
     result = await service.create_calendar(data)
-    assert result.gtfs_service_id == "weekday_1"
+    assert result.created_by_id is None
+    assert result.created_by_name is None
 
 
 @pytest.mark.asyncio

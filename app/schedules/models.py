@@ -5,13 +5,19 @@ trips belong to service calendars, and each trip has ordered stop times.
 Stop times reference the stops table via foreign key.
 """
 
+from __future__ import annotations
+
 import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.shared.models import TimestampMixin
+
+if TYPE_CHECKING:
+    from app.auth.models import User
 
 
 class Agency(Base, TimestampMixin):
@@ -64,6 +70,15 @@ class Calendar(Base, TimestampMixin):
     sunday: Mapped[bool] = mapped_column(Boolean, nullable=False)
     start_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     end_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    created_by_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    creator: Mapped[User | None] = relationship("User", foreign_keys=[created_by_id], lazy="noload")
+
+    @property
+    def created_by_name(self) -> str | None:
+        """Return the creator's name, or None if no creator is set."""
+        return self.creator.name if self.creator else None
 
 
 class CalendarDate(Base, TimestampMixin):

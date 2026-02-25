@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useSession } from "next-auth/react";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,10 +21,12 @@ import {
 } from "@/lib/schedules-client";
 import { CalendarTable } from "@/components/schedules/calendar-table";
 import { CalendarForm } from "@/components/schedules/calendar-form";
-import { CalendarDetail } from "@/components/schedules/calendar-detail";
+import { CalendarDialog } from "@/components/schedules/calendar-dialog";
+import { CalendarSearch } from "@/components/schedules/calendar-search";
 import { DeleteCalendarDialog } from "@/components/schedules/delete-calendar-dialog";
 import { TripTable } from "@/components/schedules/trip-table";
 import { TripFilters } from "@/components/schedules/trip-filters";
+import { TripSearch } from "@/components/schedules/trip-search";
 import { TripForm } from "@/components/schedules/trip-form";
 import { TripDetail } from "@/components/schedules/trip-detail";
 import { DeleteTripDialog } from "@/components/schedules/delete-trip-dialog";
@@ -36,8 +39,19 @@ const PAGE_SIZE = 20;
 export default function SchedulesPage() {
   const t = useTranslations("schedules");
   const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const userRole = session?.user?.role ?? "viewer";
   const IS_READ_ONLY = userRole === "viewer";
+
+  // Tab state synced with URL
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "calendars");
+
+  // Search & filter state
+  const [calendarSearch, setCalendarSearch] = useState("");
+  const [activeTodayFilter, setActiveTodayFilter] = useState(false);
+  const [tripSearch, setTripSearch] = useState("");
 
   // Shared lookup data
   const [allRoutes, setAllRoutes] = useState<Route[]>([]);
@@ -50,10 +64,9 @@ export default function SchedulesPage() {
   const [isCalendarLoading, setIsCalendarLoading] = useState(true);
   const [selectedCalendar, setSelectedCalendar] = useState<Calendar | null>(null);
   const [calendarExceptions, setCalendarExceptions] = useState<CalendarException[]>([]);
-  const [calendarDetailOpen, setCalendarDetailOpen] = useState(false);
-  const [calendarFormOpen, setCalendarFormOpen] = useState(false);
-  const [calendarFormMode, setCalendarFormMode] = useState<"create" | "edit">("create");
-  const [calendarFormKey, setCalendarFormKey] = useState(0);
+  const [calendarDialogOpen, setCalendarDialogOpen] = useState(false);
+  const [calendarCreateOpen, setCalendarCreateOpen] = useState(false);
+  const [calendarCreateKey, setCalendarCreateKey] = useState(0);
   const [calendarDeleteOpen, setCalendarDeleteOpen] = useState(false);
   const [calendarDeleteTarget, setCalendarDeleteTarget] = useState<Calendar | null>(null);
 
@@ -91,7 +104,11 @@ export default function SchedulesPage() {
   const loadCalendars = useCallback(async () => {
     setIsCalendarLoading(true);
     try {
-      const result = await fetchCalendars({ page: calendarPage, page_size: PAGE_SIZE });
+      const result = await fetchCalendars({
+        page: calendarPage,
+        page_size: PAGE_SIZE,
+        active_on: activeTodayFilter ? new Date().toISOString().split("T")[0] : undefined,
+      });
       setCalendars(result.items);
       setCalendarTotal(result.total);
     } catch (e) {
@@ -101,7 +118,7 @@ export default function SchedulesPage() {
     } finally {
       setIsCalendarLoading(false);
     }
-  }, [calendarPage]);
+  }, [calendarPage, activeTodayFilter]);
 
   // Load trips
   const loadTrips = useCallback(async () => {
@@ -129,45 +146,78 @@ export default function SchedulesPage() {
   useEffect(() => { if (status !== "authenticated") return; void loadCalendars(); }, [loadCalendars, status]);
   useEffect(() => { if (status !== "authenticated") return; void loadTrips(); }, [loadTrips, status]);
 
+  // Client-side search filtering
+  const filteredCalendars = useMemo(() => {
+    if (!calendarSearch.trim()) return calendars;
+    const q = calendarSearch.toLowerCase();
+    return calendars.filter((c) => c.gtfs_service_id.toLowerCase().includes(q));
+  }, [calendars, calendarSearch]);
+
+  const filteredTrips = useMemo(() => {
+    if (!tripSearch.trim()) return trips;
+    const q = tripSearch.toLowerCase();
+    return trips.filter((trip) =>
+      trip.gtfs_trip_id.toLowerCase().includes(q) ||
+      (trip.trip_headsign?.toLowerCase().includes(q) ?? false)
+    );
+  }, [trips, tripSearch]);
+
+  // Tab URL sync
+  function handleTabChange(tab: string) {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "calendars") { params.delete("tab"); } else { params.set("tab", tab); }
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }
+
+  // Active today filter toggle (resets page)
+  function handleActiveTodayChange(active: boolean) {
+    setActiveTodayFilter(active);
+    setCalendarPage(1);
+  }
+
   // Calendar handlers
   const handleCalendarSelect = useCallback((cal: Calendar) => {
     setSelectedCalendar(cal);
-    setCalendarDetailOpen(true);
+    setCalendarDialogOpen(true);
     // TODO: load exceptions from detail endpoint if we had a dedicated one
     setCalendarExceptions([]);
   }, []);
 
   const handleCalendarCreate = useCallback(() => {
-    setCalendarFormMode("create");
-    setSelectedCalendar(null);
-    setCalendarFormKey((k) => k + 1);
-    setCalendarFormOpen(true);
+    setCalendarCreateKey((k) => k + 1);
+    setCalendarCreateOpen(true);
   }, []);
 
-  const handleCalendarEdit = useCallback((cal: Calendar) => {
-    setCalendarFormMode("edit");
-    setSelectedCalendar(cal);
-    setCalendarDetailOpen(false);
-    setCalendarFormKey((k) => k + 1);
-    setCalendarFormOpen(true);
-  }, []);
-
-  const handleCalendarFormSubmit = useCallback(async (data: CalendarCreate | CalendarUpdate) => {
+  const handleCalendarCreateSubmit = useCallback(async (data: CalendarCreate | CalendarUpdate) => {
     try {
-      if (calendarFormMode === "create") {
-        await createCalendar(data as CalendarCreate);
-        toast.success(t("calendars.created"));
-      } else if (selectedCalendar) {
-        await updateCalendar(selectedCalendar.id, data as CalendarUpdate);
-        toast.success(t("calendars.updated"));
-      }
-      setCalendarFormOpen(false);
+      await createCalendar(data as CalendarCreate);
+      toast.success(t("calendars.created"));
+      setCalendarCreateOpen(false);
       void loadCalendars();
       void loadLookups();
     } catch {
       toast.error(t("calendars.saveError"));
     }
-  }, [calendarFormMode, selectedCalendar, t, loadCalendars, loadLookups]);
+  }, [t, loadCalendars, loadLookups]);
+
+  const handleCalendarDialogSubmit = useCallback(async (data: CalendarUpdate) => {
+    if (!selectedCalendar) return;
+    try {
+      await updateCalendar(selectedCalendar.id, data);
+      toast.success(t("calendars.updated"));
+      // Refresh the selected calendar in-place so the dialog shows updated data
+      const refreshed = await fetchCalendars({ page: calendarPage, page_size: PAGE_SIZE, active_on: activeTodayFilter ? new Date().toISOString().split("T")[0] : undefined });
+      setCalendars(refreshed.items);
+      setCalendarTotal(refreshed.total);
+      const updated = refreshed.items.find((c) => c.id === selectedCalendar.id);
+      if (updated) setSelectedCalendar(updated);
+      void loadLookups();
+    } catch {
+      toast.error(t("calendars.saveError"));
+    }
+  }, [selectedCalendar, t, calendarPage, activeTodayFilter, loadLookups]);
 
   const handleCalendarDeleteRequest = useCallback((cal: Calendar) => {
     setCalendarDeleteTarget(cal);
@@ -180,7 +230,7 @@ export default function SchedulesPage() {
       toast.success(t("calendars.deleted"));
       if (selectedCalendar?.id === calId) {
         setSelectedCalendar(null);
-        setCalendarDetailOpen(false);
+        setCalendarDialogOpen(false);
       }
       void loadCalendars();
       void loadLookups();
@@ -265,7 +315,7 @@ export default function SchedulesPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="calendars" className="flex min-h-0 flex-1 flex-col">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex min-h-0 flex-1 flex-col">
         <TabsList>
           <TabsTrigger value="calendars" className="cursor-pointer">{t("tabs.calendars")}</TabsTrigger>
           <TabsTrigger value="trips" className="cursor-pointer">{t("tabs.trips")}</TabsTrigger>
@@ -275,22 +325,28 @@ export default function SchedulesPage() {
         {/* Calendars Tab */}
         <TabsContent value="calendars" className="flex-1 overflow-hidden rounded-lg border border-border mt-(--spacing-tight)">
           <div className="flex h-full flex-col">
-            {!IS_READ_ONLY && (
-              <div className="flex justify-end border-b border-border px-(--spacing-card) py-(--spacing-tight)">
+            <div className="flex items-center justify-between border-b border-border px-(--spacing-card) py-(--spacing-tight)">
+              <CalendarSearch
+                searchQuery={calendarSearch}
+                onSearchChange={setCalendarSearch}
+                activeTodayFilter={activeTodayFilter}
+                onActiveTodayChange={handleActiveTodayChange}
+              />
+              {!IS_READ_ONLY && (
                 <Button size="sm" className="cursor-pointer" onClick={handleCalendarCreate}>
                   <Plus className="mr-1 size-4" aria-hidden="true" />
                   {t("calendars.create")}
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
             <CalendarTable
-              calendars={calendars}
+              calendars={filteredCalendars}
               total={calendarTotal}
               page={calendarPage}
               pageSize={PAGE_SIZE}
               onPageChange={setCalendarPage}
               onSelect={handleCalendarSelect}
-              onEdit={handleCalendarEdit}
+              onEdit={handleCalendarSelect}
               onDelete={handleCalendarDeleteRequest}
               isReadOnly={IS_READ_ONLY}
               isLoading={isCalendarLoading}
@@ -302,16 +358,19 @@ export default function SchedulesPage() {
         <TabsContent value="trips" className="flex-1 overflow-hidden rounded-lg border border-border mt-(--spacing-tight)">
           <div className="flex h-full flex-col">
             <div className="flex items-center justify-between border-b border-border px-(--spacing-card) py-(--spacing-tight)">
-              <TripFilters
-                routes={allRoutes}
-                calendars={allCalendars}
-                routeFilter={routeFilter}
-                onRouteFilterChange={(id) => { setRouteFilter(id); setTripPage(1); }}
-                calendarFilter={calendarFilter}
-                onCalendarFilterChange={(id) => { setCalendarFilter(id); setTripPage(1); }}
-                directionFilter={directionFilter}
-                onDirectionFilterChange={(d) => { setDirectionFilter(d); setTripPage(1); }}
-              />
+              <div className="flex items-center gap-(--spacing-inline) flex-wrap">
+                <TripSearch value={tripSearch} onChange={setTripSearch} />
+                <TripFilters
+                  routes={allRoutes}
+                  calendars={allCalendars}
+                  routeFilter={routeFilter}
+                  onRouteFilterChange={(id) => { setRouteFilter(id); setTripPage(1); }}
+                  calendarFilter={calendarFilter}
+                  onCalendarFilterChange={(id) => { setCalendarFilter(id); setTripPage(1); }}
+                  directionFilter={directionFilter}
+                  onDirectionFilterChange={(d) => { setDirectionFilter(d); setTripPage(1); }}
+                />
+              </div>
               {!IS_READ_ONLY && (
                 <Button size="sm" className="cursor-pointer" onClick={handleTripCreate}>
                   <Plus className="mr-1 size-4" aria-hidden="true" />
@@ -320,7 +379,7 @@ export default function SchedulesPage() {
               )}
             </div>
             <TripTable
-              trips={trips}
+              trips={filteredTrips}
               routes={allRoutes}
               calendars={allCalendars}
               total={tripTotal}
@@ -343,24 +402,22 @@ export default function SchedulesPage() {
       </Tabs>
 
       {/* Calendar overlays */}
-      <CalendarDetail
-        key={selectedCalendar?.id}
+      <CalendarDialog
         calendar={selectedCalendar}
         exceptions={calendarExceptions}
-        isOpen={calendarDetailOpen}
-        onClose={() => { setCalendarDetailOpen(false); setSelectedCalendar(null); }}
-        onEdit={handleCalendarEdit}
+        isOpen={calendarDialogOpen}
+        onClose={() => { setCalendarDialogOpen(false); setSelectedCalendar(null); }}
+        onSubmit={handleCalendarDialogSubmit}
         onDelete={handleCalendarDeleteRequest}
         onExceptionsChange={() => { /* reload exceptions */ }}
         isReadOnly={IS_READ_ONLY}
       />
       <CalendarForm
-        key={`cal-${calendarFormKey}`}
-        mode={calendarFormMode}
-        calendar={selectedCalendar}
-        isOpen={calendarFormOpen}
-        onClose={() => setCalendarFormOpen(false)}
-        onSubmit={handleCalendarFormSubmit}
+        key={`cal-${calendarCreateKey}`}
+        mode="create"
+        isOpen={calendarCreateOpen}
+        onClose={() => setCalendarCreateOpen(false)}
+        onSubmit={handleCalendarCreateSubmit}
       />
       <DeleteCalendarDialog
         calendar={calendarDeleteTarget}

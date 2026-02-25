@@ -172,11 +172,11 @@ async def create_calendar(
     request: Request,
     data: CalendarCreate,
     service: ScheduleService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
+    current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> CalendarResponse:
     """Create a new service calendar."""
     _ = request
-    return await service.create_calendar(data)
+    return await service.create_calendar(data, user_id=current_user.id)
 
 
 @router.get("/calendars/{calendar_id}", response_model=CalendarResponse)
