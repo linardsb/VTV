@@ -15,6 +15,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any, cast
 
+import sentry_sdk
 import uvicorn
 from fastapi import FastAPI
 from slowapi import _rate_limit_exceeded_handler  # pyright: ignore[reportMissingTypeStubs]
@@ -43,6 +44,17 @@ from app.transit.routes import router as transit_router
 from app.transit.service import close_transit_service
 
 settings = get_settings()
+
+# Initialize Sentry/GlitchTip before anything else — noop if DSN is not configured
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        release=f"vtv@{settings.version}",
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+        send_default_pii=False,
+        enable_tracing=True,
+    )
 
 
 @asynccontextmanager

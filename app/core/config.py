@@ -143,6 +143,10 @@ class Settings(BaseSettings):
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_top_k: int = 10
 
+    # GlitchTip error tracking (Sentry-compatible)
+    sentry_dsn: str | None = None
+    sentry_traces_sample_rate: float = 0.1
+
     # Document storage
     document_storage_path: str = "data/documents"
 

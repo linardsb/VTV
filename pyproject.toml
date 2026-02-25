@@ -25,6 +25,7 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "python-jose[cryptography]>=3.3.0",
     "redis[hiredis]>=5.2.0",
+    "sentry-sdk[fastapi]>=2.0.0",
     "slowapi>=0.1.9",
     "sqlalchemy[asyncio]>=2.0.44",
     "structlog>=25.5.0",
