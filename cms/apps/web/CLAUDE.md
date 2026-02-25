@@ -23,6 +23,7 @@ src/
 │   │   ├── schedules/page.tsx  # Schedule management (calendars/trips/import tabs, GTFS ZIP upload)
 │   │   ├── stops/page.tsx      # Stop management (CRUD, Leaflet map with terminus markers, direction display, GTFS copy; mobile: tab layout)
 │   │   ├── drivers/page.tsx    # Driver management (CRUD, search, shift/status filters, license tracking)
+│   │   ├── gtfs/page.tsx       # GTFS data management (stats overview, RT feed status, ZIP export with agency filter)
 │   │   └── {page}/page.tsx     # Future feature pages
 │   ├── login/page.tsx          # Login (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect
@@ -34,13 +35,14 @@ src/
 │   ├── routes/                 # Route management (table, filters, form, detail, type-badge, map, bus-marker)
 │   ├── schedules/              # Schedule management (calendar-table/form/detail, trip-table/form/detail/filters, gtfs-import, delete dialogs)
 │   ├── stops/                  # Stop management (table, filters, form, detail, delete-dialog, map with draggable markers)
-│   └── drivers/                # Driver management (table, filters, form, detail, delete-dialog)
+│   ├── drivers/                # Driver management (table, filters, form, detail, delete-dialog)
+│   └── gtfs/                   # GTFS data management (data-overview stats+feeds, gtfs-export with agency filter)
 ├── hooks/
 │   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
 │   ├── use-vehicle-positions.ts # useVehiclePositions() hook (polls backend every 15s)
 │   ├── use-dashboard-metrics.ts # useDashboardMetrics() hook (real API: vehicles + routes, 30s polling)
 │   └── use-calendar-events.ts  # useCalendarEvents() hook (real API: /api/v1/events, 60s polling)
-├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts, driver.ts, event.ts)
+├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts, driver.ts, event.ts, gtfs.ts)
 ├── lib/
 │   ├── utils.ts                # cn() class merge utility
 │   ├── agent-client.ts         # FastAPI agent API client
@@ -49,6 +51,7 @@ src/
 │   ├── schedules-client.ts     # Schedules API client (22 endpoints: agencies, routes, calendars, trips, import, validate)
 │   ├── drivers-client.ts       # Drivers API client (CRUD, search, shift/status filters)
 │   ├── events-client.ts        # Events API client (CRUD, date range filtering)
+│   ├── gtfs-client.ts          # GTFS API client (stats aggregation, feed status, ZIP export with Content-Disposition)
 │   ├── color-utils.ts          # Hex color conversion (backend "FF7043" ↔ frontend "#FF7043")
 │   └── mock-dashboard-data.ts  # Mock dashboard metrics (calendar events now from real API)
 └── i18n/
