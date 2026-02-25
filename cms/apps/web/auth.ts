@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import type { DefaultSession } from "next-auth";
 
@@ -17,7 +18,59 @@ declare module "next-auth" {
   }
 }
 
+declare module "next-auth/jwt" {
+  interface JWT {
+    role?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    accessTokenExpires?: number;
+  }
+}
+
 const AGENT_URL = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
+
+// Refresh the backend access token 5 minutes before it expires
+const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+
+/** Decode JWT payload without verification (expiry check only). */
+function decodeJwtExpiry(token: string): number | null {
+  try {
+    const payload = JSON.parse(
+      Buffer.from(token.split(".")[1], "base64").toString(),
+    ) as { exp?: number };
+    return payload.exp ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Use the refresh token to get a new access token from the backend. */
+async function refreshAccessToken(token: JWT): Promise<JWT> {
+  try {
+    const response = await fetch(`${AGENT_URL}/api/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: token.refreshToken }),
+    });
+
+    if (!response.ok) {
+      // Refresh token expired or revoked — force re-login
+      return { ...token, accessToken: undefined, accessTokenExpires: 0 };
+    }
+
+    const data = (await response.json()) as { access_token: string };
+    const newExpiry = decodeJwtExpiry(data.access_token);
+
+    return {
+      ...token,
+      accessToken: data.access_token,
+      accessTokenExpires: newExpiry ?? Date.now() + 30 * 60 * 1000,
+    };
+  } catch {
+    // Backend unreachable — keep existing token, retry next time
+    return token;
+  }
+}
 
 // SECURITY: Frontend brute-force protection (defense in depth — backend also enforces)
 const LOGIN_MAX_ATTEMPTS = 5;
@@ -110,12 +163,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
+      // Initial sign-in: store tokens and expiry from backend response
       if (user) {
         token.role = user.role;
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
+        token.accessTokenExpires = user.accessToken
+          ? (decodeJwtExpiry(user.accessToken) ?? Date.now() + 30 * 60 * 1000)
+          : 0;
+        return token;
       }
+
+      // Subsequent requests: refresh if access token is expiring soon
+      const expiresAt = token.accessTokenExpires ?? 0;
+      if (Date.now() < expiresAt - REFRESH_BUFFER_MS) {
+        // Token still fresh
+        return token;
+      }
+
+      // Token expired or expiring soon — refresh it
+      if (token.refreshToken) {
+        return refreshAccessToken(token);
+      }
+
       return token;
     },
     session({ session, token }) {

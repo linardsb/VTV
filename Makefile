@@ -2,11 +2,8 @@
 
 # === Local Development (terminals) ===
 
-dev: db ## Start db + backend + frontend (full local dev)
-	@trap 'kill 0' EXIT; \
-	uv run uvicorn app.main:app --reload --port 8123 & \
-	(cd cms && pnpm --filter @vtv/web dev) & \
-	wait
+dev: ## Start db + backend + frontend with health checks (full local dev)
+	@bash scripts/dev.sh
 
 dev-be: ## Start backend dev server
 	uv run uvicorn app.main:app --reload --port 8123

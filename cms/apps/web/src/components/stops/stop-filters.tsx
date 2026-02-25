@@ -109,7 +109,7 @@ function FilterContent({
               {t("filters.stop")}
             </ToggleGroupItem>
             <ToggleGroupItem
-              value="1"
+              value="terminal"
               className="w-full justify-start rounded-md text-sm data-[state=on]:bg-filter-active-bg data-[state=on]:text-filter-active-text data-[state=on]:font-semibold"
             >
               {t("filters.station")}

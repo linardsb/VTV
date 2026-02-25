@@ -144,6 +144,17 @@ class StopService:
         logger.info("stops.list_all_completed", count=len(items))
         return items
 
+    async def list_terminal_stop_ids(self) -> list[int]:
+        """Return IDs of stops that are the last stop of any trip.
+
+        Returns:
+            List of unique stop database IDs serving as route terminals.
+        """
+        logger.info("stops.terminals_started")
+        ids = await self.repository.list_terminal_stop_ids()
+        logger.info("stops.terminals_completed", count=len(ids))
+        return ids
+
     async def create_stop(self, data: StopCreate) -> StopResponse:
         """Create a new stop.
 

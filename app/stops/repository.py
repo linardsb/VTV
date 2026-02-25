@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schedules.models import StopTime, Trip
 from app.shared.utils import escape_like
 from app.stops.models import Stop
 from app.stops.schemas import StopCreate, StopUpdate
@@ -193,6 +194,30 @@ class StopRepository:
             await self.db.flush()
         updated = len(existing_ids & {v["gtfs_stop_id"] for v in values})
         return len(values) - updated, updated
+
+    async def list_terminal_stop_ids(self) -> builtins.list[int]:
+        """Get IDs of stops that are the last stop of any trip.
+
+        Finds the maximum stop_sequence per trip, then returns
+        the distinct stop IDs at those terminal positions.
+
+        Returns:
+            List of unique stop database IDs that serve as terminals.
+        """
+        # Subquery: max stop_sequence per trip
+        max_seq = (
+            select(StopTime.trip_id, func.max(StopTime.stop_sequence).label("max_seq"))
+            .group_by(StopTime.trip_id)
+            .subquery()
+        )
+        # Join back to get the stop_id at the max sequence
+        query = (
+            select(StopTime.stop_id)
+            .join(max_seq, (StopTime.trip_id == max_seq.c.trip_id) & (StopTime.stop_sequence == max_seq.c.max_seq))
+            .distinct()
+        )
+        result = await self.db.execute(query)
+        return builtins.list(result.scalars().all())
 
     async def get_gtfs_map(self) -> dict[str, int]:
         """Get mapping of gtfs_stop_id to database id for all stops.

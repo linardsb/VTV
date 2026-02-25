@@ -68,6 +68,12 @@ export async function fetchAllStopsForMap(): Promise<Stop[]> {
   return handleResponse<Stop[]>(response);
 }
 
+/** Fetch IDs of terminal stops (last stop of each trip). */
+export async function fetchTerminalStopIds(): Promise<number[]> {
+  const response = await authFetch(`${BASE_URL}${API_PREFIX}/terminals`);
+  return handleResponse<number[]>(response);
+}
+
 /** Fetch a single stop by ID. */
 export async function fetchStop(id: number): Promise<Stop> {
   const response = await authFetch(`${BASE_URL}${API_PREFIX}/${id}`);

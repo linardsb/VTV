@@ -29,8 +29,10 @@ interface StopMapProps {
   editingStopId?: number | null;
   editingCoords?: { lat: number; lon: number } | null;
   onEditingCoordsChange?: (lat: number, lon: number) => void;
-  /** "all" | "0" (stop) | "1" (station) — grays out non-matching markers */
+  /** "all" | "0" (stop) | "1" (station) | "terminal" — filters markers */
   locationTypeFilter?: string;
+  /** Set of stop IDs that are terminals (last stop of a trip) */
+  terminalStopIds?: Set<number>;
   /** Incremented when a table row is clicked — triggers the popup to open on the selected stop */
   popupTrigger?: number;
 }
@@ -268,6 +270,7 @@ export function StopMap({
   editingCoords,
   onEditingCoordsChange,
   locationTypeFilter = "all",
+  terminalStopIds = new Set<number>(),
   popupTrigger = 0,
 }: StopMapProps) {
   const t = useTranslations("stops.map");
@@ -284,9 +287,12 @@ export function StopMap({
 
   const visibleStopCount = useMemo(() => {
     if (locationTypeFilter === "all") return stopsWithCoords.length;
+    if (locationTypeFilter === "terminal") {
+      return stopsWithCoords.filter((s) => terminalStopIds.has(s.id)).length;
+    }
     const typeNum = Number(locationTypeFilter);
     return stopsWithCoords.filter((s) => s.location_type === typeNum).length;
-  }, [stopsWithCoords, locationTypeFilter]);
+  }, [stopsWithCoords, locationTypeFilter, terminalStopIds]);
 
   return (
     <div className="relative isolate h-full min-h-[50vh] w-full bg-surface">
@@ -352,7 +358,9 @@ export function StopMap({
           if (editingStopId === stop.id) return null;
 
           // Hide stops that don't match the active location type filter
-          if (
+          if (locationTypeFilter === "terminal") {
+            if (!terminalStopIds.has(stop.id)) return null;
+          } else if (
             locationTypeFilter !== "all" &&
             stop.location_type !== Number(locationTypeFilter)
           ) {
@@ -360,6 +368,7 @@ export function StopMap({
           }
 
           const isSelected = selectedStopId === stop.id;
+          const isTerminal = terminalStopIds.has(stop.id);
 
           return (
             <CircleMarker
@@ -369,9 +378,11 @@ export function StopMap({
               pathOptions={{
                 fillColor: isSelected
                   ? MARKER_DARK
-                  : stop.location_type === 1
+                  : locationTypeFilter === "terminal" || isTerminal
                     ? MARKER_GREEN
-                    : MARKER_BLUE,
+                    : stop.location_type === 1
+                      ? MARKER_GREEN
+                      : MARKER_BLUE,
                 color: "#FFFFFF",
                 weight: 2,
                 opacity: 1,

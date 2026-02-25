@@ -23,6 +23,7 @@ import { DeleteStopDialog } from "@/components/stops/delete-stop-dialog";
 import {
   fetchStops,
   fetchAllStopsForMap,
+  fetchTerminalStopIds,
   createStop,
   updateStop,
   deleteStop,
@@ -57,6 +58,7 @@ export default function StopsPage() {
   // Data state — table (paginated) and map (all stops)
   const [stops, setStops] = useState<Stop[]>([]);
   const [allStops, setAllStops] = useState<Stop[]>([]);
+  const [terminalStopIds, setTerminalStopIds] = useState<Set<number>>(new Set());
   const [totalItems, setTotalItems] = useState(0);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -110,8 +112,9 @@ export default function StopsPage() {
   }, [statusFilter]);
 
   // Derived: location_type param from locationTypeFilter
+  // "terminal" is a frontend-only filter — don't send it to the paginated list API
   const locationTypeParam = useMemo(() => {
-    if (locationTypeFilter === "all") return undefined;
+    if (locationTypeFilter === "all" || locationTypeFilter === "terminal") return undefined;
     return Number(locationTypeFilter);
   }, [locationTypeFilter]);
 
@@ -146,13 +149,24 @@ export default function StopsPage() {
     }
   }, []);
 
+  // Fetch terminal stop IDs (last stop of each trip)
+  const loadTerminalStopIds = useCallback(async () => {
+    try {
+      const ids = await fetchTerminalStopIds();
+      setTerminalStopIds(new Set(ids));
+    } catch {
+      setTerminalStopIds(new Set());
+    }
+  }, []);
+
   useEffect(() => {
     void loadStops();
   }, [loadStops]);
 
   useEffect(() => {
     void loadAllStops();
-  }, [loadAllStops]);
+    void loadTerminalStopIds();
+  }, [loadAllStops, loadTerminalStopIds]);
 
   // Selected stop ID for map sync
   const selectedStopId = selectedStop?.id ?? null;
@@ -317,6 +331,7 @@ export default function StopsPage() {
     editingCoords,
     onEditingCoordsChange: handleEditingCoordsChange,
     locationTypeFilter,
+    terminalStopIds,
     popupTrigger,
   };
 

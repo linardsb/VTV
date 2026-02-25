@@ -56,6 +56,18 @@ async def list_all_stops_for_map(
     return await service.list_all_stops()
 
 
+@router.get("/terminals", response_model=list[int])
+@limiter.limit("10/minute")
+async def list_terminal_stop_ids(
+    request: Request,
+    service: StopService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
+) -> list[int]:
+    """Return IDs of stops that are the last stop of any trip (terminals/galapunkti)."""
+    _ = request
+    return await service.list_terminal_stop_ids()
+
+
 @router.get("/nearby", response_model=list[StopResponse])
 @limiter.limit("30/minute")
 async def nearby_stops(
