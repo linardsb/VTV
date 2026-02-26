@@ -7,8 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataOverview } from "@/components/gtfs/data-overview";
 import { GTFSExport } from "@/components/gtfs/gtfs-export";
 import { GTFSImport } from "@/components/schedules/gtfs-import";
-import { fetchGTFSStats, fetchFeeds } from "@/lib/gtfs-client";
-import { fetchAgencies } from "@/lib/schedules-client";
+import { fetchGTFSStats, fetchFeeds } from "@/lib/gtfs-sdk";
+import { fetchAgencies } from "@/lib/schedules-sdk";
 import type { GTFSStats, GTFSFeed } from "@/types/gtfs";
 import type { Agency } from "@/types/schedule";
 

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import type { Driver } from "@/types/driver";
 import type { EventGoals, GoalItem, TransportType } from "@/types/event";
 import type { Route } from "@/types/route";
-import { fetchRoutes } from "@/lib/schedules-client";
+import { fetchRoutes } from "@/lib/schedules-sdk";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,24 +30,19 @@ interface GoalsFormProps {
   onSave: (goals: EventGoals) => void;
 }
 
-function getDefaultGoals(actionType: "shift" | "training"): GoalItem[] {
+function getDefaultGoals(
+  actionType: "shift" | "training",
+  t: (key: string) => string,
+): GoalItem[] {
   if (actionType === "shift") {
     return [
-      { text: "Pre-trip inspection", completed: false, item_type: "checklist" },
-      {
-        text: "Route completion report",
-        completed: false,
-        item_type: "checklist",
-      },
+      { text: t("defaultPreTrip"), completed: false, item_type: "checklist" },
+      { text: t("defaultRouteReport"), completed: false, item_type: "checklist" },
     ];
   }
   return [
-    {
-      text: "Complete training module",
-      completed: false,
-      item_type: "checklist",
-    },
-    { text: "Pass assessment", completed: false, item_type: "checklist" },
+    { text: t("defaultTrainingModule"), completed: false, item_type: "checklist" },
+    { text: t("defaultAssessment"), completed: false, item_type: "checklist" },
   ];
 }
 
@@ -153,7 +148,7 @@ export function GoalsForm({
   const [vehicleId, setVehicleId] = useState("");
   const [notes, setNotes] = useState("");
   const [goalItems, setGoalItems] = useState<GoalItem[]>(
-    getDefaultGoals(actionType),
+    getDefaultGoals(actionType, t),
   );
   const [newGoalText, setNewGoalText] = useState("");
   const [routes, setRoutes] = useState<Route[]>([]);

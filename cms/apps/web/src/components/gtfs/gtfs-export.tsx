@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { exportGTFS } from "@/lib/gtfs-client";
+import { exportGTFS } from "@/lib/gtfs-sdk";
 
 interface GTFSExportProps {
   agencies: Array<{ id: number; agency_name: string }>;

@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { fetchDocumentContent } from "@/lib/documents-client";
+import { fetchDocumentContent } from "@/lib/documents-sdk";
 import type { DocumentItem, DocumentChunk } from "@/types/document";
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {

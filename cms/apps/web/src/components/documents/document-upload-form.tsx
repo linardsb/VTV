@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { uploadDocument } from "@/lib/documents-client";
+import { uploadDocument } from "@/lib/documents-sdk";
 import type { DocumentItem } from "@/types/document";
 
 const DEFAULT_DOMAINS = ["general", "operations", "safety", "training"];

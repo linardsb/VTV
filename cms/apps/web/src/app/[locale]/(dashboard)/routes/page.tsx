@@ -27,7 +27,7 @@ import {
   createRoute,
   updateRoute,
   deleteRoute,
-} from "@/lib/schedules-client";
+} from "@/lib/schedules-sdk";
 import { toHexColor } from "@/lib/color-utils";
 import type { Route, RouteCreate, RouteUpdate } from "@/types/route";
 import type { Agency } from "@/types/schedule";

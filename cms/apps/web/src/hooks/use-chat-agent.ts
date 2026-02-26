@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { ChatMessage } from "@/types/chat";
-import { AgentApiError, sendChatMessage } from "@/lib/agent-client";
+import { AgentApiError, sendChatMessage } from "@/lib/agent-sdk";
 
 interface UseChatAgentReturn {
   messages: ChatMessage[];

@@ -17,7 +17,7 @@ import {
   deleteDocument,
   downloadDocument,
   fetchDomains,
-} from "@/lib/documents-client";
+} from "@/lib/documents-sdk";
 import type { DocumentItem } from "@/types/document";
 
 const PAGE_SIZE = 10;

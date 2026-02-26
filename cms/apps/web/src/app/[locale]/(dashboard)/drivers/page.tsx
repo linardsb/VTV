@@ -17,7 +17,7 @@ import {
   createDriver,
   updateDriver,
   deleteDriver,
-} from "@/lib/drivers-client";
+} from "@/lib/drivers-sdk";
 import type { Driver, DriverCreate, DriverUpdate } from "@/types/driver";
 
 const PAGE_SIZE = 20;

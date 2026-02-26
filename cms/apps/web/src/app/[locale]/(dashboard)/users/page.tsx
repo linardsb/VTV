@@ -19,7 +19,7 @@ import {
   updateUser,
   deleteUser,
   resetUserPassword,
-} from "@/lib/users-client";
+} from "@/lib/users-sdk";
 import type { User, UserCreate, UserUpdate } from "@/types/user";
 
 const PAGE_SIZE = 20;

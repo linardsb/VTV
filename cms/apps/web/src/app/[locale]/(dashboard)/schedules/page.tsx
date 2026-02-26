@@ -18,7 +18,7 @@ import {
   createTrip,
   updateTrip,
   deleteTrip as deleteTripApi,
-} from "@/lib/schedules-client";
+} from "@/lib/schedules-sdk";
 import { CalendarTable } from "@/components/schedules/calendar-table";
 import { CalendarForm } from "@/components/schedules/calendar-form";
 import { CalendarDialog } from "@/components/schedules/calendar-dialog";

@@ -27,7 +27,7 @@ import {
   createStop,
   updateStop,
   deleteStop,
-} from "@/lib/stops-client";
+} from "@/lib/stops-sdk";
 import type { Stop, StopCreate, StopUpdate } from "@/types/stop";
 
 const PAGE_SIZE = 20;

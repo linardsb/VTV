@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { importGTFS, validateSchedule } from "@/lib/schedules-client";
+import { importGTFS, validateSchedule } from "@/lib/schedules-sdk";
 import type { GTFSImportResponse, ValidationResult } from "@/types/schedule";
 
 interface GTFSImportProps {

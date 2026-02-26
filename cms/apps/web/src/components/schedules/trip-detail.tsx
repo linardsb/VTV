@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchTrip } from "@/lib/schedules-client";
+import { fetchTrip } from "@/lib/schedules-sdk";
 import type { Trip, TripDetail as TripDetailType, StopTime } from "@/types/schedule";
 import type { Route } from "@/types/route";
 import type { Calendar } from "@/types/schedule";

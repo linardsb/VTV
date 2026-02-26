@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { addCalendarException, deleteCalendarException } from "@/lib/schedules-client";
+import { addCalendarException, deleteCalendarException } from "@/lib/schedules-sdk";
 import { CalendarMonthGrid } from "@/components/schedules/calendar-month-grid";
 import type { Calendar, CalendarUpdate, CalendarException } from "@/types/schedule";
 

@@ -1,12 +1,15 @@
 /**
- * VTV GTFS API Client
+ * GTFS API client powered by @vtv/sdk.
  *
- * Functions specific to the GTFS Data Management page:
- * stats aggregation, feed status, and GTFS ZIP export.
+ * Drop-in replacement for gtfs-client.ts — same function signatures.
+ * Stats aggregation uses SDK wrappers. Export keeps authFetch for binary blob.
  */
 
+import "@/lib/sdk";
+import { getFeedsApiV1TransitFeedsGet } from "@vtv/sdk";
 import { authFetch } from "@/lib/auth-fetch";
-import { fetchAgencies } from "@/lib/schedules-client";
+import { fetchAgencies, fetchRoutes, fetchCalendars, fetchTrips } from "@/lib/schedules-sdk";
+import { fetchStops } from "@/lib/stops-sdk";
 import type { GTFSStats, GTFSFeed } from "@/types/gtfs";
 
 const BASE_URL =
@@ -22,48 +25,38 @@ export class GTFSApiError extends Error {
   }
 }
 
-/** Fetch a paginated endpoint and return its total count, or 0 on failure. */
-async function fetchCount(url: string): Promise<number> {
-  try {
-    const response = await authFetch(url);
-    if (!response.ok) return 0;
-    const data = (await response.json()) as { total: number };
-    return data.total;
-  } catch {
-    return 0;
-  }
-}
-
 /** Fetch aggregate GTFS data statistics by calling multiple endpoints in parallel. */
 export async function fetchGTFSStats(): Promise<GTFSStats> {
   const [agencies, routes, calendars, trips, stops] = await Promise.all([
     fetchAgencies().catch(() => []),
-    fetchCount(`${BASE_URL}/api/v1/schedules/routes?page=1&page_size=1`),
-    fetchCount(`${BASE_URL}/api/v1/schedules/calendars?page=1&page_size=1`),
-    fetchCount(`${BASE_URL}/api/v1/schedules/trips?page=1&page_size=1`),
-    fetchCount(`${BASE_URL}/api/v1/stops/?page=1&page_size=1`),
+    fetchRoutes({ page: 1, page_size: 1 }).catch(() => ({ total: 0 })),
+    fetchCalendars({ page: 1, page_size: 1 }).catch(() => ({ total: 0 })),
+    fetchTrips({ page: 1, page_size: 1 }).catch(() => ({ total: 0 })),
+    fetchStops({ page: 1, page_size: 1 }).catch(() => ({ total: 0 })),
   ]);
 
   return {
-    agencies: agencies.length,
-    routes,
-    calendars,
-    trips,
-    stops,
+    agencies: Array.isArray(agencies) ? agencies.length : 0,
+    routes: "total" in routes ? routes.total : 0,
+    calendars: "total" in calendars ? calendars.total : 0,
+    trips: "total" in trips ? trips.total : 0,
+    stops: "total" in stops ? stops.total : 0,
   };
 }
 
 /** Fetch GTFS-RT feed configuration from the transit API. */
 export async function fetchFeeds(): Promise<GTFSFeed[]> {
-  const response = await authFetch(`${BASE_URL}/api/v1/transit/feeds`);
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "Unknown error");
-    throw new GTFSApiError(response.status, detail);
+  const { data, error, response } = await getFeedsApiV1TransitFeedsGet();
+  if (error || !data) {
+    throw new GTFSApiError(
+      response.status,
+      typeof error === "string" ? error : "Failed to fetch feeds",
+    );
   }
-  return response.json() as Promise<GTFSFeed[]>;
+  return data as unknown as GTFSFeed[];
 }
 
-/** Export GTFS data as a ZIP file. Triggers a browser download. */
+/** Export GTFS data as a ZIP file. Triggers a browser download. Uses authFetch for binary blob. */
 export async function exportGTFS(agencyId?: number): Promise<void> {
   const params = new URLSearchParams();
   if (agencyId !== undefined) {
