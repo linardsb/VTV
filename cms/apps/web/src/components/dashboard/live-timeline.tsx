@@ -41,6 +41,7 @@ export function LiveTimeline({
       className="pointer-events-none absolute right-0 left-0 z-10 flex items-center"
       style={{ top: `${topPercent}%` }}
       aria-hidden="true"
+      suppressHydrationWarning
     >
       <div className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-status-critical" />
       <div className="h-[2px] flex-1 bg-status-critical" />

@@ -9,13 +9,14 @@ interface CalendarPanelProps {
   onDayDrop?: (date: Date, driverJson: string) => void;
   refetchRef?: RefObject<(() => Promise<void>) | null>;
   onEventClick?: (event: CalendarEvent) => void;
+  onDriverClick?: (event: CalendarEvent) => void;
 }
 
 /**
  * Client-side wrapper that fetches real operational events from the API
  * and passes them to the CalendarGrid component.
  */
-export function CalendarPanel({ onDayDrop, refetchRef, onEventClick }: CalendarPanelProps) {
+export function CalendarPanel({ onDayDrop, refetchRef, onEventClick, onDriverClick }: CalendarPanelProps) {
   // Fetch events for a wide window (3 months back, 3 months forward)
   const dateRange = useMemo(() => {
     const now = new Date();
@@ -35,5 +36,5 @@ export function CalendarPanel({ onDayDrop, refetchRef, onEventClick }: CalendarP
     }
   }, [refetch, refetchRef]);
 
-  return <CalendarGrid events={events} onDayDrop={onDayDrop} onEventClick={onEventClick} />;
+  return <CalendarGrid events={events} onDayDrop={onDayDrop} onEventClick={onEventClick} onDriverClick={onDriverClick} />;
 }

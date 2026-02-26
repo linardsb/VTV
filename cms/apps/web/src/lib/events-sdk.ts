@@ -36,6 +36,7 @@ export async function fetchEvents(params: {
   page_size?: number;
   start_date?: string;
   end_date?: string;
+  driver_id?: number;
 }): Promise<PaginatedEvents> {
   const { data, error, response } = await listEventsApiV1EventsGet({
     query: {
@@ -43,6 +44,7 @@ export async function fetchEvents(params: {
       page_size: params.page_size,
       start_date: params.start_date ?? null,
       end_date: params.end_date ?? null,
+      driver_id: params.driver_id ?? null,
     },
   });
   if (error || !data) {
@@ -86,22 +88,26 @@ export async function createEvent(
   return data as unknown as OperationalEvent;
 }
 
-/** Update an existing event. */
+/** Update an existing event. Only sends provided fields (PATCH semantics). */
 export async function updateEvent(
   id: number,
   eventData: EventUpdate,
 ): Promise<OperationalEvent> {
+  // Only include fields that were actually provided to preserve PATCH semantics.
+  // Sending null for unset fields causes the backend to overwrite them with null.
+  const body: Record<string, unknown> = {};
+  if (eventData.title !== undefined) body.title = eventData.title;
+  if (eventData.description !== undefined) body.description = eventData.description;
+  if (eventData.start_datetime !== undefined) body.start_datetime = eventData.start_datetime;
+  if (eventData.end_datetime !== undefined) body.end_datetime = eventData.end_datetime;
+  if (eventData.priority !== undefined) body.priority = eventData.priority;
+  if (eventData.category !== undefined) body.category = eventData.category;
+  if (eventData.goals !== undefined) body.goals = eventData.goals;
+  if (eventData.driver_id !== undefined) body.driver_id = eventData.driver_id;
+
   const { data, error, response } = await updateEventApiV1EventsEventIdPatch({
     path: { event_id: id },
-    body: {
-      title: eventData.title ?? null,
-      description: eventData.description ?? null,
-      start_datetime: eventData.start_datetime ?? null,
-      end_datetime: eventData.end_datetime ?? null,
-      priority: eventData.priority ?? null,
-      category: eventData.category ?? null,
-      goals: eventData.goals ?? null,
-    },
+    body: body as EventUpdate,
   });
   if (error || !data) {
     throw new EventsApiError(

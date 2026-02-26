@@ -8,6 +8,8 @@ Run the complete frontend page lifecycle autonomously: prime → plan → execut
 
 @CLAUDE.md
 @cms/design-system/vtv/MASTER.md
+@.claude/commands/_shared/tailwind-token-map.md
+@.claude/commands/_shared/frontend-security.md
 
 # Fe-End-to-End-Page — Full Autonomous Frontend Page Lifecycle
 
@@ -87,29 +89,13 @@ cd cms && pnpm --filter @vtv/web build
 
 **Soft gate checks (warnings, don't block commit):**
 
-- **Design system compliance**: Grep for hardcoded hex colors, `rgb()`, `hsl()` in new `.tsx` files. Also scan for ALL Tailwind primitive color classes (`text-gray-`, `text-slate-`, `text-blue-`, `text-red-`, `text-amber-`, `text-emerald-`, `text-purple-`, `bg-blue-`, `bg-red-`, `bg-green-`, `bg-amber-`, `bg-emerald-`, `bg-purple-`, `bg-gray-`, `bg-slate-`, `text-white`, `border-gray-`, `border-slate-`, `border-blue-`, `border-red-`, `border-amber-`). Replace with semantic tokens from `tokens.css` if found.
+- **Design system compliance**: Scan for all forbidden Tailwind primitives listed in the loaded `@_shared/tailwind-token-map.md` reference. Replace with semantic tokens if found.
 - **i18n completeness**: Compare keys in `lv.json` and `en.json` — flag any mismatches.
 - **Accessibility spot-check**: Check for `<img` without `alt`, `<button` without `aria-label` (when no visible text), `<input` without `<label` or `aria-label`.
 
 **Security gate (hard - must pass):**
 
-Run automated security pattern scans on all new/modified `.tsx` and `.ts` files:
-
-```bash
-# Hardcoded API URLs
-grep -rn "http://localhost:8123\|http://127.0.0.1:8123" cms/apps/web/src/ --include="*.ts" --include="*.tsx" | grep -v node_modules | grep -v ".next"
-
-# Auth tokens in localStorage
-grep -rn 'localStorage\.\(set\|get\)Item.*\(token\|auth\|session\|jwt\)' cms/apps/web/src/ --include="*.ts" --include="*.tsx"
-
-# Unsanitized innerHTML without sanitization
-grep -rn "dangerouslySetInnerHTML" cms/apps/web/src/ --include="*.tsx" | grep -v "DOMPurify"
-
-# Hardcoded credentials
-grep -rn "password.*=.*['\"]" cms/apps/web/src/ --include="*.ts" --include="*.tsx" | grep -v 'type\|interface\|placeholder\|label\|name='
-```
-
-Any match is a FAIL. Fix before proceeding to Phase 5.
+Run the automated security scans from the loaded `@_shared/frontend-security.md` reference on all new/modified files. Any match is a FAIL. Fix before proceeding to Phase 5.
 
 Fix any hard gate failures before moving on. Do not proceed to commit with failing checks.
 

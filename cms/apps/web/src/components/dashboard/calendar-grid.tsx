@@ -12,9 +12,10 @@ interface CalendarGridProps {
   events: CalendarEvent[];
   onDayDrop?: (date: Date, driverJson: string) => void;
   onEventClick?: (event: CalendarEvent) => void;
+  onDriverClick?: (event: CalendarEvent) => void;
 }
 
-export function CalendarGrid({ events, onDayDrop, onEventClick }: CalendarGridProps) {
+export function CalendarGrid({ events, onDayDrop, onEventClick, onDriverClick }: CalendarGridProps) {
   const [view, setView] = useState<CalendarViewMode>("week");
   const [currentDate, setCurrentDate] = useState(() => new Date());
 
@@ -26,9 +27,9 @@ export function CalendarGrid({ events, onDayDrop, onEventClick }: CalendarGridPr
         onViewChange={setView}
         onDateChange={setCurrentDate}
       />
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-auto">
         {view === "week" && (
-          <WeekView currentDate={currentDate} events={events} onDayDrop={onDayDrop} onEventClick={onEventClick} />
+          <WeekView currentDate={currentDate} events={events} onDayDrop={onDayDrop} onEventClick={onEventClick} onDriverClick={onDriverClick} />
         )}
         {view === "month" && (
           <MonthView currentDate={currentDate} events={events} onDayDrop={onDayDrop} onEventClick={onEventClick} />

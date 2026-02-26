@@ -21,36 +21,47 @@ function toCalendarEvent(event: OperationalEvent): CalendarEvent {
   };
 }
 
-interface EventsApiResult {
+interface DriverEventsResult {
   items: OperationalEvent[];
   total: number;
 }
 
 /**
- * Hook to fetch operational events from the API and transform them
- * into CalendarEvent[] for the calendar grid.
- *
- * Uses SWR with 60s refresh interval. Falls back to empty array on error.
+ * Fetch all events for a specific driver on a given date.
+ * Returns empty array when driverId is null (disabled).
  */
-export function useCalendarEvents(startDate: Date, endDate: Date) {
+export function useDriverEvents(driverId: number | null, date: Date | null) {
   const { status } = useSession();
 
-  // Stable SWR key based on date range; null disables fetching when unauthenticated
+  const startOfDay = useMemo(() => {
+    if (!date) return null;
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [date]);
+
+  const endOfDay = useMemo(() => {
+    if (!date) return null;
+    const d = new Date(date);
+    d.setHours(23, 59, 59, 999);
+    return d;
+  }, [date]);
+
   const swrKey =
-    status === "authenticated"
-      ? `events:${startDate.toISOString()}:${endDate.toISOString()}`
+    status === "authenticated" && driverId && startOfDay && endOfDay
+      ? `driver-events:${String(driverId)}:${startOfDay.toISOString()}`
       : null;
 
-  const { data, isLoading, mutate } = useSWR<EventsApiResult>(
+  const { data, isLoading, mutate } = useSWR<DriverEventsResult>(
     swrKey,
     async () =>
       fetchEvents({
+        driver_id: driverId!,
         page_size: 100,
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString(),
+        start_date: startOfDay!.toISOString(),
+        end_date: endOfDay!.toISOString(),
       }),
     {
-      refreshInterval: 60_000,
       fallbackData: { items: [], total: 0 },
     },
   );

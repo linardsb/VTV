@@ -12,10 +12,11 @@ interface WeekViewProps {
   events: CalendarEvent[];
   onDayDrop?: (date: Date, driverJson: string) => void;
   onEventClick?: (event: CalendarEvent) => void;
+  onDriverClick?: (event: CalendarEvent) => void;
 }
 
-const START_HOUR = 6;
-const END_HOUR = 22;
+const START_HOUR = 0;
+const END_HOUR = 24;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
@@ -36,7 +37,70 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-export function WeekView({ currentDate, events, onDayDrop, onEventClick }: WeekViewProps) {
+/** A timed event clipped to a single day's visible range */
+interface TimedSlice {
+  event: CalendarEvent;
+  /** Minutes from midnight, clipped to [START_HOUR*60, END_HOUR*60] */
+  startMin: number;
+  /** Minutes from midnight, clipped to [START_HOUR*60, END_HOUR*60] */
+  endMin: number;
+}
+
+interface LayoutedSlice {
+  slice: TimedSlice;
+  column: number;
+  totalColumns: number;
+}
+
+/** Assign side-by-side columns to overlapping timed event slices */
+function layoutEvents(slices: TimedSlice[]): LayoutedSlice[] {
+  if (slices.length === 0) return [];
+
+  const sorted = [...slices].sort(
+    (a, b) => a.startMin - b.startMin || (b.endMin - b.startMin) - (a.endMin - a.startMin)
+  );
+
+  const columns: { end: number; slices: TimedSlice[] }[] = [];
+  const sliceColumns = new Map<TimedSlice, number>();
+
+  for (const slice of sorted) {
+    let placed = false;
+    for (let c = 0; c < columns.length; c++) {
+      if (slice.startMin >= columns[c].end) {
+        columns[c].end = slice.endMin;
+        columns[c].slices.push(slice);
+        sliceColumns.set(slice, c);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      sliceColumns.set(slice, columns.length);
+      columns.push({
+        end: slice.endMin,
+        slices: [slice],
+      });
+    }
+  }
+
+  // For each slice, find how many columns overlap at that time
+  return sorted.map((slice) => {
+    let maxCols = 1;
+    for (const other of sorted) {
+      if (other.startMin < slice.endMin && other.endMin > slice.startMin) {
+        const col = sliceColumns.get(other)!;
+        if (col + 1 > maxCols) maxCols = col + 1;
+      }
+    }
+    return {
+      slice,
+      column: sliceColumns.get(slice)!,
+      totalColumns: maxCols,
+    };
+  });
+}
+
+export function WeekView({ currentDate, events, onDayDrop, onEventClick, onDriverClick }: WeekViewProps) {
   const t = useTranslations("dashboard");
   const today = new Date();
 
@@ -57,23 +121,54 @@ export function WeekView({ currentDate, events, onDayDrop, onEventClick }: WeekV
   );
 
   const eventsByDay = useMemo(() => {
-    const map = new Map<number, CalendarEvent[]>();
+    const map = new Map<number, TimedSlice[]>();
     for (let i = 0; i < 7; i++) {
       map.set(i, []);
     }
+
     for (const event of events) {
-      const dayIdx = weekDays.findIndex((d) => isSameDay(d, event.start));
-      if (dayIdx >= 0) {
-        map.get(dayIdx)!.push(event);
+      // If event ends exactly at midnight, it doesn't extend into that day
+      const effectiveEnd = (event.end.getHours() === 0 && event.end.getMinutes() === 0)
+        ? new Date(event.end.getTime() - 1)
+        : event.end;
+
+      for (let i = 0; i < 7; i++) {
+        const dayStart = new Date(weekDays[i]);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        // Check if event overlaps with this day
+        if (event.start <= dayEnd && effectiveEnd > dayStart) {
+          // Clip the event's time to this day's visible range (START_HOUR-END_HOUR)
+          const dayVisibleStart = new Date(weekDays[i]);
+          dayVisibleStart.setHours(START_HOUR, 0, 0, 0);
+          const dayVisibleEnd = new Date(weekDays[i]);
+          dayVisibleEnd.setHours(END_HOUR, 0, 0, 0);
+
+          const clipStartMs = Math.max(event.start.getTime(), dayVisibleStart.getTime());
+          const clipEndMs = Math.min(effectiveEnd.getTime(), dayVisibleEnd.getTime());
+
+          if (clipEndMs > clipStartMs) {
+            const clippedStart = new Date(clipStartMs);
+            const clippedEnd = new Date(clipEndMs);
+            map.get(i)!.push({
+              event,
+              startMin: clippedStart.getHours() * 60 + clippedStart.getMinutes(),
+              endMin: clippedEnd.getHours() * 60 + clippedEnd.getMinutes(),
+            });
+          }
+        }
       }
     }
+
     return map;
   }, [events, weekDays]);
 
   return (
     <div className="overflow-auto">
-      {/* Day header row */}
-      <div className="grid grid-cols-[4rem_repeat(7,1fr)] border-b border-border">
+      {/* Day header row — sticky while scrolling */}
+      <div className="sticky top-0 z-20 grid grid-cols-[4rem_repeat(7,1fr)] border-b border-border bg-surface">
         <div className="p-(--spacing-cell)" />
         {weekDays.map((day, i) => {
           const isToday = isSameDay(day, today);
@@ -81,14 +176,13 @@ export function WeekView({ currentDate, events, onDayDrop, onEventClick }: WeekV
             <div
               key={i}
               className={cn(
-                "border-l border-border-subtle p-(--spacing-cell) text-center",
-                isToday && "bg-interactive/10",
+                "border-l border-border-subtle px-2 py-1.5 text-center",
                 dragOverDay === i && "bg-interactive/10"
               )}
             >
               <p
                 className={cn(
-                  "text-xs font-medium text-foreground-muted",
+                  "text-[11px] font-medium uppercase text-foreground-muted",
                   isToday && "text-interactive"
                 )}
               >
@@ -96,8 +190,10 @@ export function WeekView({ currentDate, events, onDayDrop, onEventClick }: WeekV
               </p>
               <p
                 className={cn(
-                  "text-heading font-semibold text-foreground",
-                  isToday && "text-interactive"
+                  "text-xl font-semibold leading-tight",
+                  isToday
+                    ? "text-interactive"
+                    : "text-foreground"
                 )}
               >
                 {day.getDate()}
@@ -123,7 +219,7 @@ export function WeekView({ currentDate, events, onDayDrop, onEventClick }: WeekV
           </div>
         ))}
 
-        {/* Day columns with events */}
+        {/* Day columns with timed events */}
         {weekDays.map((_, dayIdx) => (
           <div
             key={`col-${dayIdx}`}
@@ -160,30 +256,32 @@ export function WeekView({ currentDate, events, onDayDrop, onEventClick }: WeekV
               />
             ))}
 
-            {/* Events overlay */}
-            {eventsByDay.get(dayIdx)?.map((event) => {
-              const startMin =
-                event.start.getHours() * 60 + event.start.getMinutes();
-              const endMin =
-                event.end.getHours() * 60 + event.end.getMinutes();
+            {/* Timed events overlay — side-by-side for overlaps */}
+            {layoutEvents(eventsByDay.get(dayIdx) ?? []).map(({ slice, column, totalColumns }) => {
               // COUPLING: 48px must match --spacing-row token in tokens.css (3rem = 48px at 16px base)
               const ROW_HEIGHT_PX = 48;
               const topPx =
-                ((startMin - START_HOUR * 60) / 60) * ROW_HEIGHT_PX;
-              const heightPx = ((endMin - startMin) / 60) * ROW_HEIGHT_PX;
+                ((slice.startMin - START_HOUR * 60) / 60) * ROW_HEIGHT_PX;
+              const heightPx =
+                ((slice.endMin - slice.startMin) / 60) * ROW_HEIGHT_PX;
+              const widthPct = 100 / totalColumns;
+              const leftPct = column * widthPct;
 
               return (
                 <div
-                  key={event.id}
-                  className="absolute inset-x-0 overflow-hidden bg-background"
+                  key={`${slice.event.id}-${dayIdx}`}
+                  className="absolute overflow-hidden rounded-md bg-surface"
                   style={{
                     top: `${topPx}px`,
                     height: `${heightPx}px`,
+                    left: `${leftPct}%`,
+                    width: `${widthPct}%`,
                   }}
                 >
                   <CalendarEventCard
-                    event={event}
-                    onClick={onEventClick ? () => onEventClick(event) : undefined}
+                    event={slice.event}
+                    onClick={onEventClick ? () => onEventClick(slice.event) : undefined}
+                    onDriverClick={onDriverClick ? () => onDriverClick(slice.event) : undefined}
                   />
                 </div>
               );

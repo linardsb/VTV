@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "@/types/dashboard";
 import { getGoalStatus } from "./goal-progress-badge";
+import { getEventDotColor } from "./event-styles";
 
 interface ThreeMonthViewProps {
   currentDate: Date;
@@ -18,13 +19,6 @@ const MONTH_KEYS = [
   "jan", "feb", "mar", "apr", "may", "jun",
   "jul", "aug", "sep", "oct", "nov", "dec",
 ] as const;
-
-const categoryDotColors: Record<string, string> = {
-  maintenance: "bg-category-maintenance",
-  "route-change": "bg-category-route-change",
-  "driver-shift": "bg-category-driver-shift",
-  "service-alert": "bg-category-service-alert",
-};
 
 const goalStatusDotColors: Record<string, string> = {
   "not-started": "bg-foreground/30",
@@ -92,14 +86,23 @@ function MiniMonth({
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     for (const event of events) {
-      const eventDate = event.start;
-      if (
-        eventDate.getFullYear() === year &&
-        eventDate.getMonth() === month
-      ) {
-        const key = `${eventDate.getFullYear()}-${eventDate.getMonth()}-${eventDate.getDate()}`;
-        if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push(event);
+      const cursor = new Date(event.start);
+      cursor.setHours(0, 0, 0, 0);
+      const endDay = new Date(event.end);
+      // If event ends exactly at midnight, it doesn't extend into that day
+      if (endDay.getHours() === 0 && endDay.getMinutes() === 0) {
+        endDay.setDate(endDay.getDate() - 1);
+      }
+      endDay.setHours(0, 0, 0, 0);
+
+      while (cursor <= endDay) {
+        // Only include days that fall within this mini-month
+        if (cursor.getFullYear() === year && cursor.getMonth() === month) {
+          const key = `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`;
+          if (!map.has(key)) map.set(key, []);
+          map.get(key)!.push(event);
+        }
+        cursor.setDate(cursor.getDate() + 1);
       }
     }
     return map;
@@ -185,7 +188,7 @@ function MiniMonth({
                         const goalStatus = hasGoals ? getGoalStatus(event.goals!) : null;
                         const dotClass = hasGoals
                           ? goalStatusDotColors[goalStatus!]
-                          : categoryDotColors[event.category];
+                          : getEventDotColor(event.title, event.category);
 
                         return (
                           <button

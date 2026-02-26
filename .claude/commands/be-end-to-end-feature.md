@@ -6,7 +6,6 @@ allowed-tools: Read, Write, Edit, Bash(uv run ruff:*), Bash(uv run mypy:*), Bash
 
 Run the complete feature lifecycle autonomously: prime → plan → execute → validate → commit.
 
-@CLAUDE.md
 @reference/PRD.md
 
 # End-to-End Feature — Full Autonomous Feature Lifecycle

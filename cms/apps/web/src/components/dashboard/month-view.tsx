@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "@/types/dashboard";
 import { GoalProgressBadge } from "./goal-progress-badge";
+import { getEventDotColor } from "./event-styles";
 
 interface MonthViewProps {
   currentDate: Date;
@@ -15,12 +16,6 @@ interface MonthViewProps {
 
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
-const categoryDotColors: Record<string, string> = {
-  maintenance: "bg-category-maintenance",
-  "route-change": "bg-category-route-change",
-  "driver-shift": "bg-category-driver-shift",
-  "service-alert": "bg-category-service-alert",
-};
 
 function isSameDay(a: Date, b: Date): boolean {
   return (
@@ -76,9 +71,21 @@ export function MonthView({ currentDate, events, onDayDrop, onEventClick }: Mont
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     for (const event of events) {
-      const key = `${event.start.getFullYear()}-${event.start.getMonth()}-${event.start.getDate()}`;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(event);
+      const cursor = new Date(event.start);
+      cursor.setHours(0, 0, 0, 0);
+      const endDay = new Date(event.end);
+      // If event ends exactly at midnight, it doesn't extend into that day
+      if (endDay.getHours() === 0 && endDay.getMinutes() === 0) {
+        endDay.setDate(endDay.getDate() - 1);
+      }
+      endDay.setHours(0, 0, 0, 0);
+
+      while (cursor <= endDay) {
+        const key = `${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(event);
+        cursor.setDate(cursor.getDate() + 1);
+      }
     }
     return map;
   }, [events]);
@@ -181,7 +188,7 @@ export function MonthView({ currentDate, events, onDayDrop, onEventClick }: Mont
                           <div
                             className={cn(
                               "size-1.5 shrink-0 rounded-full",
-                              categoryDotColors[event.category]
+                              getEventDotColor(event.title, event.category)
                             )}
                           />
                           <span className="truncate text-[10px] text-foreground-muted">

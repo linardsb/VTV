@@ -8,6 +8,7 @@ Research the codebase and produce a self-contained plan that `/be-execute` can f
 
 @CLAUDE.md
 @reference/PRD.md
+@.claude/commands/_shared/python-anti-patterns.md
 
 # Planning — Create Feature Implementation Plan
 
@@ -357,82 +358,20 @@ curl -s http://localhost:8123/health
 
 ## Known Pitfalls
 
-The executing agent MUST follow these rules to avoid common errors:
+The executing agent MUST follow all 59 Python anti-pattern rules. These are loaded via `@_shared/python-anti-patterns.md` and cover:
+- Type safety (rules 1-10): No assert in production, no object hints, walrus narrowing, schema field additions
+- Library integration (rules 11-17): 3-layer untyped lib fix, test import ordering, singleton cleanup
+- Testing (rules 18-28): ARG001, dict invariance, list annotations, Field(None) constructors
+- Schema safety (rules 29-32): Optional field ripple effects, computed_field, validate-then-ignore
+- Infrastructure (rules 33-38): Redis stubs, pipeline sync, lazy imports, background task exceptions
+- Security (rules 39-53): datetime shadows, ILIKE escaping, file upload limits, filename sanitization
+- Auth & validation (rules 54-59): HTTPBearer 403->401, dependency override leaks, role enumeration, schema validators
 
-1. **No `assert` in production code** — Ruff S101 forbids assert outside test files. Use conditional checks instead.
-2. **No `object` type hints** — Import and use actual types directly. Never write `def f(data: object)` then isinstance-check.
-3. **Untyped third-party libraries** — When adding a dependency without `py.typed`:
-   - mypy: Add `[[tool.mypy.overrides]]` with `ignore_missing_imports = true`
-   - pyright: Add file-level `# pyright: reportUnknown...=false` directives to the ONE file interfacing with the library
-   - **NEVER** use pyright `[[executionEnvironments]]` with a scoped `root` — it breaks `app.*` import resolution
-4. **Mock exceptions must match catch blocks** — If production code catches `httpx.HTTPError`, tests must mock `httpx.ConnectError` (or another subclass), not bare `Exception`.
-5. **No unused imports or variables** — Ruff F401 catches unused imports, Ruff F841 catches unused local variables. Don't write speculative code — only import/assign what you actually use.
-6. **No unnecessary noqa/type-ignore** — Ruff RUF100 flags unused suppression comments.
-7. **Test helper functions need return type annotations** — mypy `disallow_untyped_defs=false` for tests only relaxes *defining* untyped functions, but `disallow_untyped_call` is still globally true. When `async def test_foo()` (implicitly typed via coroutine return) calls an untyped helper, mypy raises `no-untyped-call`. Fix: always add `-> ReturnType` to test helpers (e.g., `def _make_ctx() -> MagicMock:`).
-8. **No EN DASH in strings** — Ruff RUF001 forbids ambiguous Unicode characters like `–` (EN DASH, U+2013). LLMs naturally generate these in time ranges ("05:00–13:00") and prose. Always use `-` (HYPHEN-MINUS, U+002D): `"05:00-13:00"`, `"trainee - supervised only"`.
-9. **Pydantic AI `ctx` parameter must be referenced** — Ruff ARG001 flags unused function arguments. Tool functions require `ctx: RunContext[TransitDeps]` even when mock implementations don't need it. Always reference it: `_settings = ctx.deps.settings` and use in logging or guards.
-10. **Narrow dict value types before passing to Pydantic** — When extracting values from `dict[str, str | list[str] | None]`, the union type is too broad for Pydantic fields expecting `str | None`. Use isinstance narrowing with walrus operator: `phone=str(val) if isinstance(val := d.get("phone"), str) else None`.
-11. **Schema field additions break ALL consumers** — When adding a required field to a Pydantic `BaseModel`, the plan MUST include tasks to update every file that constructs that model (test helpers, mock factories, route tests). Search for `ModelName(` across the codebase during planning. Also ensure test mocks return realistic objects — if production code accesses `mock.routes.get(id).route_type`, the mock must have a real dict with proper objects, not a generic `MagicMock`.
-12. **Untyped library decorators need a 3-layer fix** — When planning to add an untyped lib (e.g., slowapi), the plan MUST include ALL THREE layers in the SAME task: (a) mypy `[[overrides]]` with `ignore_missing_imports`, (b) pyright file-level directives on EVERY file using the decorator, (c) ruff per-file-ignores for ARG001 if the lib forces unused params. Missing any layer causes a validation failure.
-13. **Test module setup must respect import ordering** — If tests need module-level setup like `limiter.enabled = False`, the plan must specify: all imports FIRST, then the setup line. Ruff E402 flags imports after non-import statements.
-14. **No `type: ignore` in test files** — mypy relaxes typing for tests. Adding `# type: ignore[arg-type]` becomes "unused ignore". Plan should specify pyright file-level directives instead.
-15. **Pydantic field constraints on shared models affect ALL code paths** — When planning size/length constraints, specify them on the REQUEST model (via `field_validator`), NOT on shared message/response models used by both input and output.
-16. **Singleton close must handle closed event loops** — When planning singleton patterns with lifespan cleanup, include `try/except RuntimeError: pass` in close functions. TestClient closes the event loop before lifespan shutdown.
-17. **`verify=False` needs `# noqa: S501`** — Ruff S501 flags `httpx.AsyncClient(verify=False)`. When SSL verification is intentionally disabled (e.g., Obsidian self-signed cert), plan must include `# noqa: S501` on the same line with a comment explaining why.
-18. **ARG001 applies to ALL unused function params, not just `ctx`** — Any function parameter not used in the body triggers ARG001. For params validated elsewhere (e.g., `recursive` validated in caller but unused in helper), plan must specify `_ = param_name` with a comment. Rule #9 covers `ctx` specifically, but this applies to every unused param.
-19. **`dict.get()` returns the full union type — use walrus for isinstance narrowing** — `isinstance(d.get("key"), int)` narrows the `.get()` return but NOT a subsequent `d["key"]` access. Plan must specify walrus operator pattern: `val if isinstance(val := d.get("key"), int) else None`. Also for sort key lambdas: `key=lambda r: str(r.get("title", ""))` — always wrap `.get()` in `str()` for sort keys.
-20. **NEVER use `replace_all: true` to remove end-of-line comments** — The Edit tool's `replace_all` can silently collapse lines when removing `# type: ignore` or `# noqa` comments at line endings. Plan should note: always use targeted single edits to remove inline comments, or replace the entire line including the newline.
-21. **Clear mypy cache after renaming type aliases** — When renaming a type (e.g., `TransitDeps` to `UnifiedDeps` with `TransitDeps = UnifiedDeps` alias), mypy's incremental cache confuses TypeAlias with TypeInfo and crashes. Plan must include `rm -rf .mypy_cache` step after any type alias refactoring.
-22. **Dict literal types must match function param types exactly (invariance)** — In tests, `{"key": "value"}` is inferred as `dict[str, str]` which is NOT compatible with `dict[str, str | list[str] | None]` due to dict invariance. Plan must specify explicit type annotations on dict literals in tests when passing to functions with union-valued dict params.
-23. **Lazy-loaded untyped lib models use `Any`, not `object`** — When planning lazy-loaded models from untyped libraries (e.g., sentence-transformers), plan must specify `Any | None` for the field type, not `object | None`. The `object` type blocks method calls (`.encode()`, `.predict()`) causing mypy `attr-defined`, while `# type: ignore` triggers `unused-ignore`. Plan must also specify `# noqa: ANN401` on any `-> Any` helper methods.
-24. **Dataclass `field(default_factory=dict)` needs typed lambda** — Pyright infers `dict[Unknown, Unknown]` from bare `dict`. Plan must specify typed lambdas: `field(default_factory=lambda: dict[str, str | int | None]())`.
-25. **Untyped lib method returns need `str()` wrapping** — Methods on objects from untyped libs (fitz `page.get_text()`, pytesseract `image_to_string()`) return `Unknown`. Plan must specify `str()` wrapping: `text = str(page.get_text())` to satisfy pyright.
-26. **Partially annotated test functions need `-> None`** — Adding a type annotation to a pytest fixture parameter (e.g., `tmp_path: Path`) without a return type triggers mypy `no-untyped-def` (partially typed function). Plan must always specify both param type AND `-> None` return type when any test function parameter is annotated.
-27. **Pydantic `Field(None, ...)` confuses pyright about required params** — Pyright doesn't understand that `Field(None, description="...")` sets a default. Plan must specify explicitly passing all `Field(None)` params in test fixtures: `MyModel(required="x", optional=None)`.
-28. **Bare `[]` list literals inferred as `list[Unknown]`** — Pyright `reportUnknownMemberType` fires on `.append()` when the list has no type annotation. Plan must specify explicit type annotations on list variables: `items: list[MagicMock] = []` not `items = []`. Same pattern as rule #24 for dicts.
-29. **Adding optional fields to existing Pydantic schemas breaks ALL constructors** — When the plan adds `Field(None, ...)` to an existing schema, the plan MUST include a task to grep for `SchemaName(` across the entire codebase and update ALL constructors — test fixtures in `conftest.py`, route handlers, service calls, and inline test constructions. Pyright treats `Field(None)` as NOT providing a default, so every call site needs explicit params. This is rule #27 applied proactively at the planning stage. The task that adds the schema field and the task that updates all consumers MUST be the same task or immediately adjacent.
-30. **Existing tests break when new types are added** — When the plan adds support for a new document type, file format, or enum value, the plan MUST include updating any tests that assert on "unsupported" or "unknown" types. Example: adding xlsx support breaks `test_unsupported_type_raises("xlsx")`. Include these test updates in the same task that adds the new type.
-31. **`@computed_field` on `@property` needs `# type: ignore[prop-decorator]`** — mypy errors with "Decorators on top of @property are not supported" when Pydantic's `@computed_field` is stacked on `@property`. Plan must specify `# type: ignore[prop-decorator]` on the `@computed_field` line whenever this pattern is used.
-32. **Don't guess `# type: ignore` codes — validate then add** — Plan must NOT include speculative `# type: ignore[code]` or `# noqa:` comments. mypy's `unused-ignore` rule flags every wrong guess. Plan should instruct: write code WITHOUT ignores, run mypy, read the exact error code, THEN add the precise ignore. If the plan can't predict the exact mypy code, omit the ignore and let per-task validation reveal the correct one.
-33. **`dict[str, object]` fails Pydantic `**kwargs` unpacking** — When planning JSON parsing into dicts that feed Pydantic constructors (`Model(**f)`), plan must specify `dict[str, Any]` with `from typing import Any`, NOT `dict[str, object]`. Pyright rejects `object` values for typed `str` parameters.
-34. **Redis async client stubs: `await` returns `Awaitable[T] | T`** — The `redis` package has partial type stubs. Plan must specify: `# type: ignore[misc]` on `await redis_client.ping()`, `await redis_client.smembers()`, and similar calls. Plan must also specify pyright file-level directive: `# pyright: reportUnknownMemberType=false, reportMissingTypeStubs=false` on files using Redis. For `smembers()` results, also add `reportUnknownArgumentType=false, reportUnknownVariableType=false`.
-35. **`redis.pipeline()` is SYNC, not async** — `Redis.pipeline()` returns a `Pipeline` object synchronously. Plan must specify: in tests, mock Redis with `MagicMock()` (not `AsyncMock()`), then set `mock_pipe.execute = AsyncMock()` since only `execute()` is async. Using `AsyncMock()` for Redis makes `pipeline()` return a coroutine, breaking `pipe.set()` calls.
-36. **Lazy imports inside `if` blocks break `@patch` targets** — When the plan uses lazy imports (e.g., `if enabled: from module import func`), the test tasks must patch the ORIGINAL module (`@patch("app.module.func")`), NOT the importing module's namespace. The name doesn't exist at module level when lazily imported.
-37. **Bare `except: pass` violates Ruff S110** — Plan must specify `logger.debug(...)` in every except block, never bare `pass`. The one exception is `except asyncio.CancelledError: pass` which Ruff allows.
-38. **Background asyncio tasks must handle ALL exceptions in `stop_*()`** — When planning background task lifecycle (`start_*/stop_*`), plan must specify: (a) `stop_*` catches both `CancelledError` and `Exception` separately when awaiting tasks, (b) `start_*` wraps service connections (Redis, DB) in try/except so unavailability doesn't crash app startup, (c) task `run()` methods wrap I/O operations in try/except to prevent unhandled exceptions from silently terminating tasks.
-39. **`from datetime import date` shadows field names named `date`** — In models/schemas with a field called `date` (e.g., `CalendarDate.date`), importing `from datetime import date` causes pyright to confuse the field name with the type. Plan must specify `import datetime` and reference as `datetime.date` / `datetime.datetime` when ANY model/schema in the file has a field named `date` or `datetime`.
-40. **FastAPI `Query(None)` needs `# noqa: B008`** — Just like `Depends()`, `Query()` is a function call in argument defaults. Ruff B008 flags all of these. Plan must specify `# noqa: B008` on lines using `Query(...)` in FastAPI route function signatures.
-41. **ILIKE search params must escape wildcards** — Any repository method using `f"%{search}%"` in `.ilike()` must use `escape_like()` from `app.shared.utils`. Plan must specify `from app.shared.utils import escape_like` and `f"%{escape_like(search)}%"` pattern.
-42. **File uploads must enforce size limits in application code** — Middleware `Content-Length` checks are bypassable. Plan must specify streaming reads with `while chunk := await file.read(8192)` and a running byte counter that raises `HTTPException(413)` on overflow.
-43. **User-provided filenames must be regex-sanitized** — Plan must specify `re.sub(r"[^\w\-.]", "_", filename)` AND `stored_path.resolve().is_relative_to(storage_dir.resolve())` validation before writing to disk.
-44. **Never log URLs that may contain credentials** — Redis URLs, database URLs, and API endpoints may embed passwords. Plan must specify a `_redact_url()` helper using `urllib.parse.urlparse` to mask passwords before logging.
-45. **Rate limiter must use X-Real-IP, not X-Forwarded-For** — `X-Forwarded-For` is client-spoofable. Only `X-Real-IP` (set by nginx) is trustworthy. Plan must specify `request.headers.get("X-Real-IP")` in rate limiting key functions.
-46. **Docker credentials must use env var interpolation** — Never hardcode `POSTGRES_PASSWORD: postgres` in docker-compose. Plan must specify `${POSTGRES_PASSWORD:-postgres}` syntax for all database credentials.
-47. **GTFS time validation needs range check** — Regex `^\d{2}:\d{2}:\d{2}$` is format-only.
-    Always add field_validator for minutes < 60, seconds < 60.
-48. **Unique constraints for GTFS composite keys** — Always add `__table_args__` with
-    UniqueConstraint for natural keys (trip_id+stop_sequence, calendar_id+date).
-49. **Unknown file types must be rejected** — Never default to "text" for unrecognized MIME types.
-    Return 415 Unsupported Media Type.
-50. **Wrap error-path DB updates in try/except** — If `update_status("failed")` itself fails
-    (DB gone), it masks the original error. Always: try/except around cleanup DB calls.
-51. **Clean up stored files on processing failure** — If file is copied to permanent storage
-    before processing, add cleanup in the exception handler.
-52. **Empty PATCH bodies must be rejected** — Add `@model_validator(mode="before")` with `@classmethod` to reject
-    updates where all fields are None. Use `mode="before"` (not `"after"`) so validation runs before Pydantic parsing. Pattern: `if isinstance(data, dict) and not any(v is not None for v in data.values()): raise ValueError("At least one field must be provided")`. Plan must include corresponding test cases for empty dict AND all-None dict.
-53. **Content-Length must be parsed defensively** — `int(content_length)` raises ValueError on
-    malformed headers. Always wrap in try/except.
-54. **Constrained string fields must use `Literal[...]`** — When a field only accepts a fixed set of values (priority, status, category, role), define a `TypeAlias = Literal["val1", "val2", ...]` and use it as the field type instead of bare `str`. This gives Pydantic validation for free and produces TypeScript union types on the frontend. Plan must include the type alias definition and use it in both Create and Update schemas.
-55. **FastAPI `HTTPBearer(auto_error=True)` returns 403, not 401** — The default `HTTPBearer()` returns 403 when the Authorization header is missing (FastAPI framework design), but RFC 7235 requires 401 for missing authentication. Plan must specify `HTTPBearer(auto_error=False)` and a manual check that raises `HTTPException(status_code=401, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"})` when credentials are `None`.
-56. **`app.dependency_overrides` is global and leaks between test modules** — FastAPI's `dependency_overrides` dict lives on the shared global `app` object. If one test module sets `app.dependency_overrides[get_current_user] = mock_user`, that override persists into ALL subsequent test modules in the same pytest session. Plan must include a pytest fixture that saves, clears, and restores overrides: `saved = app.dependency_overrides.copy(); app.dependency_overrides.clear(); yield; app.dependency_overrides = saved`. Apply this fixture to any test module that manipulates `dependency_overrides`.
-57. **Never expose role names or permission details in authorization error messages** — Error messages like `"Requires one of roles: admin, editor"` leak internal authorization structure to attackers. Plan must specify generic messages for all 403 responses: `"Insufficient permissions"`. The HTTP status code already communicates "forbidden" — the detail should NOT enumerate allowed roles, scopes, or permissions.
-58. **Adding validators to existing schemas can reject previously-valid data** — When a plan adds `@field_validator` to an existing Pydantic schema, the planner MUST trace ALL code paths that construct or submit data through that schema:
-    - **INPUT schemas (login, search, filter):** Existing stored data or user credentials must still pass. Password complexity goes on `PasswordResetRequest`/`RegisterRequest`, NEVER on `LoginRequest` — existing users with weak passwords get 422 at login.
-    - **UPDATE schemas (PATCH endpoints):** Existing records being re-saved must still validate.
-    - **Grep for `SchemaName(` across the codebase** to find all constructors (tests, conftest, services, routes).
-    - **Ask: "Will this validator reject data that already exists in production?"** If yes, the validator belongs on a different schema (creation/reset, not submission/login).
-    - Plan must also include updating ALL test files that construct the schema with data that would fail the new validator.
-59. **Tasks that remove or rename response fields must update downstream tests** — When a plan task removes a field from a response dict, renames a schema field, or changes response shape, the SAME task (or an immediately adjacent task) MUST include: grep for the old field name across `app/*/tests/` and `app/tests/`, then update or remove all assertions on that field. Health endpoint redaction, version info removal, and similar changes always break tests that assert on the old response structure.
+**Additional planning-specific rules:**
+- **Schema Impact Tracing:** For any task that adds validators or removes/renames response fields, include a sub-step: "Grep for `SchemaName(` and update all constructors and test assertions."
+- **Import Completeness:** Every code change that adds a function call MUST also specify the required import if it's not already present.
+- **Plan Code Quality:** Code snippets must follow project lint rules. No `except Exception: pass` (Ruff S110). No missing imports.
+- **Constrained string fields:** Must use `Literal[...]` types, not bare `str` (rule 54).
 
 ## Migration (if applicable)
 

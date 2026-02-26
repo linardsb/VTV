@@ -25,6 +25,7 @@ export interface OperationalEvent {
   priority: EventPriority;
   category: EventCategory;
   goals: EventGoals | null;
+  driver_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +38,7 @@ export interface EventCreate {
   priority?: EventPriority;
   category?: EventCategory;
   goals?: EventGoals | null;
+  driver_id?: number | null;
 }
 
 export interface EventUpdate {
@@ -47,6 +49,7 @@ export interface EventUpdate {
   priority?: EventPriority;
   category?: EventCategory;
   goals?: EventGoals | null;
+  driver_id?: number | null;
 }
 
 export interface PaginatedEvents {

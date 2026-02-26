@@ -48,6 +48,11 @@
   --color-red-500: oklch(0.63 0.22 25);
   --color-red-600: oklch(0.55 0.22 25);
 
+  /* Event subtype colors */
+  --color-purple-500: oklch(0.62 0.2 295);
+  --color-orange-500: oklch(0.7 0.17 50);
+  --color-teal-500: oklch(0.7 0.14 180);
+
   /* Typography — Lexend + Source Sans 3 (Corporate Trust pairing) */
   --font-heading: var(--font-lexend), system-ui, sans-serif;
   --font-body: var(--font-source-sans-3), system-ui, sans-serif;
@@ -121,6 +126,12 @@
   --color-category-route-change: var(--color-amber-400);
   --color-category-driver-shift: var(--color-emerald-500);
   --color-category-service-alert: var(--color-red-500);
+
+  /* Event subtypes (detected from title keywords) */
+  --color-event-vacation: var(--color-purple-500);
+  --color-event-sick: var(--color-red-500);
+  --color-event-training: var(--color-orange-500);
+  --color-event-shift: var(--color-teal-500);
 
   /* Route transport types */
   --color-transport-bus: var(--color-blue-600);

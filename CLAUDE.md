@@ -10,13 +10,13 @@ VTV is a unified transit operations platform targeting all of Latvia's public tr
 
 **Type Safety (CRITICAL)** — Strict MyPy + Pyright enforced. All functions must have complete type annotations. No `Any` without justification. Test files have relaxed rules (see `pyproject.toml`).
 
-**Python Anti-Patterns** — 47 documented patterns that cause lint/type errors (includes security and schema validation patterns). See `docs/python-anti-patterns.md`. Also embedded in `/be-execute` and `/be-planning` Known Pitfalls sections.
+**Python Anti-Patterns** — 59 documented patterns that cause lint/type errors (includes security and schema validation patterns). Single source of truth: `.claude/commands/_shared/python-anti-patterns.md`. Also referenced by `/be-execute` and `/be-planning`.
 
 **Structured Logging** — `domain.component.action_state` pattern via structlog. Logger: `from app.core.logging import get_logger`. Full taxonomy: `docs/logging-standard.md`.
 
 ## Slash Commands
 
-24 AI-assisted development commands (16 backend + 7 frontend + 1 testing). Full docs: `.claude/commands/CLAUDE.md`.
+25 AI-assisted development commands (8 backend + 7 frontend + 9 cross-cutting + 1 testing). Full docs: `.claude/commands/CLAUDE.md`. Workflows: `.claude/commands/WORKFLOW.md`.
 
 **Workflows:** `/be-prime` → `/be-planning` → `/be-execute` → `/be-validate` → `/commit` | Frontend: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` → `/e2e` → `/commit`
 
@@ -66,64 +66,48 @@ make db-revision m="description"   # Create new migration
 
 ```
 VTV/
-├── app/
+├── app/                # Backend features (VSA: models, schemas, routes, service, tests per feature)
 │   ├── core/           # Infrastructure (config, database, logging, middleware, health, rate_limit, redis)
 │   │   └── agents/     # AI agent module — 11 tools, see app/core/agents/CLAUDE.md
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
-│   ├── auth/           # JWT auth + RBAC + user management (10 endpoints: login, logout, refresh, seed, reset-password, user CRUD; bcrypt, Redis brute-force, token revocation)
-│   ├── knowledge/      # RAG knowledge base + DMS (9 endpoints, pgvector, multi-format processing)
-│   ├── drivers/        # Driver management (5 endpoints, HR profiles, shift/availability, agent integration)
-│   ├── events/         # Operational events (5 endpoints, dashboard calendar, date range filter, JSONB goals with completion tracking)
-│   ├── stops/          # Stop management (6 endpoints, Haversine proximity, location_type filter)
-│   ├── schedules/      # GTFS schedule management (23 endpoints, trip CRUD, ZIP import/export, creator tracking)
-│   ├── skills/         # Agent skills system (7 endpoints, reusable knowledge packages, agent context injection)
-│   ├── transit/        # Multi-feed GTFS-RT tracking (3 endpoints, Redis cache, background poller)
-│   ├── main.py         # FastAPI application entry point
+│   ├── auth/           # JWT auth + RBAC + user management (10 endpoints)
+│   ├── knowledge/      # RAG knowledge base + DMS (9 endpoints, pgvector)
+│   ├── drivers/        # Driver management (5 endpoints, HR profiles)
+│   ├── events/         # Operational events (5 endpoints, JSONB goals)
+│   ├── stops/          # Stop management (6 endpoints, Haversine proximity)
+│   ├── schedules/      # GTFS schedule management (23 endpoints, ZIP import/export)
+│   ├── skills/         # Agent skills system (7 endpoints)
+│   ├── transit/        # Multi-feed GTFS-RT tracking (3 endpoints, Redis cache)
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
-├── reference/          # Architecture docs (vsa-patterns.md, PRD.md, feature-readme-template.md)
-├── scripts/           # Security tools (pre-commit hook, audit runner, Docker/nginx validators)
-├── nginx/             # Reverse proxy (rate limiting, security headers)
-├── .claude/commands/   # 24 slash commands
-├── .agents/            # Plans, code reviews, execution reports, system reviews
-├── docs/              # Planning docs, RCA documents, anti-patterns reference
+├── .claude/rules/     # Path-scoped rules (backend, frontend, security, testing)
+├── .claude/commands/   # 25 slash commands + _shared/ deduplication
 ├── alembic/            # Database migrations
 └── pyproject.toml      # Dependencies, tooling config (ruff, mypy, pyright, pytest)
 ```
 
 ### Database
 
-- **Async SQLAlchemy** with configurable connection pooling (default pool_size=3, max_overflow=5 per worker; tuned for multi-worker Gunicorn)
+- **Async SQLAlchemy** with configurable connection pooling (pool_size=3, max_overflow=5)
 - Base class: `app.core.database.Base` (extends `DeclarativeBase`)
-- Session dependency: `get_db()` from `app.core.database`; standalone context: `get_db_context()` for agent tools
+- Session: `get_db()` from `app.core.database`; standalone: `get_db_context()` for agent tools
 - All models inherit `TimestampMixin` from `app.shared.models`
-
-### Middleware & Rate Limiting
-
-- `BodySizeLimitMiddleware` (100KB), `RequestLoggingMiddleware` (correlation IDs), `CORSMiddleware`
-- Rate limiting via slowapi with Redis storage (cross-worker enforcement, in-memory fallback): auth (10/min login, 30/min refresh, 5/min seed), chat (10/min), transit (30/min), knowledge (10-30/min), schedules (5-30/min), drivers (10-30/min), events (10-30/min), skills (5-30/min), health (60/min)
-- Query quota: 50/day per IP for LLM chat endpoint (`app.core.agents.quota`) — Redis-backed with in-memory fallback
 
 ### Shared Utilities
 
 - **Pagination**: `PaginationParams` + `PaginatedResponse[T]` from `app.shared.schemas`
 - **Timestamps**: `TimestampMixin` + `utcnow()` from `app.shared.models`
-- **Errors**: `AppError` hierarchy (`NotFoundError` → 404, `DomainValidationError` → 422, feature errors → 500) with global exception handlers in `app.core.exceptions`. `ErrorResponse` schema in `app.shared.schemas`
-- **SQL Escaping**: `escape_like()` from `app.shared.utils` — escapes `%`, `_`, `\` in ILIKE search params
-
-### Configuration
-
-Environment variables via Pydantic Settings (`app.core.config`). Copy `.env.example` to `.env` for local development. Key settings: `DATABASE_URL` (required), `REDIS_URL`, `JWT_SECRET_KEY` (required in production), `TRANSIT_FEEDS_JSON`, `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL`, `OBSIDIAN_API_KEY`, `DEMO_USER_PASSWORD`, `DB_POOL_SIZE`/`DB_POOL_MAX_OVERFLOW`/`DB_POOL_RECYCLE` (connection pool tuning), `POLLER_LEADER_LOCK_TTL` (multi-worker poller election). Full list in `.env.example` and `app/core/config.py`.
+- **Errors**: `AppError` hierarchy (`NotFoundError` → 404, `DomainValidationError` → 422) in `app.core.exceptions`
+- **SQL Escaping**: `escape_like()` from `app.shared.utils`
 
 ## Frontend (CMS)
 
 Turborepo monorepo under `cms/` with pnpm workspaces. **Full documentation in `cms/CLAUDE.md` and `cms/apps/web/CLAUDE.md`.**
 
-- **Stack:** Next.js 16 + React 19, Tailwind CSS v4 + three-tier design tokens, shadcn/ui + CVA, Auth.js v5 with 4-role RBAC (DB-backed via `POST /api/v1/auth/login`), next-intl (lv/en)
-- **SDK:** `@vtv/sdk` — auto-generated TypeScript client from FastAPI OpenAPI schema (47 endpoints, 70+ types including EventGoals, GoalItem). Auth via request interceptor (JWT, dual server/client context). Events domain migrated; 8 more clients to migrate.
+- **Stack:** Next.js 16 + React 19, Tailwind CSS v4 + semantic tokens, shadcn/ui + CVA, Auth.js v5 (4-role RBAC), next-intl (lv/en)
+- **SDK:** `@vtv/sdk` — auto-generated TypeScript client (47 endpoints, 70+ types). Events domain migrated; 8 more to migrate.
 - **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, GTFS, Documents, Users, Chat, Login
 - **New page checklist:** page component → i18n keys (lv + en) → sidebar nav → middleware RBAC → semantic tokens only
-- **Design system:** `cms/design-system/vtv/MASTER.md` (global) → `pages/{page}.md` (overrides) → `packages/ui/src/tokens.css` (tokens)
 
 ## Development Guidelines
 
@@ -143,30 +127,18 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 
 **Testing:** Tests in `tests/` subdirectory. `@pytest.mark.integration` for DB tests. Fast unit tests preferred.
 
-**Docker services:** `db` (PostgreSQL + pgvector), `redis` (vehicle position cache + rate limiting + leader election), `migrate` (Alembic auto-migration, runs once), `app` (Gunicorn + 4 UvicornWorkers in production, single uvicorn with --reload in dev), `cms` (Next.js), `nginx` (reverse proxy on port 80, Brotli + gzip compression, upstream keepalive, semi-static cache headers). Services start in dependency order with healthchecks. All behind nginx.
-
-**CI Pipeline:** GitHub Actions (`.github/workflows/ci.yml`) runs on push/PR to `main`. Three jobs: `backend-checks` (ruff + dedicated security audit via `ruff --select=S` + mypy + pyright + pytest with PostgreSQL + Redis services), `frontend-checks` (TypeScript + ESLint + build), `e2e-tests` (docker-compose full stack + Playwright, depends on first two jobs). Playwright report uploaded as artifact (14-day retention).
-
-**Pre-commit hook:** `scripts/pre-commit` — fast (<5s) shell script that blocks commits with Bandit security violations, staged sensitive files (`.env`, `*.pem`, `*.key`), hardcoded postgres credentials, and leaked secrets (AWS keys, private keys, JWT tokens). Install via `make install-hooks`.
-
 ## Security
 
-Security is enforced automatically through 6 layers -- see `docs/sdlc-security-framework.md` for full documentation.
+Security enforced through 6 automated layers. Details in `.claude/rules/security.md` and `docs/sdlc-security-framework.md`.
 
-- **105 convention tests** (`app/tests/test_security.py`) auto-discover all endpoints and enforce auth, JWT safety, container hardening, CORS, GDPR, and 15+ other security properties
-- **Pre-commit hook** blocks security violations, sensitive files, and hardcoded credentials (`make install-hooks`)
-- **CI security gate** runs Bandit + pip-audit as dedicated PR status checks
-- **Secure scaffold** (`/be-create-feature`) generates auth-protected endpoints by default
-- Key patterns: `authFetch` dual-context (`cms/apps/web/src/lib/auth-fetch.ts`), session hydration gate (see `cms/apps/web/CLAUDE.md`)
+## Compact instructions
 
-## Key Reference Documents
-
-- `reference/vsa-patterns.md` — Async repository, service, routes, cross-feature patterns
-- `reference/PRD.md` — Product requirements and vision
-- `docs/python-anti-patterns.md` — 47 documented Python anti-patterns
-- `docs/sdlc-security-framework.md` — SDLC security audit framework (6 layers, automated gates)
-- `.claude/commands/CLAUDE.md` — Full slash command documentation
-- `docs/PLANNING/Implementation-Plan.md` — Latvia transit platform roadmap
+When compacting, preserve:
+- Current task context and active plan file path
+- List of all files modified in this session
+- Test commands run and their results
+- Key decisions made during this session
+- Active feature branch name
 
 
 <claude-mem-context>

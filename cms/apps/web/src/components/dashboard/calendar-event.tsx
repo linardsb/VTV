@@ -4,18 +4,13 @@ import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent as CalendarEventType } from "@/types/dashboard";
 import { GoalProgressBadge } from "./goal-progress-badge";
+import { getEventCardStyle } from "./event-styles";
 
 interface CalendarEventCardProps {
   event: CalendarEventType;
   onClick?: () => void;
+  onDriverClick?: () => void;
 }
-
-const categoryStyles = {
-  maintenance: "bg-category-maintenance/10 border-l-2 border-l-category-maintenance",
-  "route-change": "bg-category-route-change/10 border-l-2 border-l-category-route-change",
-  "driver-shift": "bg-category-driver-shift/10 border-l-2 border-l-category-driver-shift",
-  "service-alert": "bg-category-service-alert/10 border-l-2 border-l-category-service-alert",
-} as const;
 
 const priorityStyles = {
   high: "bg-status-critical/10 text-status-critical",
@@ -27,7 +22,38 @@ function formatTime(date: Date, locale: string): string {
   return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-export function CalendarEventCard({ event, onClick }: CalendarEventCardProps) {
+function EventTitle({ title, onDriverClick }: { title: string; onDriverClick?: () => void }) {
+  const dashIndex = title.indexOf(" - ");
+  if (dashIndex === -1 || !onDriverClick) {
+    return <p className="truncate font-medium text-foreground">{title}</p>;
+  }
+  const driverName = title.slice(0, dashIndex);
+  const rest = title.slice(dashIndex);
+  return (
+    <p className="truncate font-medium text-foreground">
+      <span
+        role="button"
+        tabIndex={0}
+        className="cursor-pointer underline decoration-foreground-subtle/40 underline-offset-2 transition-colors duration-200 hover:text-interactive hover:decoration-interactive"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDriverClick();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.stopPropagation();
+            onDriverClick();
+          }
+        }}
+      >
+        {driverName}
+      </span>
+      {rest}
+    </p>
+  );
+}
+
+export function CalendarEventCard({ event, onClick, onDriverClick }: CalendarEventCardProps) {
   const t = useTranslations("dashboard");
   const locale = useLocale();
 
@@ -35,7 +61,7 @@ export function CalendarEventCard({ event, onClick }: CalendarEventCardProps) {
     <div
       className={cn(
         "h-full cursor-pointer overflow-hidden rounded-md p-(--spacing-cell) text-xs transition-colors duration-200 hover:opacity-80",
-        categoryStyles[event.category]
+        getEventCardStyle(event.title, event.category)
       )}
       onClick={onClick}
       onKeyDown={(e) => {
@@ -44,7 +70,7 @@ export function CalendarEventCard({ event, onClick }: CalendarEventCardProps) {
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
-      <p className="truncate font-medium text-foreground">{event.title}</p>
+      <EventTitle title={event.title} onDriverClick={onDriverClick} />
       <p className="text-foreground-muted">
         {formatTime(event.start, locale)} – {formatTime(event.end, locale)}
       </p>

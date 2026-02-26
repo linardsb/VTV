@@ -110,6 +110,10 @@ async def get_current_user(
             detail="Account is inactive",
         )
 
+    # Detach from session before caching. session.close() triggers rollback
+    # which expires all attributes even with expire_on_commit=False.
+    # Expunging first preserves the loaded attribute state in the cache.
+    db.expunge(user)
     _user_cache[payload.sub] = user
     return user
 

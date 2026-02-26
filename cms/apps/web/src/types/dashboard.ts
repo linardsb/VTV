@@ -19,6 +19,7 @@ export interface CalendarEvent {
   category: EventCategory;
   description?: string;
   goals?: EventGoals | null;
+  driver_id?: number | null;
 }
 
 export interface MetricData {

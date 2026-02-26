@@ -3227,7 +3227,7 @@
                     "events"
                 ],
                 "summary": "List Events",
-                "description": "List operational events with optional date range filter.\n\nRequires authentication. All operational data access is restricted.",
+                "description": "List operational events with optional date range and driver filters.\n\nRequires authentication. All operational data access is restricted.",
                 "operationId": "list_events_api_v1_events__get",
                 "security": [
                     {
@@ -3268,6 +3268,24 @@
                             ],
                             "title": "End Date"
                         }
+                    },
+                    {
+                        "name": "driver_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "integer"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Filter events by driver ID",
+                            "title": "Driver Id"
+                        },
+                        "description": "Filter events by driver ID"
                     },
                     {
                         "name": "page",
@@ -3345,6 +3363,111 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/EventResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/events/by-driver/{driver_id}": {
+            "get": {
+                "tags": [
+                    "events"
+                ],
+                "summary": "List Events By Driver",
+                "description": "List operational events for a specific driver.\n\nRequires authentication. Supports pagination and date range filters.",
+                "operationId": "list_events_by_driver_api_v1_events_by_driver__driver_id__get",
+                "security": [
+                    {
+                        "HTTPBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "driver_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "title": "Driver Id"
+                        }
+                    },
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Start Date"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "End Date"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 1,
+                            "title": "Page"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 100,
+                            "minimum": 1,
+                            "default": 20,
+                            "title": "Page Size"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedResponse_EventResponse_"
                                 }
                             }
                         }
@@ -5583,6 +5706,18 @@
                             }
                         ],
                         "description": "Structured goals for driver scheduling"
+                    },
+                    "driver_id": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Driver Id",
+                        "description": "Associated driver ID from drivers table"
                     }
                 },
                 "type": "object",
@@ -5719,6 +5854,18 @@
                         ],
                         "description": "Structured goals for driver scheduling"
                     },
+                    "driver_id": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Driver Id",
+                        "description": "Associated driver ID from drivers table"
+                    },
                     "id": {
                         "type": "integer",
                         "title": "Id"
@@ -5838,6 +5985,17 @@
                                 "type": "null"
                             }
                         ]
+                    },
+                    "driver_id": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Driver Id"
                     }
                 },
                 "type": "object",

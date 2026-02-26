@@ -8,7 +8,7 @@ Planned features and improvements. Each item links to its detailed planning docu
 Backend API       ██████████████████████░░  95%  (8/8 features: auth, knowledge, drivers, events, stops, schedules, transit, skills)
 CMS Frontend      ██████████████████████░░  95%  (10/10 pages live, real API on all, SWR data fetching, drag-and-drop scheduling)
 Testing           ████████████████████░░░░  82%  (693 unit tests, 105 security tests, 81 e2e tests, CI pipeline live with security gates)
-Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 24 slash commands, CI/CD, 6 security audits, SDLC security framework)
+Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework)
 Latvia Platform   ████░░░░░░░░░░░░░░░░░░░  15%  (Riga GTFS only, no PostGIS/TimescaleDB/multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```

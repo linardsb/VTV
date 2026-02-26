@@ -4,6 +4,9 @@ argument-hint:
 allowed-tools: Read, Glob, Grep, Bash(pnpm:*), Bash(node:*), Bash(npx:*)
 ---
 
+@.claude/commands/_shared/tailwind-token-map.md
+@.claude/commands/_shared/frontend-security.md
+
 Run all VTV frontend quality checks in sequence and report a pass/fail scorecard.
 
 # Fe-Validate — Run Full VTV Frontend Validation Suite
@@ -42,23 +45,14 @@ cd cms && pnpm --filter @vtv/web build
 
 ### 4. Design System Compliance
 
-Scan all `.tsx` files under `cms/apps/web/src/` for design system violations:
+Scan all `.tsx` files under `cms/apps/web/src/` using the rules from the loaded `@_shared/tailwind-token-map.md` reference:
+- Check for hardcoded colors (hex, rgb, hsl, oklch)
+- Check for ALL forbidden Tailwind primitive classes (see "Full Forbidden Classes by Category")
+- Check for hardcoded spacing via inline `style` with pixel values
+- Verify semantic tokens used from `tokens.css`
+- Exceptions: shadcn/ui primitives in `components/ui/`, inline HTML for Leaflet, GTFS route color data
 
-- **Hardcoded colors**: Search for hex colors (`#[0-9a-fA-F]{3,8}`), `rgb(`, `hsl(`, `oklch(` in style attributes and className strings
-- **Tailwind primitive color classes** (most common violation — LLMs default to these):
-  - **Text colors**: Search for `text-gray-`, `text-slate-`, `text-zinc-`, `text-neutral-` → `text-foreground`, `text-foreground-muted`, `text-foreground-subtle`
-  - **Text colors (domain)**: Search for `text-blue-`, `text-red-`, `text-green-`, `text-amber-`, `text-emerald-`, `text-purple-`, `text-orange-` → `text-primary`, `text-error`, `text-success`, `text-transport-bus`, `text-transport-trolleybus`, `text-transport-tram`, `text-category-*`
-  - **Text white**: Search for `text-white` in className → `text-interactive-foreground`, `text-primary-foreground`, `text-destructive-foreground`
-  - **Backgrounds**: Search for `bg-blue-`, `bg-red-`, `bg-green-`, `bg-yellow-`, `bg-gray-`, `bg-slate-` → `bg-primary`, `bg-destructive`, `bg-success`, `bg-warning`, `bg-surface-*`, `bg-muted`
-  - **Backgrounds (domain)**: Search for `bg-amber-`, `bg-emerald-`, `bg-purple-`, `bg-orange-` → `bg-category-route-change`, `bg-category-driver-shift`, `bg-transport-tram`, `bg-category-service-alert`
-  - **Borders**: Search for `border-gray-`, `border-slate-` → `border-border`, `border-border-subtle`
-  - **Borders (domain)**: Search for `border-blue-`, `border-red-`, `border-amber-`, `border-emerald-`, `border-purple-` → `border-error-border`, `border-transport-*`, `border-category-*`
-  - **Error states**: Search for `bg-red-50`, `border-red-200`, `text-red-700` → `bg-error-bg`, `border-error-border`, `text-error`
-  - Exceptions: shadcn/ui primitive files in `components/ui/`, inline HTML strings for Leaflet icons, GTFS route color data values (hex stored in DB)
-- **Hardcoded spacing**: Search for inline `style` with pixel values for margin/padding that should use design tokens
-- **Token usage**: Verify pages use semantic tokens (`--color-surface-*`, `--color-text-*`, `--color-border-*`, `--spacing-*`) from `cms/packages/ui/src/tokens.css`
-
-Report violations with file paths and line numbers. Minor violations in third-party or auto-generated component files (e.g., shadcn/ui primitives) are acceptable.
+Report violations with file paths and line numbers.
 
 ### 5. i18n Completeness
 
@@ -81,23 +75,7 @@ Report findings with file paths and line numbers.
 
 ### 7. Security Patterns (HARD GATE)
 
-**7a. Automated pattern scan** — Run these greps and FAIL if any match:
-
-```bash
-# Hardcoded API URLs (should use NEXT_PUBLIC_* env vars)
-grep -rn "http://localhost:8123\|http://127.0.0.1:8123" cms/apps/web/src/ --include="*.ts" --include="*.tsx" | grep -v node_modules | grep -v ".next"
-
-# Auth tokens in localStorage (must use httpOnly cookies)
-grep -rn 'localStorage\.\(set\|get\)Item.*\(token\|auth\|session\|jwt\)' cms/apps/web/src/ --include="*.ts" --include="*.tsx"
-
-# Unsanitized innerHTML (XSS vector)
-grep -rn "dangerouslySetInnerHTML" cms/apps/web/src/ --include="*.tsx" | grep -v "DOMPurify"
-
-# Hardcoded credentials
-grep -rn "password.*=.*['\"]" cms/apps/web/src/ --include="*.ts" --include="*.tsx" | grep -v 'type\|interface\|placeholder\|label\|name='
-```
-
-Each grep that returns results is a FAIL. Report file:line for each match.
+**7a. Automated pattern scan** — Run the security greps from the loaded `@_shared/frontend-security.md` reference. Each grep that returns results is a FAIL. Report file:line for each match.
 
 **7b. Manual verification checklist** (report as WARN, not FAIL):
 - [ ] Cookies use `SameSite=Lax` or `Strict`

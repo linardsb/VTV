@@ -148,6 +148,7 @@ export function DriverDropDialog({
       end_datetime: buildDatetime(targetDate, "23:59", false),
       priority: "low",
       category: "driver-shift",
+      driver_id: driver.id,
     });
   }
 
@@ -160,6 +161,7 @@ export function DriverDropDialog({
       end_datetime: buildDatetime(targetDate, "23:59", false),
       priority: "high",
       category: "driver-shift",
+      driver_id: driver.id,
     });
   }
 
@@ -178,6 +180,7 @@ export function DriverDropDialog({
       end_datetime: buildDatetime(targetDate, customEnd, false),
       priority: "medium",
       category: "driver-shift",
+      driver_id: driver.id,
     });
   }
 
@@ -203,6 +206,7 @@ export function DriverDropDialog({
           priority: "medium",
           category: "driver-shift",
           goals,
+          driver_id: driver.id,
         });
       } else {
         void handleCreate({
@@ -215,6 +219,7 @@ export function DriverDropDialog({
           priority: "medium",
           category: "maintenance",
           goals,
+          driver_id: driver.id,
         });
       }
     },
@@ -228,6 +233,7 @@ export function DriverDropDialog({
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
+      setIsSaving(false);
       setStep("action");
       setSelectedAction(null);
       setShowCustomForm(false);

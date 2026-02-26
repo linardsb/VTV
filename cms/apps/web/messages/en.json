@@ -192,7 +192,24 @@
       "updateError": "Failed to update goals",
       "noGoals": "No goals set",
       "goalProgress": "Goal Progress",
-      "close": "Close"
+      "close": "Close",
+      "defaultPreTrip": "Pre-trip inspection",
+      "defaultRouteReport": "Route completion report",
+      "defaultTrainingModule": "Complete training module",
+      "defaultAssessment": "Pass assessment"
+    },
+    "driverActions": {
+      "title": "Driver Actions",
+      "subtitle": "{name} — {date}",
+      "employeeNumber": "No. {number}",
+      "shift": "Default shift: {shift}",
+      "todayEvents": "Events Today",
+      "noEvents": "No events scheduled for this day",
+      "addAction": "Quick Actions",
+      "editEvent": "Edit",
+      "viewGoals": "Goals",
+      "eventTime": "{start} – {end}",
+      "allDay": "All day"
     }
   },
   "routes": {

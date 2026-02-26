@@ -192,7 +192,24 @@
       "updateError": "Neizdevās atjaunināt mērķus",
       "noGoals": "Nav mērķu",
       "goalProgress": "Mērķu progress",
-      "close": "Aizvērt"
+      "close": "Aizvērt",
+      "defaultPreTrip": "Pirmsbrauciena pārbaude",
+      "defaultRouteReport": "Maršruta pabeigšanas atskaite",
+      "defaultTrainingModule": "Pabeigt apmācības moduli",
+      "defaultAssessment": "Nokārtot novērtējumu"
+    },
+    "driverActions": {
+      "title": "Vadītāja darbības",
+      "subtitle": "{name} — {date}",
+      "employeeNumber": "Nr. {number}",
+      "shift": "Noklusējuma maiņa: {shift}",
+      "todayEvents": "Šodienas notikumi",
+      "noEvents": "Šajā dienā nav ieplānotu notikumu",
+      "addAction": "Ātrās darbības",
+      "editEvent": "Rediģēt",
+      "viewGoals": "Mērķi",
+      "eventTime": "{start} – {end}",
+      "allDay": "Visu dienu"
     }
   },
   "routes": {

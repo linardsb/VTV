@@ -89,20 +89,5 @@ def process_request(user_id: str, query: str) -> dict[str, Any]:
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #16621 | 12:30 PM | 🔵 | Documentation Structure Audit Reveals 75 Redundant Files | ~502 |
 | #16617 | 12:23 PM | 🔄 | Agent Module Documentation Extracted to Scoped File | ~319 |
-
-### Feb 24, 2026
-
-| ID | Time | T | Title | Read |
-|----|------|---|-------|------|
-| #16775 | 5:07 PM | 🔵 | Data privacy and GDPR compliance features searched | ~347 |
-
-### Feb 25, 2026
-
-| ID | Time | T | Title | Read |
-|----|------|---|-------|------|
-| #16918 | 6:15 AM | ⚖️ | Agent Skills System implementation plan completed | ~1484 |
-| #16875 | 5:58 AM | 🔵 | VTV Background Task & Lifespan Architecture Analysis | ~1313 |
-| #16874 | 5:56 AM | 🔵 | VTV Architecture Deep Dive - Complete Transit Management Platform Analysis | ~738 |
 </claude-mem-context>
