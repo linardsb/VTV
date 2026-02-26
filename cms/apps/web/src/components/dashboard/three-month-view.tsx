@@ -4,11 +4,13 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "@/types/dashboard";
+import { getGoalStatus } from "./goal-progress-badge";
 
 interface ThreeMonthViewProps {
   currentDate: Date;
   events: CalendarEvent[];
   onDayDrop?: (date: Date, driverJson: string) => void;
+  onEventClick?: (event: CalendarEvent) => void;
 }
 
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -22,6 +24,12 @@ const categoryDotColors: Record<string, string> = {
   "route-change": "bg-category-route-change",
   "driver-shift": "bg-category-driver-shift",
   "service-alert": "bg-category-service-alert",
+};
+
+const goalStatusDotColors: Record<string, string> = {
+  "not-started": "bg-foreground/30",
+  "in-progress": "bg-status-delayed",
+  completed: "bg-status-ontime",
 };
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -68,12 +76,14 @@ function MiniMonth({
   events,
   today,
   onDayDrop,
+  onEventClick,
 }: {
   year: number;
   month: number;
   events: CalendarEvent[];
   today: Date;
   onDayDrop?: (date: Date, driverJson: string) => void;
+  onEventClick?: (event: CalendarEvent) => void;
 }) {
   const t = useTranslations("dashboard");
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
@@ -170,22 +180,32 @@ function MiniMonth({
                   </p>
                   {visibleEvents.length > 0 && (
                     <div className="mt-px flex flex-col gap-0">
-                      {visibleEvents.map((event) => (
-                        <div
-                          key={event.id}
-                          className="flex items-center gap-0.5"
-                        >
-                          <div
-                            className={cn(
-                              "size-1 shrink-0 rounded-full",
-                              categoryDotColors[event.category]
-                            )}
-                          />
-                          <span className="truncate text-[8px] leading-tight text-foreground-muted">
-                            {t(event.title)}
-                          </span>
-                        </div>
-                      ))}
+                      {visibleEvents.map((event) => {
+                        const hasGoals = event.goals && event.goals.items.length > 0;
+                        const goalStatus = hasGoals ? getGoalStatus(event.goals!) : null;
+                        const dotClass = hasGoals
+                          ? goalStatusDotColors[goalStatus!]
+                          : categoryDotColors[event.category];
+
+                        return (
+                          <button
+                            key={event.id}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEventClick?.(event);
+                            }}
+                            className="flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <div
+                              className={cn("size-1 shrink-0 rounded-full", dotClass)}
+                            />
+                            <span className="truncate text-[8px] leading-tight text-foreground-muted">
+                              {event.title}
+                            </span>
+                          </button>
+                        );
+                      })}
                       {overflow > 0 && (
                         <span className="text-[8px] leading-tight text-foreground-muted">
                           +{overflow}
@@ -203,7 +223,7 @@ function MiniMonth({
   );
 }
 
-export function ThreeMonthView({ currentDate, events, onDayDrop }: ThreeMonthViewProps) {
+export function ThreeMonthView({ currentDate, events, onDayDrop, onEventClick }: ThreeMonthViewProps) {
   const months = useMemo(() => {
     const result: { year: number; month: number }[] = [];
     for (let offset = -1; offset <= 1; offset++) {
@@ -229,6 +249,7 @@ export function ThreeMonthView({ currentDate, events, onDayDrop }: ThreeMonthVie
           events={events}
           today={today}
           onDayDrop={onDayDrop}
+          onEventClick={onEventClick}
         />
       ))}
     </div>

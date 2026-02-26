@@ -4,11 +4,13 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "@/types/dashboard";
+import { GoalProgressBadge } from "./goal-progress-badge";
 
 interface MonthViewProps {
   currentDate: Date;
   events: CalendarEvent[];
   onDayDrop?: (date: Date, driverJson: string) => void;
+  onEventClick?: (event: CalendarEvent) => void;
 }
 
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -61,7 +63,7 @@ function getMonthGrid(year: number, month: number): (Date | null)[][] {
   return weeks;
 }
 
-export function MonthView({ currentDate, events, onDayDrop }: MonthViewProps) {
+export function MonthView({ currentDate, events, onDayDrop, onEventClick }: MonthViewProps) {
   const t = useTranslations("dashboard");
   const today = new Date();
   const year = currentDate.getFullYear();
@@ -149,19 +151,45 @@ export function MonthView({ currentDate, events, onDayDrop }: MonthViewProps) {
                     {day.getDate()}
                   </p>
                   <div className="mt-(--spacing-tight) flex flex-col gap-0.5">
-                    {visibleEvents.map((event) => (
-                      <div key={event.id} className="flex items-center gap-(--spacing-tight)">
-                        <div
-                          className={cn(
-                            "size-1.5 shrink-0 rounded-full",
-                            categoryDotColors[event.category]
-                          )}
-                        />
-                        <span className="truncate text-[10px] text-foreground-muted">
-                          {t(event.title)}
-                        </span>
-                      </div>
-                    ))}
+                    {visibleEvents.map((event) => {
+                      const hasGoals = event.goals && event.goals.items.length > 0;
+                      return hasGoals ? (
+                        <button
+                          key={event.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEventClick?.(event);
+                          }}
+                          className="flex w-full items-center justify-between gap-(--spacing-tight) rounded bg-surface-raised px-1 py-0.5 text-left transition-colors duration-200 hover:bg-interactive/10 cursor-pointer"
+                        >
+                          <span className="truncate text-[10px] font-medium text-foreground">
+                            {event.title}
+                          </span>
+                          <GoalProgressBadge goals={event.goals!} variant="compact" />
+                        </button>
+                      ) : (
+                        <button
+                          key={event.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEventClick?.(event);
+                          }}
+                          className="flex w-full items-center gap-(--spacing-tight) text-left cursor-pointer"
+                        >
+                          <div
+                            className={cn(
+                              "size-1.5 shrink-0 rounded-full",
+                              categoryDotColors[event.category]
+                            )}
+                          />
+                          <span className="truncate text-[10px] text-foreground-muted">
+                            {event.title}
+                          </span>
+                        </button>
+                      );
+                    })}
                     {overflow > 0 && (
                       <span className="text-[10px] text-foreground-muted">
                         {t("calendar.moreEvents", { count: overflow })}

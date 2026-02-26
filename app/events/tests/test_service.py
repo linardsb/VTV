@@ -1,4 +1,4 @@
-# pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportCallIssue=false
+# pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportCallIssue=false, reportArgumentType=false
 """Unit tests for EventService business logic."""
 
 import datetime
@@ -9,7 +9,7 @@ import pytest
 from app.events.exceptions import EventNotFoundError
 from app.events.schemas import EventCreate, EventUpdate
 from app.events.service import EventService
-from app.events.tests.conftest import make_event
+from app.events.tests.conftest import make_event, make_goals_dict
 from app.shared.models import utcnow
 from app.shared.schemas import PaginationParams
 
@@ -152,3 +152,123 @@ def test_event_create_rejects_invalid_priority():
             end_datetime=utcnow(),
             priority="critical",  # intentionally invalid
         )
+
+
+# --- Goals-related tests ---
+
+
+async def test_create_event_with_goals(service):
+    now = utcnow()
+    goals_data = make_goals_dict()
+    data = EventCreate(
+        title="Driver Shift - Route 22",
+        start_datetime=now,
+        end_datetime=now + datetime.timedelta(hours=8),
+        priority="medium",
+        category="driver-shift",
+        goals=goals_data,
+    )
+    created = make_event(
+        id=11,
+        title="Driver Shift - Route 22",
+        category="driver-shift",
+        goals=goals_data,
+    )
+    service.repository.create = AsyncMock(return_value=created)
+
+    result = await service.create_event(data)
+    assert result.id == 11
+    assert result.goals is not None
+    assert result.goals.route_id == 22
+    assert result.goals.transport_type == "bus"
+    assert len(result.goals.items) == 2
+    assert result.goals.items[0].item_type == "route"
+    assert result.goals.items[1].completed is True
+
+
+async def test_create_event_without_goals(service):
+    now = utcnow()
+    data = EventCreate(
+        title="Regular Maintenance",
+        start_datetime=now,
+        end_datetime=now + datetime.timedelta(hours=2),
+    )
+    created = make_event(id=12, title="Regular Maintenance")
+    service.repository.create = AsyncMock(return_value=created)
+
+    result = await service.create_event(data)
+    assert result.id == 12
+    assert result.goals is None
+
+
+async def test_update_event_goals(service):
+    event = make_event(id=1, goals=None)
+    goals_data = make_goals_dict(route_id=7, transport_type="trolleybus")
+    updated = make_event(id=1, goals=goals_data)
+    data = EventUpdate(goals=goals_data)
+
+    service.repository.get = AsyncMock(return_value=event)
+    service.repository.update = AsyncMock(return_value=updated)
+
+    result = await service.update_event(1, data)
+    assert result.goals is not None
+    assert result.goals.route_id == 7
+    assert result.goals.transport_type == "trolleybus"
+
+
+async def test_clear_event_goals(service):
+    goals_data = make_goals_dict()
+    event = make_event(id=1, goals=goals_data)
+    cleared = make_event(id=1, goals=None)
+    data = EventUpdate(goals=None, title="Updated Title")
+
+    service.repository.get = AsyncMock(return_value=event)
+    service.repository.update = AsyncMock(return_value=cleared)
+
+    result = await service.update_event(1, data)
+    assert result.goals is None
+
+
+def test_goal_item_valid():
+    from app.events.schemas import GoalItem
+
+    item = GoalItem(text="Complete route review", item_type="route")
+    assert item.completed is False
+    assert item.item_type == "route"
+
+
+def test_goal_item_invalid_type():
+    from pydantic import ValidationError
+
+    from app.events.schemas import GoalItem
+
+    with pytest.raises(ValidationError):
+        GoalItem(text="Test", item_type="invalid")
+
+
+def test_event_goals_defaults():
+    from app.events.schemas import EventGoals
+
+    goals = EventGoals()
+    assert goals.items == []
+    assert goals.route_id is None
+    assert goals.transport_type is None
+    assert goals.vehicle_id is None
+
+
+def test_event_goals_invalid_transport():
+    from pydantic import ValidationError
+
+    from app.events.schemas import EventGoals
+
+    with pytest.raises(ValidationError):
+        EventGoals(transport_type="airplane")
+
+
+def test_goal_item_text_too_long():
+    from pydantic import ValidationError
+
+    from app.events.schemas import GoalItem
+
+    with pytest.raises(ValidationError):
+        GoalItem(text="x" * 501, item_type="route")

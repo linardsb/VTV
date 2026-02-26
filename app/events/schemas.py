@@ -11,6 +11,33 @@ VALID_CATEGORIES = ("maintenance", "route-change", "driver-shift", "service-aler
 
 PriorityType = Literal["high", "medium", "low"]
 CategoryType = Literal["maintenance", "route-change", "driver-shift", "service-alert"]
+TransportType = Literal["bus", "trolleybus", "tram"]
+GoalItemType = Literal["route", "training", "note", "checklist"]
+
+
+class GoalItem(BaseModel):
+    """A single goal or checklist item within an event's goals."""
+
+    text: str = Field(..., min_length=1, max_length=500, description="Goal description text")
+    completed: bool = Field(default=False, description="Whether this goal item is completed")
+    item_type: GoalItemType = Field(..., description="Goal type: route/training/note/checklist")
+
+
+class EventGoals(BaseModel):
+    """Structured goals attached to a driver scheduling event."""
+
+    items: list[GoalItem] = Field(
+        default_factory=list, max_length=100, description="List of goal/checklist items"
+    )
+    route_id: int | None = Field(
+        None, description="Assigned route ID from driver's qualified routes"
+    )
+    transport_type: TransportType | None = Field(
+        None, description="Assigned transport: bus/trolleybus/tram"
+    )
+    vehicle_id: str | None = Field(
+        None, max_length=50, description="Optional specific vehicle number"
+    )
 
 
 class EventBase(BaseModel):
@@ -25,6 +52,7 @@ class EventBase(BaseModel):
         default="maintenance",
         description="Category: maintenance/route-change/driver-shift/service-alert",
     )
+    goals: EventGoals | None = Field(None, description="Structured goals for driver scheduling")
 
 
 class EventCreate(EventBase):
@@ -40,6 +68,7 @@ class EventUpdate(BaseModel):
     end_datetime: datetime.datetime | None = None
     priority: PriorityType | None = Field(None)
     category: CategoryType | None = Field(None)
+    goals: EventGoals | None = None
 
     @model_validator(mode="before")
     @classmethod

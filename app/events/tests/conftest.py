@@ -20,6 +20,7 @@ def make_event(**overrides: object) -> OperationalEvent:
         "end_datetime": now + datetime.timedelta(hours=2),
         "priority": "high",
         "category": "maintenance",
+        "goals": None,
         "created_at": now,
         "updated_at": now,
     }
@@ -49,6 +50,21 @@ def sample_events() -> list[OperationalEvent]:
             end_datetime=now + datetime.timedelta(days=1, hours=1),
         ),
     ]
+
+
+def make_goals_dict(**overrides: object) -> dict[str, object]:
+    """Factory to create a goals dict matching EventGoals schema."""
+    defaults: dict[str, object] = {
+        "items": [
+            {"text": "Complete route familiarization", "completed": False, "item_type": "route"},
+            {"text": "Review safety procedures", "completed": True, "item_type": "training"},
+        ],
+        "route_id": 22,
+        "transport_type": "bus",
+        "vehicle_id": "RS-1047",
+    }
+    defaults.update(overrides)
+    return defaults
 
 
 @pytest.fixture

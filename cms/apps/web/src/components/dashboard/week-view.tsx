@@ -11,6 +11,7 @@ interface WeekViewProps {
   currentDate: Date;
   events: CalendarEvent[];
   onDayDrop?: (date: Date, driverJson: string) => void;
+  onEventClick?: (event: CalendarEvent) => void;
 }
 
 const START_HOUR = 6;
@@ -35,7 +36,7 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-export function WeekView({ currentDate, events, onDayDrop }: WeekViewProps) {
+export function WeekView({ currentDate, events, onDayDrop, onEventClick }: WeekViewProps) {
   const t = useTranslations("dashboard");
   const today = new Date();
 
@@ -180,7 +181,10 @@ export function WeekView({ currentDate, events, onDayDrop }: WeekViewProps) {
                     height: `${heightPx}px`,
                   }}
                 >
-                  <CalendarEventCard event={event} />
+                  <CalendarEventCard
+                    event={event}
+                    onClick={onEventClick ? () => onEventClick(event) : undefined}
+                  />
                 </div>
               );
             })}

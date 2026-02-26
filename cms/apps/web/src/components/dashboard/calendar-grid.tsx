@@ -11,9 +11,10 @@ import { YearView } from "./year-view";
 interface CalendarGridProps {
   events: CalendarEvent[];
   onDayDrop?: (date: Date, driverJson: string) => void;
+  onEventClick?: (event: CalendarEvent) => void;
 }
 
-export function CalendarGrid({ events, onDayDrop }: CalendarGridProps) {
+export function CalendarGrid({ events, onDayDrop, onEventClick }: CalendarGridProps) {
   const [view, setView] = useState<CalendarViewMode>("week");
   const [currentDate, setCurrentDate] = useState(() => new Date());
 
@@ -27,13 +28,13 @@ export function CalendarGrid({ events, onDayDrop }: CalendarGridProps) {
       />
       <div className="min-h-0 flex-1">
         {view === "week" && (
-          <WeekView currentDate={currentDate} events={events} onDayDrop={onDayDrop} />
+          <WeekView currentDate={currentDate} events={events} onDayDrop={onDayDrop} onEventClick={onEventClick} />
         )}
         {view === "month" && (
-          <MonthView currentDate={currentDate} events={events} onDayDrop={onDayDrop} />
+          <MonthView currentDate={currentDate} events={events} onDayDrop={onDayDrop} onEventClick={onEventClick} />
         )}
         {view === "3month" && (
-          <ThreeMonthView currentDate={currentDate} events={events} onDayDrop={onDayDrop} />
+          <ThreeMonthView currentDate={currentDate} events={events} onDayDrop={onDayDrop} onEventClick={onEventClick} />
         )}
         {view === "year" && (
           <YearView currentDate={currentDate} events={events} />

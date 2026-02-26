@@ -16,6 +16,7 @@ function toCalendarEvent(event: OperationalEvent): CalendarEvent {
     priority: event.priority,
     category: event.category,
     description: event.description ?? undefined,
+    goals: event.goals ?? undefined,
   };
 }
 

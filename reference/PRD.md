@@ -42,6 +42,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 - GTFS import/export — parse and generate GTFS ZIP files ✅ (import via POST + export via GET, 7 CSV files each)
 - Authentication — Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer) ✅ (JWT auth on all endpoints: login, refresh, seed + backend RBAC enforcement via `require_role()`, bcrypt, brute-force lockout)
 - Internationalization — Latvian (primary) + English ✅ (proper diacritics, 142+ i18n keys per locale)
+- Dashboard goal tracking — Events support structured goals (route assignment, transport type, vehicle, checklist items) with JSONB storage, two-step driver scheduling dialog, goal progress badges on calendar, interactive goal completion panel ✅
 - Responsive dashboard layout (✅ dashboard + routes + chat pages are mobile responsive, dashboard metrics + calendar events on real API)
 
 **AI Agent Service (FastAPI + Pydantic AI)**
@@ -62,7 +63,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 ### 4.2 What's Out (Post-MVP)
 
 - ~~Live GPS tracking and real-time map~~ ✅ **Implemented** — Multi-feed GTFS-RT tracking with Redis caching, background pollers, 3 REST endpoints. Live map with react-leaflet v5, HTTP polling. Supports Riga + configurable additional feeds (Jurmala, Pieriga, ATD)
-- ~~Vehicle and driver management (Phase 2)~~ **Driver management implemented** — Full CRUD backend (5 endpoints), CMS page with table/filters/forms, agent tool integration (DB-backed `check_driver_availability`). Vehicle management remains Phase 2
+- ~~Vehicle and driver management (Phase 2)~~ **Driver management implemented** — Full CRUD backend (5 endpoints), CMS page with table/filters/forms, agent tool integration (DB-backed `check_driver_availability`). Dashboard integration: driver roster with drag-and-drop scheduling, goal-based shift/training assignment, license/medical expiry tracking. Vehicle management remains Phase 2
 - NeTEx/SIRI compliance exports (Phase 3)
 - Public-facing passenger information (out of scope)
 - Fare management (handled by e-talons system)
@@ -114,7 +115,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 | CMS Framework | Next.js 16 (App Router) | Full-stack, production-ready, enterprise patterns via implementation |
 | UI | Shadcn/ui + Tailwind v4 | No framework lock-in, CSS variable theming |
 | Data Tables | TanStack Table v8 | Server-side filtering/pagination |
-| API | REST + @vtv/sdk (OpenAPI-generated) ✅ | Type-safe client from FastAPI spec (47 endpoints, 68 types, events domain migrated); tRPC v11 planned for CMS-native routes |
+| API | REST + @vtv/sdk (OpenAPI-generated) ✅ | Type-safe client from FastAPI spec (47 endpoints, 70+ types including EventGoals/GoalItem, events domain migrated); tRPC v11 planned for CMS-native routes |
 | ORM | SQLAlchemy 2.0 (async) | Backend ORM with pgvector; Drizzle planned for CMS PostGIS layer |
 | Database | PostgreSQL 18 + pgvector | Vector search for RAG; PostGIS planned for spatial queries |
 | Maps | react-leaflet v5 + Leaflet 1.9 | OpenStreetMap tiles, marker clustering planned |

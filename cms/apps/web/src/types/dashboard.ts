@@ -1,3 +1,5 @@
+import type { EventGoals } from "./event";
+
 export type CalendarViewMode = "year" | "3month" | "month" | "week";
 
 export type EventPriority = "high" | "medium" | "low";
@@ -16,6 +18,7 @@ export interface CalendarEvent {
   priority: EventPriority;
   category: EventCategory;
   description?: string;
+  goals?: EventGoals | null;
 }
 
 export interface MetricData {

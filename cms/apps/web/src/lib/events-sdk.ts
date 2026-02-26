@@ -100,6 +100,7 @@ export async function updateEvent(
       end_datetime: eventData.end_datetime ?? null,
       priority: eventData.priority ?? null,
       category: eventData.category ?? null,
+      goals: eventData.goals ?? null,
     },
   });
   if (error || !data) {

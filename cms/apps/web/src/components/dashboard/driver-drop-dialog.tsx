@@ -7,8 +7,9 @@ import { toast } from "sonner";
 import { Clock, CalendarOff, Thermometer, GraduationCap, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Driver } from "@/types/driver";
-import type { EventCreate } from "@/types/event";
+import type { EventCreate, EventGoals } from "@/types/event";
 import { createEvent } from "@/lib/events-sdk";
+import { GoalsForm } from "./goals-form";
 import {
   Dialog,
   DialogContent,
@@ -92,11 +93,16 @@ export function DriverDropDialog({
   const t = useTranslations("dashboard");
   const locale = useLocale();
 
+  type DialogStep = "action" | "goals";
+  type GoalAction = "shift" | "training";
+
   const [isSaving, setIsSaving] = useState(false);
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customTitle, setCustomTitle] = useState("");
   const [customStart, setCustomStart] = useState("09:00");
   const [customEnd, setCustomEnd] = useState("17:00");
+  const [step, setStep] = useState<DialogStep>("action");
+  const [selectedAction, setSelectedAction] = useState<GoalAction | null>(null);
 
   const driverName = driver
     ? `${driver.first_name} ${driver.last_name}`
@@ -129,18 +135,8 @@ export function DriverDropDialog({
 
   function handleAssignShift() {
     if (!driver || !targetDate) return;
-    const shift = driver.default_shift;
-    const times = SHIFT_TIMES[shift] ?? SHIFT_TIMES.morning;
-    const shiftLabelKey = SHIFT_LABEL_KEYS[shift] ?? "shiftMorning";
-
-    void handleCreate({
-      title: t("dropAction.eventTitleShift", { name: driverName, shift: t(`dropAction.${shiftLabelKey}`) }),
-      description: t("dropAction.eventDesc", { number: driver.employee_number }),
-      start_datetime: buildDatetime(targetDate, times.start, false),
-      end_datetime: buildDatetime(targetDate, times.end, times.nextDay),
-      priority: "medium",
-      category: "driver-shift",
-    });
+    setSelectedAction("shift");
+    setStep("goals");
   }
 
   function handleMarkLeave() {
@@ -169,14 +165,8 @@ export function DriverDropDialog({
 
   function handleScheduleTraining() {
     if (!driver || !targetDate) return;
-    void handleCreate({
-      title: t("dropAction.eventTitleTraining", { name: driverName }),
-      description: t("dropAction.eventDesc", { number: driver.employee_number }),
-      start_datetime: buildDatetime(targetDate, "09:00", false),
-      end_datetime: buildDatetime(targetDate, "11:00", false),
-      priority: "medium",
-      category: "maintenance",
-    });
+    setSelectedAction("training");
+    setStep("goals");
   }
 
   function handleCustomSubmit() {
@@ -191,8 +181,55 @@ export function DriverDropDialog({
     });
   }
 
+  const handleGoalsSave = useCallback(
+    (goals: EventGoals) => {
+      if (!driver || !targetDate || !selectedAction) return;
+
+      if (selectedAction === "shift") {
+        const shift = driver.default_shift;
+        const times = SHIFT_TIMES[shift] ?? SHIFT_TIMES.morning;
+        const shiftLabelKey = SHIFT_LABEL_KEYS[shift] ?? "shiftMorning";
+
+        void handleCreate({
+          title: t("dropAction.eventTitleShift", {
+            name: driverName,
+            shift: t(`dropAction.${shiftLabelKey}`),
+          }),
+          description: t("dropAction.eventDesc", {
+            number: driver.employee_number,
+          }),
+          start_datetime: buildDatetime(targetDate, times.start, false),
+          end_datetime: buildDatetime(targetDate, times.end, times.nextDay),
+          priority: "medium",
+          category: "driver-shift",
+          goals,
+        });
+      } else {
+        void handleCreate({
+          title: t("dropAction.eventTitleTraining", { name: driverName }),
+          description: t("dropAction.eventDesc", {
+            number: driver.employee_number,
+          }),
+          start_datetime: buildDatetime(targetDate, "09:00", false),
+          end_datetime: buildDatetime(targetDate, "11:00", false),
+          priority: "medium",
+          category: "maintenance",
+          goals,
+        });
+      }
+    },
+    [driver, targetDate, selectedAction, handleCreate, t, driverName],
+  );
+
+  const handleGoalsBack = useCallback(() => {
+    setStep("action");
+    setSelectedAction(null);
+  }, []);
+
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
+      setStep("action");
+      setSelectedAction(null);
       setShowCustomForm(false);
       setCustomTitle("");
       setCustomStart("09:00");
@@ -205,15 +242,29 @@ export function DriverDropDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent className={cn(step === "goals" && "sm:max-w-[36rem]")}>
         <DialogHeader>
-          <DialogTitle>{t("dropAction.title")}</DialogTitle>
+          <DialogTitle>
+            {step === "goals" ? t("goals.title") : t("dropAction.title")}
+          </DialogTitle>
           <DialogDescription>
-            {t("dropAction.description", { name: driverName, date: formattedDate })}
+            {step === "goals"
+              ? t("goals.subtitle", { name: driverName, date: formattedDate })
+              : t("dropAction.description", { name: driverName, date: formattedDate })}
           </DialogDescription>
         </DialogHeader>
 
-        {!showCustomForm ? (
+        {step === "goals" && selectedAction && driver && targetDate ? (
+          <GoalsForm
+            key={`goals-${selectedAction}`}
+            driver={driver}
+            targetDate={targetDate}
+            actionType={selectedAction}
+            isSaving={isSaving}
+            onBack={handleGoalsBack}
+            onSave={handleGoalsSave}
+          />
+        ) : !showCustomForm ? (
           <div className="flex flex-col gap-(--spacing-tight)">
             <ActionCard
               icon={<Clock className="size-4" />}

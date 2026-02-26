@@ -33,10 +33,31 @@ const shiftLabels: Record<string, string> = {
   night: "shiftNight",
 };
 
+type ExpiryStatus = "ok" | "expiring" | "expired";
+
+function getExpiryStatus(dateStr: string | null): ExpiryStatus {
+  if (!dateStr) return "ok";
+  const expiry = new Date(dateStr);
+  const now = new Date();
+  if (expiry < now) return "expired";
+  const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+  if (expiry.getTime() - now.getTime() < thirtyDays) return "expiring";
+  return "ok";
+}
+
+function getQualifiedRouteCount(routeIds: string | null): number {
+  if (!routeIds) return 0;
+  return routeIds.split(",").filter(Boolean).length;
+}
+
 function DriverRosterCard({ driver, canDrag }: DriverRosterCardProps) {
   const t = useTranslations("dashboard");
   const statusClass = statusStyles[driver.status] ?? "bg-foreground/10 text-foreground";
   const shiftKey = shiftLabels[driver.default_shift];
+
+  const qualifiedCount = getQualifiedRouteCount(driver.qualified_route_ids);
+  const licenseStatus = getExpiryStatus(driver.license_expiry_date);
+  const medicalStatus = getExpiryStatus(driver.medical_cert_expiry);
 
   function handleDragStart(e: DragEvent<HTMLDivElement>) {
     e.dataTransfer.setData("application/vtv-driver", JSON.stringify(driver));
@@ -67,6 +88,39 @@ function DriverRosterCard({ driver, canDrag }: DriverRosterCardProps) {
         {t("roster.employee")} {driver.employee_number}
         {shiftKey ? ` · ${t(`dropAction.${shiftKey}`)}` : ""}
       </p>
+      {(qualifiedCount > 0 || licenseStatus !== "ok" || medicalStatus !== "ok") && (
+        <div className="mt-(--spacing-tight) flex flex-wrap items-center gap-(--spacing-tight)">
+          {qualifiedCount > 0 && (
+            <span className="text-[10px] text-foreground-muted">
+              {t("roster.qualifiedRoutes", { count: qualifiedCount })}
+            </span>
+          )}
+          {licenseStatus === "expired" && (
+            <Badge variant="secondary" className="bg-status-critical/15 text-status-critical text-[10px]">
+              {t("roster.licenseExpired")}
+            </Badge>
+          )}
+          {licenseStatus === "expiring" && (
+            <Badge variant="secondary" className="bg-status-delayed/15 text-status-delayed text-[10px]">
+              {t("roster.licenseExpiring", {
+                date: new Date(driver.license_expiry_date!).toLocaleDateString(),
+              })}
+            </Badge>
+          )}
+          {medicalStatus === "expired" && (
+            <Badge variant="secondary" className="bg-status-critical/15 text-status-critical text-[10px]">
+              {t("roster.medicalExpired")}
+            </Badge>
+          )}
+          {medicalStatus === "expiring" && (
+            <Badge variant="secondary" className="bg-status-delayed/15 text-status-delayed text-[10px]">
+              {t("roster.medicalExpiring", {
+                date: new Date(driver.medical_cert_expiry!).toLocaleDateString(),
+              })}
+            </Badge>
+          )}
+        </div>
+      )}
     </div>
   );
 }

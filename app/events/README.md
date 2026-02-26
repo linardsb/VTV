@@ -1,6 +1,6 @@
 # Operational Events
 
-Manages time-bounded operational events (maintenance windows, route changes, driver shifts, service alerts) displayed on the dashboard calendar.
+Manages time-bounded operational events (maintenance windows, route changes, driver shifts, service alerts) displayed on the dashboard calendar. Events can include structured goals (route assignment, transport type, vehicle number, performance notes, checklist items) stored as JSONB with frontend completion tracking.
 
 ## Key Flows
 
@@ -43,7 +43,22 @@ Table: `operational_events`
 | `priority` | String(20) | Not null, default "medium" | high/medium/low |
 | `category` | String(30) | Not null, default "maintenance" | maintenance/route-change/driver-shift/service-alert |
 | `created_at` | DateTime(tz) | Not null | Auto-set via TimestampMixin |
+| `goals` | JSONB | Nullable | Structured goals (EventGoals schema) |
 | `updated_at` | DateTime(tz) | Not null | Auto-set via TimestampMixin |
+
+## Goals Schema (JSONB)
+
+The `goals` column stores structured goal data as validated JSONB:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `items` | List[GoalItem] | Checklist items (max 100), each with `text` (max 500), `completed` (bool), `item_type` ("custom"/"checklist") |
+| `route_id` | int? | Assigned route from driver's qualified routes |
+| `transport_type` | string? | "bus", "trolleybus", or "tram" |
+| `vehicle_id` | string? | Vehicle number (max 50 chars) |
+| `notes` | string? | Performance notes (max 1000 chars) |
+
+Existing events without goals return `goals: null`. The column is nullable with NULL default for backward compatibility.
 
 ## Business Rules
 
@@ -55,10 +70,16 @@ Table: `operational_events`
 6. Read endpoints (list/get) are public — dashboard calendar fetches from client-side hooks
 7. Create/update/delete require admin or editor role
 8. PATCH rejects empty bodies — `model_validator(mode="before")` raises if all fields are None
+9. Goal items limited to 100 per event, text limited to 500 characters
+10. Goals are updated via PATCH — frontend toggles individual goal completion and saves the full goals object
 
 ## Integration Points
 
 - **Dashboard (frontend)**: `CalendarPanel` component fetches events via `useCalendarEvents` hook (60s polling, 6-month window)
+- **Goal progress badges**: `GoalProgressBadge` component shows completion fraction on calendar event cards (month/three-month views)
+- **Goal completion panel**: `EventGoalPanel` dialog allows toggling goal checkboxes, saves via PATCH
+- **Driver drop dialog**: Two-step flow for "Assign Shift" and "Schedule Training" — step 2 collects goals via `GoalsForm`
+- **Driver roster**: Shows qualified route count, license/medical expiry badges — informs goal setting
 - **No cross-feature backend dependencies**: standalone feature with no imports from other `app/{feature}/` directories
 
 ## API Endpoints

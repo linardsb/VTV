@@ -16,8 +16,10 @@ import { DashboardMetrics } from "./dashboard-metrics";
 import { CalendarPanel } from "./calendar-panel";
 import { DriverRoster } from "./driver-roster";
 import { DriverDropDialog } from "./driver-drop-dialog";
+import { EventGoalPanel } from "./event-goal-panel";
 import { useDriversSummary } from "@/hooks/use-drivers-summary";
 import type { Driver } from "@/types/driver";
+import type { CalendarEvent } from "@/types/dashboard";
 
 interface DashboardContentProps {
   locale: string;
@@ -35,6 +37,9 @@ export function DashboardContent({ locale }: DashboardContentProps) {
   const [dropDriver, setDropDriver] = useState<Driver | null>(null);
   const [dropDate, setDropDate] = useState<Date | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [goalPanelOpen, setGoalPanelOpen] = useState(false);
 
   const calendarRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -66,6 +71,15 @@ export function DashboardContent({ locale }: DashboardContentProps) {
     void calendarRefetchRef.current?.();
   }, []);
 
+  const handleEventClick = useCallback((event: CalendarEvent) => {
+    setSelectedEvent(event);
+    setGoalPanelOpen(true);
+  }, []);
+
+  const handleGoalsUpdated = useCallback(() => {
+    void calendarRefetchRef.current?.();
+  }, []);
+
   return (
     <div className="flex h-[calc(100vh-var(--spacing-page)*2)] flex-col gap-(--spacing-grid)">
       {/* Page header */}
@@ -89,6 +103,7 @@ export function DashboardContent({ locale }: DashboardContentProps) {
             <CalendarPanel
               onDayDrop={canSchedule ? handleDayDrop : undefined}
               refetchRef={calendarRefetchRef}
+              onEventClick={handleEventClick}
             />
           </div>
         </div>
@@ -126,6 +141,7 @@ export function DashboardContent({ locale }: DashboardContentProps) {
                 <CalendarPanel
                   onDayDrop={canSchedule ? handleDayDrop : undefined}
                   refetchRef={calendarRefetchRef}
+                  onEventClick={handleEventClick}
                 />
               </ResizablePanel>
             </ResizablePanelGroup>
@@ -140,6 +156,15 @@ export function DashboardContent({ locale }: DashboardContentProps) {
         driver={dropDriver}
         targetDate={dropDate}
         onEventCreated={handleEventCreated}
+      />
+
+      {/* Event goal panel */}
+      <EventGoalPanel
+        key={selectedEvent?.id ?? "closed"}
+        event={selectedEvent}
+        open={goalPanelOpen}
+        onOpenChange={setGoalPanelOpen}
+        onGoalsUpdated={handleGoalsUpdated}
       />
     </div>
   );

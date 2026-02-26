@@ -5572,6 +5572,17 @@
                         "title": "Category",
                         "description": "Category: maintenance/route-change/driver-shift/service-alert",
                         "default": "maintenance"
+                    },
+                    "goals": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/EventGoals"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Structured goals for driver scheduling"
                     }
                 },
                 "type": "object",
@@ -5582,6 +5593,64 @@
                 ],
                 "title": "EventCreate",
                 "description": "Schema for creating an operational event."
+            },
+            "EventGoals": {
+                "properties": {
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/GoalItem"
+                        },
+                        "type": "array",
+                        "maxItems": 100,
+                        "title": "Items",
+                        "description": "List of goal/checklist items"
+                    },
+                    "route_id": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Route Id",
+                        "description": "Assigned route ID from driver's qualified routes"
+                    },
+                    "transport_type": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "bus",
+                                    "trolleybus",
+                                    "tram"
+                                ]
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Transport Type",
+                        "description": "Assigned transport: bus/trolleybus/tram"
+                    },
+                    "vehicle_id": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 50
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Vehicle Id",
+                        "description": "Optional specific vehicle number"
+                    }
+                },
+                "type": "object",
+                "title": "EventGoals",
+                "description": "Structured goals attached to a driver scheduling event."
             },
             "EventResponse": {
                 "properties": {
@@ -5638,6 +5707,17 @@
                         "title": "Category",
                         "description": "Category: maintenance/route-change/driver-shift/service-alert",
                         "default": "maintenance"
+                    },
+                    "goals": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/EventGoals"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Structured goals for driver scheduling"
                     },
                     "id": {
                         "type": "integer",
@@ -5748,6 +5828,16 @@
                             }
                         ],
                         "title": "Category"
+                    },
+                    "goals": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/EventGoals"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     }
                 },
                 "type": "object",
@@ -5860,6 +5950,41 @@
                 ],
                 "title": "GTFSImportResponse",
                 "description": "Response schema for GTFS import operation.\n\nReports total counts and created/updated breakdown for each entity type.\nMerge strategy: existing entities matched by GTFS ID are updated in place,\nnew entities are created, entities not in the ZIP are preserved."
+            },
+            "GoalItem": {
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "minLength": 1,
+                        "title": "Text",
+                        "description": "Goal description text"
+                    },
+                    "completed": {
+                        "type": "boolean",
+                        "title": "Completed",
+                        "description": "Whether this goal item is completed",
+                        "default": false
+                    },
+                    "item_type": {
+                        "type": "string",
+                        "enum": [
+                            "route",
+                            "training",
+                            "note",
+                            "checklist"
+                        ],
+                        "title": "Item Type",
+                        "description": "Goal type: route/training/note/checklist"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "text",
+                    "item_type"
+                ],
+                "title": "GoalItem",
+                "description": "A single goal or checklist item within an event's goals."
             },
             "HTTPValidationError": {
                 "properties": {

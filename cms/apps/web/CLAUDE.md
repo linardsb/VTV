@@ -32,7 +32,7 @@ src/
 │   ├── ui/                     # shadcn/ui components (button, table, dialog, tabs, switch, etc.)
 │   ├── swr-provider.tsx        # Global SWR config (fetcher, dedup, retries, focus revalidation)
 │   ├── app-sidebar.tsx         # Responsive sidebar (desktop: w-60 aside; mobile: hamburger + Sheet — only remaining Sheet usage)
-│   ├── dashboard/              # Dashboard components (metric-card, calendar-grid, calendar-panel, dashboard-content, driver-roster, driver-drop-dialog, week-view, month-view)
+│   ├── dashboard/              # Dashboard components (metric-card, calendar-grid, calendar-panel, dashboard-content, driver-roster, driver-drop-dialog, goals-form, goal-progress-badge, event-goal-panel, week-view, month-view, three-month-view, year-view, live-timeline)
 │   ├── documents/              # Document management (table, filters, upload-form, detail, delete-dialog)
 │   ├── routes/                 # Route management (table, filters, form, detail, type-badge, map, bus-marker)
 │   ├── schedules/              # Schedule management (calendar-table/dialog/form/detail/month-grid/search/status-badge, trip-table/form/detail/filters/search, gtfs-import, delete dialogs)
@@ -44,7 +44,7 @@ src/
 │   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
 │   ├── use-vehicle-positions.ts # useVehiclePositions() — SWR, 10s refresh, env-var API base
 │   ├── use-dashboard-metrics.ts # useDashboardMetrics() — SWR, 30s refresh (vehicles + routes)
-│   ├── use-calendar-events.ts  # useCalendarEvents() — SWR via @vtv/sdk, 60s refresh
+│   ├── use-calendar-events.ts  # useCalendarEvents() — SWR via @vtv/sdk, 60s refresh (includes goals data)
 │   └── use-drivers-summary.ts  # useDriversSummary() — SWR, 120s refresh (active drivers)
 ├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts, driver.ts, event.ts, gtfs.ts, user.ts)
 ├── lib/

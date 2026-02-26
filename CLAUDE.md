@@ -73,7 +73,7 @@ VTV/
 │   ├── auth/           # JWT auth + RBAC + user management (10 endpoints: login, logout, refresh, seed, reset-password, user CRUD; bcrypt, Redis brute-force, token revocation)
 │   ├── knowledge/      # RAG knowledge base + DMS (9 endpoints, pgvector, multi-format processing)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles, shift/availability, agent integration)
-│   ├── events/         # Operational events (5 endpoints, dashboard calendar, date range filter)
+│   ├── events/         # Operational events (5 endpoints, dashboard calendar, date range filter, JSONB goals with completion tracking)
 │   ├── stops/          # Stop management (6 endpoints, Haversine proximity, location_type filter)
 │   ├── schedules/      # GTFS schedule management (23 endpoints, trip CRUD, ZIP import/export, creator tracking)
 │   ├── skills/         # Agent skills system (7 endpoints, reusable knowledge packages, agent context injection)
@@ -120,7 +120,7 @@ Environment variables via Pydantic Settings (`app.core.config`). Copy `.env.exam
 Turborepo monorepo under `cms/` with pnpm workspaces. **Full documentation in `cms/CLAUDE.md` and `cms/apps/web/CLAUDE.md`.**
 
 - **Stack:** Next.js 16 + React 19, Tailwind CSS v4 + three-tier design tokens, shadcn/ui + CVA, Auth.js v5 with 4-role RBAC (DB-backed via `POST /api/v1/auth/login`), next-intl (lv/en)
-- **SDK:** `@vtv/sdk` — auto-generated TypeScript client from FastAPI OpenAPI schema (47 endpoints, 68 types). Auth via request interceptor (JWT, dual server/client context). Events domain migrated; 8 more clients to migrate.
+- **SDK:** `@vtv/sdk` — auto-generated TypeScript client from FastAPI OpenAPI schema (47 endpoints, 70+ types including EventGoals, GoalItem). Auth via request interceptor (JWT, dual server/client context). Events domain migrated; 8 more clients to migrate.
 - **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, GTFS, Documents, Users, Chat, Login
 - **New page checklist:** page component → i18n keys (lv + en) → sidebar nav → middleware RBAC → semantic tokens only
 - **Design system:** `cms/design-system/vtv/MASTER.md` (global) → `pages/{page}.md` (overrides) → `packages/ui/src/tokens.css` (tokens)
