@@ -105,7 +105,7 @@ VTV/
 Turborepo monorepo under `cms/` with pnpm workspaces. **Full documentation in `cms/CLAUDE.md` and `cms/apps/web/CLAUDE.md`.**
 
 - **Stack:** Next.js 16 + React 19, Tailwind CSS v4 + semantic tokens, shadcn/ui + CVA, Auth.js v5 (4-role RBAC), next-intl (lv/en)
-- **SDK:** `@vtv/sdk` — auto-generated TypeScript client (47 endpoints, 70+ types). Events domain migrated; 8 more to migrate.
+- **SDK:** `@vtv/sdk` — auto-generated TypeScript client (47 endpoints, 70+ types). All 8 API domains migrated from hand-written fetch to SDK wrappers.
 - **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, GTFS, Documents, Users, Chat, Login
 - **New page checklist:** page component → i18n keys (lv + en) → sidebar nav → middleware RBAC → semantic tokens only
 

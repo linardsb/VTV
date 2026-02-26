@@ -115,7 +115,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 | CMS Framework | Next.js 16 (App Router) | Full-stack, production-ready, enterprise patterns via implementation |
 | UI | Shadcn/ui + Tailwind v4 | No framework lock-in, CSS variable theming |
 | Data Tables | TanStack Table v8 | Server-side filtering/pagination |
-| API | REST + @vtv/sdk (OpenAPI-generated) ✅ | Type-safe client from FastAPI spec (47 endpoints, 70+ types including EventGoals/GoalItem, events domain migrated); tRPC v11 planned for CMS-native routes |
+| API | REST + @vtv/sdk (OpenAPI-generated) ✅ | Type-safe client from FastAPI spec (47 endpoints, 70+ types including EventGoals/GoalItem, all 8 domains migrated); tRPC v11 planned for CMS-native routes |
 | ORM | SQLAlchemy 2.0 (async) | Backend ORM with pgvector; Drizzle planned for CMS PostGIS layer |
 | Database | PostgreSQL 18 + pgvector | Vector search for RAG; PostGIS planned for spatial queries |
 | Maps | react-leaflet v5 + Leaflet 1.9 | OpenStreetMap tiles, marker clustering planned |

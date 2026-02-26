@@ -56,13 +56,15 @@ pnpm --filter @vtv/sdk refresh        # Fetch fresh schema + regenerate (require
 
 ## Migration Status
 
-| Domain Client | Status | Wrapper |
-|---------------|--------|---------|
-| `events-client.ts` | Migrated | `events-sdk.ts` |
-| `stops-client.ts` | Pending | — |
-| `drivers-client.ts` | Pending | — |
-| `users-client.ts` | Pending | — |
-| `schedules-client.ts` | Pending | — |
-| `documents-client.ts` | Pending | — |
-| `gtfs-client.ts` | Pending | — |
-| `agent-client.ts` | Pending | — |
+All 8 domain clients migrated from hand-written `authFetch` wrappers to SDK wrappers (commit b9e34f0, 2026-02-26).
+
+| Legacy Client | SDK Wrapper |
+|---------------|-------------|
+| `events-client.ts` | `events-sdk.ts` |
+| `stops-client.ts` | `stops-sdk.ts` |
+| `drivers-client.ts` | `drivers-sdk.ts` |
+| `users-client.ts` | `users-sdk.ts` |
+| `schedules-client.ts` | `schedules-sdk.ts` |
+| `documents-client.ts` | `documents-sdk.ts` |
+| `gtfs-client.ts` | `gtfs-sdk.ts` |
+| `agent-client.ts` | `agent-sdk.ts` |

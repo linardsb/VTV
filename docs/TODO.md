@@ -19,10 +19,6 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [ ] **CRUD E2E Tests** - Tests that create/edit/delete records and verify persistence. Current 81 tests cover page loads, filters, navigation, and UI interactions but don't test full write operations (require seeded test data).
 
-### SDK Migration
-
-- [ ] **API Client Migration to @vtv/sdk** - Events domain migrated to `@vtv/sdk`; 8 remaining API clients (`stops-client.ts`, `schedules-client.ts`, `drivers-client.ts`, `documents-client.ts`, `gtfs-client.ts`, `users-client.ts`, `routes` in page, `agent-client.ts`) still use manual `authFetch` wrappers. Migrate each to use generated SDK types and methods.
-
 ## Planned Features
 
 ### Document Management System (DMS)
@@ -165,8 +161,9 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 - [x] **Users Page** - Admin-only user management page at `/[locale]/users`. CRUD with search, role/status filters, reset-password dialog. Backend: `/api/v1/auth/users` (5 endpoints). (commit b2d5e1d, 2026-02-25)
   - Plan: [.agents/plans/fe-users-page.md](../.agents/plans/fe-users-page.md)
 
-- [x] **@vtv/sdk Generation** - Auto-generated TypeScript client from FastAPI OpenAPI schema. 47 endpoints, 68 types. Auth via request interceptor (JWT, dual server/client context). Events domain migrated as first consumer. (commit b2d5e1d, 2026-02-25)
+- [x] **@vtv/sdk Generation + Full Migration** - Auto-generated TypeScript client from FastAPI OpenAPI schema. 47 endpoints, 68 types. Auth via request interceptor (JWT, dual server/client context). All 8 API domains migrated from hand-written `authFetch` to thin SDK wrappers, eliminating ~1,200 lines of boilerplate. (commits b2d5e1d, b9e34f0, 2026-02-25/26)
   - Plan: [.agents/plans/fe-sdk-generation.md](../.agents/plans/fe-sdk-generation.md)
+  - Migration plan: [.agents/plans/fe-sdk-migration.md](../.agents/plans/fe-sdk-migration.md)
 
 ## Planning Documents
 

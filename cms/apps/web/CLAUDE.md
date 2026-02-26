@@ -48,19 +48,20 @@ src/
 │   └── use-drivers-summary.ts  # useDriversSummary() — SWR, 120s refresh (active drivers)
 ├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts, driver.ts, event.ts, gtfs.ts, user.ts)
 ├── lib/
+│   ├── auth-fetch.ts            # JWT-authenticated fetch wrapper (getToken with 60s cache, dual server/client context)
 │   ├── swr-fetcher.ts          # SWR fetcher wrapping authFetch (shared across all SWR hooks)
 │   ├── utils.ts                # cn() class merge utility
 │   ├── sdk.ts                  # @vtv/sdk client configuration (base URL + JWT auth interceptor, side-effect import)
-│   ├── events-sdk.ts           # Events SDK wrapper (drop-in replacement for events-client, uses @vtv/sdk)
-│   ├── agent-client.ts         # FastAPI agent API client
-│   ├── documents-client.ts     # Knowledge base API client (upload, list, delete, download)
-│   ├── stops-client.ts         # Stops API client (CRUD, nearby search)
-│   ├── schedules-client.ts     # Schedules API client (22 endpoints: agencies, routes, calendars, trips, import, validate)
-│   ├── drivers-client.ts       # Drivers API client (CRUD, search, shift/status filters)
-│   ├── events-client.ts        # Events API client (CRUD) — legacy, replaced by events-sdk.ts
-│   ├── gtfs-client.ts          # GTFS API client (stats aggregation, feed status, ZIP export with Content-Disposition)
-│   ├── users-client.ts         # Users API client (admin-only CRUD, search, role/status filters, reset-password)
+│   ├── agent-sdk.ts            # Agent SDK wrapper (chat streaming via @vtv/sdk)
+│   ├── documents-sdk.ts        # Documents SDK wrapper (upload, list, delete, download via @vtv/sdk)
+│   ├── drivers-sdk.ts          # Drivers SDK wrapper (CRUD, search, shift/status filters via @vtv/sdk)
+│   ├── events-sdk.ts           # Events SDK wrapper (CRUD, driver_id filter via @vtv/sdk)
+│   ├── gtfs-sdk.ts             # GTFS SDK wrapper (stats, feed status, ZIP export via @vtv/sdk)
+│   ├── schedules-sdk.ts        # Schedules SDK wrapper (22 endpoints: agencies, routes, calendars, trips, import via @vtv/sdk)
+│   ├── stops-sdk.ts            # Stops SDK wrapper (CRUD, nearby search via @vtv/sdk)
+│   ├── users-sdk.ts            # Users SDK wrapper (admin-only CRUD, search, role/status filters via @vtv/sdk)
 │   ├── color-utils.ts          # Hex color conversion (backend "FF7043" ↔ frontend "#FF7043")
+│   ├── mock-bus-positions.ts   # Mock bus position data (dev fallback)
 │   └── mock-dashboard-data.ts  # Mock dashboard metrics (calendar events now from real API)
 └── i18n/
     └── request.ts              # next-intl configuration
