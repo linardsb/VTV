@@ -342,7 +342,7 @@ export default function StopsPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-var(--spacing-page)*2)] flex-col gap-(--spacing-grid)">
+    <div className="flex flex-col gap-(--spacing-grid) md:h-[calc(100vh-var(--spacing-page)*2)]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -374,7 +374,11 @@ export default function StopsPage() {
       </div>
 
       {/* Layout: Mobile (tabs) vs Desktop (resizable panels) */}
-      {isMobile ? (
+      {isMobile === undefined ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center">
+          <Skeleton className="h-full w-full rounded-lg" />
+        </div>
+      ) : isMobile ? (
         <>
           <StopFilters
             search={search}
@@ -389,7 +393,7 @@ export default function StopsPage() {
             onSheetOpenChange={setFilterSheetOpen}
           />
 
-          <Tabs defaultValue="table" className="flex min-h-0 flex-1 flex-col">
+          <Tabs defaultValue="table" className="flex min-h-[50vh] flex-1 flex-col md:min-h-0">
             <TabsList className="w-full">
               <TabsTrigger value="table" className="flex-1 cursor-pointer">
                 {t("mobile.tableTab")}

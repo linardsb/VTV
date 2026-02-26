@@ -84,6 +84,12 @@ export function DashboardContent({ locale }: DashboardContentProps) {
     void calendarRefetchRef.current?.();
   }, []);
 
+  const handleEventDeleted = useCallback(() => {
+    setGoalPanelOpen(false);
+    setSelectedEvent(null);
+    void calendarRefetchRef.current?.();
+  }, []);
+
   const handleDriverClick = useCallback((event: CalendarEvent) => {
     setDriverPanelEvent(event);
     setDriverPanelOpen(true);
@@ -94,7 +100,7 @@ export function DashboardContent({ locale }: DashboardContentProps) {
   }, []);
 
   return (
-    <div className="flex h-[calc(100vh-var(--spacing-page)*2)] flex-col gap-(--spacing-grid)">
+    <div className="flex flex-col gap-(--spacing-grid) md:h-[calc(100vh-var(--spacing-page)*2)]">
       {/* Page header */}
       <div className="flex shrink-0 items-center justify-between">
         <h1 className="font-heading text-heading font-semibold text-foreground">
@@ -110,9 +116,9 @@ export function DashboardContent({ locale }: DashboardContentProps) {
 
       {/* Resizable layout: desktop (panels) vs mobile (stacked) */}
       {isMobile ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-(--spacing-grid)">
+        <div className="flex flex-col gap-(--spacing-grid) overflow-y-auto">
           <DashboardMetrics />
-          <div className="min-h-0 flex-1">
+          <div className="min-h-[24rem]">
             <CalendarPanel
               onDayDrop={canSchedule ? handleDayDrop : undefined}
               refetchRef={calendarRefetchRef}
@@ -179,7 +185,8 @@ export function DashboardContent({ locale }: DashboardContentProps) {
         event={selectedEvent}
         open={goalPanelOpen}
         onOpenChange={setGoalPanelOpen}
-        onGoalsUpdated={handleGoalsUpdated}
+        onEventUpdated={handleGoalsUpdated}
+        onEventDeleted={handleEventDeleted}
       />
 
       {/* Driver actions panel */}

@@ -210,6 +210,42 @@
       "viewGoals": "Mērķi",
       "eventTime": "{start} – {end}",
       "allDay": "Visu dienu"
+    },
+    "eventPanel": {
+      "title": "Notikuma detaļas",
+      "edit": "Rediģēt",
+      "delete": "Dzēst",
+      "save": "Saglabāt",
+      "cancel": "Atcelt",
+      "saving": "Saglabā...",
+      "description": "Apraksts",
+      "descriptionPlaceholder": "Notikuma apraksts...",
+      "startTime": "Sākuma laiks",
+      "endTime": "Beigu laiks",
+      "startDate": "Sākuma datums",
+      "endDate": "Beigu datums",
+      "priority": "Prioritāte",
+      "category": "Kategorija",
+      "addGoals": "Pievienot mērķus",
+      "addGoalPlaceholder": "Ievadiet mērķi...",
+      "allDay": "Visa diena",
+      "updated": "Notikums atjaunināts",
+      "deleted": "Notikums dzēsts",
+      "updateError": "Neizdevās atjaunināt notikumu",
+      "deleteError": "Neizdevās dzēst notikumu",
+      "deleteTitle": "Dzēst notikumu",
+      "deleteConfirmation": "Vai tiešām vēlaties dzēst šo notikumu?",
+      "deleteWarning": "Šī darbība ir neatgriezeniska. Notikums tiks neatgriezeniski dzēsts.",
+      "deleteConfirm": "Dzēst",
+      "deleteCancel": "Atcelt",
+      "deleting": "Dzēš...",
+      "quickActions": "Ātrās darbības",
+      "categories": {
+        "maintenance": "Apkope",
+        "route-change": "Maršruta izmaiņa",
+        "driver-shift": "Vadītāja maiņa",
+        "service-alert": "Servisa brīdinājums"
+      }
     }
   },
   "routes": {

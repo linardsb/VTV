@@ -31,7 +31,7 @@ export default function ChatPage() {
 
   return (
     <TooltipProvider>
-      <div className="flex h-[calc(100vh-var(--spacing-page)*2)] flex-col">
+      <div className="flex flex-col md:h-[calc(100vh-var(--spacing-page)*2)]">
         {/* Header */}
         <div className="flex items-center justify-between pb-(--spacing-card)">
           <h1 className="font-heading text-heading font-semibold text-foreground">

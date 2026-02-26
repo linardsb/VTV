@@ -52,7 +52,7 @@ export default function GTFSPage() {
   }, [loadData]);
 
   return (
-    <div className="flex h-[calc(100vh-var(--spacing-page)*2)] flex-col gap-(--spacing-grid)">
+    <div className="flex flex-col gap-(--spacing-grid) md:h-[calc(100vh-var(--spacing-page)*2)]">
       {/* Header */}
       <div>
         <h1 className="font-heading text-heading font-semibold text-foreground">
