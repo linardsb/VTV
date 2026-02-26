@@ -53,6 +53,7 @@ class EventBase(BaseModel):
         description="Category: maintenance/route-change/driver-shift/service-alert",
     )
     goals: EventGoals | None = Field(None, description="Structured goals for driver scheduling")
+    driver_id: int | None = Field(None, description="Associated driver ID from drivers table")
 
 
 class EventCreate(EventBase):
@@ -69,6 +70,7 @@ class EventUpdate(BaseModel):
     priority: PriorityType | None = Field(None)
     category: CategoryType | None = Field(None)
     goals: EventGoals | None = None
+    driver_id: int | None = None
 
     @model_validator(mode="before")
     @classmethod

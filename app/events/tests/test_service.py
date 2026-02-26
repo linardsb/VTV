@@ -272,3 +272,69 @@ def test_goal_item_text_too_long():
 
     with pytest.raises(ValidationError):
         GoalItem(text="x" * 501, item_type="route")
+
+
+# --- driver_id filtering tests ---
+
+
+async def test_list_events_with_driver_filter(service):
+    """List events filtered by driver_id."""
+    events = [make_event(id=1, driver_id=5)]
+    service.repository.list = AsyncMock(return_value=events)
+    service.repository.count = AsyncMock(return_value=1)
+
+    pagination = PaginationParams(page=1, page_size=20)
+    result = await service.list_events(pagination, driver_id=5)
+
+    assert len(result.items) == 1
+    service.repository.list.assert_awaited_once()
+    call_kwargs = service.repository.list.call_args.kwargs
+    assert call_kwargs["driver_id"] == 5
+
+
+async def test_list_events_by_driver(service):
+    """list_events_by_driver delegates to list_events with driver_id."""
+    events = [make_event(id=1, driver_id=10)]
+    service.repository.list = AsyncMock(return_value=events)
+    service.repository.count = AsyncMock(return_value=1)
+
+    pagination = PaginationParams(page=1, page_size=20)
+    result = await service.list_events_by_driver(10, pagination)
+
+    assert len(result.items) == 1
+    call_kwargs = service.repository.list.call_args.kwargs
+    assert call_kwargs["driver_id"] == 10
+
+
+async def test_create_event_with_driver_id(service):
+    """Create event with driver_id assigned."""
+    now = utcnow()
+    data = EventCreate(
+        title="Driver Shift",
+        start_datetime=now,
+        end_datetime=now + datetime.timedelta(hours=8),
+        category="driver-shift",
+        driver_id=7,
+    )
+    created = make_event(id=20, title="Driver Shift", driver_id=7)
+    service.repository.create = AsyncMock(return_value=created)
+
+    result = await service.create_event(data)
+    assert result.id == 20
+    assert result.driver_id == 7
+
+
+async def test_create_event_without_driver_id(service):
+    """Create event without driver_id (backward compat)."""
+    now = utcnow()
+    data = EventCreate(
+        title="Maintenance",
+        start_datetime=now,
+        end_datetime=now + datetime.timedelta(hours=2),
+    )
+    created = make_event(id=21, title="Maintenance", driver_id=None)
+    service.repository.create = AsyncMock(return_value=created)
+
+    result = await service.create_event(data)
+    assert result.id == 21
+    assert result.driver_id is None

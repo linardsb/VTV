@@ -34,15 +34,39 @@ async def list_events(
     pagination: PaginationParams = Depends(),  # noqa: B008
     start_date: datetime.datetime | None = Query(None),  # noqa: B008
     end_date: datetime.datetime | None = Query(None),  # noqa: B008
+    driver_id: int | None = Query(None, description="Filter events by driver ID"),
     service: EventService = Depends(get_service),  # noqa: B008
     _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> PaginatedResponse[EventResponse]:
-    """List operational events with optional date range filter.
+    """List operational events with optional date range and driver filters.
 
     Requires authentication. All operational data access is restricted.
     """
     _ = request
-    return await service.list_events(pagination, start_date=start_date, end_date=end_date)
+    return await service.list_events(
+        pagination, start_date=start_date, end_date=end_date, driver_id=driver_id
+    )
+
+
+@router.get("/by-driver/{driver_id}", response_model=PaginatedResponse[EventResponse])
+@limiter.limit("30/minute")
+async def list_events_by_driver(
+    request: Request,
+    driver_id: int,
+    pagination: PaginationParams = Depends(),  # noqa: B008
+    start_date: datetime.datetime | None = Query(None),  # noqa: B008
+    end_date: datetime.datetime | None = Query(None),  # noqa: B008
+    service: EventService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
+) -> PaginatedResponse[EventResponse]:
+    """List operational events for a specific driver.
+
+    Requires authentication. Supports pagination and date range filters.
+    """
+    _ = request
+    return await service.list_events_by_driver(
+        driver_id, pagination, start_date=start_date, end_date=end_date
+    )
 
 
 @router.get("/{event_id}", response_model=EventResponse)

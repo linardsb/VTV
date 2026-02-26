@@ -21,6 +21,7 @@ def make_event(**overrides: object) -> OperationalEvent:
         "priority": "high",
         "category": "maintenance",
         "goals": None,
+        "driver_id": None,
         "created_at": now,
         "updated_at": now,
     }

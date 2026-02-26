@@ -7,7 +7,7 @@ driver shifts, and service alerts for the operations dashboard.
 import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -33,3 +33,9 @@ class OperationalEvent(Base, TimestampMixin):
     priority: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")
     category: Mapped[str] = mapped_column(String(30), nullable=False, default="maintenance")
     goals: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True, default=None)
+    driver_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("drivers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )

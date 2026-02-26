@@ -41,21 +41,25 @@ class EventService:
         *,
         start_date: datetime.datetime | None = None,
         end_date: datetime.datetime | None = None,
+        driver_id: int | None = None,
     ) -> PaginatedResponse[EventResponse]:
         logger.info(
             "events.list_started",
             page=pagination.page,
             page_size=pagination.page_size,
+            driver_id=driver_id,
         )
         events = await self.repository.list(
             offset=pagination.offset,
             limit=pagination.page_size,
             start_date=start_date,
             end_date=end_date,
+            driver_id=driver_id,
         )
         total = await self.repository.count(
             start_date=start_date,
             end_date=end_date,
+            driver_id=driver_id,
         )
         items = [EventResponse.model_validate(e) for e in events]
         logger.info("events.list_completed", result_count=len(items), total=total)
@@ -90,3 +94,17 @@ class EventService:
             raise EventNotFoundError(f"Event {event_id} not found")
         await self.repository.delete(event)
         logger.info("events.delete_completed", event_id=event_id)
+
+    async def list_events_by_driver(
+        self,
+        driver_id: int,
+        pagination: PaginationParams,
+        *,
+        start_date: datetime.datetime | None = None,
+        end_date: datetime.datetime | None = None,
+    ) -> PaginatedResponse[EventResponse]:
+        """List events for a specific driver with pagination and date filters."""
+        logger.info("events.list_by_driver_started", driver_id=driver_id, page=pagination.page)
+        return await self.list_events(
+            pagination, start_date=start_date, end_date=end_date, driver_id=driver_id
+        )

@@ -30,12 +30,15 @@ class EventRepository:
         limit: int = 100,
         start_date: datetime.datetime | None = None,
         end_date: datetime.datetime | None = None,
+        driver_id: int | None = None,
     ) -> list[OperationalEvent]:
         query = select(OperationalEvent)
         if start_date is not None:
             query = query.where(OperationalEvent.end_datetime >= start_date)
         if end_date is not None:
             query = query.where(OperationalEvent.start_datetime <= end_date)
+        if driver_id is not None:
+            query = query.where(OperationalEvent.driver_id == driver_id)
         query = query.order_by(OperationalEvent.start_datetime).offset(offset).limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -45,12 +48,15 @@ class EventRepository:
         *,
         start_date: datetime.datetime | None = None,
         end_date: datetime.datetime | None = None,
+        driver_id: int | None = None,
     ) -> int:
         query = select(func.count()).select_from(OperationalEvent)
         if start_date is not None:
             query = query.where(OperationalEvent.end_datetime >= start_date)
         if end_date is not None:
             query = query.where(OperationalEvent.start_datetime <= end_date)
+        if driver_id is not None:
+            query = query.where(OperationalEvent.driver_id == driver_id)
         result = await self.db.execute(query)
         return result.scalar_one()
 
