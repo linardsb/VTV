@@ -134,6 +134,7 @@ export function WeekView({ currentDate, events, onDayDrop }: WeekViewProps) {
               gridColumn: dayIdx + 2,
               gridRow: `1 / ${TOTAL_HOURS + 1}`,
             }}
+            aria-dropeffect={onDayDrop ? "copy" : undefined}
             onDragOver={(e) => {
               if (!onDayDrop) return;
               e.preventDefault();

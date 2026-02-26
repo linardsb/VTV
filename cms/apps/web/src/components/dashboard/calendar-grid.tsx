@@ -33,7 +33,7 @@ export function CalendarGrid({ events, onDayDrop }: CalendarGridProps) {
           <MonthView currentDate={currentDate} events={events} onDayDrop={onDayDrop} />
         )}
         {view === "3month" && (
-          <ThreeMonthView currentDate={currentDate} events={events} />
+          <ThreeMonthView currentDate={currentDate} events={events} onDayDrop={onDayDrop} />
         )}
         {view === "year" && (
           <YearView currentDate={currentDate} events={events} />

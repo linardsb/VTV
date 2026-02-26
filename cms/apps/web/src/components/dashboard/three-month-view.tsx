@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "@/types/dashboard";
@@ -8,6 +8,7 @@ import type { CalendarEvent } from "@/types/dashboard";
 interface ThreeMonthViewProps {
   currentDate: Date;
   events: CalendarEvent[];
+  onDayDrop?: (date: Date, driverJson: string) => void;
 }
 
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -66,13 +67,16 @@ function MiniMonth({
   month,
   events,
   today,
+  onDayDrop,
 }: {
   year: number;
   month: number;
   events: CalendarEvent[];
   today: Date;
+  onDayDrop?: (date: Date, driverJson: string) => void;
 }) {
   const t = useTranslations("dashboard");
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const weeks = useMemo(() => getMonthGrid(year, month), [year, month]);
 
   const eventsByDate = useMemo(() => {
@@ -92,13 +96,13 @@ function MiniMonth({
   }, [events, year, month]);
 
   return (
-    <div className="flex h-full flex-col">
-      <h3 className="mb-(--spacing-tight) shrink-0 text-center font-heading text-sm font-semibold text-foreground">
+    <div>
+      <h3 className="mb-(--spacing-tight) text-center font-heading text-sm font-semibold text-foreground">
         {t(`months.${MONTH_KEYS[month]}`)} {year}
       </h3>
 
       {/* Weekday headers */}
-      <div className="grid shrink-0 grid-cols-7 gap-px">
+      <div className="grid grid-cols-7 gap-px">
         {WEEKDAY_KEYS.map((key) => (
           <div
             key={key}
@@ -109,19 +113,19 @@ function MiniMonth({
         ))}
       </div>
 
-      {/* Day grid — each week row stretches equally */}
-      <div className="flex min-h-0 flex-1 flex-col gap-px">
+      {/* Day grid */}
+      <div className="flex flex-col gap-px">
         {weeks.map((week, weekIdx) => (
           <div
             key={weekIdx}
-            className="grid min-h-0 flex-1 grid-cols-7 gap-px"
+            className="grid grid-cols-7 gap-px"
           >
             {week.map((day, dayIdx) => {
               if (!day) {
                 return (
                   <div
                     key={`empty-${dayIdx}`}
-                    className="overflow-hidden rounded-sm border border-border-subtle opacity-40"
+                    className="aspect-square overflow-hidden rounded-sm border border-border-subtle opacity-40"
                   />
                 );
               }
@@ -136,9 +140,25 @@ function MiniMonth({
                 <div
                   key={day.getDate()}
                   className={cn(
-                    "overflow-hidden rounded-sm border border-border-subtle p-px transition-colors duration-200",
-                    isToday && "border-interactive bg-interactive/10"
+                    "aspect-square overflow-hidden rounded-sm border border-border-subtle p-px transition-colors duration-200",
+                    isToday && "border-interactive bg-interactive/10",
+                    dragOverDate === dateKey && "ring-2 ring-interactive bg-interactive/10"
                   )}
+                  aria-dropeffect={onDayDrop ? "copy" : undefined}
+                  onDragOver={onDayDrop ? (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "copy";
+                    setDragOverDate(dateKey);
+                  } : undefined}
+                  onDragLeave={onDayDrop ? () => setDragOverDate(null) : undefined}
+                  onDrop={onDayDrop ? (e) => {
+                    e.preventDefault();
+                    setDragOverDate(null);
+                    const driverJson = e.dataTransfer.getData("application/vtv-driver");
+                    if (driverJson) {
+                      onDayDrop(day, driverJson);
+                    }
+                  } : undefined}
                 >
                   <p
                     className={cn(
@@ -183,7 +203,7 @@ function MiniMonth({
   );
 }
 
-export function ThreeMonthView({ currentDate, events }: ThreeMonthViewProps) {
+export function ThreeMonthView({ currentDate, events, onDayDrop }: ThreeMonthViewProps) {
   const months = useMemo(() => {
     const result: { year: number; month: number }[] = [];
     for (let offset = -1; offset <= 1; offset++) {
@@ -200,7 +220,7 @@ export function ThreeMonthView({ currentDate, events }: ThreeMonthViewProps) {
   const today = new Date();
 
   return (
-    <div className="grid h-full grid-cols-1 gap-(--spacing-section) p-(--spacing-card) sm:grid-cols-3">
+    <div className="grid h-full grid-cols-1 place-content-center gap-(--spacing-section) overflow-auto p-(--spacing-card) sm:grid-cols-3">
       {months.map(({ year, month }) => (
         <MiniMonth
           key={`${year}-${month}`}
@@ -208,6 +228,7 @@ export function ThreeMonthView({ currentDate, events }: ThreeMonthViewProps) {
           month={month}
           events={events}
           today={today}
+          onDayDrop={onDayDrop}
         />
       ))}
     </div>

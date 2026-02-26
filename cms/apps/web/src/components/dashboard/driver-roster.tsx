@@ -48,25 +48,25 @@ function DriverRosterCard({ driver, canDrag }: DriverRosterCardProps) {
       draggable={canDrag}
       onDragStart={canDrag ? handleDragStart : undefined}
       className={cn(
-        "flex items-center gap-(--spacing-inline) rounded-lg border border-border-subtle bg-surface-raised p-(--spacing-inline) transition-colors duration-200 hover:border-border",
+        "rounded-lg border border-border-subtle bg-surface-raised p-(--spacing-inline) transition-colors duration-200 hover:border-border",
         canDrag && "cursor-grab active:cursor-grabbing"
       )}
     >
-      <div className="min-w-0 flex-1">
+      <div className="flex items-center justify-between gap-(--spacing-inline)">
         <p className="truncate text-sm font-medium text-foreground">
           {driver.first_name} {driver.last_name}
         </p>
-        <p className="truncate text-xs text-foreground-muted">
-          {t("roster.employee")} {driver.employee_number}
-          {shiftKey ? ` · ${t(`dropAction.${shiftKey}`)}` : ""}
-        </p>
+        <Badge
+          variant="secondary"
+          className={cn("shrink-0 text-[10px]", statusClass)}
+        >
+          {t(`roster.status.${driver.status}`)}
+        </Badge>
       </div>
-      <Badge
-        variant="secondary"
-        className={cn("shrink-0 text-[10px]", statusClass)}
-      >
-        {t(`roster.status.${driver.status}`)}
-      </Badge>
+      <p className="truncate text-xs text-foreground-muted">
+        {t("roster.employee")} {driver.employee_number}
+        {shiftKey ? ` · ${t(`dropAction.${shiftKey}`)}` : ""}
+      </p>
     </div>
   );
 }

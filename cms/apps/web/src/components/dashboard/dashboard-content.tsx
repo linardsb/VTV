@@ -6,6 +6,12 @@ import { ArrowRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { DashboardMetrics } from "./dashboard-metrics";
 import { CalendarPanel } from "./calendar-panel";
 import { DriverRoster } from "./driver-roster";
@@ -17,11 +23,12 @@ interface DashboardContentProps {
   locale: string;
 }
 
-const SCHEDULE_ROLES = ["admin", "editor"];
+const SCHEDULE_ROLES = ["admin", "editor", "dispatcher"];
 
 export function DashboardContent({ locale }: DashboardContentProps) {
   const t = useTranslations("dashboard");
   const { data: session } = useSession();
+  const isMobile = useIsMobile();
 
   const { drivers, isLoading: driversLoading } = useDriversSummary();
 
@@ -40,7 +47,7 @@ export function DashboardContent({ locale }: DashboardContentProps) {
       if (
         typeof parsed !== "object" ||
         parsed === null ||
-        typeof (parsed as Record<string, unknown>).id !== "string" ||
+        typeof (parsed as Record<string, unknown>).id !== "number" ||
         typeof (parsed as Record<string, unknown>).first_name !== "string" ||
         typeof (parsed as Record<string, unknown>).last_name !== "string"
       ) {
@@ -60,9 +67,9 @@ export function DashboardContent({ locale }: DashboardContentProps) {
   }, []);
 
   return (
-    <div className="space-y-(--spacing-section)">
+    <div className="flex h-[calc(100vh-var(--spacing-page)*2)] flex-col gap-(--spacing-grid)">
       {/* Page header */}
-      <div className="flex items-center justify-between">
+      <div className="flex shrink-0 items-center justify-between">
         <h1 className="font-heading text-heading font-semibold text-foreground">
           {t("title")}
         </h1>
@@ -74,28 +81,57 @@ export function DashboardContent({ locale }: DashboardContentProps) {
         </Button>
       </div>
 
-      {/* Metrics panel */}
-      <DashboardMetrics />
-
-      {/* Main area: driver roster + calendar */}
-      <div className="flex min-h-[calc(100vh-14rem)] gap-(--spacing-grid)">
-        {/* Left: driver roster (hidden on mobile) */}
-        <div className="hidden w-64 shrink-0 lg:block">
-          <DriverRoster
-            drivers={drivers}
-            isLoading={driversLoading}
-            canDrag={canSchedule}
-          />
+      {/* Resizable layout: desktop (panels) vs mobile (stacked) */}
+      {isMobile ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-(--spacing-grid)">
+          <DashboardMetrics />
+          <div className="min-h-0 flex-1">
+            <CalendarPanel
+              onDayDrop={canSchedule ? handleDayDrop : undefined}
+              refetchRef={calendarRefetchRef}
+            />
+          </div>
         </div>
+      ) : (
+        <ResizablePanelGroup
+          orientation="vertical"
+          className="min-h-0 flex-1 overflow-hidden"
+        >
+          {/* TOP PANEL: Analytics metric cards */}
+          <ResizablePanel defaultSize="20%" minSize="10%" maxSize="40%">
+            <DashboardMetrics />
+          </ResizablePanel>
 
-        {/* Right: calendar */}
-        <div className="min-w-0 flex-1">
-          <CalendarPanel
-            onDayDrop={canSchedule ? handleDayDrop : undefined}
-            refetchRef={calendarRefetchRef}
-          />
-        </div>
-      </div>
+          <ResizableHandle withHandle />
+
+          {/* BOTTOM PANEL: Drivers + Calendar */}
+          <ResizablePanel defaultSize="80%" minSize="40%">
+            <ResizablePanelGroup
+              orientation="horizontal"
+              className="overflow-hidden"
+            >
+              {/* BOTTOM-LEFT: Driver roster */}
+              <ResizablePanel defaultSize="25%" minSize="15%" maxSize="45%">
+                <DriverRoster
+                  drivers={drivers}
+                  isLoading={driversLoading}
+                  canDrag={canSchedule}
+                />
+              </ResizablePanel>
+
+              <ResizableHandle withHandle />
+
+              {/* BOTTOM-RIGHT: Operations calendar */}
+              <ResizablePanel defaultSize="75%" minSize="40%">
+                <CalendarPanel
+                  onDayDrop={canSchedule ? handleDayDrop : undefined}
+                  refetchRef={calendarRefetchRef}
+                />
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      )}
 
       {/* Drop action dialog */}
       <DriverDropDialog

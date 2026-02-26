@@ -123,6 +123,7 @@ export function MonthView({ currentDate, events, onDayDrop }: MonthViewProps) {
                     isToday && "border-interactive bg-interactive/10",
                     dragOverDate === dateKey && "ring-2 ring-interactive bg-interactive/10"
                   )}
+                  aria-dropeffect={onDayDrop ? "copy" : undefined}
                   onDragOver={(e) => {
                     if (!onDayDrop) return;
                     e.preventDefault();

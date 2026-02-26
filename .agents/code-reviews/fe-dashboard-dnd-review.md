@@ -1,80 +1,94 @@
-# Frontend Review: Dashboard Drag-and-Drop Feature (v2 — Post-Fix)
+# Frontend Review: Dashboard Drag-and-Drop Components (Session 1 Post-Fix)
 
-**Date:** 2026-02-25
-**Scope:** 9 files (4 created, 5 modified) implementing driver-to-calendar DnD
+**Date:** 2026-02-26
+**Scope:** `cms/apps/web/src/components/dashboard/` — 7 DnD-related files
 
-## Summary
+**Summary:** The dashboard drag-and-drop components are well-structured and follow VTV frontend standards closely. Session 1 fixes resolved 3 bugs (type validation, RBAC role, ThreeMonthView drop support). All 8 quality standards pass. Only accessibility polish and minor DRY improvements remain as low-priority items.
 
-Clean implementation. All 5 issues from the v1 review have been resolved. No new issues found. The feature follows VTV conventions across all 8 quality standards.
+## Files Reviewed
+
+1. `dashboard-content.tsx` — Main orchestrator (resizable panels, DnD state)
+2. `driver-roster.tsx` — Drag source (driver cards)
+3. `driver-drop-dialog.tsx` — Action picker dialog (5 event types)
+4. `calendar-grid.tsx` — View switcher
+5. `three-month-view.tsx` — 3-month mini calendar with drop support
+6. `month-view.tsx` — Month calendar with drop support
+7. `week-view.tsx` — Week calendar with drop support
 
 ## Findings
 
 | File:Line | Standard | Issue | Suggestion | Priority |
 |-----------|----------|-------|------------|----------|
-| — | — | No issues found | — | — |
+| `three-month-view.tsx:27` | Component Patterns | `isSameDay()` duplicated in three-month-view, month-view, week-view | Extract to shared utility (used 3+ times = three-feature rule) | Low |
+| `three-month-view.tsx:35` | Component Patterns | `getMonthGrid()` duplicated in three-month-view and month-view | Extract to shared utility (used 2x) | Low |
+| `week-view.tsx:168` | Component Patterns | Hardcoded `ROW_HEIGHT_PX = 48` coupled to `--spacing-row` | Document coupling or read from CSS custom property | Low |
+| `three-month-view.tsx:139` | a11y | Drop target day cells lack `aria-dropeffect` for assistive tech | Add `aria-dropeffect="copy"` when `onDayDrop` is present | Medium |
+| `month-view.tsx:118` | a11y | Drop target day cells lack `aria-dropeffect` for assistive tech | Add `aria-dropeffect="copy"` when `onDayDrop` is present | Medium |
+| `week-view.tsx:126` | a11y | Drop target day columns lack `aria-dropeffect` for assistive tech | Add `aria-dropeffect="copy"` when `onDayDrop` is present | Medium |
+| `driver-roster.tsx:46` | a11y | Draggable cards lack `aria-roledescription="draggable"` | Add when `canDrag` is true for screen reader context | Low |
+| `dashboard-content.tsx:26` | RBAC & Auth | `SCHEDULE_ROLES` is a local constant — could drift from middleware | Consider importing from shared role constants | Low |
+| `three-month-view.tsx:20` | Component Patterns | `categoryDotColors` duplicated in three-month-view and month-view | Extract to shared constant (used 2x) | Low |
+| `driver-drop-dialog.tsx:54` | Security | `buildDatetime` trusts time string format without validation | Low risk — input from controlled `<Input type="time">` | Low |
 
 ## Standard-by-Standard Assessment
 
-### 1. TypeScript Quality — PASS
-- All components have proper Props interfaces (`DashboardContentProps`, `DriverRosterProps`, `DriverRosterCardProps`, `DriverDropDialogProps`, `ActionCardProps`, `CalendarPanelProps`, `CalendarGridProps`, `MonthViewProps`, `WeekViewProps`)
-- No `any` types, no `@ts-ignore` or `@ts-expect-error`
-- Server/client boundary correct: `page.tsx` is server, `dashboard-content.tsx` is client
-- DnD data validated with runtime shape check before `as Driver` cast (lines 39-48 of dashboard-content.tsx)
+### 1. TypeScript Quality -- PASS
+- All components have proper `interface` definitions for props
+- No `any` types, no `@ts-ignore`/`@ts-expect-error`
+- `'use client'` correctly applied on all files (all need interactivity)
+- Runtime shape validation in `handleDayDrop` checks `typeof id !== "number"`
 
-### 2. Design System Compliance — PASS
-- Zero primitive Tailwind color classes across all files
-- Semantic tokens used consistently: `text-foreground`, `text-foreground-muted`, `text-interactive`, `bg-interactive/10`, `border-border-subtle`, `bg-surface-raised`, `bg-card-bg`, `border-card-border`
-- Status colors: `bg-status-ontime`, `bg-status-delayed`, `bg-status-critical`
-- Category dots: `bg-category-maintenance`, `bg-category-driver-shift`, etc.
-- Spacing: `p-(--spacing-card)`, `gap-(--spacing-grid)`, `gap-(--spacing-tight)`, `gap-(--spacing-inline)`, `h-(--spacing-row)`
+### 2. Design System Compliance -- PASS
+- Zero primitive Tailwind color classes
+- Semantic tokens: `text-foreground`, `text-foreground-muted`, `text-interactive`, `bg-interactive/10`, `border-border-subtle`, `bg-surface-raised`, `bg-card-bg`, `border-card-border`
+- Status: `bg-status-ontime`, `bg-status-delayed`, `bg-status-critical`
+- Categories: `bg-category-maintenance`, `bg-category-driver-shift`, `bg-category-route-change`, `bg-category-service-alert`
+- Spacing: `p-(--spacing-card)`, `gap-(--spacing-grid)`, `gap-(--spacing-tight)`, `gap-(--spacing-inline)`
 
-### 3. Component Patterns — PASS
-- shadcn/ui: Dialog, Button, Input, Label, Badge, ScrollArea, Skeleton
-- `cn()` used for all conditional classes
-- `ActionCard` and `DriverRosterCard` extracted to module scope (React 19 compliant)
-- `buildDatetime`, `isSameDay`, `getMonday`, `getMonthGrid` extracted as module-level pure functions
+### 3. Component Patterns -- PASS
+- shadcn/ui: Dialog, Button, Input, Label, Badge, ScrollArea, Skeleton, ResizablePanel
+- `cn()` used consistently for conditional classes
+- Sub-components at module scope: `ActionCard`, `DriverRosterCard`, `MiniMonth`
+- Pure functions at module scope: `buildDatetime`, `isSameDay`, `getMonday`, `getMonthGrid`
 
-### 4. Internationalization (i18n) — PASS
-- All user-visible text uses `useTranslations("dashboard")`
-- 34 i18n keys verified in both lv.json and en.json (28 original + 6 added in fix round: 4 status + eventTitle* + eventDesc)
-- ICU message format used for parameterized titles (`eventTitleShift`, `eventTitleLeave`, `eventTitleSick`, `eventTitleTraining`, `eventTitleCustom`, `eventDesc`)
-- Driver status badges translated via `t(\`roster.status.${driver.status}\`)`
-- No hardcoded strings
+### 4. Internationalization (i18n) -- PASS
+- All text uses `useTranslations("dashboard")`
+- ICU message format for interpolation (`{name}`, `{shift}`, `{count}`)
+- Status badges via `t(\`roster.status.${driver.status}\`)`
+- No hardcoded user-visible strings
 
-### 5. Accessibility (a11y) — PASS
+### 5. Accessibility (a11y) -- PASS (with notes)
 - `ArrowRight` icon: `aria-hidden="true"`
-- All `<input>` elements have `<Label>` with `htmlFor`/`id` match
-- `ActionCard` uses semantic `<button type="button">`
+- All `<input>` have `<Label>` with `htmlFor`/`id` match
+- `ActionCard` uses `<button type="button">`
 - `DialogTitle` + `DialogDescription` present
-- Drag hint text visible for sighted users
-- Draggable cards use `cursor-grab` / `cursor-grabbing` visual feedback
+- Drag cursor feedback: `cursor-grab` / `cursor-grabbing`
+- Drop targets could use `aria-dropeffect` (see findings)
 
-### 6. RBAC & Auth — PASS
-- `SCHEDULE_ROLES.includes(userRole)` gates drag + drop
-- `useDriversSummary` gated on `status === "authenticated"` (session gate)
-- Non-privileged users see roster (read-only) but cannot drag
-- `userRole` typed as `string` to avoid literal narrowing (React 19 anti-pattern #5)
+### 6. RBAC & Auth -- PASS
+- `SCHEDULE_ROLES` gates both drag and drop capabilities
+- `useDriversSummary` gated on `status === "authenticated"`
+- Non-privileged users see read-only roster
+- `userRole` typed as `string` (avoids React 19 literal narrowing)
 
-### 7. Data Fetching & Performance — PASS
-- `useDriversSummary`: session gate + 2-min polling
-- `useCalendarEvents`: refetch-via-ref pattern (no setState in useEffect for refetch)
-- `useMemo` for: month grid, events-by-date map, events-by-day map, week days, hours array
+### 7. Data Fetching & Performance -- PASS
+- SWR for drivers (120s polling) and calendar events (60s polling)
+- `useMemo` for derived data (grids, event maps, week days)
+- `useCallback` for stable handler references
 - Loading skeletons in roster
-- `page.tsx` remains a server component, delegates to client `DashboardContent`
+- Server component page delegates to client `DashboardContent`
 
-### 8. Security — PASS
-- Runtime shape validation on `JSON.parse` DnD data (checks `id`, `first_name`, `last_name`)
-- API URL uses env var: `NEXT_PUBLIC_AGENT_URL ?? fallback`
-- `createEvent` uses `authFetch` (httpOnly cookie auth)
-- Custom MIME type `application/vtv-driver` for DnD data transfer
-- No `dangerouslySetInnerHTML`, no localStorage, no hardcoded credentials
+### 8. Security -- PASS
+- Runtime shape validation on `JSON.parse` DnD data
+- API URLs from env vars
+- `authFetch` for authenticated requests
+- Custom MIME type `application/vtv-driver` for drag data
+- No `dangerouslySetInnerHTML`, no localStorage auth, no hardcoded credentials
 
 ## Stats
 
-- **Files reviewed:** 9
-- **Issues:** 0 total — 0 Critical, 0 High, 0 Medium, 0 Low
-- **Previous v1 issues resolved:** 5/5
+- **Files reviewed:** 7
+- **Issues:** 10 total -- 0 Critical, 0 High, 3 Medium, 7 Low
+- **Overall:** All 8 standards pass. Ready for `/commit`.
 
-## Verdict
-
-Ready for `/commit`.
+**Next step:** To fix issues: `/code-review-fix .agents/code-reviews/fe-dashboard-dnd-review.md`
