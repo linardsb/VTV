@@ -62,7 +62,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 
 ### 4.2 What's Out (Post-MVP)
 
-- ~~Live GPS tracking and real-time map~~ ✅ **Implemented** — Multi-feed GTFS-RT tracking with Redis caching, background pollers, 3 REST endpoints + 1 WebSocket endpoint. Live map with react-leaflet v5, HTTP polling (WebSocket frontend hook planned). WebSocket live streaming via Redis Pub/Sub fan-out with per-client feed/route filtering, JWT auth via query parameter, nginx connection limits. Supports Riga + configurable additional feeds (Jurmala, Pieriga, ATD)
+- ~~Live GPS tracking and real-time map~~ ✅ **Implemented** — Multi-feed GTFS-RT tracking with Redis caching, background pollers, 3 REST endpoints + 1 WebSocket endpoint. Live map with react-leaflet v5, WebSocket real-time push (~100ms latency) with automatic HTTP polling fallback. WebSocket live streaming via Redis Pub/Sub fan-out with per-client feed/route filtering, JWT auth via query parameter, nginx connection limits. Frontend connection status badge (Live/Polling/Connecting). Supports Riga + configurable additional feeds (Jurmala, Pieriga, ATD)
 - ~~Vehicle and driver management (Phase 2)~~ **Driver management implemented** — Full CRUD backend (5 endpoints), CMS page with table/filters/forms, agent tool integration (DB-backed `check_driver_availability`). Dashboard integration: driver roster with drag-and-drop scheduling, goal-based shift/training assignment, license/medical expiry tracking. Vehicle management remains Phase 2
 - NeTEx/SIRI compliance exports (Phase 3)
 - Public-facing passenger information (out of scope)

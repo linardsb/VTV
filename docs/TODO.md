@@ -5,11 +5,11 @@ Planned features and improvements. Each item links to its detailed planning docu
 ## Progress Overview
 
 ```
-Backend API       ██████████████████████░░  95%  (8/8 features: auth, knowledge, drivers, events, stops, schedules, transit, skills)
-CMS Frontend      ██████████████████████░░  95%  (10/10 pages live, real API on all, SWR data fetching, drag-and-drop scheduling)
-Testing           ████████████████████░░░░  82%  (693 unit tests, 105 security tests, 81 e2e tests, CI pipeline live with security gates)
+Backend API       ██████████████████████░░  97%  (8/8 features: auth, knowledge, drivers, events, stops, schedules, transit, skills + WebSocket live streaming)
+CMS Frontend      ██████████████████████░░  97%  (10/10 pages live, real API on all, WebSocket real-time vehicle positions, drag-and-drop scheduling)
+Testing           ████████████████████░░░░  85%  (753 unit tests, 105 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework)
-Latvia Platform   ████░░░░░░░░░░░░░░░░░░░  15%  (Riga GTFS only, no PostGIS/TimescaleDB/multi-city yet)
+Latvia Platform   █████░░░░░░░░░░░░░░░░░░  20%  (Riga GTFS + PostGIS spatial queries + WebSocket live streaming, no TimescaleDB/multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -21,11 +21,6 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 ## Planned Features
 
-### Document Management System (DMS)
-
-- [ ] **DMS Enhancements** - Scanned PDF OCR detection, LLM auto-tagging on upload, tag CRUD endpoints. ~2 days remaining effort.
-  - Plan: [docs/PLANNING/latvian-language-and-model-research.md](PLANNING/latvian-language-and-model-research.md) (see "Unified DMS" section)
-
 ### Knowledge Base
 
 - [ ] **RAG Knowledge Base Improvements** - Expand document type support (HTML, PPTX — Excel/CSV done), add Latvian lemmatizer, parent-child chunking, temporal metadata, auto-domain tagging, cross-lingual search, document versioning, search feedback loop, and knowledge graph overlay. ~12-14 days remaining effort, ~$0.65/month added cost.
@@ -36,7 +31,7 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 ### Full Latvia Transit Platform
 
-- [ ] **Phase 1: Foundation** - Database extensions (PostGIS, TimescaleDB), GTFS static importer for all Latvia, CKAN data.gov.lv bridge for immediate ATD data, WebSocket for live streaming, full-screen transit map in CMS. ~4 weeks effort. *Partially done: GTFS import, Redis cache, REST endpoints, and GTFS-RT poller for Riga are complete.*
+- [ ] **Phase 1: Foundation** - Database extensions (TimescaleDB), GTFS static importer for all Latvia, CKAN data.gov.lv bridge for immediate ATD data, full-screen transit map in CMS. ~3 weeks remaining effort. *Largely done: GTFS import, Redis cache, REST endpoints, GTFS-RT poller, PostGIS spatial queries (GeoAlchemy2 + GIST index), and WebSocket live streaming (backend Pub/Sub + frontend real-time push with HTTP fallback) are complete. Remaining: TimescaleDB, multi-city GTFS, CKAN bridge, full-screen map.*
   - Plan: [docs/PLANNING/Implementation-Plan.md](PLANNING/Implementation-Plan.md) (Phase 1)
 
 - [ ] **Phase 2: Full Latvia Coverage** - Additional city feeds (Daugavpils, Jurmala, Pieriga), train positions via WebSocket, Valhalla route matching, ETA calculator, adaptive polling, circuit breakers, TimescaleDB compression, GTFS-RT publisher. ~4 weeks effort.
@@ -88,11 +83,23 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [x] **Agent Skills System** - 7 endpoints: CRUD + activation/deactivation + agent context injection. Reusable knowledge packages that dynamically extend agent capabilities. 11th agent tool. 23 unit tests. (commit ed9662f)
 
+- [x] **PostGIS Migration** - Migrated stop proximity search from Haversine formula to PostGIS `ST_DWithin` with GeoAlchemy2, GIST-indexed Geometry(Point, 4326) column, database trigger for lat/lon→geom sync. Sub-ms spatial queries. (commit f7070b7, 2026-02-26)
+  - Plan: [.agents/plans/postgis-migration.md](../.agents/plans/postgis-migration.md)
+
+- [x] **DMS Enhancements** - Scanned PDF OCR detection, LLM auto-tagging on upload, tag CRUD endpoints (create/list/delete tags, bulk tag documents). (commit 65697a8, 2026-02-26)
+  - Plan: [.agents/plans/dms-enhancements.md](../.agents/plans/dms-enhancements.md)
+
+- [x] **WebSocket Live Streaming (Backend)** - Real-time vehicle position push via WebSocket (`/ws/transit/vehicles`). Redis Pub/Sub fan-out from GTFS-RT pollers to per-client connections. Per-client feed/route filtering via subscribe messages. JWT auth via query parameter. ConnectionManager singleton, background subscriber task. nginx WebSocket proxy with 3600s timeouts and 10/IP connection limit. 30 new unit tests (ws_manager, ws_routes, ws_subscriber, poller). (commit cdb80ca, 2026-02-27)
+  - Plan: [.agents/plans/be-websocket-live-streaming.md](../.agents/plans/be-websocket-live-streaming.md)
+
+- [x] **WebSocket Live Streaming (Frontend)** - Replaced HTTP polling with WebSocket real-time push (~100ms latency) for vehicle positions. Automatic fallback to SWR HTTP polling (10s) after 3 failed reconnects. Periodic 60s retry to switch back to WebSocket. Route filtering via subscribe message. Connection status badge (Live/Polling/Connecting) on map. JWT auth via query parameter with 60s cached token. (commit 5bf06ca, 2026-02-27)
+  - Plan: [.agents/plans/fe-websocket-vehicle-positions.md](../.agents/plans/fe-websocket-vehicle-positions.md)
+
 ### CMS Frontend Pages
 
 - [x] **Dashboard** - 4 metric cards (real API via SWR: vehicles + routes, 30s polling), multi-view calendar (week/month/3-month/year, real events via `useCalendarEvents` SWR hook), drag-and-drop driver scheduling (driver roster + 5 action types), live timeline, resizable panels. (commit 852ee95, updated 2026-02-25)
 
-- [x] **Routes Page** - Real API CRUD against backend `/api/v1/schedules/routes`, server pagination, search, type/agency/status filters, route detail sheet, route form, Leaflet map with live GTFS-RT vehicle positions (15s polling), resizable split panels, mobile tab layout. 142 i18n keys per locale.
+- [x] **Routes Page** - Real API CRUD against backend `/api/v1/schedules/routes`, server pagination, search, type/agency/status filters, route detail sheet, route form, Leaflet map with live GTFS-RT vehicle positions (WebSocket real-time push with HTTP polling fallback), connection status badge, resizable split panels, mobile tab layout. 142 i18n keys per locale.
 
 - [x] **Stops Page** - Real API CRUD against backend `/api/v1/stops`, Leaflet map with draggable markers and terminus icons, direction display, location_type filtering, GTFS ID copy-to-clipboard, proximity search, mobile tab layout.
 
@@ -117,7 +124,7 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [x] **Playwright E2E Testing** - 81 tests across 10 files (dashboard, routes, stops, schedules, documents, drivers, navigation, login, smoke). Auto-detection of changed features via `detect-changed.sh`. Auth setup with session reuse. `make e2e` / `/e2e` slash command.
 
-- [x] **Slash Commands (24)** - 16 backend + 7 frontend + 1 e2e. Full pipeline: prime -> planning -> execute -> validate -> commit.
+- [x] **Slash Commands (25)** - 8 backend + 7 frontend + 9 cross-cutting + 1 testing. Full pipeline: prime -> planning -> execute -> validate -> commit.
 
 - [x] **Makefile** - Unified workflow: `make dev` (full stack), `make check` (lint+types+tests), `make e2e` (auto-detect), `make docker` (full deploy). 18 targets.
 
@@ -164,6 +171,11 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 - [x] **@vtv/sdk Generation + Full Migration** - Auto-generated TypeScript client from FastAPI OpenAPI schema. 47 endpoints, 68 types. Auth via request interceptor (JWT, dual server/client context). All 8 API domains migrated from hand-written `authFetch` to thin SDK wrappers, eliminating ~1,200 lines of boilerplate. (commits b2d5e1d, b9e34f0, 2026-02-25/26)
   - Plan: [.agents/plans/fe-sdk-generation.md](../.agents/plans/fe-sdk-generation.md)
   - Migration plan: [.agents/plans/fe-sdk-migration.md](../.agents/plans/fe-sdk-migration.md)
+
+- [x] **Calendar Event Hover Cards** - Tooltip hover cards on calendar events (week/month/3-month views) showing event details, goals, and driver info. shadcn/ui HoverCard component with semantic tokens. (commit 15d39d2, 2026-02-27)
+  - Plan: [.agents/plans/fe-calendar-event-hover-card.md](../.agents/plans/fe-calendar-event-hover-card.md)
+
+- [x] **Scoped CLAUDE.md Context Files** - Added path-scoped CLAUDE.md files across the codebase for AI-assisted development context. Cleaned up duplicate `cms/cms/` directory. (commit 4329731, 2026-02-27)
 
 ## Planning Documents
 

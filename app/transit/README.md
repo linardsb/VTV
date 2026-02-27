@@ -98,7 +98,7 @@ No database tables. All data is ephemeral:
 - **`app.transit.ws_manager`**: ConnectionManager singleton, shared between ws_routes (client mgmt) and ws_subscriber (broadcast)
 - **`app.transit.ws_subscriber`**: Background asyncio task bridging Redis Pub/Sub → ConnectionManager
 - **`nginx/nginx.conf`**: `/ws/` location block with WebSocket upgrade headers, 3600s timeouts, 10/IP connection limit
-- **CMS Frontend**: `cms/apps/web/src/hooks/use-vehicle-positions.ts` polls the REST endpoint (WebSocket hook planned)
+- **CMS Frontend**: `cms/apps/web/src/hooks/use-vehicle-positions.ts` uses WebSocket real-time push (~100ms latency) with automatic HTTP polling fallback, route filtering via subscribe message, connection status badge (Live/Polling/Connecting)
 
 ## API Endpoints
 
