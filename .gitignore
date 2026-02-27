@@ -56,3 +56,6 @@ cms/packages/sdk/src/client/
 
 # MCP config (contains API tokens)
 .mcp.json
+
+# Playwright MCP runtime logs
+.playwright-mcp/
