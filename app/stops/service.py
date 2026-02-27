@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import math
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.shared.schemas import PaginatedResponse, PaginationParams
 from app.stops.exceptions import StopAlreadyExistsError, StopNotFoundError
-from app.stops.models import Stop
 from app.stops.repository import StopRepository
 from app.stops.schemas import (
     StopCreate,
@@ -19,32 +16,6 @@ from app.stops.schemas import (
 )
 
 logger = get_logger(__name__)
-
-_EARTH_RADIUS_METERS = 6_371_000
-
-
-def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate great-circle distance between two points in meters.
-
-    Uses the Haversine formula for accuracy at city-scale distances.
-
-    Args:
-        lat1: Latitude of first point (WGS84 degrees).
-        lon1: Longitude of first point (WGS84 degrees).
-        lat2: Latitude of second point (WGS84 degrees).
-        lon2: Longitude of second point (WGS84 degrees).
-
-    Returns:
-        Distance in meters.
-    """
-    # NOTE: duplicated from app/core/agents/tools/transit/search_stops.py
-    lat1_r = math.radians(lat1)
-    lat2_r = math.radians(lat2)
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1_r) * math.cos(lat2_r) * math.sin(dlon / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return _EARTH_RADIUS_METERS * c
 
 
 class StopService:
@@ -249,8 +220,7 @@ class StopService:
     async def search_nearby(self, params: StopNearbyParams, limit: int = 20) -> list[StopResponse]:
         """Find stops within a radius of a geographic point.
 
-        Uses Haversine formula to calculate great-circle distances.
-        Loads all active stops and filters in Python (sufficient for ~2000 stops).
+        Uses PostGIS ST_DWithin for index-backed spatial queries.
 
         Args:
             params: Latitude, longitude, and radius parameters.
@@ -266,21 +236,14 @@ class StopService:
             radius_meters=params.radius_meters,
         )
 
-        all_stops = await self.repository.list(offset=0, limit=10000, active_only=True)
+        stops = await self.repository.search_nearby(
+            latitude=params.latitude,
+            longitude=params.longitude,
+            radius_meters=params.radius_meters,
+            limit=limit,
+        )
 
-        candidates: list[tuple[float, Stop]] = []
-        for stop in all_stops:
-            if stop.stop_lat is None or stop.stop_lon is None:
-                continue
-            dist = _haversine_distance(
-                params.latitude, params.longitude, stop.stop_lat, stop.stop_lon
-            )
-            if dist <= params.radius_meters:
-                candidates.append((dist, stop))
-
-        candidates.sort(key=lambda pair: pair[0])
-
-        results = [StopResponse.model_validate(stop) for _dist, stop in candidates[:limit]]
+        results = [StopResponse.model_validate(stop) for stop in stops]
 
         logger.info("stops.nearby_completed", result_count=len(results))
 

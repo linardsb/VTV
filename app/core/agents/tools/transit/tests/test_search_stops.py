@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.agents.tools.transit.search_stops import (
-    _haversine_distance,
     _validate_search_params,
     search_stops,
 )
 from app.core.agents.tools.transit.static_cache import StopInfo
+from app.shared.geo import haversine_distance
 
 # --- Test helpers ---
 
@@ -71,20 +71,20 @@ def _make_mock_static() -> MagicMock:
 
 
 def test_haversine_distance_same_point() -> None:
-    dist = _haversine_distance(56.9496, 24.1052, 56.9496, 24.1052)
+    dist = haversine_distance(56.9496, 24.1052, 56.9496, 24.1052)
     assert dist == 0.0
 
 
 def test_haversine_distance_known_pair() -> None:
     # Riga center (~56.9496, 24.1052) to Jugla (~56.98, 24.19)
     # Expected: roughly 6-7 km
-    dist = _haversine_distance(56.9496, 24.1052, 56.9800, 24.1900)
+    dist = haversine_distance(56.9496, 24.1052, 56.9800, 24.1900)
     assert 5000 < dist < 8000
 
 
 def test_haversine_distance_short() -> None:
     # Two points ~600m apart
-    dist = _haversine_distance(56.9496, 24.1052, 56.9550, 24.1100)
+    dist = haversine_distance(56.9496, 24.1052, 56.9550, 24.1100)
     assert 500 < dist < 1000
 
 

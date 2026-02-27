@@ -1,7 +1,7 @@
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportCallIssue=false
 """Unit tests for StopService business logic."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -143,26 +143,23 @@ async def test_delete_stop_not_found(service):
 
 
 async def test_search_nearby_success(service):
-    stops = [
+    nearby_stops = [
         make_stop(id=1, stop_name="Near", stop_lat=56.9497, stop_lon=24.1053),
-        make_stop(id=2, stop_name="Far", stop_lat=56.9700, stop_lon=24.1500),
-        make_stop(id=3, stop_name="No Coords", stop_lat=None, stop_lon=None),
     ]
-    service.repository.list = AsyncMock(return_value=stops)
+    service.repository.search_nearby = AsyncMock(return_value=nearby_stops)
 
     params = StopNearbyParams(latitude=56.9496, longitude=24.1052, radius_meters=500)
     result = await service.search_nearby(params, limit=10)
 
-    # Only the "Near" stop is within 500m
     assert len(result) == 1
     assert result[0].stop_name == "Near"
+    service.repository.search_nearby.assert_awaited_once_with(
+        latitude=56.9496, longitude=24.1052, radius_meters=500, limit=10
+    )
 
 
 async def test_search_nearby_no_results(service):
-    stops = [
-        make_stop(id=1, stop_name="Far", stop_lat=57.0, stop_lon=25.0),
-    ]
-    service.repository.list = AsyncMock(return_value=stops)
+    service.repository.search_nearby = AsyncMock(return_value=[])
 
     params = StopNearbyParams(latitude=56.9496, longitude=24.1052, radius_meters=100)
     result = await service.search_nearby(params, limit=10)
@@ -170,19 +167,17 @@ async def test_search_nearby_no_results(service):
     assert len(result) == 0
 
 
-@patch("app.stops.service._haversine_distance")
-async def test_search_nearby_sorted_by_distance(mock_haversine, service):
-    stops = [
-        make_stop(id=1, stop_name="Medium", stop_lat=56.95, stop_lon=24.11),
+async def test_search_nearby_multiple_results(service):
+    nearby_stops = [
         make_stop(id=2, stop_name="Near", stop_lat=56.9497, stop_lon=24.1053),
+        make_stop(id=1, stop_name="Medium", stop_lat=56.95, stop_lon=24.11),
     ]
-    # Return distances so "Near" is closer
-    mock_haversine.side_effect = [300.0, 50.0]
-    service.repository.list = AsyncMock(return_value=stops)
+    service.repository.search_nearby = AsyncMock(return_value=nearby_stops)
 
     params = StopNearbyParams(latitude=56.9496, longitude=24.1052, radius_meters=500)
     result = await service.search_nearby(params, limit=10)
 
     assert len(result) == 2
+    # Repository returns pre-sorted by PostGIS ST_Distance
     assert result[0].stop_name == "Near"
     assert result[1].stop_name == "Medium"

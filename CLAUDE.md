@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 11 tools (5 transit + 4 Obsidian vault + 1 knowledge base + 1 skills management). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. Features multi-feed GTFS-RT tracking with Redis caching for sub-ms reads. The platform roadmap extends to PostGIS spatial queries, WebSocket streaming, and ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
+VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 11 tools (5 transit + 4 Obsidian vault + 1 knowledge base + 1 skills management). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. Features multi-feed GTFS-RT tracking with Redis caching for sub-ms reads. Features PostGIS spatial queries for sub-ms proximity search. The platform roadmap extends to WebSocket streaming and ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
 
 ## Core Principles
 
@@ -33,7 +33,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (731 tests, ~18s)
+make test            # Unit tests (735 tests, ~18s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -74,7 +74,7 @@ VTV/
 │   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)
-│   ├── stops/          # Stop management (6 endpoints, Haversine proximity)
+│   ├── stops/          # Stop management (6 endpoints, PostGIS spatial queries)
 │   ├── schedules/      # GTFS schedule management (23 endpoints, ZIP import/export)
 │   ├── skills/         # Agent skills system (7 endpoints)
 │   ├── transit/        # Multi-feed GTFS-RT tracking (3 endpoints, Redis cache)
@@ -99,6 +99,7 @@ VTV/
 - **Timestamps**: `TimestampMixin` + `utcnow()` from `app.shared.models`
 - **Errors**: `AppError` hierarchy (`NotFoundError` → 404, `DomainValidationError` → 422) in `app.core.exceptions`
 - **SQL Escaping**: `escape_like()` from `app.shared.utils`
+- **Geospatial**: `haversine_distance()` from `app.shared.geo` — used by agent transit tools for in-memory GTFS cache proximity filtering
 
 ## Frontend (CMS)
 

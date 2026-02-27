@@ -1,3 +1,4 @@
+# pyright: reportMissingTypeStubs=false
 """Data access layer for stop management."""
 
 from __future__ import annotations
@@ -5,6 +6,7 @@ from __future__ import annotations
 import builtins
 from typing import Any
 
+from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint, ST_SetSRID
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -114,6 +116,45 @@ class StopRepository:
     async def list_all(self) -> builtins.list[Stop]:
         """List all stops without pagination (for GTFS export)."""
         result = await self.db.execute(select(Stop).order_by(Stop.id))
+        return builtins.list(result.scalars().all())
+
+    async def search_nearby(
+        self,
+        latitude: float,
+        longitude: float,
+        radius_meters: int,
+        limit: int = 20,
+    ) -> builtins.list[Stop]:
+        """Find stops within a radius using PostGIS ST_DWithin.
+
+        Uses a GIST spatial index for sub-ms performance regardless of
+        total stop count.
+
+        Args:
+            latitude: Center point latitude (WGS84).
+            longitude: Center point longitude (WGS84).
+            radius_meters: Search radius in meters.
+            limit: Maximum results to return.
+
+        Returns:
+            List of Stop instances sorted by distance (nearest first).
+        """
+        center = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
+        query = (
+            select(Stop)
+            .where(Stop.geom.isnot(None))
+            .where(
+                ST_DWithin(
+                    Stop.geom,
+                    center,
+                    radius_meters,
+                    use_spheroid=True,
+                )
+            )
+            .order_by(ST_Distance(Stop.geom, center, use_spheroid=True))
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
         return builtins.list(result.scalars().all())
 
     async def create(self, data: StopCreate) -> Stop:

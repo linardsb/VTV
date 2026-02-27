@@ -29,6 +29,7 @@ def make_stop(**overrides: object) -> Stop:
         "location_type": 0,
         "parent_station_id": None,
         "wheelchair_boarding": 0,
+        "geom": None,
         "is_active": True,
         "created_at": now,
         "updated_at": now,

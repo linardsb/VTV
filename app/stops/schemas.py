@@ -1,8 +1,10 @@
+# pyright: reportUnknownVariableType=false
 """Pydantic schemas for stop management feature."""
 
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class StopBase(BaseModel):
@@ -40,6 +42,15 @@ class StopUpdate(BaseModel):
     parent_station_id: int | None = None
     wheelchair_boarding: int | None = Field(None, ge=0, le=2)
     is_active: bool | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_empty_body(cls, data: Any) -> Any:  # noqa: ANN401
+        """Reject PATCH requests with no fields to update."""
+        if isinstance(data, dict) and not any(v is not None for v in data.values()):
+            msg = "At least one field must be provided"
+            raise ValueError(msg)
+        return data
 
 
 class StopResponse(StopBase):

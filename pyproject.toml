@@ -32,6 +32,7 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.44",
     "structlog>=25.5.0",
     "uvicorn[standard]>=0.38.0",
+    "geoalchemy2>=0.18.3",
 ]
 
 [dependency-groups]
@@ -150,6 +151,11 @@ ignore_missing_imports = true
 # pymupdf lacks py.typed marker
 [[tool.mypy.overrides]]
 module = "fitz.*"
+ignore_missing_imports = true
+
+# geoalchemy2 lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "geoalchemy2.*"
 ignore_missing_imports = true
 
 # pgvector lacks py.typed marker

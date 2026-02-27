@@ -37,7 +37,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 
 **CMS (Next.js 16 Turborepo Monorepo)**
 - Route management — CRUD with map visualization (react-leaflet v5 + OpenStreetMap) ✅ (full-stack: real API with server pagination, all GTFS route types 0-12, route color mapping for live vehicle markers)
-- Stop management — CRUD with geolocation, Haversine proximity search, Leaflet map with click-to-place and terminus markers ✅ (PostGIS planned for Phase 1 completion)
+- Stop management — CRUD with geolocation, PostGIS `ST_DWithin` spatial queries with GIST indexing, Leaflet map with click-to-place and terminus markers ✅ (PostGIS migration complete — GeoAlchemy2, trigger-based geometry sync)
 - Schedule management — service calendar, trip CRUD, GTFS import ✅ (full-stack: backend 22 endpoints + frontend CMS page with 3 tabs)
 - GTFS import/export — parse and generate GTFS ZIP files ✅ (import via POST + export via GET, 7 CSV files each)
 - Authentication — Auth.js v5 with 4-role RBAC (admin, dispatcher, editor, viewer) ✅ (JWT auth on all endpoints: login, refresh, seed + backend RBAC enforcement via `require_role()`, bcrypt, brute-force lockout)
@@ -117,7 +117,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 | Data Tables | TanStack Table v8 | Server-side filtering/pagination |
 | API | REST + @vtv/sdk (OpenAPI-generated) ✅ | Type-safe client from FastAPI spec (47 endpoints, 70+ types including EventGoals/GoalItem, all 8 domains migrated); tRPC v11 planned for CMS-native routes |
 | ORM | SQLAlchemy 2.0 (async) | Backend ORM with pgvector; Drizzle planned for CMS PostGIS layer |
-| Database | PostgreSQL 18 + pgvector | Vector search for RAG; PostGIS planned for spatial queries |
+| Database | PostgreSQL 18 + pgvector + PostGIS | Vector search for RAG; PostGIS for spatial queries ✅ |
 | Maps | react-leaflet v5 + Leaflet 1.9 | OpenStreetMap tiles, marker clustering planned |
 | Auth | Auth.js v5 | Self-hosted RBAC, data sovereignty |
 | Agent Framework | Pydantic AI 1.58+ | Strongest Python agent framework |
@@ -129,7 +129,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 ```yaml
 # docker-compose.yml (actual)
 services:
-  db:           # pgvector/pgvector:pg18 (PostgreSQL 18 + pgvector) — port 5433, healthcheck
+  db:           # Custom image (pgvector + PostGIS on PostgreSQL 18) — port 5433, healthcheck
   redis:        # redis:7-alpine — real-time vehicle position cache, healthcheck
   migrate:      # Alembic auto-migration (runs once, service_completed_successfully)
   app:          # FastAPI + Gunicorn (4 UvicornWorkers, non-root) — internal only, healthcheck
@@ -138,7 +138,6 @@ services:
 
 # All services have healthchecks and dependency ordering via depends_on conditions.
 # Planned additions (see docs/PLANNING/Implementation-Plan.md):
-  # PostGIS extension — spatial queries (switch db image)
   # Ollama — local LLM (fallback/dev)
 ```
 
@@ -356,7 +355,7 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 
 ### 7.2 Stop Management ✅ (Full-stack — Backend CRUD + Frontend CMS page)
 
-- ✅ Stop list with search, status filter, and Haversine proximity search (plain Float columns, PostGIS planned)
+- ✅ Stop list with search, status filter, and PostGIS `ST_DWithin` spatial proximity search (GeoAlchemy2, GIST-indexed geometry column, trigger-based lat/lon sync)
 - ✅ Backend CRUD endpoints (create, read, update, delete, list, nearby) — 6 endpoints with server-side `location_type` filtering
 - ✅ Map-based stop placement with click-to-place and drag-to-reposition (Leaflet + CARTO Voyager tiles)
 - ✅ Terminus stop visualization — green markers for `location_type=1` (galapunkts), blue for regular stops
@@ -366,7 +365,7 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ✅ Bilingual i18n (332 keys each for LV/EN) — Galapunkts (LV) / Terminus (EN)
 - ⬜ Stop hierarchy support (station > stop)
 - ⬜ Bulk import from GTFS stops.txt
-- ⬜ Migrate to PostGIS `ST_DWithin` for sub-ms spatial queries (see [Implementation-Plan.md](../docs/PLANNING/Implementation-Plan.md))
+- ✅ PostGIS `ST_DWithin` for sub-ms spatial queries — GeoAlchemy2 v0.18.3, Geometry(Point, 4326) column with GIST index, database trigger for lat/lon→geom sync, WGS84 spheroid distances
 
 ### 7.3 Schedule Management ✅ (Full-stack — Backend API + Frontend CMS page)
 
@@ -446,7 +445,7 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 ```
 agencies        → Transit operators (RS)
 routes          → Bus/tram/trolleybus lines
-stops           → Stops with lat/lon floats (PostGIS geometry planned)
+stops           → Stops with lat/lon floats + PostGIS geometry (GIST-indexed, trigger-synced) ✅
 calendar        → Weekly service patterns
 calendar_dates  → Holiday/exception overrides
 trips           → Individual journeys on routes
