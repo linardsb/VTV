@@ -74,10 +74,12 @@ class FeedPoller:
         pipe = redis_client.pipeline()
         count = 0
 
+        enriched_vehicles: list[dict[str, object]] = []
         for vp in raw_vehicles:
             vehicle_data = self._enrich_vehicle(vp, trip_update_map, static)
             key = f"vehicle:{feed_id}:{vp.vehicle_id}"
             pipe.set(key, json.dumps(vehicle_data), ex=ttl)
+            enriched_vehicles.append(vehicle_data)
             count += 1
 
         # Track which vehicles belong to this feed (set with TTL)
@@ -98,6 +100,29 @@ class FeedPoller:
                 error_type=type(e).__name__,
             )
             return 0
+
+        # Publish vehicle update to Pub/Sub channel for WebSocket subscribers
+        if count > 0:
+            try:
+                channel = f"transit:vehicles:{feed_id}"
+                payload = json.dumps(
+                    {
+                        "feed_id": feed_id,
+                        "count": count,
+                        "vehicles": enriched_vehicles,
+                        "timestamp": datetime.now(tz=UTC).isoformat(),
+                    }
+                )
+                await redis_client.publish(channel, payload)
+            except Exception as e:
+                # Pub/Sub failure must never block the poller
+                logger.warning(
+                    "transit.poller.pubsub_publish_failed",
+                    feed_id=feed_id,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+
         return count
 
     def _enrich_vehicle(

@@ -131,6 +131,11 @@ class Settings(BaseSettings):
     # Poller leader election (multi-worker safe)
     poller_leader_lock_ttl: int = 60
 
+    # WebSocket live streaming
+    ws_enabled: bool = True
+    ws_heartbeat_interval_seconds: int = 30
+    ws_max_connections: int = 100
+
     # Database connection pool (tuned for multi-worker deployment)
     db_pool_size: int = 3
     db_pool_max_overflow: int = 5

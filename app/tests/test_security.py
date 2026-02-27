@@ -664,6 +664,7 @@ class TestAllEndpointsRequireAuth:
         "database_health_check",
         "health_redis",
         "readiness_check",
+        "ws_vehicle_stream",  # WebSocket: manual JWT auth via query param (not Depends)
     }
 
     def test_all_routes_have_auth(self) -> None:

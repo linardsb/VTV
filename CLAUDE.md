@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 11 tools (5 transit + 4 Obsidian vault + 1 knowledge base + 1 skills management). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. Features multi-feed GTFS-RT tracking with Redis caching for sub-ms reads. Features PostGIS spatial queries for sub-ms proximity search. The platform roadmap extends to WebSocket streaming and ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
+VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 11 tools (5 transit + 4 Obsidian vault + 1 knowledge base + 1 skills management). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. Features multi-feed GTFS-RT tracking with Redis caching for sub-ms reads, WebSocket live streaming for real-time vehicle position push, and PostGIS spatial queries for sub-ms proximity search. The platform roadmap extends to ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
 
 ## Core Principles
 
@@ -33,7 +33,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (735 tests, ~18s)
+make test            # Unit tests (756 tests, ~20s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -77,7 +77,7 @@ VTV/
 │   ├── stops/          # Stop management (6 endpoints, PostGIS spatial queries)
 │   ├── schedules/      # GTFS schedule management (23 endpoints, ZIP import/export)
 │   ├── skills/         # Agent skills system (7 endpoints)
-│   ├── transit/        # Multi-feed GTFS-RT tracking (3 endpoints, Redis cache)
+│   ├── transit/        # Multi-feed GTFS-RT tracking (3 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub)
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
 ├── .claude/rules/     # Path-scoped rules (backend, frontend, security, testing)

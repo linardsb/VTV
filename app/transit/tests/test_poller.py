@@ -212,6 +212,102 @@ async def test_poll_once_handles_fetch_error(
 
 
 @pytest.mark.asyncio
+@patch("app.transit.poller.get_static_cache")
+@patch("app.transit.poller.GTFSRealtimeClient")
+async def test_poll_once_publishes_to_pubsub(
+    mock_client_cls: MagicMock,
+    mock_get_cache: AsyncMock,
+) -> None:
+    """poll_once publishes vehicle data to Redis Pub/Sub channel."""
+    import json
+
+    settings = _make_mock_settings()
+    poller = FeedPoller(feed_config=_make_feed_config(), settings=settings)
+
+    vehicles = [_make_vehicle_position(vehicle_id="v1")]
+    instance = mock_client_cls.return_value
+    instance.fetch_vehicle_positions = AsyncMock(return_value=vehicles)
+    instance.fetch_trip_updates = AsyncMock(return_value=[])
+    mock_get_cache.return_value = _make_static_cache()
+
+    mock_redis = MagicMock()
+    mock_pipe = MagicMock()
+    mock_pipe.execute = AsyncMock(return_value=[])
+    mock_redis.pipeline.return_value = mock_pipe
+    mock_redis.publish = AsyncMock()
+
+    count = await poller.poll_once(mock_redis)
+
+    assert count == 1
+    mock_redis.publish.assert_called_once()
+    channel, payload_str = mock_redis.publish.call_args[0]
+    assert channel == "transit:vehicles:riga"
+    payload = json.loads(payload_str)
+    assert payload["feed_id"] == "riga"
+    assert payload["count"] == 1
+    assert len(payload["vehicles"]) == 1
+    await poller.close()
+
+
+@pytest.mark.asyncio
+@patch("app.transit.poller.get_static_cache")
+@patch("app.transit.poller.GTFSRealtimeClient")
+async def test_poll_once_skips_publish_on_zero_vehicles(
+    mock_client_cls: MagicMock,
+    mock_get_cache: AsyncMock,
+) -> None:
+    """No Pub/Sub publish when there are zero vehicles."""
+    settings = _make_mock_settings()
+    poller = FeedPoller(feed_config=_make_feed_config(), settings=settings)
+
+    instance = mock_client_cls.return_value
+    instance.fetch_vehicle_positions = AsyncMock(return_value=[])
+    instance.fetch_trip_updates = AsyncMock(return_value=[])
+    mock_get_cache.return_value = _make_static_cache()
+
+    mock_redis = MagicMock()
+    mock_pipe = MagicMock()
+    mock_pipe.execute = AsyncMock(return_value=[])
+    mock_redis.pipeline.return_value = mock_pipe
+    mock_redis.publish = AsyncMock()
+
+    count = await poller.poll_once(mock_redis)
+
+    assert count == 0
+    mock_redis.publish.assert_not_called()
+    await poller.close()
+
+
+@pytest.mark.asyncio
+@patch("app.transit.poller.get_static_cache")
+@patch("app.transit.poller.GTFSRealtimeClient")
+async def test_poll_once_continues_on_publish_failure(
+    mock_client_cls: MagicMock,
+    mock_get_cache: AsyncMock,
+) -> None:
+    """Pub/Sub publish failure does not break polling — count still returned."""
+    settings = _make_mock_settings()
+    poller = FeedPoller(feed_config=_make_feed_config(), settings=settings)
+
+    vehicles = [_make_vehicle_position(vehicle_id="v1")]
+    instance = mock_client_cls.return_value
+    instance.fetch_vehicle_positions = AsyncMock(return_value=vehicles)
+    instance.fetch_trip_updates = AsyncMock(return_value=[])
+    mock_get_cache.return_value = _make_static_cache()
+
+    mock_redis = MagicMock()
+    mock_pipe = MagicMock()
+    mock_pipe.execute = AsyncMock(return_value=[])
+    mock_redis.pipeline.return_value = mock_pipe
+    mock_redis.publish = AsyncMock(side_effect=ConnectionError("Redis down"))
+
+    count = await poller.poll_once(mock_redis)
+
+    assert count == 1  # Polling succeeded despite publish failure
+    await poller.close()
+
+
+@pytest.mark.asyncio
 @patch("app.transit.poller.get_redis")
 @patch("app.transit.poller.get_settings")
 async def test_start_stop_pollers(

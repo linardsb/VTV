@@ -42,6 +42,8 @@ from app.stops.routes import router as stops_router
 from app.transit.poller import start_pollers, stop_pollers
 from app.transit.routes import router as transit_router
 from app.transit.service import close_transit_service
+from app.transit.ws_routes import close_ws_manager, get_ws_manager, ws_router
+from app.transit.ws_subscriber import start_ws_subscriber, stop_ws_subscriber
 
 settings = get_settings()
 
@@ -97,9 +99,18 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await start_pollers()
     logger.info("transit.poller.lifecycle_started")
 
+    # Start WebSocket subscriber (pushes Redis Pub/Sub -> WebSocket clients)
+    if settings.ws_enabled and settings.poller_enabled:
+        ws_manager = get_ws_manager()
+        await start_ws_subscriber(ws_manager)
+        logger.info("transit.ws.subscriber_started")
+
     yield
 
     # Shutdown
+    await stop_ws_subscriber()
+    close_ws_manager()
+    logger.info("transit.ws.lifecycle_stopped")
     await stop_pollers()
     logger.info("transit.poller.lifecycle_stopped")
     await close_transit_service()
@@ -140,6 +151,7 @@ app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(agent_router)
 app.include_router(transit_router)
+app.include_router(ws_router)
 app.include_router(stops_router)
 app.include_router(knowledge_router)
 app.include_router(schedules_router)
