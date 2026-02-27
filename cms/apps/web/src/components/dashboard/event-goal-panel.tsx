@@ -210,7 +210,6 @@ export function EventGoalPanel({
   onEventUpdated,
   onEventDeleted,
 }: EventGoalPanelProps) {
-  const t = useTranslations("dashboard");
   const tPanel = useTranslations("dashboard.eventPanel");
   const tGoals = useTranslations("dashboard.goals");
   const tDrop = useTranslations("dashboard.dropAction");
@@ -257,7 +256,7 @@ export function EventGoalPanel({
           ? "completed"
           : "in-progress";
 
-  const isDriverEvent = Boolean(event?.driver_id);
+  const isDriverEvent = Boolean(event?.driver_id) || event?.category === "driver-shift";
 
   const dialogTitle = useMemo(() => {
     if (step === "delete-confirm") return tPanel("deleteTitle");
@@ -396,7 +395,7 @@ export function EventGoalPanel({
   );
 
   const handleAssignShift = useCallback(() => {
-    if (!event?.driver_id) return;
+    if (!event) return;
     const driverName = event.title.split(" - ")[0];
     const times = SHIFT_TIMES.morning;
     void handleQuickAction({
@@ -405,12 +404,12 @@ export function EventGoalPanel({
       end_datetime: buildDatetime(event.start, times.end, times.nextDay),
       priority: "medium",
       category: "driver-shift",
-      driver_id: event.driver_id,
+      ...(event.driver_id ? { driver_id: event.driver_id } : {}),
     });
   }, [event, tDrop, handleQuickAction]);
 
   const handleMarkLeave = useCallback(() => {
-    if (!event?.driver_id) return;
+    if (!event) return;
     const driverName = event.title.split(" - ")[0];
     void handleQuickAction({
       title: tDrop("eventTitleLeave", { name: driverName }),
@@ -418,12 +417,12 @@ export function EventGoalPanel({
       end_datetime: buildDatetime(event.start, "23:59", false),
       priority: "low",
       category: "driver-shift",
-      driver_id: event.driver_id,
+      ...(event.driver_id ? { driver_id: event.driver_id } : {}),
     });
   }, [event, tDrop, handleQuickAction]);
 
   const handleMarkSick = useCallback(() => {
-    if (!event?.driver_id) return;
+    if (!event) return;
     const driverName = event.title.split(" - ")[0];
     void handleQuickAction({
       title: tDrop("eventTitleSick", { name: driverName }),
@@ -431,12 +430,12 @@ export function EventGoalPanel({
       end_datetime: buildDatetime(event.start, "23:59", false),
       priority: "high",
       category: "driver-shift",
-      driver_id: event.driver_id,
+      ...(event.driver_id ? { driver_id: event.driver_id } : {}),
     });
   }, [event, tDrop, handleQuickAction]);
 
   const handleScheduleTraining = useCallback(() => {
-    if (!event?.driver_id) return;
+    if (!event) return;
     const driverName = event.title.split(" - ")[0];
     void handleQuickAction({
       title: tDrop("eventTitleTraining", { name: driverName }),
@@ -444,7 +443,7 @@ export function EventGoalPanel({
       end_datetime: buildDatetime(event.start, "11:00", false),
       priority: "medium",
       category: "maintenance",
-      driver_id: event.driver_id,
+      ...(event.driver_id ? { driver_id: event.driver_id } : {}),
     });
   }, [event, tDrop, handleQuickAction]);
 
@@ -731,7 +730,7 @@ export function EventGoalPanel({
         {event && step === "edit" && (
           <div className="flex flex-col gap-(--spacing-grid)">
             <div className="flex flex-col gap-(--spacing-inline)">
-              <Label htmlFor="edit-title">{t("events.title")}</Label>
+              <Label htmlFor="edit-title">{tPanel("titleLabel")}</Label>
               <Input
                 id="edit-title"
                 value={editTitle}

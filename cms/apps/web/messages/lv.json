@@ -213,6 +213,7 @@
     },
     "eventPanel": {
       "title": "Notikuma detaļas",
+      "titleLabel": "Nosaukums",
       "edit": "Rediģēt",
       "delete": "Dzēst",
       "save": "Saglabāt",

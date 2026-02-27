@@ -213,6 +213,7 @@
     },
     "eventPanel": {
       "title": "Event Details",
+      "titleLabel": "Title",
       "edit": "Edit",
       "delete": "Delete",
       "save": "Save",
