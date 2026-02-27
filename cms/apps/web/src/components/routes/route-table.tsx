@@ -23,11 +23,13 @@ import {
 import {
   Pagination,
   PaginationContent,
+  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { getPageRange } from "@/lib/pagination-utils";
 import { cn } from "@/lib/utils";
 import { toHexColor } from "@/lib/color-utils";
 import { RouteTypeBadge } from "./route-type-badge";
@@ -258,33 +260,43 @@ export function RouteTable({
             : ""}
         </p>
         {totalPages > 1 && (
-          <Pagination>
-            <PaginationContent>
+          <Pagination className="mx-0 w-auto justify-end">
+            <PaginationContent className="gap-0.5">
               <PaginationItem>
                 <PaginationPrevious
                   onClick={() => onPageChange(Math.max(1, page - 1))}
                   aria-disabled={page === 1}
-                  className={cn(page === 1 && "pointer-events-none opacity-50")}
+                  className={cn(
+                    "h-8 w-8 p-0 [&>svg]:size-4 [&>span]:hidden",
+                    page === 1 && "pointer-events-none opacity-50",
+                  )}
                 />
               </PaginationItem>
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                const pageNum = i + 1;
-                return (
-                  <PaginationItem key={pageNum} className="hidden sm:inline-flex">
+              {getPageRange(page, totalPages).map((item, idx) =>
+                item === "ellipsis" ? (
+                  <PaginationItem key={`ellipsis-${idx}`} className="hidden sm:inline-flex">
+                    <PaginationEllipsis className="size-8" />
+                  </PaginationItem>
+                ) : (
+                  <PaginationItem key={item} className="hidden sm:inline-flex">
                     <PaginationLink
-                      isActive={pageNum === page}
-                      onClick={() => onPageChange(pageNum)}
+                      isActive={item === page}
+                      onClick={() => onPageChange(item)}
+                      className="h-8 w-8 text-xs"
                     >
-                      {pageNum}
+                      {item}
                     </PaginationLink>
                   </PaginationItem>
-                );
-              })}
+                ),
+              )}
               <PaginationItem>
                 <PaginationNext
                   onClick={() => onPageChange(Math.min(totalPages, page + 1))}
                   aria-disabled={page === totalPages}
-                  className={cn(page === totalPages && "pointer-events-none opacity-50")}
+                  className={cn(
+                    "h-8 w-8 p-0 [&>svg]:size-4 [&>span]:hidden",
+                    page === totalPages && "pointer-events-none opacity-50",
+                  )}
                 />
               </PaginationItem>
             </PaginationContent>

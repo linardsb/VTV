@@ -526,7 +526,11 @@
       "noResultsDescription": "Izveidojiet pirmo pieturu, lai sāktu.",
       "showing": "Rāda {from}-{to} no {total}",
       "copyGtfsId": "Kopēt GTFS ID",
-      "copied": "Nokopēts!"
+      "copied": "Nokopēts!",
+      "coordinates": "Koordinātas",
+      "noCoordinates": "Nav koordinātu",
+      "coordinatesCopied": "Koordinātas nokopētas!",
+      "copyCoordinates": "Kopēt koordinātas"
     },
     "detail": {
       "stopName": "Pieturas nosaukums",

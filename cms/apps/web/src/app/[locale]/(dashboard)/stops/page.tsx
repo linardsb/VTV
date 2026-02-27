@@ -105,7 +105,7 @@ export default function StopsPage() {
   }, [search]);
 
   // Derived: active_only param from statusFilter
-  // "all" sends false to override backend default (active_only=True)
+  // "active" sends true, "all"/"inactive" send false (backend has no inactive_only param)
   const activeOnlyParam = useMemo(() => {
     if (statusFilter === "active") return true;
     return false;
@@ -129,8 +129,15 @@ export default function StopsPage() {
         active_only: activeOnlyParam,
         location_type: locationTypeParam,
       });
-      setStops(result.items);
-      setTotalItems(result.total);
+      // Backend has no inactive_only param — client-side filter when inactive selected
+      if (statusFilter === "inactive") {
+        const inactiveStops = result.items.filter((s) => !s.is_active);
+        setStops(inactiveStops);
+        setTotalItems(inactiveStops.length);
+      } else {
+        setStops(result.items);
+        setTotalItems(result.total);
+      }
     } catch (e) {
       console.warn("[stops] Failed to load stops:", e);
       setStops([]);
@@ -138,7 +145,7 @@ export default function StopsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, debouncedSearch, activeOnlyParam, locationTypeParam]);
+  }, [page, debouncedSearch, activeOnlyParam, locationTypeParam, statusFilter]);
 
   // Fetch all stops for the map (single unpaginated request)
   const loadAllStops = useCallback(async () => {
@@ -442,7 +449,7 @@ export default function StopsPage() {
             orientation="horizontal"
             className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border"
           >
-            <ResizablePanel defaultSize={55} minSize={25}>
+            <ResizablePanel defaultSize={40} minSize={25}>
               {formOpen ? (
                 <StopForm
                   key={formKey}
@@ -484,7 +491,7 @@ export default function StopsPage() {
               )}
             </ResizablePanel>
             <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={45} minSize={25}>
+            <ResizablePanel defaultSize={60} minSize={25}>
               <StopMap {...mapProps} />
             </ResizablePanel>
           </ResizablePanelGroup>

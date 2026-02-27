@@ -526,7 +526,11 @@
       "noResultsDescription": "Create your first stop to get started.",
       "showing": "Showing {from}-{to} of {total}",
       "copyGtfsId": "Copy GTFS ID",
-      "copied": "Copied!"
+      "copied": "Copied!",
+      "coordinates": "Coordinates",
+      "noCoordinates": "No coordinates",
+      "coordinatesCopied": "Coordinates copied!",
+      "copyCoordinates": "Copy coordinates"
     },
     "detail": {
       "stopName": "Stop Name",

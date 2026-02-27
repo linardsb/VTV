@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Copy, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Accessibility, Check, Copy, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Table,
@@ -23,11 +23,19 @@ import {
 import {
   Pagination,
   PaginationContent,
+  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { getPageRange } from "@/lib/pagination-utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Stop } from "@/types/stop";
 
@@ -55,6 +63,50 @@ function CopyGtfsButton({ gtfsId, label, copiedLabel }: { gtfsId: string; label:
       aria-label={`${label}: ${gtfsId}`}
     >
       {gtfsId}
+      {copied ? (
+        <Check className="size-3 text-status-ontime" />
+      ) : (
+        <Copy className="size-3 opacity-0 transition-opacity group-hover/row:opacity-100" />
+      )}
+    </button>
+  );
+}
+
+function CopyCoordinatesButton({
+  lat,
+  lon,
+  label,
+  copiedLabel,
+}: {
+  lat: number;
+  lon: number;
+  label: string;
+  copiedLabel: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const coordText = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+      void navigator.clipboard.writeText(coordText).then(() => {
+        setCopied(true);
+        toast.success(copiedLabel);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    },
+    [lat, lon, copiedLabel],
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs text-foreground-muted transition-colors hover:bg-surface hover:text-foreground"
+      title={label}
+      aria-label={`${label}: ${lat.toFixed(4)}, ${lon.toFixed(4)}`}
+    >
+      {lat.toFixed(4)}, {lon.toFixed(4)}
       {copied ? (
         <Check className="size-3 text-status-ontime" />
       ) : (
@@ -124,9 +176,6 @@ export function StopTable({
           <TableHeader>
             <TableRow>
               <TableHead>{t("table.name")}</TableHead>
-              <TableHead className="hidden lg:table-cell w-28">{t("table.type")}</TableHead>
-              <TableHead className="hidden lg:table-cell w-28">{t("table.wheelchair")}</TableHead>
-              <TableHead className="w-24">{t("table.status")}</TableHead>
               {!isReadOnly && (
                 <TableHead className="w-16">
                   <span className="sr-only">{t("table.actions")}</span>
@@ -145,51 +194,83 @@ export function StopTable({
                 onClick={() => onSelectStop(stop)}
               >
                 <TableCell>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-medium">{stop.stop_name}</span>
+                  <div className="flex flex-col gap-1">
+                    {/* Row 1: Name + active status dot */}
+                    <div className="flex items-center gap-(--spacing-inline)">
+                      <span className="font-medium">{stop.stop_name}</span>
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              className={cn(
+                                "inline-block size-2 shrink-0 rounded-full",
+                                stop.is_active
+                                  ? "bg-status-ontime"
+                                  : "bg-status-delayed",
+                              )}
+                              aria-label={stop.is_active ? t("filters.active") : t("filters.inactive")}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            {stop.is_active ? t("filters.active") : t("filters.inactive")}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+
+                    {/* Row 2: Description (if present) */}
                     {stop.stop_desc && (
-                      <span className="text-xs text-foreground-muted">
+                      <span className="text-xs text-foreground-muted line-clamp-1">
                         {stop.stop_desc}
                       </span>
                     )}
-                    <CopyGtfsButton
-                      gtfsId={stop.gtfs_stop_id}
-                      label={t("table.copyGtfsId")}
-                      copiedLabel={t("table.copied")}
-                    />
+
+                    {/* Row 3: GTFS ID + Coordinates */}
+                    <div className="flex items-center gap-(--spacing-inline) flex-wrap">
+                      <CopyGtfsButton
+                        gtfsId={stop.gtfs_stop_id}
+                        label={t("table.copyGtfsId")}
+                        copiedLabel={t("table.copied")}
+                      />
+                      {stop.stop_lat != null && stop.stop_lon != null ? (
+                        <>
+                          <span className="text-foreground-subtle text-xs">|</span>
+                          <CopyCoordinatesButton
+                            lat={stop.stop_lat}
+                            lon={stop.stop_lon}
+                            label={t("table.copyCoordinates")}
+                            copiedLabel={t("table.coordinatesCopied")}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-foreground-subtle text-xs">|</span>
+                          <span className="text-xs text-foreground-subtle">{t("table.noCoordinates")}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Row 4: Type | Wheelchair badges */}
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="outline" className="text-[11px] px-1.5 py-0">
+                        {tLoc(String(stop.location_type))}
+                      </Badge>
+                      <span className="text-foreground-subtle text-[11px]">|</span>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[11px] px-1.5 py-0 inline-flex items-center gap-0.5",
+                          stop.wheelchair_boarding === 1 &&
+                            "border-status-ontime/30 bg-status-ontime/10 text-status-ontime",
+                          stop.wheelchair_boarding === 2 &&
+                            "border-status-delayed/30 bg-status-delayed/10 text-status-delayed",
+                        )}
+                      >
+                        <Accessibility className="size-3" />
+                        {tWheelchair(String(stop.wheelchair_boarding))}
+                      </Badge>
+                    </div>
                   </div>
-                </TableCell>
-                <TableCell className="hidden lg:table-cell">
-                  <Badge variant="outline" className="text-xs">
-                    {tLoc(String(stop.location_type))}
-                  </Badge>
-                </TableCell>
-                <TableCell className="hidden lg:table-cell">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-xs",
-                      stop.wheelchair_boarding === 1 &&
-                        "border-status-ontime/30 bg-status-ontime/10 text-status-ontime",
-                      stop.wheelchair_boarding === 2 &&
-                        "border-status-delayed/30 bg-status-delayed/10 text-status-delayed",
-                    )}
-                  >
-                    {tWheelchair(String(stop.wheelchair_boarding))}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-xs",
-                      stop.is_active
-                        ? "border-status-ontime/30 bg-status-ontime/10 text-status-ontime"
-                        : "border-status-delayed/30 bg-status-delayed/10 text-status-delayed",
-                    )}
-                  >
-                    {stop.is_active ? t("filters.active") : t("filters.inactive")}
-                  </Badge>
                 </TableCell>
                 {!isReadOnly && (
                   <TableCell>
@@ -229,34 +310,47 @@ export function StopTable({
 
       {/* Pagination */}
       <div className="flex items-center justify-between border-t border-border px-(--spacing-card) py-(--spacing-tight)">
-        <p className="hidden sm:block text-xs text-foreground-muted">
+        <p className="hidden sm:block text-xs text-foreground-muted whitespace-nowrap">
           {t("table.showing", { from, to, total })}
         </p>
         {totalPages > 1 && (
-          <Pagination>
-            <PaginationContent>
+          <Pagination className="mx-0 w-auto justify-end">
+            <PaginationContent className="gap-0.5">
               <PaginationItem>
                 <PaginationPrevious
                   onClick={() => onPageChange(Math.max(1, page - 1))}
                   aria-disabled={page === 1}
-                  className={cn(page === 1 && "pointer-events-none opacity-50")}
+                  className={cn(
+                    "h-8 w-8 p-0 [&>svg]:size-4 [&>span]:hidden",
+                    page === 1 && "pointer-events-none opacity-50",
+                  )}
                 />
               </PaginationItem>
-              {Array.from({ length: totalPages }, (_, i) => (
-                <PaginationItem key={i} className="hidden sm:inline-flex">
-                  <PaginationLink
-                    isActive={i + 1 === page}
-                    onClick={() => onPageChange(i + 1)}
-                  >
-                    {i + 1}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
+              {getPageRange(page, totalPages).map((item, idx) =>
+                item === "ellipsis" ? (
+                  <PaginationItem key={`ellipsis-${idx}`} className="hidden sm:inline-flex">
+                    <PaginationEllipsis className="size-8" />
+                  </PaginationItem>
+                ) : (
+                  <PaginationItem key={item} className="hidden sm:inline-flex">
+                    <PaginationLink
+                      isActive={item === page}
+                      onClick={() => onPageChange(item)}
+                      className="h-8 w-8 text-xs"
+                    >
+                      {item}
+                    </PaginationLink>
+                  </PaginationItem>
+                ),
+              )}
               <PaginationItem>
                 <PaginationNext
                   onClick={() => onPageChange(Math.min(totalPages, page + 1))}
                   aria-disabled={page === totalPages}
-                  className={cn(page === totalPages && "pointer-events-none opacity-50")}
+                  className={cn(
+                    "h-8 w-8 p-0 [&>svg]:size-4 [&>span]:hidden",
+                    page === totalPages && "pointer-events-none opacity-50",
+                  )}
                 />
               </PaginationItem>
             </PaginationContent>
