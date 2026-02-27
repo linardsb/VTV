@@ -354,7 +354,10 @@
       "late": "late",
       "nextStop": "Next stop",
       "noData": "No vehicle data available",
-      "minutes": "min"
+      "minutes": "min",
+      "liveStream": "Live",
+      "pollingFallback": "Polling",
+      "wsConnecting": "Connecting..."
     },
     "mobile": {
       "tableTab": "Table",

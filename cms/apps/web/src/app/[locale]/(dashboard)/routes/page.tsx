@@ -65,6 +65,9 @@ export default function RoutesPage() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
 
+  // UI state — selectedRouteId declared early for selectedGtfsRouteId dependency
+  const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
+
   // Build route color lookup for live vehicle markers: gtfs_route_id → #hex
   const routeColorMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -76,9 +79,17 @@ export default function RoutesPage() {
     return map;
   }, [allRoutes]);
 
-  // Live vehicle positions from backend (polls every 15s)
-  const { vehicles: liveVehicles } = useVehiclePositions({
+  // Selected route → GTFS ID for map highlight + WS route filter
+  const selectedGtfsRouteId = useMemo(() => {
+    if (!selectedRouteId) return null;
+    const r = routes.find((route) => route.id === selectedRouteId);
+    return r?.gtfs_route_id ?? null;
+  }, [routes, selectedRouteId]);
+
+  // Live vehicle positions via WebSocket (falls back to HTTP polling)
+  const { vehicles: liveVehicles, connectionMode } = useVehiclePositions({
     colorMap: routeColorMap,
+    routeFilter: selectedGtfsRouteId,
   });
 
   // Filter state
@@ -105,7 +116,6 @@ export default function RoutesPage() {
   }, [liveVehicles, typeFilter]);
 
   // UI state
-  const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
@@ -119,12 +129,6 @@ export default function RoutesPage() {
     [routes, selectedRouteId],
   );
 
-  // Selected route → GTFS ID for map highlight
-  const selectedGtfsRouteId = useMemo(() => {
-    if (!selectedRouteId) return null;
-    const r = routes.find((r) => r.id === selectedRouteId);
-    return r?.gtfs_route_id ?? null;
-  }, [routes, selectedRouteId]);
 
   // Load agencies on mount
   const loadAgencies = useCallback(async () => {
@@ -351,6 +355,7 @@ export default function RoutesPage() {
                   const route = allRoutes.find((r) => r.gtfs_route_id === gtfsId);
                   if (route) handleSelectRoute(route.id);
                 }}
+                connectionMode={connectionMode}
               />
             </TabsContent>
           </Tabs>
@@ -399,6 +404,7 @@ export default function RoutesPage() {
                 const route = allRoutes.find((r) => r.gtfs_route_id === gtfsId);
                 if (route) handleSelectRoute(route.id);
               }}
+              connectionMode={connectionMode}
             />
           </ResizablePanel>
         </ResizablePanelGroup>

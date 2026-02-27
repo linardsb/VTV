@@ -354,7 +354,10 @@
       "late": "kavējas",
       "nextStop": "Nākamā pietura",
       "noData": "Nav transportlīdzekļu datu",
-      "minutes": "min"
+      "minutes": "min",
+      "liveStream": "Reāllaiks",
+      "pollingFallback": "Atjaunināšana",
+      "wsConnecting": "Savienojas..."
     },
     "mobile": {
       "tableTab": "Tabula",
