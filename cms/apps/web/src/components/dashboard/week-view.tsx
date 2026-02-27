@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "@/types/dashboard";
 import { CalendarEventCard } from "./calendar-event";
+import { EventHoverCard } from "./event-hover-card";
 import { LiveTimeline } from "./live-timeline";
 
 interface WeekViewProps {
@@ -268,22 +269,23 @@ export function WeekView({ currentDate, events, onDayDrop, onEventClick, onDrive
               const leftPct = column * widthPct;
 
               return (
-                <div
-                  key={`${slice.event.id}-${dayIdx}`}
-                  className="absolute overflow-hidden rounded-md bg-surface"
-                  style={{
-                    top: `${topPx}px`,
-                    height: `${heightPx}px`,
-                    left: `${leftPct}%`,
-                    width: `${widthPct}%`,
-                  }}
-                >
-                  <CalendarEventCard
-                    event={slice.event}
-                    onClick={onEventClick ? () => onEventClick(slice.event) : undefined}
-                    onDriverClick={onDriverClick ? () => onDriverClick(slice.event) : undefined}
-                  />
-                </div>
+                <EventHoverCard key={`${slice.event.id}-${dayIdx}`} event={slice.event}>
+                  <div
+                    className="absolute overflow-hidden rounded-md bg-surface"
+                    style={{
+                      top: `${topPx}px`,
+                      height: `${heightPx}px`,
+                      left: `${leftPct}%`,
+                      width: `${widthPct}%`,
+                    }}
+                  >
+                    <CalendarEventCard
+                      event={slice.event}
+                      onClick={onEventClick ? () => onEventClick(slice.event) : undefined}
+                      onDriverClick={onDriverClick ? () => onDriverClick(slice.event) : undefined}
+                    />
+                  </div>
+                </EventHoverCard>
               );
             })}
           </div>

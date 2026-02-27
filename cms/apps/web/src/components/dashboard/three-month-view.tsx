@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "@/types/dashboard";
 import { getGoalStatus } from "./goal-progress-badge";
 import { getEventDotColor } from "./event-styles";
+import { EventHoverCard } from "./event-hover-card";
 
 interface ThreeMonthViewProps {
   currentDate: Date;
@@ -191,22 +192,23 @@ function MiniMonth({
                           : getEventDotColor(event.title, event.category);
 
                         return (
-                          <button
-                            key={event.id}
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEventClick?.(event);
-                            }}
-                            className="flex items-center gap-0.5 cursor-pointer"
-                          >
-                            <div
-                              className={cn("size-1 shrink-0 rounded-full", dotClass)}
-                            />
-                            <span className="truncate text-[8px] leading-tight text-foreground-muted">
-                              {event.title}
-                            </span>
-                          </button>
+                          <EventHoverCard key={event.id} event={event}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEventClick?.(event);
+                              }}
+                              className="flex items-center gap-0.5 cursor-pointer"
+                            >
+                              <div
+                                className={cn("size-1 shrink-0 rounded-full", dotClass)}
+                              />
+                              <span className="truncate text-[8px] leading-tight text-foreground-muted">
+                                {event.title}
+                              </span>
+                            </button>
+                          </EventHoverCard>
                         );
                       })}
                       {overflow > 0 && (

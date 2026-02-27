@@ -247,6 +247,16 @@
         "driver-shift": "Driver Shift",
         "service-alert": "Service Alert"
       }
+    },
+    "hover": {
+      "category": "Category",
+      "priority": "Priority",
+      "description": "Description",
+      "noDescription": "No description",
+      "goals": "Goals",
+      "noGoals": "No goals",
+      "time": "Time",
+      "allDay": "All day"
     }
   },
   "routes": {

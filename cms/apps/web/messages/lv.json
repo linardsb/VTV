@@ -247,6 +247,16 @@
         "driver-shift": "Vadītāja maiņa",
         "service-alert": "Servisa brīdinājums"
       }
+    },
+    "hover": {
+      "category": "Kategorija",
+      "priority": "Prioritāte",
+      "description": "Apraksts",
+      "noDescription": "Nav apraksta",
+      "goals": "Mērķi",
+      "noGoals": "Nav mērķu",
+      "time": "Laiks",
+      "allDay": "Visa diena"
     }
   },
   "routes": {

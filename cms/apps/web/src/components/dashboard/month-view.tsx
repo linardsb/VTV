@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent } from "@/types/dashboard";
+import { EventHoverCard } from "./event-hover-card";
 import { GoalProgressBadge } from "./goal-progress-badge";
 import { getEventDotColor } from "./event-styles";
 
@@ -161,40 +162,42 @@ export function MonthView({ currentDate, events, onDayDrop, onEventClick }: Mont
                     {visibleEvents.map((event) => {
                       const hasGoals = event.goals && event.goals.items.length > 0;
                       return hasGoals ? (
-                        <button
-                          key={event.id}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEventClick?.(event);
-                          }}
-                          className="flex w-full items-center justify-between gap-(--spacing-tight) rounded bg-surface-raised px-1 py-0.5 text-left transition-colors duration-200 hover:bg-interactive/10 cursor-pointer"
-                        >
-                          <span className="truncate text-[10px] font-medium text-foreground">
-                            {event.title}
-                          </span>
-                          <GoalProgressBadge goals={event.goals!} variant="compact" />
-                        </button>
+                        <EventHoverCard key={event.id} event={event}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEventClick?.(event);
+                            }}
+                            className="flex w-full items-center justify-between gap-(--spacing-tight) rounded bg-surface-raised px-1 py-0.5 text-left transition-colors duration-200 hover:bg-interactive/10 cursor-pointer"
+                          >
+                            <span className="truncate text-[10px] font-medium text-foreground">
+                              {event.title}
+                            </span>
+                            <GoalProgressBadge goals={event.goals!} variant="compact" />
+                          </button>
+                        </EventHoverCard>
                       ) : (
-                        <button
-                          key={event.id}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEventClick?.(event);
-                          }}
-                          className="flex w-full items-center gap-(--spacing-tight) text-left cursor-pointer"
-                        >
-                          <div
-                            className={cn(
-                              "size-1.5 shrink-0 rounded-full",
-                              getEventDotColor(event.title, event.category)
-                            )}
-                          />
-                          <span className="truncate text-[10px] text-foreground-muted">
-                            {event.title}
-                          </span>
-                        </button>
+                        <EventHoverCard key={event.id} event={event}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEventClick?.(event);
+                            }}
+                            className="flex w-full items-center gap-(--spacing-tight) text-left cursor-pointer"
+                          >
+                            <div
+                              className={cn(
+                                "size-1.5 shrink-0 rounded-full",
+                                getEventDotColor(event.title, event.category)
+                              )}
+                            />
+                            <span className="truncate text-[10px] text-foreground-muted">
+                              {event.title}
+                            </span>
+                          </button>
+                        </EventHoverCard>
                       );
                     })}
                     {overflow > 0 && (

@@ -42,7 +42,7 @@ src/
 │   └── gtfs/                   # GTFS data management (data-overview stats+feeds, gtfs-export with agency filter)
 ├── hooks/
 │   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
-│   ├── use-vehicle-positions.ts # useVehiclePositions() — SWR, 10s refresh, env-var API base
+│   ├── use-vehicle-positions.ts # useVehiclePositions() — SWR, 10s refresh, env-var API base (WebSocket upgrade planned: WS /ws/transit/vehicles)
 │   ├── use-dashboard-metrics.ts # useDashboardMetrics() — SWR, 30s refresh (vehicles + routes)
 │   ├── use-calendar-events.ts  # useCalendarEvents() — SWR via @vtv/sdk, 60s refresh (includes goals data)
 │   └── use-drivers-summary.ts  # useDriversSummary() — SWR, 120s refresh (active drivers)
