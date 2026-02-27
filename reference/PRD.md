@@ -63,7 +63,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 ### 4.2 What's Out (Post-MVP)
 
 - ~~Live GPS tracking and real-time map~~ ✅ **Implemented** — Multi-feed GTFS-RT tracking with Redis caching, background pollers, 3 REST endpoints + 1 WebSocket endpoint. Live map with react-leaflet v5, WebSocket real-time push (~100ms latency) with automatic HTTP polling fallback. WebSocket live streaming via Redis Pub/Sub fan-out with per-client feed/route filtering, JWT auth via query parameter, nginx connection limits. Frontend connection status badge (Live/Polling/Connecting). Supports Riga + configurable additional feeds (Jurmala, Pieriga, ATD)
-- ~~Vehicle and driver management (Phase 2)~~ **Driver management implemented** — Full CRUD backend (5 endpoints), CMS page with table/filters/forms, agent tool integration (DB-backed `check_driver_availability`). Dashboard integration: driver roster with drag-and-drop scheduling, goal-based shift/training assignment, license/medical expiry tracking. Vehicle management remains Phase 2
+- ~~Vehicle and driver management (Phase 2)~~ ✅ **Fully implemented** — Driver management: full CRUD backend (5 endpoints), CMS page with table/filters/forms, agent tool integration (DB-backed `check_driver_availability`), dashboard drag-and-drop scheduling. Vehicle management: fleet CRUD backend (8 endpoints), maintenance tracking, driver assignment with conflict detection, fleet_number→GTFS-RT vehicle_id linking, database CHECK constraints, 30 unit tests
 - NeTEx/SIRI compliance exports (Phase 3)
 - Public-facing passenger information (out of scope)
 - Fare management (handled by e-talons system)
@@ -410,12 +410,12 @@ A one-time EUR 2,000-4,000 GPU investment eliminates all recurring LLM costs per
 - ✅ Container hardening — non-root users, `no-new-privileges`, `cap_drop: ALL`, read-only FS in production
 - ✅ Dependency scanning — `pip-audit` in CI, lock file integrity via `uv lock --check`
 
-| Role | Stops | Routes | Schedules | Drivers | Knowledge | Events | GTFS | AI Chat |
-|------|-------|--------|-----------|---------|-----------|--------|------|---------|
-| Admin | CRUD | CRUD | CRUD | CRUD | CRUD | CRUD | Import/Export | Yes |
-| Dispatcher | Read | Read | Read | CRUD | Read | Read | — | Yes |
-| Editor | CRUD | CRUD | CRUD | Read | CRUD | CRUD | Import/Export | Yes |
-| Viewer | Read | Read | Read | Read | Read | Read | — | Yes |
+| Role | Stops | Routes | Schedules | Drivers | Vehicles | Knowledge | Events | GTFS | AI Chat |
+|------|-------|--------|-----------|---------|----------|-----------|--------|------|---------|
+| Admin | CRUD | CRUD | CRUD | CRUD | CRUD+Assign | CRUD | CRUD | Import/Export | Yes |
+| Dispatcher | Read | Read | Read | CRUD | Read+Assign | Read | Read | — | Yes |
+| Editor | CRUD | CRUD | CRUD | Read | CRUD | CRUD | CRUD | Import/Export | Yes |
+| Viewer | Read | Read | Read | Read | Read | Read | Read | — | Yes |
 
 ### 7.6 Dashboard Layout
 

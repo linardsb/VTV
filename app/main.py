@@ -44,6 +44,7 @@ from app.transit.routes import router as transit_router
 from app.transit.service import close_transit_service
 from app.transit.ws_routes import close_ws_manager, get_ws_manager, ws_router
 from app.transit.ws_subscriber import start_ws_subscriber, stop_ws_subscriber
+from app.vehicles.routes import router as vehicles_router
 
 settings = get_settings()
 
@@ -158,6 +159,7 @@ app.include_router(schedules_router)
 app.include_router(drivers_router)
 app.include_router(events_router)
 app.include_router(skills_router)
+app.include_router(vehicles_router)
 
 
 @app.get("/")

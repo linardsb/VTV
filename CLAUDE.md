@@ -33,7 +33,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (753 tests, ~20s)
+make test            # Unit tests (786 tests, ~20s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -78,6 +78,7 @@ VTV/
 │   ├── schedules/      # GTFS schedule management (23 endpoints, ZIP import/export)
 │   ├── skills/         # Agent skills system (7 endpoints)
 │   ├── transit/        # Multi-feed GTFS-RT tracking (3 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub)
+│   ├── vehicles/       # Vehicle management (8 endpoints, fleet CRUD, maintenance, driver assignment)
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
 ├── .claude/rules/     # Path-scoped rules (backend, frontend, security, testing)
@@ -106,7 +107,7 @@ VTV/
 Turborepo monorepo under `cms/` with pnpm workspaces. **Full documentation in `cms/CLAUDE.md` and `cms/apps/web/CLAUDE.md`.**
 
 - **Stack:** Next.js 16 + React 19, Tailwind CSS v4 + semantic tokens, shadcn/ui + CVA, Auth.js v5 (4-role RBAC), next-intl (lv/en)
-- **SDK:** `@vtv/sdk` — auto-generated TypeScript client (47 endpoints, 70+ types). All 8 API domains migrated from hand-written fetch to SDK wrappers.
+- **SDK:** `@vtv/sdk` — auto-generated TypeScript client (56 endpoints, 70+ types). All 8 API domains migrated from hand-written fetch to SDK wrappers.
 - **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, GTFS, Documents, Users, Chat, Login
 - **New page checklist:** page component → i18n keys (lv + en) → sidebar nav → middleware RBAC → semantic tokens only
 

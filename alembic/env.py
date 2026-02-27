@@ -8,10 +8,13 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 import app.auth.models
+import app.drivers.models
+import app.events.models
 import app.knowledge.models
 import app.schedules.models
 import app.skills.models
-import app.stops.models  # noqa: F401
+import app.stops.models
+import app.vehicles.models  # noqa: F401
 from alembic import context
 from app.core.config import get_settings
 from app.core.database import Base

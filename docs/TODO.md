@@ -5,9 +5,9 @@ Planned features and improvements. Each item links to its detailed planning docu
 ## Progress Overview
 
 ```
-Backend API       ██████████████████████░░  97%  (8/8 features: auth, knowledge, drivers, events, stops, schedules, transit, skills + WebSocket live streaming)
+Backend API       ██████████████████████░░  98%  (9/9 features: auth, knowledge, drivers, events, stops, schedules, transit, skills, vehicles + WebSocket live streaming)
 CMS Frontend      ██████████████████████░░  97%  (10/10 pages live, real API on all, WebSocket real-time vehicle positions, drag-and-drop scheduling)
-Testing           ████████████████████░░░░  85%  (753 unit tests, 105 security tests, 81 e2e tests, CI pipeline live with security gates)
+Testing           ████████████████████░░░░  85%  (786 unit tests, 105 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework)
 Latvia Platform   █████░░░░░░░░░░░░░░░░░░  20%  (Riga GTFS + PostGIS spatial queries + WebSocket live streaming, no TimescaleDB/multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
@@ -28,6 +28,12 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [ ] **SOP & File Automation** - Automated document ingestion (folder watcher, email monitor, web scraper, GTFS sync) and LLM-powered SOP generation (incident-to-SOP pipeline, regulation change detection, shift handover notes, template scaffolding). ~13 days total effort, ~$4.50/month LLM cost, saves ~47 hrs/month human time.
   - Plan: [docs/PLANNING/sop-file-automation.md](PLANNING/sop-file-automation.md)
+
+### CMS Features
+
+- [ ] **Route Shape Polylines** - Display route geometry on map from GTFS `shapes.txt`. Requires polyline layer in react-leaflet, shape import during GTFS ZIP processing, and route-shape association. Enhances route visualization significantly.
+
+- [ ] **NeTEx/SIRI Compliance Exports** - EU-mandated transit data formats. NeTEx for static schedule exchange, SIRI for real-time information. Required for Latvian National Access Point (data.gov.lv) compliance. Phase 3.
 
 ### Full Latvia Transit Platform
 
@@ -94,6 +100,10 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [x] **WebSocket Live Streaming (Frontend)** - Replaced HTTP polling with WebSocket real-time push (~100ms latency) for vehicle positions. Automatic fallback to SWR HTTP polling (10s) after 3 failed reconnects. Periodic 60s retry to switch back to WebSocket. Route filtering via subscribe message. Connection status badge (Live/Polling/Connecting) on map. JWT auth via query parameter with 60s cached token. (commit 5bf06ca, 2026-02-27)
   - Plan: [.agents/plans/fe-websocket-vehicle-positions.md](../.agents/plans/fe-websocket-vehicle-positions.md)
+
+- [x] **Vehicle Management** - Fleet CRUD (8 endpoints), maintenance tracking with mileage/date side-effects, driver assignment with cross-feature conflict detection, database CHECK constraints, fleet_number→GTFS-RT vehicle_id linking. 30 unit tests, code review with 6/10 issues fixed. (2026-02-27)
+  - Plan: [.agents/plans/vehicle-management.md](../.agents/plans/vehicle-management.md)
+  - Review: [.agents/code-reviews/vehicles-review.md](../.agents/code-reviews/vehicles-review.md)
 
 ### CMS Frontend Pages
 
