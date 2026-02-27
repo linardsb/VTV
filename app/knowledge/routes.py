@@ -14,14 +14,19 @@ from app.auth.dependencies import get_current_user, require_role
 from app.auth.models import User
 from app.core.database import get_db
 from app.core.rate_limit import limiter
+from app.knowledge.exceptions import DuplicateTagError
 from app.knowledge.schemas import (
     DocumentContentResponse,
     DocumentResponse,
+    DocumentTagRequest,
     DocumentUpdate,
     DocumentUpload,
     DomainListResponse,
     SearchRequest,
     SearchResponse,
+    TagCreate,
+    TagListResponse,
+    TagResponse,
 )
 from app.knowledge.service import KnowledgeService
 from app.shared.schemas import PaginatedResponse, PaginationParams
@@ -134,12 +139,13 @@ async def list_documents(
     pagination: PaginationParams = Depends(),  # noqa: B008
     domain: str | None = Query(None, max_length=50),
     document_status: str | None = Query(None, alias="status", max_length=20),
+    tag: str | None = Query(None, max_length=100),
     service: KnowledgeService = Depends(get_service),  # noqa: B008
     _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> PaginatedResponse[DocumentResponse]:
     """List documents with pagination and optional filtering."""
     _ = request
-    return await service.list_documents(pagination, domain=domain, status=document_status)
+    return await service.list_documents(pagination, domain=domain, status=document_status, tag=tag)
 
 
 @router.get("/documents/{document_id}", response_model=DocumentResponse)
@@ -231,6 +237,91 @@ async def list_domains(
     """List all unique document domains."""
     _ = request
     return await service.list_domains()
+
+
+# ---------------------------------------------------------------------------
+# Tag endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/tags", response_model=TagListResponse)
+@limiter.limit("30/minute")
+async def list_tags(
+    request: Request,
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
+) -> TagListResponse:
+    """List all tags."""
+    _ = request
+    return await service.list_tags()
+
+
+@router.post("/tags", response_model=TagResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
+async def create_tag(
+    request: Request,
+    body: TagCreate,
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
+) -> TagResponse:
+    """Create a new tag."""
+    _ = request
+    try:
+        return await service.create_tag(body)
+    except DuplicateTagError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+
+
+@router.delete("/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("10/minute")
+async def delete_tag(
+    request: Request,
+    tag_id: int,
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
+) -> None:
+    """Delete a tag (CASCADE removes document associations)."""
+    _ = request
+    await service.delete_tag(tag_id)
+
+
+@router.post(
+    "/documents/{document_id}/tags",
+    response_model=DocumentResponse,
+)
+@limiter.limit("10/minute")
+async def add_tags_to_document(
+    request: Request,
+    document_id: int,
+    body: DocumentTagRequest,
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
+) -> DocumentResponse:
+    """Add tags to a document."""
+    _ = request
+    return await service.add_tags_to_document(document_id, body)
+
+
+@router.delete(
+    "/documents/{document_id}/tags/{tag_id}",
+    response_model=DocumentResponse,
+)
+@limiter.limit("10/minute")
+async def remove_tag_from_document(
+    request: Request,
+    document_id: int,
+    tag_id: int,
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
+) -> DocumentResponse:
+    """Remove a tag from a document."""
+    _ = request
+    return await service.remove_tag_from_document(document_id, tag_id)
+
+
+# ---------------------------------------------------------------------------
+# Search
+# ---------------------------------------------------------------------------
 
 
 @router.post("/search", response_model=SearchResponse)

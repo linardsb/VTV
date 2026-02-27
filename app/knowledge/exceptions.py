@@ -28,3 +28,11 @@ class EmbeddingProviderError(KnowledgeBaseError):
 
 class UnsupportedDocumentTypeError(KnowledgeBaseError):
     """Raised for unknown file extensions."""
+
+
+class TagNotFoundError(NotFoundError):
+    """Raised when a tag is not found by ID."""
+
+
+class DuplicateTagError(KnowledgeBaseError):
+    """Raised when creating a tag with a name that already exists."""

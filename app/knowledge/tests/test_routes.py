@@ -75,6 +75,8 @@ def _make_doc_response(**overrides: object) -> DocumentResponse:
         "error_message": None,
         "chunk_count": 5,
         "metadata_json": None,
+        "ocr_applied": False,
+        "tags": [],
         "created_at": _NOW,
         "updated_at": _NOW,
     }

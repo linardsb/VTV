@@ -1,10 +1,11 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
 """Data access layer for knowledge base with pgvector hybrid search."""
 
-from sqlalchemy import distinct, func, select, text
+from sqlalchemy import delete, distinct, func, select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.knowledge.models import Document, DocumentChunk
+from app.knowledge.models import Document, DocumentChunk, Tag, document_tags
 
 
 class KnowledgeRepository:
@@ -30,6 +31,7 @@ class KnowledgeRepository:
         title: str | None = None,
         description: str | None = None,
         status: str = "pending",
+        ocr_applied: bool = False,
     ) -> Document:
         """Create a new document record.
 
@@ -43,6 +45,7 @@ class KnowledgeRepository:
             title: Human-readable document title.
             description: Optional document description.
             status: Processing status.
+            ocr_applied: Whether OCR was used during extraction.
 
         Returns:
             The newly created Document instance.
@@ -57,6 +60,7 @@ class KnowledgeRepository:
             title=title,
             description=description,
             status=status,
+            ocr_applied=ocr_applied,
         )
         self.db.add(doc)
         await self.db.commit()
@@ -83,6 +87,7 @@ class KnowledgeRepository:
         domain: str | None = None,
         status: str | None = None,
         language: str | None = None,
+        tag: str | None = None,
     ) -> list[Document]:
         """List documents with pagination and optional filtering.
 
@@ -92,6 +97,7 @@ class KnowledgeRepository:
             domain: Filter by domain.
             status: Filter by processing status.
             language: Filter by language.
+            tag: Filter by tag name.
 
         Returns:
             List of Document instances.
@@ -103,6 +109,10 @@ class KnowledgeRepository:
             query = query.where(Document.status == status)
         if language:
             query = query.where(Document.language == language)
+        if tag:
+            query = query.join(document_tags, Document.id == document_tags.c.document_id)
+            query = query.join(Tag, document_tags.c.tag_id == Tag.id)
+            query = query.where(Tag.name == tag)
         query = query.order_by(Document.created_at.desc()).offset(offset).limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -112,12 +122,14 @@ class KnowledgeRepository:
         *,
         domain: str | None = None,
         status: str | None = None,
+        tag: str | None = None,
     ) -> int:
         """Count documents matching the given filters.
 
         Args:
             domain: Filter by domain.
             status: Filter by processing status.
+            tag: Filter by tag name.
 
         Returns:
             Total number of matching documents.
@@ -127,6 +139,10 @@ class KnowledgeRepository:
             query = query.where(Document.domain == domain)
         if status:
             query = query.where(Document.status == status)
+        if tag:
+            query = query.join(document_tags, Document.id == document_tags.c.document_id)
+            query = query.join(Tag, document_tags.c.tag_id == Tag.id)
+            query = query.where(Tag.name == tag)
         result = await self.db.execute(query)
         return result.scalar_one()
 
@@ -316,3 +332,171 @@ class KnowledgeRepository:
             (row[0], row[1], float(row[2])) for row in result.all()
         ]
         return rows
+
+    # ------------------------------------------------------------------
+    # Document OCR status
+    # ------------------------------------------------------------------
+
+    async def update_document_ocr_applied(self, document_id: int, *, ocr_applied: bool) -> None:
+        """Update a document's OCR applied status.
+
+        Args:
+            document_id: The document's database ID.
+            ocr_applied: Whether OCR was applied.
+        """
+        result = await self.db.execute(select(Document).where(Document.id == document_id))
+        doc = result.scalar_one_or_none()
+        if doc:
+            doc.ocr_applied = ocr_applied
+            await self.db.commit()
+
+    # ------------------------------------------------------------------
+    # Tag operations
+    # ------------------------------------------------------------------
+
+    async def list_tags(self) -> list[Tag]:
+        """List all tags sorted by name.
+
+        Returns:
+            List of Tag instances ordered by name.
+        """
+        result = await self.db.execute(select(Tag).order_by(Tag.name))
+        return list(result.scalars().all())
+
+    async def get_tag_by_name(self, name: str) -> Tag | None:
+        """Get a tag by its name.
+
+        Args:
+            name: Tag name to look up.
+
+        Returns:
+            Tag instance or None if not found.
+        """
+        result = await self.db.execute(select(Tag).where(Tag.name == name))
+        return result.scalar_one_or_none()
+
+    async def create_tag(self, name: str) -> Tag:
+        """Create a new tag.
+
+        Args:
+            name: Tag name (should be lowercase and trimmed).
+
+        Returns:
+            The newly created Tag instance.
+        """
+        tag = Tag(name=name)
+        self.db.add(tag)
+        await self.db.commit()
+        await self.db.refresh(tag)
+        return tag
+
+    async def delete_tag(self, tag_id: int) -> bool:
+        """Delete a tag by ID.
+
+        Args:
+            tag_id: The tag's database ID.
+
+        Returns:
+            True if the tag was found and deleted, False otherwise.
+        """
+        result = await self.db.execute(select(Tag).where(Tag.id == tag_id))
+        tag = result.scalar_one_or_none()
+        if not tag:
+            return False
+        await self.db.delete(tag)
+        await self.db.commit()
+        return True
+
+    async def get_or_create_tag(self, name: str) -> Tag:
+        """Find an existing tag or create a new one (race-safe).
+
+        Catches IntegrityError on concurrent inserts to avoid TOCTOU race
+        conditions on the unique name constraint.
+
+        Args:
+            name: Tag name (should be lowercase and trimmed).
+
+        Returns:
+            Existing or newly created Tag instance.
+        """
+        from sqlalchemy.exc import IntegrityError
+
+        existing = await self.get_tag_by_name(name)
+        if existing:
+            return existing
+        try:
+            return await self.create_tag(name)
+        except IntegrityError:
+            await self.db.rollback()
+            tag = await self.get_tag_by_name(name)
+            assert tag is not None  # noqa: S101 — guaranteed by unique constraint
+            return tag
+
+    async def add_tags_to_document(self, document_id: int, tag_ids: list[int]) -> None:
+        """Add tags to a document (ignores duplicates via batched upsert).
+
+        Args:
+            document_id: The document's database ID.
+            tag_ids: List of tag IDs to associate.
+        """
+        if not tag_ids:
+            return
+        values = [{"document_id": document_id, "tag_id": tid} for tid in tag_ids]
+        stmt = pg_insert(document_tags).values(values).on_conflict_do_nothing()
+        await self.db.execute(stmt)
+        await self.db.commit()
+
+    async def remove_tag_from_document(self, document_id: int, tag_id: int) -> None:
+        """Remove a tag association from a document.
+
+        Args:
+            document_id: The document's database ID.
+            tag_id: The tag's database ID.
+        """
+        stmt = delete(document_tags).where(
+            document_tags.c.document_id == document_id,
+            document_tags.c.tag_id == tag_id,
+        )
+        await self.db.execute(stmt)
+        await self.db.commit()
+
+    async def get_tags_for_documents(self, document_ids: list[int]) -> dict[int, list[Tag]]:
+        """Get all tags for multiple documents in a single query.
+
+        Args:
+            document_ids: List of document database IDs.
+
+        Returns:
+            Dict mapping document_id to list of Tag instances.
+        """
+        if not document_ids:
+            return {}
+        result = await self.db.execute(
+            select(document_tags.c.document_id, Tag)
+            .join(Tag, document_tags.c.tag_id == Tag.id)
+            .where(document_tags.c.document_id.in_(document_ids))
+            .order_by(Tag.name)
+        )
+        tags_map: dict[int, list[Tag]] = {did: [] for did in document_ids}
+        for row in result.all():
+            doc_id: int = row[0]
+            tag: Tag = row[1]
+            tags_map[doc_id].append(tag)
+        return tags_map
+
+    async def get_tags_for_document(self, document_id: int) -> list[Tag]:
+        """Get all tags for a document.
+
+        Args:
+            document_id: The document's database ID.
+
+        Returns:
+            List of Tag instances ordered by name.
+        """
+        result = await self.db.execute(
+            select(Tag)
+            .join(document_tags, Tag.id == document_tags.c.tag_id)
+            .where(document_tags.c.document_id == document_id)
+            .order_by(Tag.name)
+        )
+        return list(result.scalars().all())

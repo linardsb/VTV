@@ -88,6 +88,7 @@ async def test_update_document() -> None:
     mock_doc.error_message = None
     mock_doc.chunk_count = 5
     mock_doc.metadata_json = None
+    mock_doc.ocr_applied = False
     mock_doc.created_at = MagicMock()
     mock_doc.updated_at = MagicMock()
 
@@ -95,6 +96,8 @@ async def test_update_document() -> None:
     service = KnowledgeService(mock_db)
     service.repository = MagicMock()
     service.repository.update_document = AsyncMock(return_value=mock_doc)
+    service.repository.get_document = AsyncMock(return_value=mock_doc)
+    service.repository.get_tags_for_document = AsyncMock(return_value=[])
 
     update_data = DocumentUpdate(title="New Title")
     result = await service.update_document(1, update_data)
@@ -170,6 +173,7 @@ async def test_file_stored_on_ingest() -> None:
     mock_doc.error_message = None
     mock_doc.chunk_count = 2
     mock_doc.metadata_json = None
+    mock_doc.ocr_applied = False
     mock_doc.created_at = MagicMock()
     mock_doc.updated_at = MagicMock()
 
@@ -180,6 +184,8 @@ async def test_file_stored_on_ingest() -> None:
     service.repository.update_document_file_path = AsyncMock()
     service.repository.update_document_status = AsyncMock()
     service.repository.bulk_create_chunks = AsyncMock()
+    service.repository.get_document = AsyncMock(return_value=mock_doc)
+    service.repository.get_tags_for_document = AsyncMock(return_value=[])
     mock_db.refresh = AsyncMock()
 
     from app.knowledge.schemas import DocumentUpload
@@ -195,11 +201,12 @@ async def test_file_stored_on_ingest() -> None:
         patch("app.knowledge.service.Path.mkdir"),
         patch("app.knowledge.service.get_settings") as mock_settings,
     ):
-        mock_ext.return_value = "Some text"
+        mock_ext.return_value = ("Some text", False)
         mock_chunk.return_value = []
         mock_settings.return_value.document_storage_path = "data/documents"
         mock_settings.return_value.knowledge_chunk_size = 512
         mock_settings.return_value.knowledge_chunk_overlap = 50
+        mock_settings.return_value.auto_tag_enabled = False
 
         await service.ingest_document(
             file_path="/tmp/sop.pdf",  # noqa: S108

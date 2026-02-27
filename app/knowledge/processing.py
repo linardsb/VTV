@@ -18,26 +18,37 @@ from app.knowledge.exceptions import UnsupportedDocumentTypeError
 logger = get_logger(__name__)
 
 
-async def extract_text(file_path: str, source_type: str) -> str:
+async def extract_text(file_path: str, source_type: str) -> tuple[str, bool]:
     """Extract text from a document file.
 
     Routes to the appropriate extractor based on source_type.
     All extractors run in a thread pool to keep the event loop responsive.
+    For PDFs, detects scanned pages and falls back to OCR if needed.
 
     Args:
         file_path: Absolute path to the file on disk.
         source_type: One of pdf, docx, email, image, text.
 
     Returns:
-        Extracted text content.
+        Tuple of (extracted text, whether OCR was applied).
 
     Raises:
         UnsupportedDocumentTypeError: If source_type is not recognized.
     """
     logger.info("knowledge.extraction.started", source_type=source_type, file_path=file_path)
 
+    # PDF is handled separately because it returns a tuple with OCR info
+    if source_type == "pdf":
+        text, ocr_applied = await asyncio.to_thread(_extract_pdf_sync, file_path)
+        logger.info(
+            "knowledge.extraction.completed",
+            source_type=source_type,
+            char_count=len(text),
+            ocr_applied=ocr_applied,
+        )
+        return text, ocr_applied
+
     extractors: dict[str, Callable[[str], str]] = {
-        "pdf": _extract_pdf_sync,
         "docx": _extract_docx_sync,
         "email": _extract_email_sync,
         "image": _extract_image_sync,
@@ -50,24 +61,27 @@ async def extract_text(file_path: str, source_type: str) -> str:
     if extractor is None:
         raise UnsupportedDocumentTypeError(f"Unsupported document type: {source_type}")
 
-    text: str = await asyncio.to_thread(extractor, file_path)
+    text = await asyncio.to_thread(extractor, file_path)
 
     logger.info(
         "knowledge.extraction.completed",
         source_type=source_type,
         char_count=len(text),
     )
-    return text
+    return text, False
 
 
-def _extract_pdf_sync(file_path: str) -> str:
-    """Extract text from a PDF file using PyMuPDF.
+def _extract_pdf_sync(file_path: str) -> tuple[str, bool]:
+    """Extract text from a PDF file using PyMuPDF, with OCR fallback.
+
+    If PyMuPDF extracts little or no text (< 50 chars total), assumes the PDF
+    contains scanned images and falls back to pytesseract OCR.
 
     Args:
         file_path: Path to the PDF file.
 
     Returns:
-        Concatenated text from all pages.
+        Tuple of (concatenated text from all pages, whether OCR was applied).
     """
     import fitz
 
@@ -78,8 +92,58 @@ def _extract_pdf_sync(file_path: str) -> str:
         page_text = str(raw) if raw else ""
         if page_text.strip():
             pages.append(page_text)
-    doc.close()
-    return "\n\n".join(pages)
+
+    total_text = "\n\n".join(pages)
+
+    # If sufficient text was extracted, return without OCR
+    if len(total_text.strip()) >= 50:
+        doc.close()
+        return total_text, False
+
+    # Scanned PDF detected — fall back to OCR
+    page_count = len(doc)
+    logger.info(
+        "knowledge.extraction.ocr_fallback",
+        file_path=file_path,
+        page_count=page_count,
+        extracted_chars=len(total_text.strip()),
+    )
+
+    try:
+        import pytesseract
+        from PIL import Image
+
+        ocr_pages: list[str] = []
+        # Limit to first 50 pages to avoid memory issues
+        max_ocr_pages = min(page_count, 50)
+        for i in range(max_ocr_pages):
+            page = doc[i]
+            pix = page.get_pixmap(dpi=300)
+            image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+            ocr_text = str(pytesseract.image_to_string(image, lang="lav+eng"))
+            if ocr_text.strip():
+                ocr_pages.append(ocr_text)
+
+        doc.close()
+        result = "\n\n".join(ocr_pages)
+        logger.info(
+            "knowledge.extraction.ocr_completed",
+            char_count=len(result),
+            pages_ocrd=max_ocr_pages,
+        )
+        return result, True
+
+    except Exception as e:
+        doc.close()
+        logger.warning(
+            "knowledge.extraction.ocr_failed",
+            file_path=file_path,
+            error=str(e),
+            error_type=type(e).__name__,
+            exc_info=True,
+        )
+        # Return whatever text we got (possibly empty)
+        return total_text, False
 
 
 def _extract_docx_sync(file_path: str) -> str:

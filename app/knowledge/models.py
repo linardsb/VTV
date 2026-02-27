@@ -2,11 +2,29 @@
 """SQLAlchemy models for knowledge base documents and chunks."""
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    ForeignKey,
+    Integer,
+    PrimaryKeyConstraint,
+    String,
+    Table,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 from app.shared.models import TimestampMixin
+
+# Many-to-many association table for document <-> tag relationships
+document_tags = Table(
+    "document_tags",
+    Base.metadata,
+    Column("document_id", Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False),
+    Column("tag_id", Integer, ForeignKey("tags.id", ondelete="CASCADE"), nullable=False),
+    PrimaryKeyConstraint("document_id", "tag_id"),
+)
 
 
 class Document(Base, TimestampMixin):
@@ -31,6 +49,20 @@ class Document(Base, TimestampMixin):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ocr_applied: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class Tag(Base, TimestampMixin):
+    """Knowledge base document tag.
+
+    Simple string labels for categorizing and filtering documents.
+    Documents can have multiple tags via the document_tags association table.
+    """
+
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
 
 
 class DocumentChunk(Base, TimestampMixin):

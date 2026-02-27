@@ -33,7 +33,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (693 tests, ~18s)
+make test            # Unit tests (731 tests, ~18s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -71,7 +71,7 @@ VTV/
 │   │   └── agents/     # AI agent module — 11 tools, see app/core/agents/CLAUDE.md
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── auth/           # JWT auth + RBAC + user management (10 endpoints)
-│   ├── knowledge/      # RAG knowledge base + DMS (9 endpoints, pgvector)
+│   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)
 │   ├── stops/          # Stop management (6 endpoints, Haversine proximity)

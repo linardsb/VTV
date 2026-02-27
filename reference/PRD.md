@@ -53,7 +53,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 - 5 read-only transit tools (bus status, schedules, stops, adherence, drivers)
 - 1 knowledge base tool (RAG search over uploaded documents via pgvector) ✅
 - 1 skills management tool (list/create operational knowledge packages, DB-backed) ✅
-- Document management system (upload, metadata edit, download, content preview, Excel/CSV support) ✅
+- Document management system (upload, metadata edit, download, content preview, Excel/CSV support, tag CRUD, scanned PDF OCR detection, LLM auto-tagging) ✅
 - Chat UI embedded in CMS ✅ (dedicated `/chat` page with streaming SSE, bilingual LV/EN)
 
 **Infrastructure**

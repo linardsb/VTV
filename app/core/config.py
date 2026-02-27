@@ -163,6 +163,10 @@ class Settings(BaseSettings):
     knowledge_chunk_overlap: int = 50
     knowledge_search_limit: int = 50  # Candidates before reranking
 
+    # Auto-tagging (LLM classification on document upload)
+    auto_tag_enabled: bool = False
+    auto_tag_max_chars: int = 500
+
 
 @lru_cache
 def get_settings() -> Settings:

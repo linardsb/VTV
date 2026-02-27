@@ -16,7 +16,12 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.knowledge import chunking, processing
 from app.knowledge.embedding import EmbeddingProvider, get_embedding_provider
-from app.knowledge.exceptions import DocumentNotFoundError, ProcessingError
+from app.knowledge.exceptions import (
+    DocumentNotFoundError,
+    DuplicateTagError,
+    ProcessingError,
+    TagNotFoundError,
+)
 from app.knowledge.models import DocumentChunk
 from app.knowledge.repository import KnowledgeRepository
 from app.knowledge.reranker import RerankerProvider, get_reranker_provider
@@ -24,12 +29,16 @@ from app.knowledge.schemas import (
     DocumentChunkResponse,
     DocumentContentResponse,
     DocumentResponse,
+    DocumentTagRequest,
     DocumentUpdate,
     DocumentUpload,
     DomainListResponse,
     SearchRequest,
     SearchResponse,
     SearchResult,
+    TagCreate,
+    TagListResponse,
+    TagResponse,
 )
 from app.shared.schemas import PaginatedResponse, PaginationParams
 
@@ -113,11 +122,14 @@ class KnowledgeService:
             title=title,
             description=upload.description,
             status="processing",
+            ocr_applied=False,  # Updated after extraction if OCR is applied
         )
 
         try:
-            # Extract text
-            text = await processing.extract_text(file_path, source_type)
+            # Extract text (PDF may apply OCR for scanned documents)
+            text, ocr_applied = await processing.extract_text(file_path, source_type)
+            if ocr_applied:
+                logger.info("knowledge.ingest.ocr_applied", document_id=doc.id)
 
             # Store original file on disk
             storage_dir = Path(settings.document_storage_path) / str(doc.id)
@@ -142,8 +154,7 @@ class KnowledgeService:
 
             if not chunks:
                 await self.repository.update_document_status(doc.id, "completed", None, 0)
-                await self.db.refresh(doc)
-                return DocumentResponse.model_validate(doc)
+                return await self.get_document(doc.id)
 
             # Embed
             texts = [c.content for c in chunks]
@@ -165,11 +176,22 @@ class KnowledgeService:
             await self.repository.bulk_create_chunks(chunk_objects)
             await self.repository.update_document_status(doc.id, "completed", None, len(chunks))
 
+            # Update OCR status if OCR was applied
+            if ocr_applied:
+                await self.repository.update_document_ocr_applied(doc.id, ocr_applied=True)
+
+            # Auto-tag (best-effort, non-blocking)
+            await self._auto_tag_document(doc.id, text)
+
         except Exception as e:
             try:
                 await self.repository.update_document_status(doc.id, "failed", str(e), 0)
             except Exception:
-                logger.error("knowledge.ingest.status_update_failed", document_id=doc.id)
+                logger.error(
+                    "knowledge.ingest.status_update_failed",
+                    document_id=doc.id,
+                    exc_info=True,
+                )
             # Clean up stored file on failure
             try:
                 stored_dir = Path(settings.document_storage_path) / str(doc.id)
@@ -197,8 +219,7 @@ class KnowledgeService:
             duration_ms=duration_ms,
         )
 
-        await self.db.refresh(doc)
-        return DocumentResponse.model_validate(doc)
+        return await self.get_document(doc.id)
 
     async def update_document(self, document_id: int, data: DocumentUpdate) -> DocumentResponse:
         """Update document metadata.
@@ -220,7 +241,7 @@ class KnowledgeService:
         if not updated:
             raise DocumentNotFoundError(f"Document {document_id} not found")
         logger.info("knowledge.document.update_completed", document_id=document_id)
-        return DocumentResponse.model_validate(updated)
+        return await self.get_document(document_id)
 
     async def get_document_content(self, document_id: int) -> DocumentContentResponse:
         """Get document metadata and extracted text chunks.
@@ -390,7 +411,10 @@ class KnowledgeService:
         doc = await self.repository.get_document(document_id)
         if not doc:
             raise DocumentNotFoundError(f"Document {document_id} not found")
-        return DocumentResponse.model_validate(doc)
+        doc_resp = DocumentResponse.model_validate(doc)
+        doc_tags = await self.repository.get_tags_for_document(document_id)
+        doc_resp.tags = [TagResponse.model_validate(t) for t in doc_tags]
+        return doc_resp
 
     async def list_documents(
         self,
@@ -398,6 +422,7 @@ class KnowledgeService:
         *,
         domain: str | None = None,
         status: str | None = None,
+        tag: str | None = None,
     ) -> PaginatedResponse[DocumentResponse]:
         """List documents with pagination and optional filtering.
 
@@ -405,6 +430,7 @@ class KnowledgeService:
             pagination: Page and page_size parameters.
             domain: Filter by domain.
             status: Filter by processing status.
+            tag: Filter by tag name.
 
         Returns:
             Paginated list of DocumentResponse items.
@@ -414,9 +440,20 @@ class KnowledgeService:
             limit=pagination.page_size,
             domain=domain,
             status=status,
+            tag=tag,
         )
-        total = await self.repository.count_documents(domain=domain, status=status)
-        items = [DocumentResponse.model_validate(d) for d in docs]
+        total = await self.repository.count_documents(domain=domain, status=status, tag=tag)
+
+        # Batch load tags for all documents in a single query (avoids N+1)
+        doc_ids = [d.id for d in docs]
+        tags_map = await self.repository.get_tags_for_documents(doc_ids)
+
+        items: list[DocumentResponse] = []
+        for d in docs:
+            doc_resp = DocumentResponse.model_validate(d)
+            doc_resp.tags = [TagResponse.model_validate(t) for t in tags_map.get(d.id, [])]
+            items.append(doc_resp)
+
         return PaginatedResponse[DocumentResponse](
             items=items,
             total=total,
@@ -449,3 +486,176 @@ class KnowledgeService:
 
         await self.repository.delete_document(document_id)
         logger.info("knowledge.delete.completed", document_id=document_id)
+
+    # ------------------------------------------------------------------
+    # Tag management
+    # ------------------------------------------------------------------
+
+    async def list_tags(self) -> TagListResponse:
+        """List all tags sorted by name.
+
+        Returns:
+            TagListResponse with all tags.
+        """
+        tags = await self.repository.list_tags()
+        tag_items = [TagResponse.model_validate(t) for t in tags]
+        return TagListResponse(tags=tag_items, total=len(tag_items))
+
+    async def create_tag(self, data: TagCreate) -> TagResponse:
+        """Create a new tag.
+
+        Args:
+            data: Tag creation data with normalized name.
+
+        Returns:
+            The newly created TagResponse.
+
+        Raises:
+            DuplicateTagError: If a tag with this name already exists.
+        """
+        existing = await self.repository.get_tag_by_name(data.name)
+        if existing:
+            raise DuplicateTagError(f"Tag '{data.name}' already exists")
+        tag = await self.repository.create_tag(data.name)
+        logger.info("knowledge.tag.created", tag_id=tag.id, tag_name=tag.name)
+        return TagResponse.model_validate(tag)
+
+    async def delete_tag(self, tag_id: int) -> None:
+        """Delete a tag by ID (CASCADE removes document associations).
+
+        Args:
+            tag_id: The tag's database ID.
+
+        Raises:
+            TagNotFoundError: If tag does not exist.
+        """
+        deleted = await self.repository.delete_tag(tag_id)
+        if not deleted:
+            raise TagNotFoundError(f"Tag {tag_id} not found")
+        logger.info("knowledge.tag.deleted", tag_id=tag_id)
+
+    async def add_tags_to_document(
+        self, document_id: int, data: DocumentTagRequest
+    ) -> DocumentResponse:
+        """Add tags to a document.
+
+        Args:
+            document_id: The document's database ID.
+            data: Request containing tag IDs to assign.
+
+        Returns:
+            Updated DocumentResponse with tags.
+
+        Raises:
+            DocumentNotFoundError: If document does not exist.
+        """
+        doc = await self.repository.get_document(document_id)
+        if not doc:
+            raise DocumentNotFoundError(f"Document {document_id} not found")
+        await self.repository.add_tags_to_document(document_id, data.tag_ids)
+        logger.info(
+            "knowledge.document.tags_updated",
+            document_id=document_id,
+            tag_ids=data.tag_ids,
+            action="add",
+        )
+        return await self.get_document(document_id)
+
+    async def remove_tag_from_document(self, document_id: int, tag_id: int) -> DocumentResponse:
+        """Remove a tag from a document.
+
+        Args:
+            document_id: The document's database ID.
+            tag_id: The tag's database ID.
+
+        Returns:
+            Updated DocumentResponse with tags.
+
+        Raises:
+            DocumentNotFoundError: If document does not exist.
+        """
+        doc = await self.repository.get_document(document_id)
+        if not doc:
+            raise DocumentNotFoundError(f"Document {document_id} not found")
+        await self.repository.remove_tag_from_document(document_id, tag_id)
+        logger.info(
+            "knowledge.document.tags_updated",
+            document_id=document_id,
+            tag_id=tag_id,
+            action="remove",
+        )
+        return await self.get_document(document_id)
+
+    # ------------------------------------------------------------------
+    # Auto-tagging (LLM classification, best-effort)
+    # ------------------------------------------------------------------
+
+    async def _auto_tag_document(self, document_id: int, text: str) -> None:
+        """Auto-tag a document using LLM classification.
+
+        Best-effort: failures are logged but never raise exceptions.
+        Only runs when auto_tag_enabled is True in settings.
+
+        Args:
+            document_id: The document's database ID.
+            text: Extracted document text.
+        """
+        import json as json_lib
+        from typing import Any, cast
+
+        settings = get_settings()
+        if not settings.auto_tag_enabled:
+            return
+
+        logger.info("knowledge.autotag.started", document_id=document_id)
+
+        try:
+            from pydantic_ai import Agent
+
+            truncated = text[: settings.auto_tag_max_chars]
+            agent = Agent(
+                f"{settings.llm_provider}:{settings.llm_model}",
+                system_prompt=(
+                    "You are a document classifier. Given document text, return 1-3 short "
+                    "tags as a JSON array of lowercase single-word strings. "
+                    'Example: ["transit", "policy", "safety"]. Return ONLY the JSON array.'
+                ),
+            )
+            result = await agent.run(truncated)
+            raw_response = str(result.response)
+
+            # Parse the JSON array from LLM response
+            parsed = json_lib.loads(raw_response)
+            if not isinstance(parsed, list):
+                logger.warning(
+                    "knowledge.autotag.failed",
+                    document_id=document_id,
+                    reason="LLM response is not a list",
+                )
+                return
+            tag_names: list[Any] = cast(list[Any], parsed)  # type: ignore[redundant-cast]
+
+            # Normalize and create/link tags
+            created_count = 0
+            for name in tag_names[:3]:  # Cap at 3 tags
+                if not isinstance(name, str) or not name.strip():
+                    continue
+                normalized = name.strip().lower()
+                tag = await self.repository.get_or_create_tag(normalized)
+                await self.repository.add_tags_to_document(document_id, [tag.id])
+                created_count += 1
+
+            logger.info(
+                "knowledge.autotag.completed",
+                document_id=document_id,
+                tag_count=created_count,
+            )
+
+        except Exception as e:
+            logger.warning(
+                "knowledge.autotag.failed",
+                document_id=document_id,
+                error=str(e),
+                error_type=type(e).__name__,
+                exc_info=True,
+            )

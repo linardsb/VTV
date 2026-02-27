@@ -47,6 +47,41 @@ class DocumentUpdate(BaseModel):
         return self
 
 
+class TagCreate(BaseModel):
+    """Schema for creating a new tag."""
+
+    name: str = Field(..., min_length=1, max_length=100, description="Tag name")
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, v: str) -> str:
+        """Strip whitespace and lowercase tag names for consistency."""
+        return v.strip().lower()
+
+
+class TagResponse(BaseModel):
+    """Schema for tag responses."""
+
+    id: int
+    name: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TagListResponse(BaseModel):
+    """Schema for listing all tags."""
+
+    tags: list[TagResponse]
+    total: int
+
+
+class DocumentTagRequest(BaseModel):
+    """Schema for adding tags to a document."""
+
+    tag_ids: list[int] = Field(..., min_length=1, max_length=20, description="Tag IDs to assign")
+
+
 class DocumentResponse(BaseModel):
     """Schema for document responses."""
 
@@ -62,6 +97,8 @@ class DocumentResponse(BaseModel):
     error_message: str | None
     chunk_count: int
     metadata_json: str | None
+    ocr_applied: bool
+    tags: list[TagResponse] = []
     created_at: datetime
     updated_at: datetime
 
