@@ -904,6 +904,12 @@
       "includesNote": "Includes: agency.txt, routes.txt, calendar.txt, calendar_dates.txt, trips.txt, stop_times.txt, stops.txt"
     }
   },
+  "theme": {
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
   "users": {
     "title": "User Management",
     "description": "Manage system users and access permissions",

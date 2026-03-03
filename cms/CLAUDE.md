@@ -45,6 +45,7 @@ Three-tier token architecture in `packages/ui/src/tokens.css`:
 - **Primitive tokens**: Raw values (`--color-blue-500`, `--spacing-4`)
 - **Semantic tokens**: Contextual meaning (`--color-surface-primary`, `--color-text-secondary`)
 - **Component tokens**: Component-specific (`--button-bg`, `--input-border`)
+- **Dark mode**: `.dark` class overrides on semantic/component tokens. Managed by `next-themes` (class attribute, system default). Toggle in sidebar footer.
 
 Design rules live in `design-system/vtv/MASTER.md`. Page-specific overrides go in `design-system/vtv/pages/{page}.md`.
 

@@ -7,8 +7,8 @@
 ---
 
 **Project:** VTV
-**Generated:** 2026-02-16 15:59:21
-**Category:** Government/Public Service
+**Updated:** 2026-03-02
+**Category:** Corporate Transit Operations
 
 ---
 
@@ -16,15 +16,28 @@
 
 ### Color Palette
 
-| Role | Hex | CSS Variable |
-|------|-----|--------------|
-| Primary | `#0F172A` | `--color-primary` |
-| Secondary | `#334155` | `--color-secondary` |
-| CTA/Accent | `#0369A1` | `--color-cta` |
-| Background | `#F8FAFC` | `--color-background` |
-| Text | `#020617` | `--color-text` |
+| Role | Hex | CSS Variable | Usage |
+|------|-----|--------------|-------|
+| Primary | `#040E4B` | `--color-primary` | Sidebar, headers, primary buttons |
+| Secondary | `#60607D` | `--color-secondary` | Muted foreground text |
+| CTA/Accent | `#0391F2` | `--color-cta` / `--color-interactive` | Links, focus rings, interactive elements |
+| Background | `#F8FAFC` | `--color-background` | Page background |
+| Text | `#040E4B` | `--color-foreground` | Primary text |
+| Success | `#06757E` | `--color-status-ontime` | On-time status, driver-shift events |
+| Error | `#DD3039` | `--color-error` | Errors, critical status, destructive actions |
+| Warning | `#D4A017` | `--color-status-delayed` | Delayed status, route-change events |
 
-**Color Notes:** High contrast navy + blue
+**Color Notes:** VTV deep navy + vibrant blue. Blue-purple tinted neutrals. All colors in oklch for perceptual uniformity.
+
+### Border Radius
+
+All components use `border-radius: 0` (sharp corners). No rounded corners anywhere.
+
+**Exceptions (keep `rounded-full`):**
+- Avatars — circular profile images (universal UI convention)
+- Switch toggles — pill shape (inherent to pattern)
+- Scrollbar thumbs — rounded for grip affordance
+- Status indicator dots (size <= 3) — decorative indicators
 
 ### Typography
 
@@ -92,10 +105,10 @@ Purpose-named tokens for data-dense UIs. Use via Tailwind: `p-(--spacing-card)`,
 ```css
 /* Primary Button */
 .btn-primary {
-  background: #0369A1;
+  background: #0391F2;
   color: white;
   padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: 0;
   font-weight: 600;
   transition: all 200ms ease;
   cursor: pointer;
@@ -109,10 +122,10 @@ Purpose-named tokens for data-dense UIs. Use via Tailwind: `p-(--spacing-card)`,
 /* Secondary Button */
 .btn-secondary {
   background: transparent;
-  color: #0F172A;
-  border: 2px solid #0F172A;
+  color: #040E4B;
+  border: 2px solid #040E4B;
   padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: 0;
   font-weight: 600;
   transition: all 200ms ease;
   cursor: pointer;
@@ -124,7 +137,7 @@ Purpose-named tokens for data-dense UIs. Use via Tailwind: `p-(--spacing-card)`,
 ```css
 .card {
   background: #F8FAFC;
-  border-radius: 12px;
+  border-radius: 0;
   padding: 24px;
   box-shadow: var(--shadow-md);
   transition: all 200ms ease;
@@ -143,15 +156,15 @@ Purpose-named tokens for data-dense UIs. Use via Tailwind: `p-(--spacing-card)`,
 .input {
   padding: 12px 16px;
   border: 1px solid #E2E8F0;
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 16px;
   transition: border-color 200ms ease;
 }
 
 .input:focus {
-  border-color: #0F172A;
+  border-color: #040E4B;
   outline: none;
-  box-shadow: 0 0 0 3px #0F172A20;
+  box-shadow: 0 0 0 3px #040E4B20;
 }
 ```
 
@@ -165,7 +178,7 @@ Purpose-named tokens for data-dense UIs. Use via Tailwind: `p-(--spacing-card)`,
 
 .modal {
   background: white;
-  border-radius: 16px;
+  border-radius: 0;
   padding: 32px;
   box-shadow: var(--shadow-xl);
   max-width: 500px;
@@ -209,6 +222,7 @@ Purpose-named tokens for data-dense UIs. Use via Tailwind: `p-(--spacing-card)`,
 - ❌ **Low contrast text** — Maintain 4.5:1 minimum contrast ratio
 - ❌ **Instant state changes** — Always use transitions (150-300ms)
 - ❌ **Invisible focus states** — Focus states must be visible for a11y
+- ❌ **Rounded corners** — All components use `border-radius: 0`. No `rounded-*` classes except on avatars, switches, scrollbars, and status dots
 
 ---
 
@@ -226,3 +240,4 @@ Before delivering any UI code, verify:
 - [ ] Responsive: 375px, 768px, 1024px, 1440px
 - [ ] No content hidden behind fixed navbars
 - [ ] No horizontal scroll on mobile
+- [ ] No `rounded-*` classes except on avatars, switches, scrollbars, and status dots

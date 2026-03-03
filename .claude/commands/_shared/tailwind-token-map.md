@@ -13,7 +13,7 @@ NEVER use Tailwind primitive color classes. Use semantic tokens from `cms/packag
 | `text-white` (on colored bg) | `text-interactive-foreground` / `text-primary-foreground` |
 | `bg-blue-600`, `bg-blue-500` | `bg-primary` or `bg-interactive` |
 | `bg-red-500`, `bg-red-600` | `bg-destructive` or `bg-error` |
-| `bg-green-500`, `bg-emerald-500` | `bg-success` or `bg-status-ontime` |
+| `bg-green-500`, `bg-emerald-500`, `bg-teal-500` | `bg-success` or `bg-status-ontime` |
 | `bg-amber-500`, `bg-yellow-500` | `bg-warning` or `bg-status-delayed` |
 | `border-gray-200` | `border-border` |
 | `border-red-200` | `border-error-border` |
@@ -22,10 +22,10 @@ NEVER use Tailwind primitive color classes. Use semantic tokens from `cms/packag
 | `text-red-700`, `text-red-600` | `text-error` |
 | `bg-blue-400` | `bg-category-maintenance` |
 | `bg-amber-400` | `bg-category-route-change` |
-| `bg-emerald-500` | `bg-category-driver-shift` or `bg-transport-trolleybus` |
+| `bg-emerald-500`, `bg-teal-500` | `bg-category-driver-shift` or `bg-transport-trolleybus` |
 | `bg-purple-600` | `bg-transport-tram` |
 | `text-blue-600` | `text-transport-bus` or `text-interactive` |
-| `text-emerald-500` | `text-transport-trolleybus` or `text-status-ontime` |
+| `text-emerald-500`, `text-teal-500` | `text-transport-trolleybus` or `text-status-ontime` |
 | `text-purple-600` | `text-transport-tram` |
 
 If unsure about the correct semantic token, check `cms/packages/ui/src/tokens.css` before writing the class.
@@ -35,13 +35,13 @@ If unsure about the correct semantic token, check `cms/packages/ui/src/tokens.cs
 ### Full Forbidden Classes by Category
 
 - **Neutral text**: `text-gray-`, `text-slate-`, `text-zinc-`, `text-neutral-` → `text-foreground-*`
-- **Colored text**: `text-blue-`, `text-red-`, `text-green-`, `text-amber-`, `text-emerald-`, `text-purple-`, `text-orange-` → `text-primary`, `text-error`, `text-success`, `text-transport-*`, `text-category-*`
+- **Colored text**: `text-blue-`, `text-red-`, `text-green-`, `text-amber-`, `text-emerald-`, `text-teal-`, `text-purple-`, `text-orange-` → `text-primary`, `text-error`, `text-success`, `text-transport-*`, `text-category-*`
 - **White text**: `text-white` paired with colored backgrounds → `text-interactive-foreground`, `text-primary-foreground`, `text-destructive-foreground`
 - **Primary backgrounds**: `bg-blue-`, `bg-red-`, `bg-green-`, `bg-yellow-`, `bg-gray-`, `bg-slate-` → `bg-primary`, `bg-destructive`, `bg-success`, `bg-warning`, `bg-surface-*`, `bg-muted`
-- **Domain backgrounds**: `bg-amber-`, `bg-emerald-`, `bg-purple-`, `bg-orange-` → `bg-category-*`, `bg-transport-*`
+- **Domain backgrounds**: `bg-amber-`, `bg-emerald-`, `bg-teal-`, `bg-purple-`, `bg-orange-` → `bg-category-*`, `bg-transport-*`
 - **Error states**: `bg-red-50` → `bg-error-bg`, `border-red-200` → `border-error-border`, `text-red-700` → `text-error`
 - **Primary borders**: `border-gray-`, `border-slate-` → `border-border`
-- **Colored borders**: `border-blue-`, `border-red-`, `border-amber-`, `border-emerald-`, `border-purple-` → `border-error-border`, `border-transport-*`, `border-category-*`
+- **Colored borders**: `border-blue-`, `border-red-`, `border-amber-`, `border-emerald-`, `border-teal-`, `border-purple-` → `border-error-border`, `border-transport-*`, `border-category-*`
 
 ### Semantic Token Reference
 
@@ -62,3 +62,5 @@ When validating `.tsx` files, check for these violations:
 - ALL Tailwind primitive color classes listed above
 - Hardcoded spacing via inline `style` with pixel values
 - Verify semantic tokens used: `--color-surface-*`, `--color-text-*`, `--color-border-*`
+
+**Border radius:** ALL components use `border-radius: 0`. Do not add `rounded-*` classes except on avatars, switches, scrollbar thumbs, and status indicator dots (size <= 3).

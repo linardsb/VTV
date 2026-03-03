@@ -110,8 +110,8 @@ export function GTFSImport({ onImportComplete }: GTFSImportProps) {
 
         {isUploading && (
           <div className="space-y-(--spacing-tight)">
-            <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div className="absolute inset-0 h-full w-1/3 animate-pulse rounded-full bg-interactive" />
+            <div className="relative h-2 w-full overflow-hidden rounded-none bg-muted">
+              <div className="absolute inset-0 h-full w-1/3 animate-pulse rounded-none bg-interactive" />
             </div>
             <p className="text-xs text-foreground-muted text-center">{t("importing")}</p>
           </div>

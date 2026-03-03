@@ -22,6 +22,7 @@ from slowapi import _rate_limit_exceeded_handler  # pyright: ignore[reportMissin
 from slowapi.errors import RateLimitExceeded  # pyright: ignore[reportMissingTypeStubs]
 
 from app.auth.routes import router as auth_router
+from app.compliance.routes import router as compliance_router
 from app.core.agents.exceptions import setup_agent_exception_handlers
 from app.core.agents.routes import router as agent_router
 from app.core.agents.service import close_agent_service
@@ -160,6 +161,7 @@ app.include_router(drivers_router)
 app.include_router(events_router)
 app.include_router(skills_router)
 app.include_router(vehicles_router)
+app.include_router(compliance_router)
 
 
 @app.get("/")

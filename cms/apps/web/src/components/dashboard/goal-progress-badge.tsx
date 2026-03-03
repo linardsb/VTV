@@ -56,7 +56,7 @@ export function GoalProgressBadge({
     return (
       <span
         className={cn(
-          "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+          "inline-flex items-center rounded-none px-1.5 py-0.5 text-[10px] font-medium",
           statusStyles[status],
         )}
       >
@@ -69,16 +69,16 @@ export function GoalProgressBadge({
     <div className="flex flex-col gap-0.5">
       <span
         className={cn(
-          "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+          "inline-flex items-center rounded-none px-1.5 py-0.5 text-[10px] font-medium",
           statusStyles[status],
         )}
       >
         {done}/{total}
       </span>
-      <div className="h-1 w-full overflow-hidden rounded-full bg-foreground/10">
+      <div className="h-1 w-full overflow-hidden rounded-none bg-foreground/10">
         <div
           className={cn(
-            "h-full rounded-full transition-all duration-200",
+            "h-full rounded-none transition-all duration-200",
             barColors[status],
           )}
           style={{ width: `${String(pct)}%` }}

@@ -35,7 +35,7 @@ export function DeleteRouteDialog({
       <DialogContent>
         <DialogHeader>
           <div className="flex items-center gap-(--spacing-inline)">
-            <div className="flex size-10 items-center justify-center rounded-full bg-status-critical/10">
+            <div className="flex size-10 items-center justify-center rounded-none bg-status-critical/10">
               <AlertTriangle
                 className="size-5 text-status-critical"
                 aria-hidden="true"

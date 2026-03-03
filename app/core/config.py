@@ -172,6 +172,10 @@ class Settings(BaseSettings):
     auto_tag_enabled: bool = False
     auto_tag_max_chars: int = 500
 
+    # NeTEx/SIRI compliance exports
+    netex_codespace: str = "VTV"
+    netex_participant_ref: str = "VTV"
+
 
 @lru_cache
 def get_settings() -> Settings:

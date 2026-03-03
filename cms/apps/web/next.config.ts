@@ -31,7 +31,7 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com",
-      "connect-src 'self' http://localhost:8123 https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com",
+      "connect-src 'self' http://localhost:8123 ws://localhost:8123 https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com",
       "font-src 'self'",
       "frame-ancestors 'none'",
     ].join("; "),

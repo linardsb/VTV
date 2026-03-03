@@ -64,7 +64,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 
 - ~~Live GPS tracking and real-time map~~ ✅ **Implemented** — Multi-feed GTFS-RT tracking with Redis caching, background pollers, 3 REST endpoints + 1 WebSocket endpoint. Live map with react-leaflet v5, WebSocket real-time push (~100ms latency) with automatic HTTP polling fallback. WebSocket live streaming via Redis Pub/Sub fan-out with per-client feed/route filtering, JWT auth via query parameter, nginx connection limits. Frontend connection status badge (Live/Polling/Connecting). Supports Riga + configurable additional feeds (Jurmala, Pieriga, ATD)
 - ~~Vehicle and driver management (Phase 2)~~ ✅ **Fully implemented** — Driver management: full CRUD backend (5 endpoints), CMS page with table/filters/forms, agent tool integration (DB-backed `check_driver_availability`), dashboard drag-and-drop scheduling. Vehicle management: fleet CRUD backend (8 endpoints), maintenance tracking, driver assignment with conflict detection, fleet_number→GTFS-RT vehicle_id linking, database CHECK constraints, 30 unit tests
-- NeTEx/SIRI compliance exports (Phase 3)
+- ~~NeTEx/SIRI compliance exports (Phase 3)~~ ✅ **Implemented** — New `compliance` vertical slice with 4 endpoints: NeTEx EPIP v1.2 static export (PublicationDelivery with ResourceFrame, SiteFrame, ServiceFrame, TimetableFrame), SIRI-VM real-time vehicle monitoring, SIRI-SM stop monitoring with vehicle filtering. Pure transformation layer over existing schedule/stop/transit data using lxml. 18 unit tests, configurable codespace/participant_ref
 - Public-facing passenger information (out of scope)
 - Fare management (handled by e-talons system)
 - Mobile app
@@ -509,7 +509,7 @@ GET    /health                 — Health check
 ### EU Transit Regulations
 
 - GTFS static export compliant with MMTIS Delegated Regulation
-- NeTEx/SIRI exports planned for Phase 3
+- NeTEx EPIP v1.2 export and SIRI 2.0 (VM + SM) endpoints implemented
 - Data published to Latvian National Access Point (data.gov.lv)
 
 ### Data Sovereignty

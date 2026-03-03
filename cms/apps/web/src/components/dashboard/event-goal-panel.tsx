@@ -517,10 +517,10 @@ export function EventGoalPanel({
                       })}
                     </span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-foreground/10">
+                  <div className="h-2 w-full overflow-hidden rounded-none bg-foreground/10">
                     <div
                       className={cn(
-                        "h-full rounded-full transition-all duration-200",
+                        "h-full rounded-none transition-all duration-200",
                         barColorStyles[status],
                       )}
                       style={{ width: `${String(pct)}%` }}
@@ -569,12 +569,12 @@ export function EventGoalPanel({
                   event.goals?.vehicle_id) && (
                   <div className="flex flex-wrap gap-(--spacing-tight) text-xs text-foreground-muted">
                     {event.goals.transport_type && (
-                      <span className="rounded-full bg-foreground/10 px-2 py-0.5">
+                      <span className="rounded-none bg-foreground/10 px-2 py-0.5">
                         {event.goals.transport_type}
                       </span>
                     )}
                     {event.goals.vehicle_id && (
-                      <span className="rounded-full bg-foreground/10 px-2 py-0.5">
+                      <span className="rounded-none bg-foreground/10 px-2 py-0.5">
                         {event.goals.vehicle_id}
                       </span>
                     )}

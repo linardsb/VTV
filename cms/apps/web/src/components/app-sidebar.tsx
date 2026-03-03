@@ -9,6 +9,7 @@ import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { LocaleToggle } from "@/components/locale-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -96,7 +97,8 @@ function NavContent({ locale }: { locale: string }) {
           <LogOut className="size-4" />
           {tCommon("logout")}
         </Button>
-        <div className="mt-2">
+        <div className="mt-2 flex items-center justify-between px-3">
+          <ThemeToggle />
           <LocaleToggle />
         </div>
       </div>

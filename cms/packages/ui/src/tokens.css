@@ -13,45 +13,53 @@
    Raw color values in oklch for perceptual uniformity
    ============================================ */
 @theme {
-  /* Navy scale (Government primary) */
-  --color-navy-50: oklch(0.97 0.005 260);
-  --color-navy-100: oklch(0.93 0.01 260);
-  --color-navy-200: oklch(0.85 0.02 260);
-  --color-navy-400: oklch(0.6 0.06 260);
-  --color-navy-600: oklch(0.4 0.08 260);
-  --color-navy-800: oklch(0.25 0.06 260);
-  --color-navy-900: oklch(0.18 0.04 260);
-  --color-navy-950: oklch(0.12 0.03 260);
+  /* Navy scale (VTV deep navy — hue 268) */
+  --color-navy-50: oklch(0.97 0.005 268);
+  --color-navy-100: oklch(0.93 0.01 268);
+  --color-navy-200: oklch(0.85 0.02 268);
+  --color-navy-400: oklch(0.55 0.07 268);
+  --color-navy-600: oklch(0.35 0.09 268);
+  --color-navy-800: oklch(0.22 0.10 268);
+  --color-navy-900: oklch(0.17 0.09 268);
+  --color-navy-950: oklch(0.12 0.06 268);
 
-  /* Slate scale (Neutral) */
-  --color-slate-50: oklch(0.98 0.002 265);
-  --color-slate-100: oklch(0.95 0.004 265);
-  --color-slate-200: oklch(0.9 0.006 265);
-  --color-slate-300: oklch(0.82 0.008 265);
-  --color-slate-400: oklch(0.65 0.012 265);
-  --color-slate-500: oklch(0.55 0.015 265);
-  --color-slate-600: oklch(0.45 0.015 265);
-  --color-slate-700: oklch(0.37 0.014 265);
-  --color-slate-800: oklch(0.28 0.012 265);
-  --color-slate-900: oklch(0.2 0.01 265);
+  /* Slate scale (VTV blue-purple tinted neutrals — hue 275) */
+  --color-slate-50: oklch(0.98 0.003 275);
+  --color-slate-100: oklch(0.95 0.005 275);
+  --color-slate-200: oklch(0.90 0.008 275);
+  --color-slate-300: oklch(0.82 0.012 275);
+  --color-slate-400: oklch(0.65 0.02 275);
+  --color-slate-500: oklch(0.55 0.025 275);
+  --color-slate-600: oklch(0.47 0.03 275);
+  --color-slate-700: oklch(0.37 0.025 275);
+  --color-slate-800: oklch(0.28 0.02 275);
+  --color-slate-900: oklch(0.20 0.015 275);
 
-  /* Blue scale (CTA / Interactive) */
-  --color-blue-400: oklch(0.7 0.15 240);
-  --color-blue-500: oklch(0.62 0.18 240);
-  --color-blue-600: oklch(0.55 0.2 240);
-  --color-blue-700: oklch(0.47 0.18 240);
+  /* Blue scale (VTV CTA #0391F2 — hue 250) */
+  --color-blue-400: oklch(0.72 0.16 250);
+  --color-blue-500: oklch(0.65 0.18 250);
+  --color-blue-600: oklch(0.58 0.20 250);
+  --color-blue-700: oklch(0.50 0.18 250);
 
-  /* Transit status colors */
-  --color-emerald-500: oklch(0.7 0.17 155);
+  /* Teal scale (VTV success #06757E — hue 196, replaces emerald) */
+  --color-teal-400: oklch(0.58 0.09 196);
+  --color-teal-500: oklch(0.50 0.08 196);
+  --color-teal-600: oklch(0.44 0.08 196);
+
+  /* Amber scale (warning — retained) */
   --color-amber-400: oklch(0.85 0.17 85);
   --color-amber-500: oklch(0.77 0.17 70);
-  --color-red-500: oklch(0.63 0.22 25);
-  --color-red-600: oklch(0.55 0.22 25);
+
+  /* Red scale (VTV alert #DD3039 — hue 23) */
+  --color-red-50: oklch(0.97 0.01 23);
+  --color-red-200: oklch(0.88 0.05 23);
+  --color-red-500: oklch(0.58 0.22 23);
+  --color-red-600: oklch(0.50 0.22 23);
 
   /* Event subtype colors */
-  --color-purple-500: oklch(0.62 0.2 295);
-  --color-orange-500: oklch(0.7 0.17 50);
-  --color-teal-500: oklch(0.7 0.14 180);
+  --color-purple-500: oklch(0.55 0.20 300);
+  --color-purple-600: oklch(0.48 0.18 300);
+  --color-orange-500: oklch(0.70 0.17 50);
 
   /* Typography — Lexend + Source Sans 3 (Corporate Trust pairing) */
   --font-heading: var(--font-lexend), system-ui, sans-serif;
@@ -72,11 +80,11 @@
   --spacing-xl: 2rem;
   --spacing-2xl: 3rem;
 
-  /* Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  /* Radius — all zero for sharp corporate aesthetic */
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
 
   /* Dashboard-density spacing scale (compact) */
   --spacing-page: 1rem;          /* 16px — main content area padding */
@@ -93,8 +101,10 @@
    TIER 2: SEMANTIC TOKENS
    Purpose-named — use these in layouts and features
    Dark mode overrides ONLY this tier
+   NOTE: Uses @theme (not @theme inline) so utilities output var() references
+   that the .dark block can override at runtime.
    ============================================ */
-@theme inline {
+@theme {
   /* Brand */
   --color-brand: var(--color-navy-800);
   --color-brand-hover: var(--color-navy-900);
@@ -117,31 +127,31 @@
   --color-border-subtle: var(--color-slate-100);
 
   /* Transit status (domain-specific) */
-  --color-status-ontime: var(--color-emerald-500);
+  --color-status-ontime: var(--color-teal-500);
   --color-status-delayed: var(--color-amber-500);
   --color-status-critical: var(--color-red-600);
 
   /* Calendar event categories */
   --color-category-maintenance: var(--color-blue-400);
   --color-category-route-change: var(--color-amber-400);
-  --color-category-driver-shift: var(--color-emerald-500);
+  --color-category-driver-shift: var(--color-teal-500);
   --color-category-service-alert: var(--color-red-500);
 
   /* Event subtypes (detected from title keywords) */
   --color-event-vacation: var(--color-purple-500);
   --color-event-sick: var(--color-red-500);
   --color-event-training: var(--color-orange-500);
-  --color-event-shift: var(--color-teal-500);
+  --color-event-shift: var(--color-teal-400);
 
   /* Route transport types */
   --color-transport-bus: var(--color-blue-600);
-  --color-transport-trolleybus: var(--color-emerald-500);
-  --color-transport-tram: var(--color-purple-600);
+  --color-transport-trolleybus: var(--color-teal-500);
+  --color-transport-tram: var(--color-purple-600);  /* now defined in primitive tier */
 
   /* Stop location types */
-  --color-stop-terminus: var(--color-emerald-500);
+  --color-stop-terminus: var(--color-teal-500);
 
-  /* Error state */
+  /* Error state (VTV #DD3039) */
   --color-error: var(--color-red-600);
   --color-error-bg: var(--color-red-50);
   --color-error-border: var(--color-red-200);
@@ -154,21 +164,22 @@
    TIER 3: COMPONENT TOKENS
    Scoped per-component — use in specific UI patterns
    Derived from semantic tokens for consistency
+   NOTE: Uses @theme (not @theme inline) for dark mode override support.
    ============================================ */
-@theme inline {
+@theme {
   /* Navigation — sidebar and nav links */
-  --color-nav-active-bg: oklch(0.2 0.01 265 / 10%);        /* foreground at 10% */
+  --color-nav-active-bg: oklch(0.2 0.01 275 / 10%);        /* foreground at 10% */
   --color-nav-active-text: var(--color-foreground);
   --color-nav-inactive-text: var(--color-foreground-muted);
   --color-nav-hover-bg: var(--color-surface-raised);
   --spacing-nav-width: 15rem;                                /* 240px sidebar */
 
   /* Selected state — table rows, list items, any selectable element */
-  --color-selected-bg: oklch(0.2 0.01 265 / 8%);            /* foreground at 8% */
+  --color-selected-bg: oklch(0.2 0.01 275 / 8%);            /* foreground at 8% */
   --color-selected-text: var(--color-foreground);
 
   /* Filter controls — toggle groups, filter chips */
-  --color-filter-active-bg: oklch(0.2 0.01 265 / 10%);      /* foreground at 10% */
+  --color-filter-active-bg: oklch(0.2 0.01 275 / 10%);      /* foreground at 10% */
   --color-filter-active-text: var(--color-foreground);
 
   /* Card — elevated content containers */
@@ -183,22 +194,24 @@
   --opacity-disabled: 50%;
 }
 
-/* Dark mode — override semantic + component tiers */
+/* Dark mode — override semantic + component tiers
+   Neutral dark palette: near-zero chroma, subtle cool undertone (hue 280)
+   Differentiates surfaces by lightness only, not saturation */
 .dark {
   /* Semantic overrides */
-  --color-background: var(--color-slate-900);
-  --color-surface: var(--color-slate-800);
-  --color-surface-raised: var(--color-slate-700);
-  --color-foreground: var(--color-slate-50);
-  --color-foreground-muted: var(--color-slate-400);
-  --color-border: var(--color-slate-700);
-  --color-border-subtle: var(--color-slate-800);
+  --color-background: oklch(0.145 0.007 280);
+  --color-surface: oklch(0.19 0.009 280);
+  --color-surface-raised: oklch(0.24 0.010 280);
+  --color-foreground: oklch(0.93 0.005 280);
+  --color-foreground-muted: oklch(0.60 0.012 280);
+  --color-border: oklch(0.28 0.010 280);
+  --color-border-subtle: oklch(0.22 0.008 280);
 
   /* Component overrides */
-  --color-nav-active-bg: oklch(0.98 0.002 265 / 12%);
-  --color-nav-hover-bg: var(--color-slate-700);
-  --color-selected-bg: oklch(0.98 0.002 265 / 10%);
-  --color-filter-active-bg: oklch(0.98 0.002 265 / 12%);
-  --color-card-bg: var(--color-slate-700);
-  --color-card-border: var(--color-slate-700);
+  --color-nav-active-bg: oklch(1 0 0 / 10%);
+  --color-nav-hover-bg: oklch(0.24 0.010 280);
+  --color-selected-bg: oklch(1 0 0 / 8%);
+  --color-filter-active-bg: oklch(1 0 0 / 10%);
+  --color-card-bg: oklch(0.19 0.009 280);
+  --color-card-border: oklch(0.28 0.010 280);
 }

@@ -71,6 +71,7 @@ VTV/
 │   │   └── agents/     # AI agent module — 11 tools, see app/core/agents/CLAUDE.md
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── auth/           # JWT auth + RBAC + user management (10 endpoints)
+│   ├── compliance/     # NeTEx/SIRI EU compliance exports (4 endpoints, XML generation, no DB tables)
 │   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)

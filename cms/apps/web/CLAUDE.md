@@ -31,6 +31,8 @@ src/
 ├── components/
 │   ├── ui/                     # shadcn/ui components (button, table, dialog, tabs, switch, etc.)
 │   ├── swr-provider.tsx        # Global SWR config (fetcher, dedup, retries, focus revalidation)
+│   ├── theme-provider.tsx      # next-themes provider (class-based, system default, no transition flash)
+│   ├── theme-toggle.tsx        # Light/Dark/System toggle (radiogroup, sidebar footer)
 │   ├── app-sidebar.tsx         # Responsive sidebar (desktop: w-60 aside; mobile: hamburger + Sheet — only remaining Sheet usage)
 │   ├── dashboard/              # Dashboard components (metric-card, calendar-grid, calendar-panel, dashboard-content, driver-roster, driver-drop-dialog, goals-form, goal-progress-badge, event-goal-panel, week-view, month-view, three-month-view, year-view, live-timeline)
 │   ├── documents/              # Document management (table, filters, upload-form, detail, delete-dialog)

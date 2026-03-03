@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Lexend, Source_Sans_3 } from "next/font/google";
 import { cookies } from "next/headers";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const lexend = Lexend({
@@ -38,10 +39,12 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressHydrationWarning className={`${lexend.variable} ${sourceSans3.variable}`}>
       <body className="min-h-screen font-body antialiased">
-        <a href="#main-content" className="skip-link">
-          {skipLinkText[locale] ?? skipLinkText.lv}
-        </a>
-        {children}
+        <ThemeProvider>
+          <a href="#main-content" className="skip-link">
+            {skipLinkText[locale] ?? skipLinkText.lv}
+          </a>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

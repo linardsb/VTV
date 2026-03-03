@@ -904,6 +904,12 @@
       "includesNote": "Ietver: agency.txt, routes.txt, calendar.txt, calendar_dates.txt, trips.txt, stop_times.txt, stops.txt"
     }
   },
+  "theme": {
+    "toggle": "Mainīt tēmu",
+    "light": "Gaišs",
+    "dark": "Tumšs",
+    "system": "Sistēma"
+  },
   "users": {
     "title": "Lietotāju pārvaldība",
     "description": "Pārvaldiet sistēmas lietotājus un piekļuves tiesības",
