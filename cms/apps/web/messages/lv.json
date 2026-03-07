@@ -15,6 +15,7 @@
     "stops": "Pieturas",
     "schedules": "Grafiki",
     "drivers": "Vadītāji",
+    "vehicles": "Transportlīdzekļi",
     "gtfs": "GTFS",
     "users": "Lietotāji",
     "documents": "Dokumenti",
@@ -867,6 +868,153 @@
     },
     "mobile": {
       "showFilters": "Filtri"
+    }
+  },
+  "vehicles": {
+    "title": "Transportlīdzekļi",
+    "description": "Parka pārvaldība, tehniskā apkope un vadītāju piesaiste",
+    "search": "Meklēt transportlīdzekļus...",
+    "filters": {
+      "allTypes": "Visi tipi",
+      "bus": "Autobuss",
+      "trolleybus": "Trolejbuss",
+      "tram": "Tramvajs",
+      "allStatuses": "Visi statusi",
+      "active": "Aktīvs",
+      "inactive": "Neaktīvs",
+      "maintenance": "Apkopē",
+      "type": "Tips",
+      "status": "Statuss"
+    },
+    "table": {
+      "fleetNumber": "Parka Nr.",
+      "type": "Tips",
+      "licensePlate": "Numura zīme",
+      "status": "Statuss",
+      "manufacturer": "Ražotājs",
+      "capacity": "Ietilpība",
+      "driver": "Vadītājs",
+      "actions": "Darbības",
+      "noResults": "Transportlīdzekļi nav atrasti",
+      "showing": "transportlīdzekļi"
+    },
+    "types": {
+      "bus": "Autobuss",
+      "trolleybus": "Trolejbuss",
+      "tram": "Tramvajs"
+    },
+    "statuses": {
+      "active": "Aktīvs",
+      "inactive": "Neaktīvs",
+      "maintenance": "Apkopē"
+    },
+    "detail": {
+      "vehicleInfo": "Transportlīdzekļa informācija",
+      "fleetNumber": "Parka numurs",
+      "type": "Tips",
+      "licensePlate": "Numura zīme",
+      "manufacturer": "Ražotājs",
+      "model": "Modelis",
+      "modelYear": "Izlaiduma gads",
+      "capacity": "Ietilpība",
+      "mileage": "Nobraukums (km)",
+      "qualifiedRoutes": "Kvalificētie maršruti",
+      "registrationExpiry": "Reģistrācijas derīgs līdz",
+      "nextMaintenance": "Nākamā apkope",
+      "notes": "Piezīmes",
+      "driver": "Piesaistīts vadītājs",
+      "noDriver": "Nav piesaistīts",
+      "metadata": "Ieraksta informācija",
+      "createdAt": "Izveidots",
+      "updatedAt": "Atjaunots",
+      "inactive": "Neaktīvs",
+      "tabs": {
+        "info": "Informācija",
+        "maintenance": "Apkope"
+      }
+    },
+    "maintenance": {
+      "title": "Apkopes vēsture",
+      "addRecord": "Pievienot ierakstu",
+      "noRecords": "Nav apkopes ierakstu",
+      "type": "Tips",
+      "description": "Apraksts",
+      "performedDate": "Izpildes datums",
+      "mileageAtService": "Nobraukums pie apkopes",
+      "cost": "Izmaksas (EUR)",
+      "nextScheduledDate": "Nākamais plānotais datums",
+      "performedBy": "Izpildīja",
+      "notes": "Piezīmes",
+      "types": {
+        "scheduled": "Plānotais",
+        "unscheduled": "Neplānotais",
+        "inspection": "Inspekcija",
+        "repair": "Remonts"
+      },
+      "formTitle": "Pievienot apkopes ierakstu",
+      "toast": {
+        "created": "Apkopes ieraksts pievienots",
+        "createError": "Neizdevās pievienot apkopes ierakstu"
+      }
+    },
+    "driverAssignment": {
+      "assign": "Piesaistīt vadītāju",
+      "unassign": "Atsaistīt vadītāju",
+      "selectDriver": "Izvēlieties vadītāju...",
+      "noDrivers": "Nav pieejamu vadītāju",
+      "toast": {
+        "assigned": "Vadītājs piesaistīts",
+        "unassigned": "Vadītājs atsaistīts",
+        "assignError": "Neizdevās piesaistīt vadītāju"
+      }
+    },
+    "form": {
+      "createTitle": "Pievienot transportlīdzekli",
+      "editTitle": "Rediģēt transportlīdzekli",
+      "vehicleInfo": "Transportlīdzekļa informācija",
+      "fleetNumber": "Parka numurs",
+      "vehicleType": "Tips",
+      "licensePlate": "Numura zīme",
+      "specifications": "Specifikācijas",
+      "manufacturer": "Ražotājs",
+      "modelName": "Modeļa nosaukums",
+      "modelYear": "Izlaiduma gads",
+      "capacity": "Ietilpība",
+      "operations": "Ekspluatācija",
+      "status": "Statuss",
+      "mileage": "Nobraukums (km)",
+      "registrationExpiry": "Reģistrācijas derīgs līdz",
+      "nextMaintenance": "Nākamā apkope",
+      "qualifiedRoutes": "Kvalificētie maršruti",
+      "notesSection": "Piezīmes",
+      "notes": "Piezīmes",
+      "isActive": "Aktīvs"
+    },
+    "actions": {
+      "create": "Pievienot",
+      "edit": "Rediģēt",
+      "delete": "Dzēst",
+      "save": "Saglabāt",
+      "cancel": "Atcelt"
+    },
+    "delete": {
+      "title": "Dzēst transportlīdzekli",
+      "confirmation": "Vai tiešām vēlaties dzēst {fleetNumber}?",
+      "warning": "Šo darbību nevar atsaukt. Visi saistītie apkopes ieraksti tiks dzēsti.",
+      "confirm": "Dzēst",
+      "cancel": "Atcelt"
+    },
+    "toast": {
+      "created": "Transportlīdzeklis pievienots",
+      "updated": "Transportlīdzeklis atjaunots",
+      "deleted": "Transportlīdzeklis dzēsts",
+      "loadError": "Neizdevās ielādēt transportlīdzekļus",
+      "createError": "Neizdevās pievienot transportlīdzekli",
+      "updateError": "Neizdevās atjaunot transportlīdzekli",
+      "deleteError": "Neizdevās dzēst transportlīdzekli"
+    },
+    "mobile": {
+      "showFilters": "Rādīt filtrus"
     }
   },
   "gtfs": {

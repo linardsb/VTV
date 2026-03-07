@@ -15,6 +15,7 @@
     "stops": "Stops",
     "schedules": "Schedules",
     "drivers": "Drivers",
+    "vehicles": "Vehicles",
     "gtfs": "GTFS",
     "users": "Users",
     "documents": "Documents",
@@ -867,6 +868,153 @@
     },
     "mobile": {
       "showFilters": "Filters"
+    }
+  },
+  "vehicles": {
+    "title": "Fleet Management",
+    "description": "Manage fleet vehicles, maintenance, and driver assignments",
+    "search": "Search vehicles...",
+    "filters": {
+      "allTypes": "All Types",
+      "bus": "Bus",
+      "trolleybus": "Trolleybus",
+      "tram": "Tram",
+      "allStatuses": "All Statuses",
+      "active": "Active",
+      "inactive": "Inactive",
+      "maintenance": "Maintenance",
+      "type": "Type",
+      "status": "Status"
+    },
+    "table": {
+      "fleetNumber": "Fleet #",
+      "type": "Type",
+      "licensePlate": "License Plate",
+      "status": "Status",
+      "manufacturer": "Manufacturer",
+      "capacity": "Capacity",
+      "driver": "Driver",
+      "actions": "Actions",
+      "noResults": "No vehicles found",
+      "showing": "vehicles"
+    },
+    "types": {
+      "bus": "Bus",
+      "trolleybus": "Trolleybus",
+      "tram": "Tram"
+    },
+    "statuses": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "maintenance": "Maintenance"
+    },
+    "detail": {
+      "vehicleInfo": "Vehicle Information",
+      "fleetNumber": "Fleet Number",
+      "type": "Type",
+      "licensePlate": "License Plate",
+      "manufacturer": "Manufacturer",
+      "model": "Model",
+      "modelYear": "Model Year",
+      "capacity": "Capacity",
+      "mileage": "Mileage (km)",
+      "qualifiedRoutes": "Qualified Routes",
+      "registrationExpiry": "Registration Expiry",
+      "nextMaintenance": "Next Maintenance",
+      "notes": "Notes",
+      "driver": "Assigned Driver",
+      "noDriver": "Unassigned",
+      "metadata": "Record Info",
+      "createdAt": "Created",
+      "updatedAt": "Updated",
+      "inactive": "Inactive",
+      "tabs": {
+        "info": "Information",
+        "maintenance": "Maintenance"
+      }
+    },
+    "maintenance": {
+      "title": "Maintenance History",
+      "addRecord": "Add Record",
+      "noRecords": "No maintenance records",
+      "type": "Type",
+      "description": "Description",
+      "performedDate": "Date Performed",
+      "mileageAtService": "Mileage at Service",
+      "cost": "Cost (EUR)",
+      "nextScheduledDate": "Next Scheduled Date",
+      "performedBy": "Performed By",
+      "notes": "Notes",
+      "types": {
+        "scheduled": "Scheduled",
+        "unscheduled": "Unscheduled",
+        "inspection": "Inspection",
+        "repair": "Repair"
+      },
+      "formTitle": "Add Maintenance Record",
+      "toast": {
+        "created": "Maintenance record added",
+        "createError": "Failed to add maintenance record"
+      }
+    },
+    "driverAssignment": {
+      "assign": "Assign Driver",
+      "unassign": "Unassign Driver",
+      "selectDriver": "Select a driver...",
+      "noDrivers": "No available drivers",
+      "toast": {
+        "assigned": "Driver assigned",
+        "unassigned": "Driver unassigned",
+        "assignError": "Failed to assign driver"
+      }
+    },
+    "form": {
+      "createTitle": "Add Vehicle",
+      "editTitle": "Edit Vehicle",
+      "vehicleInfo": "Vehicle Information",
+      "fleetNumber": "Fleet Number",
+      "vehicleType": "Type",
+      "licensePlate": "License Plate",
+      "specifications": "Specifications",
+      "manufacturer": "Manufacturer",
+      "modelName": "Model Name",
+      "modelYear": "Model Year",
+      "capacity": "Capacity",
+      "operations": "Operations",
+      "status": "Status",
+      "mileage": "Mileage (km)",
+      "registrationExpiry": "Registration Expiry",
+      "nextMaintenance": "Next Maintenance",
+      "qualifiedRoutes": "Qualified Routes",
+      "notesSection": "Notes",
+      "notes": "Notes",
+      "isActive": "Active"
+    },
+    "actions": {
+      "create": "Add Vehicle",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "delete": {
+      "title": "Delete Vehicle",
+      "confirmation": "Are you sure you want to delete {fleetNumber}?",
+      "warning": "This action cannot be undone. All associated maintenance records will be deleted.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "created": "Vehicle added",
+      "updated": "Vehicle updated",
+      "deleted": "Vehicle deleted",
+      "loadError": "Failed to load vehicles",
+      "createError": "Failed to add vehicle",
+      "updateError": "Failed to update vehicle",
+      "deleteError": "Failed to delete vehicle"
+    },
+    "mobile": {
+      "showFilters": "Show Filters"
     }
   },
   "gtfs": {
