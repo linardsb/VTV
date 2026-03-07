@@ -5,6 +5,7 @@ lifecycle of a chat request: extracting user messages, running the
 agent, and constructing OpenAI-compatible responses.
 """
 
+import re
 import time
 import uuid
 
@@ -56,6 +57,29 @@ def _build_message_history(messages: list[ChatMessage]) -> list[ModelMessage]:
     return history
 
 
+_INJECTION_PATTERNS = (
+    re.compile(r"ignore\s+(previous|all|above)\s+(instructions|prompts)", re.IGNORECASE),
+    re.compile(r"you\s+are\s+now\s+(?:a|an)\s+", re.IGNORECASE),
+    re.compile(r"<\s*system\s*>", re.IGNORECASE),
+)
+
+
+def _check_prompt_injection(text: str) -> None:
+    """Log a warning if common prompt injection patterns are detected.
+
+    Does not block the message — only logs for operator awareness.
+    Blocking legitimate messages is a worse outcome than logging false positives.
+    """
+    for pattern in _INJECTION_PATTERNS:
+        if pattern.search(text):
+            logger.warning(
+                "agent.prompt_injection_detected",
+                pattern=pattern.pattern,
+                prompt_length=len(text),
+            )
+            return
+
+
 class AgentService:
     """Orchestrates agent chat interactions.
 
@@ -86,6 +110,9 @@ class AgentService:
         current_prompt = request.messages[-1].content
         prior_messages = request.messages[:-1]
         message_history = _build_message_history(prior_messages) if prior_messages else None
+
+        # Check for prompt injection patterns (log-only, does not block)
+        _check_prompt_injection(current_prompt)
 
         logger.info(
             "agent.chat_started",

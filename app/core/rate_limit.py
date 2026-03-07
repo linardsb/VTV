@@ -8,6 +8,8 @@ across all Gunicorn workers. Falls back to in-memory storage for development
 and test environments where Redis may not be reachable.
 """
 
+import ipaddress
+
 from slowapi import Limiter  # pyright: ignore[reportMissingTypeStubs]
 from slowapi.util import get_remote_address  # pyright: ignore[reportMissingTypeStubs]
 from starlette.requests import Request
@@ -17,12 +19,20 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Docker bridge network ranges — only trust X-Real-IP from known reverse proxies
+_TRUSTED_PROXY_NETWORKS = (
+    ipaddress.ip_network("172.16.0.0/12"),  # Docker default bridge
+    ipaddress.ip_network("10.0.0.0/8"),  # Docker custom networks
+    ipaddress.ip_network("127.0.0.0/8"),  # Loopback
+)
+
 
 def _get_client_ip(request: Request) -> str:
-    """Extract client IP from request for rate limiting.
+    """Extract client IP, only trusting X-Real-IP from known proxy networks.
 
-    Uses X-Real-IP header (set by nginx, not client-spoofable) if present,
-    falls back to direct client address.
+    When the request comes from a trusted proxy (Docker internal network),
+    use the X-Real-IP header set by nginx. Otherwise, use the direct
+    connection address to prevent IP spoofing via direct backend access.
 
     Args:
         request: The incoming Starlette request.
@@ -30,10 +40,16 @@ def _get_client_ip(request: Request) -> str:
     Returns:
         Client IP address string.
     """
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        return real_ip.strip()
-    return get_remote_address(request)
+    direct_ip = get_remote_address(request)
+    try:
+        addr = ipaddress.ip_address(direct_ip)
+        if any(addr in net for net in _TRUSTED_PROXY_NETWORKS):
+            real_ip = request.headers.get("X-Real-IP")
+            if real_ip:
+                return real_ip.strip()
+    except ValueError:
+        pass
+    return direct_ip
 
 
 def _get_storage_uri() -> str | None:

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, require_role
+from app.auth.dependencies import require_role
 from app.auth.models import User
 from app.core.database import get_db
 from app.core.rate_limit import limiter
@@ -35,7 +35,7 @@ async def list_drivers(
     status: str | None = Query(None, max_length=20),
     shift: str | None = Query(None, max_length=20),
     service: DriverService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "dispatcher")),  # noqa: B008
 ) -> PaginatedResponse[DriverResponse]:
     """List drivers with pagination and optional filters."""
     _ = request
@@ -50,7 +50,7 @@ async def get_driver(
     request: Request,
     driver_id: int,
     service: DriverService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "dispatcher")),  # noqa: B008
 ) -> DriverResponse:
     """Get a driver by database ID."""
     _ = request

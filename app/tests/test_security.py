@@ -247,15 +247,31 @@ class TestIlikeWildcardEscape:
 class TestRateLimiterIp:
     """Audit M1: Rate limiter must use X-Real-IP, not X-Forwarded-For."""
 
-    def test_uses_x_real_ip(self) -> None:
-        """_get_client_ip should prefer X-Real-IP header."""
+    def test_uses_x_real_ip_from_trusted_proxy(self) -> None:
+        """_get_client_ip should use X-Real-IP when request comes from trusted proxy."""
         from app.core.rate_limit import _get_client_ip
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"X-Real-IP": "1.2.3.4"}
+        # Simulate request from Docker nginx proxy (trusted network)
+        mock_request.client = MagicMock()
+        mock_request.client.host = "172.18.0.5"
 
         result = _get_client_ip(mock_request)
         assert result == "1.2.3.4"
+
+    def test_ignores_x_real_ip_from_untrusted_source(self) -> None:
+        """_get_client_ip should ignore X-Real-IP from direct (non-proxy) requests."""
+        from app.core.rate_limit import _get_client_ip
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.headers = {"X-Real-IP": "1.2.3.4"}
+        # Simulate direct request from external IP (not trusted proxy)
+        mock_request.client = MagicMock()
+        mock_request.client.host = "203.0.113.50"
+
+        result = _get_client_ip(mock_request)
+        assert result == "203.0.113.50"  # Should use direct IP, not spoofed header
 
     def test_ignores_x_forwarded_for(self) -> None:
         """_get_client_ip should NOT use X-Forwarded-For (spoofable)."""
@@ -489,8 +505,8 @@ class TestPasswordComplexity:
     def test_valid_password_accepted(self) -> None:
         from app.auth.schemas import PasswordResetRequest
 
-        req = PasswordResetRequest(user_id=1, new_password="ValidPass123")
-        assert req.new_password == "ValidPass123"
+        req = PasswordResetRequest(user_id=1, new_password="ValidPass123!")
+        assert req.new_password == "ValidPass123!"
 
     def test_login_accepts_weak_password(self) -> None:
         """LoginRequest must NOT enforce complexity — existing users may have weak passwords."""

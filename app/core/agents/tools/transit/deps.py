@@ -69,7 +69,7 @@ def create_unified_deps(settings: Settings | None = None) -> UnifiedDeps:
     obsidian_client = httpx.AsyncClient(
         timeout=httpx.Timeout(10.0, connect=5.0),
         limits=httpx.Limits(max_connections=5, max_keepalive_connections=3),
-        verify=False,  # noqa: S501 - Obsidian Local REST API uses self-signed cert
+        verify=settings.obsidian_verify_ssl,
         headers={"Authorization": f"Bearer {settings.obsidian_api_key or ''}"},
     )
     from app.core.database import get_db_context

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, require_role
+from app.auth.dependencies import require_role
 from app.auth.models import User
 from app.core.database import get_db
 from app.core.rate_limit import limiter
@@ -36,11 +36,11 @@ async def list_events(
     end_date: datetime.datetime | None = Query(None),  # noqa: B008
     driver_id: int | None = Query(None, description="Filter events by driver ID"),
     service: EventService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "dispatcher")),  # noqa: B008
 ) -> PaginatedResponse[EventResponse]:
     """List operational events with optional date range and driver filters.
 
-    Requires authentication. All operational data access is restricted.
+    Requires admin or dispatcher role. Operational data is restricted.
     """
     _ = request
     return await service.list_events(
@@ -57,11 +57,11 @@ async def list_events_by_driver(
     start_date: datetime.datetime | None = Query(None),  # noqa: B008
     end_date: datetime.datetime | None = Query(None),  # noqa: B008
     service: EventService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "dispatcher")),  # noqa: B008
 ) -> PaginatedResponse[EventResponse]:
     """List operational events for a specific driver.
 
-    Requires authentication. Supports pagination and date range filters.
+    Requires admin or dispatcher role. Supports pagination and date range filters.
     """
     _ = request
     return await service.list_events_by_driver(
@@ -75,11 +75,11 @@ async def get_event(
     request: Request,
     event_id: int,
     service: EventService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "dispatcher")),  # noqa: B008
 ) -> EventResponse:
     """Get an operational event by ID.
 
-    Requires authentication. All operational data access is restricted.
+    Requires admin or dispatcher role. Operational data is restricted.
     """
     _ = request
     return await service.get_event(event_id)

@@ -40,8 +40,12 @@ async def _check_redis_brute_force(email: str) -> bool:
         locked = await redis_client.get(key)
         return locked is not None
     except Exception:
-        logger.warning("auth.redis_lockout_check_unavailable", email=email)
-        return False
+        logger.error(
+            "auth.redis_lockout_check_failed",
+            email=email,
+            detail="Redis unavailable - relying on DB lockout only",
+        )
+        return False  # DB lockout check (user.locked_until) still catches locked users
 
 
 async def _record_failed_attempt_redis(email: str) -> None:
@@ -60,7 +64,7 @@ async def _record_failed_attempt_redis(email: str) -> None:
             lockout_key = f"auth:lockout:{email}"
             await redis_client.setex(lockout_key, int(LOCKOUT_DURATION.total_seconds()), "locked")
     except Exception:
-        logger.warning("auth.redis_brute_force_unavailable", email=email, exc_info=True)
+        logger.error("auth.redis_brute_force_record_failed", email=email, exc_info=True)
 
 
 async def _clear_redis_brute_force(email: str) -> None:
@@ -74,7 +78,7 @@ async def _clear_redis_brute_force(email: str) -> None:
             f"auth:lockout:{email}",
         )
     except Exception:
-        logger.warning("auth.redis_clear_unavailable", email=email, exc_info=True)
+        logger.error("auth.redis_clear_failed", email=email, exc_info=True)
 
 
 class AuthService:
@@ -350,7 +354,7 @@ class AuthService:
 
         password = settings.demo_user_password
         demo_users = [
-            ("linardsberzins@gmail.com", password, "Linards Berzins", "admin"),
+            ("admin@vtv.local", password, "System Admin", "admin"),
             ("admin@vtv.lv", password, "VTV Admin", "admin"),
             ("dispatcher@vtv.lv", password, "VTV Dispatcher", "dispatcher"),
             ("editor@vtv.lv", password, "VTV Editor", "editor"),

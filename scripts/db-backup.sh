@@ -9,8 +9,8 @@
 #   PG_USER       - PostgreSQL user (default: postgres)
 #   PG_DB         - PostgreSQL database (default: vtv_db)
 #
-# NOTE: Backups are not encrypted at rest. For production deployments with PII,
-# pipe through gpg or store on an encrypted volume. Accepted risk for local dev.
+# NOTE: Set ENCRYPT_BACKUPS=true and GPG_PASSPHRASE_FILE for encrypted backups.
+# Without encryption, backups are stored in plaintext. Accepted risk for local dev.
 
 set -euo pipefail
 
@@ -42,6 +42,20 @@ if [ "${BACKUP_SIZE}" -lt 100 ]; then
 fi
 
 echo "[$(date -Iseconds)] Backup created: ${BACKUP_FILE} ($(du -h "${BACKUP_FILE}" | cut -f1))"
+
+# Optional encryption for production deployments with PII
+if [ "${ENCRYPT_BACKUPS:-false}" = "true" ]; then
+    if [ -z "${GPG_PASSPHRASE_FILE:-}" ]; then
+        echo "[$(date -Iseconds)] ERROR: ENCRYPT_BACKUPS=true but GPG_PASSPHRASE_FILE not set" >&2
+        exit 1
+    fi
+    gpg --batch --yes --symmetric --cipher-algo AES256 \
+        --passphrase-file "${GPG_PASSPHRASE_FILE}" \
+        "${BACKUP_FILE}"
+    rm -f "${BACKUP_FILE}"
+    BACKUP_FILE="${BACKUP_FILE}.gpg"
+    echo "[$(date -Iseconds)] Backup encrypted with AES-256"
+fi
 
 # Prune old backups
 PRUNED=0

@@ -166,10 +166,19 @@ def setup_middleware(app: FastAPI) -> None:
     # Add request logging middleware
     app.add_middleware(RequestLoggingMiddleware)
 
+    # Guard against wildcard origin with credentials (insecure combination)
+    cors_origins = settings.allowed_origins
+    if "*" in cors_origins:
+        logger.error(
+            "security.cors_wildcard_with_credentials",
+            detail="CORS wildcard (*) with credentials=True is insecure — stripping wildcard",
+        )
+        cors_origins = [o for o in cors_origins if o != "*"]
+
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.allowed_origins,
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=[

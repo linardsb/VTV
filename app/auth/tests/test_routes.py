@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.auth.dependencies import clear_user_cache
 from app.auth.exceptions import AccountLockedError, InvalidCredentialsError
 from app.auth.models import User
 from app.auth.schemas import LoginResponse
@@ -23,10 +24,18 @@ def client():
     Other test modules set app.dependency_overrides at module level (to bypass auth).
     Since `app` is a shared global, those overrides leak into this module.
     We clear them here so auth enforcement tests work correctly.
+
+    Mocks is_token_revoked to return False (Redis unavailable in unit tests,
+    and fail-closed behavior would reject all tokens).
     """
     saved_overrides = dict(app.dependency_overrides)
     app.dependency_overrides.clear()
-    yield TestClient(app)
+    clear_user_cache()
+    with patch(
+        "app.auth.dependencies.is_token_revoked", new_callable=AsyncMock, return_value=False
+    ):
+        yield TestClient(app)
+    clear_user_cache()
     app.dependency_overrides.clear()
     app.dependency_overrides.update(saved_overrides)
 
@@ -134,10 +143,15 @@ class TestSeedEndpoint:
         mock_user.role = "viewer"
         mock_user.is_active = True
 
-        with patch("app.auth.dependencies.UserRepository") as MockRepo:
-            MockRepo.return_value.find_by_id = AsyncMock(return_value=mock_user)
+        # Pre-populate auth cache to avoid db.expunge on mock objects
+        from app.auth.dependencies import _user_cache
+
+        _user_cache[1] = mock_user
+        try:
             response = client.post("/api/v1/auth/seed", headers=headers)
-        assert response.status_code == 403
+            assert response.status_code == 403
+        finally:
+            _user_cache.pop(1, None)
 
     def test_seed_works_for_admin(self, client):
         """Admin users should be able to seed."""
@@ -147,17 +161,20 @@ class TestSeedEndpoint:
         mock_user.role = "admin"
         mock_user.is_active = True
 
-        with (
-            patch("app.auth.dependencies.UserRepository") as MockRepo,
-            patch(
+        # Pre-populate auth cache to avoid db.expunge on mock objects
+        from app.auth.dependencies import _user_cache
+
+        _user_cache[1] = mock_user
+        try:
+            with patch(
                 "app.auth.routes.AuthService.seed_demo_users",
                 new_callable=AsyncMock,
                 return_value=[],
-            ),
-        ):
-            MockRepo.return_value.find_by_id = AsyncMock(return_value=mock_user)
-            response = client.post("/api/v1/auth/seed", headers=headers)
-        assert response.status_code == 200
+            ):
+                response = client.post("/api/v1/auth/seed", headers=headers)
+            assert response.status_code == 200
+        finally:
+            _user_cache.pop(1, None)
 
 
 class TestProtectedEndpoints:

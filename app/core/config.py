@@ -11,7 +11,7 @@ import json
 from functools import lru_cache
 from typing import Any
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -112,6 +112,9 @@ class Settings(BaseSettings):
     # Obsidian Local REST API
     obsidian_api_key: str | None = None
     obsidian_vault_url: str = "https://127.0.0.1:27124"
+    obsidian_verify_ssl: bool = (
+        False  # Local REST API uses self-signed certs; True in production with proper cert
+    )
 
     # JWT Authentication
     jwt_secret_key: str = "CHANGE-ME-IN-PRODUCTION"  # noqa: S105  # MUST be overridden via env
@@ -175,6 +178,16 @@ class Settings(BaseSettings):
     # NeTEx/SIRI compliance exports
     netex_codespace: str = "VTV"
     netex_participant_ref: str = "VTV"
+
+    @model_validator(mode="after")
+    def _reject_default_secrets_in_production(self) -> "Settings":
+        """Refuse to start with default JWT secret in non-development environments."""
+        if self.environment != "development" and self.jwt_secret_key == "CHANGE-ME-IN-PRODUCTION":  # noqa: S105
+            msg = (
+                f"JWT_SECRET_KEY must be overridden in production (environment={self.environment})"
+            )
+            raise ValueError(msg)
+        return self
 
 
 @lru_cache

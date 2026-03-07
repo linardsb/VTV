@@ -118,7 +118,7 @@ def test_upload_document_success():
     try:
         response = client.post(
             "/api/v1/knowledge/documents",
-            files={"file": ("report.pdf", BytesIO(b"PDF content"), "application/pdf")},
+            files={"file": ("report.pdf", BytesIO(b"%PDF-1.4 content"), "application/pdf")},
             data={"domain": "transit", "language": "lv"},
         )
         assert response.status_code == 201
@@ -158,7 +158,12 @@ async def test_upload_exceeds_size_limit():
     mock_file = MagicMock()
     mock_file.filename = "big.pdf"
     mock_file.content_type = "application/pdf"
-    mock_file.read = AsyncMock(side_effect=[b"x" * chunk_size] * chunks_needed + [b""])
+    # First chunk starts with PDF magic bytes, rest are filler
+    first_chunk = b"%PDF" + b"x" * (chunk_size - 4)
+    mock_file.read = AsyncMock(
+        side_effect=[first_chunk] + [b"x" * chunk_size] * (chunks_needed - 1) + [b""]
+    )
+    mock_file.seek = AsyncMock()
 
     mock_request = MagicMock()
     mock_svc = _mock_service()
@@ -395,7 +400,7 @@ def test_upload_filename_sanitization():
             files={
                 "file": (
                     "../../etc/malicious<script>.pdf",
-                    BytesIO(b"PDF data"),
+                    BytesIO(b"%PDF-1.4 data"),
                     "application/pdf",
                 )
             },
@@ -427,7 +432,7 @@ def test_filename_sanitization_dot_prefix():
     try:
         response = client.post(
             "/api/v1/knowledge/documents",
-            files={"file": (".hidden.pdf", BytesIO(b"PDF data"), "application/pdf")},
+            files={"file": (".hidden.pdf", BytesIO(b"%PDF-1.4 data"), "application/pdf")},
             data={"domain": "transit"},
         )
         assert response.status_code == 201
@@ -453,7 +458,7 @@ def test_filename_sanitization_null_bytes():
             files={
                 "file": (
                     "test\x00.pdf",
-                    BytesIO(b"PDF data"),
+                    BytesIO(b"%PDF-1.4 data"),
                     "application/pdf",
                 )
             },

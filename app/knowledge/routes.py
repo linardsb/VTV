@@ -10,7 +10,7 @@ from fastapi.requests import Request
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, require_role
+from app.auth.dependencies import require_role
 from app.auth.models import User
 from app.core.database import get_db
 from app.core.rate_limit import limiter
@@ -37,6 +37,31 @@ router = APIRouter(prefix="/api/v1/knowledge", tags=["knowledge"])
 def get_service(db: AsyncSession = Depends(get_db)) -> KnowledgeService:  # noqa: B008
     """Dependency to create KnowledgeService with request-scoped session."""
     return KnowledgeService(db)
+
+
+# Magic bytes for server-side file type verification (prevents Content-Type spoofing)
+_MAGIC_BYTES: dict[str, list[bytes]] = {
+    "pdf": [b"%PDF"],
+    "docx": [b"PK\x03\x04"],  # ZIP-based Office format
+    "xlsx": [b"PK\x03\x04"],  # ZIP-based Office format
+}
+
+
+async def _verify_magic_bytes(file: UploadFile, detected_type: str) -> bool:
+    """Verify file content matches claimed type via magic bytes.
+
+    Args:
+        file: The uploaded file to check.
+        detected_type: The type detected from Content-Type header.
+
+    Returns:
+        True if magic bytes match or no check is available for this type.
+    """
+    if detected_type not in _MAGIC_BYTES:
+        return True  # No magic bytes check for text/image/csv/email types
+    header = await file.read(8)
+    await file.seek(0)
+    return any(header.startswith(magic) for magic in _MAGIC_BYTES[detected_type])
 
 
 _CONTENT_TYPE_MAP: dict[str, str] = {
@@ -98,6 +123,11 @@ async def upload_document(
             status_code=415,
             detail=f"Unsupported file type: {file.content_type}. Supported: PDF, DOCX, XLSX, CSV, TXT, images, email.",
         )
+    if not await _verify_magic_bytes(file, source_type):
+        raise HTTPException(
+            status_code=415,
+            detail=f"File content does not match declared type: {file.content_type}",
+        )
 
     # Sanitize filename: strip path components, limit to basename
     raw_filename = file.filename or "unknown"
@@ -141,7 +171,7 @@ async def list_documents(
     document_status: str | None = Query(None, alias="status", max_length=20),
     tag: str | None = Query(None, max_length=100),
     service: KnowledgeService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor", "dispatcher")),  # noqa: B008
 ) -> PaginatedResponse[DocumentResponse]:
     """List documents with pagination and optional filtering."""
     _ = request
@@ -154,7 +184,7 @@ async def get_document(
     request: Request,
     document_id: int,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor", "dispatcher")),  # noqa: B008
 ) -> DocumentResponse:
     """Get a document by its database ID."""
     _ = request
@@ -181,7 +211,7 @@ async def download_document(
     request: Request,
     document_id: int,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor", "dispatcher")),  # noqa: B008
 ) -> FileResponse:
     """Download the original uploaded file."""
     _ = request
@@ -207,7 +237,7 @@ async def get_document_content(
     request: Request,
     document_id: int,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor", "dispatcher")),  # noqa: B008
 ) -> DocumentContentResponse:
     """Get extracted text chunks for a document."""
     _ = request
@@ -232,7 +262,7 @@ async def delete_document(
 async def list_domains(
     request: Request,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor", "dispatcher")),  # noqa: B008
 ) -> DomainListResponse:
     """List all unique document domains."""
     _ = request
@@ -249,7 +279,7 @@ async def list_domains(
 async def list_tags(
     request: Request,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor", "dispatcher")),  # noqa: B008
 ) -> TagListResponse:
     """List all tags."""
     _ = request
@@ -330,7 +360,7 @@ async def search_knowledge(
     request: Request,
     body: SearchRequest,
     service: KnowledgeService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor", "dispatcher")),  # noqa: B008
 ) -> SearchResponse:
     """Search the knowledge base with hybrid vector + fulltext search."""
     _ = request

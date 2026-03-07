@@ -31,6 +31,9 @@ def _validate_password_complexity(password: str) -> str:
     if not any(c.isdigit() for c in password):
         msg = "Password must contain at least one digit"
         raise ValueError(msg)
+    if not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password):
+        msg = "Password must contain at least one special character"
+        raise ValueError(msg)
     return password
 
 

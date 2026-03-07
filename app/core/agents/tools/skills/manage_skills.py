@@ -102,11 +102,15 @@ async def _create_skill(
     content: str | None,
     category: str | None,
 ) -> str:
-    """Create a new skill."""
+    """Create a new skill (inactive by default — requires admin activation)."""
     if not name or not description or not content:
         return json.dumps(
             {"error": "name, description, and content are required for creating a skill."}
         )
+
+    # Enforce content length limit to prevent oversized skill injection
+    if len(content) > 5000:
+        return json.dumps({"error": "Skill content exceeds 5000 character limit."})
 
     effective_category = category if category in _VALID_CATEGORIES else "transit_ops"
 
@@ -120,6 +124,16 @@ async def _create_skill(
         )
         skill_response = await service.create_skill(data)
 
+        # Agent-created skills start inactive — require admin activation via UI/API
+        from sqlalchemy import update
+
+        from app.skills.models import AgentSkill as SkillModel
+
+        await db.execute(
+            update(SkillModel).where(SkillModel.id == skill_response.id).values(is_active=False)
+        )
+        await db.commit()
+
     logger.info(
         "agent.skills.create_completed",
         skill_id=skill_response.id,
@@ -130,6 +144,7 @@ async def _create_skill(
             "created": True,
             "skill_id": skill_response.id,
             "name": name,
-            "message": f"Skill '{name}' created successfully.",
+            "requires_activation": True,
+            "message": f"Skill '{name}' created (inactive). An admin must activate it before it takes effect.",
         }
     )
