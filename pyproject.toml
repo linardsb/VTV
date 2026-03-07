@@ -97,6 +97,8 @@ ignore = [
 "app/auth/routes.py" = ["ARG001"]  # slowapi requires Request param for rate limiting
 "app/drivers/routes.py" = ["ARG001"]  # slowapi requires Request param for rate limiting
 "app/events/routes.py" = ["ARG001"]  # slowapi requires Request param for rate limiting
+"app/analytics/routes.py" = ["ARG001"]  # slowapi requires Request param for rate limiting
+"app/vehicles/routes.py" = ["ARG001"]  # slowapi requires Request param for rate limiting
 "app/core/rate_limit.py" = ["B008"]  # slowapi Limiter() at module level is the intended pattern
 
 [tool.ruff.format]

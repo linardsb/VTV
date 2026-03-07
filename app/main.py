@@ -21,6 +21,7 @@ from fastapi import FastAPI
 from slowapi import _rate_limit_exceeded_handler  # pyright: ignore[reportMissingTypeStubs]
 from slowapi.errors import RateLimitExceeded  # pyright: ignore[reportMissingTypeStubs]
 
+from app.analytics.routes import router as analytics_router
 from app.auth.routes import router as auth_router
 from app.compliance.routes import router as compliance_router
 from app.core.agents.exceptions import setup_agent_exception_handlers
@@ -162,6 +163,7 @@ app.include_router(events_router)
 app.include_router(skills_router)
 app.include_router(vehicles_router)
 app.include_router(compliance_router)
+app.include_router(analytics_router)
 
 
 @app.get("/")
