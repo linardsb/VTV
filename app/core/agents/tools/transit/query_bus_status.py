@@ -28,7 +28,8 @@ from app.core.agents.tools.transit.schemas import (
     StopDeparture,
     StopDepartures,
 )
-from app.core.agents.tools.transit.static_cache import GTFSStaticCache, get_static_cache
+from app.core.agents.tools.transit.static_cache import GTFSStaticCache
+from app.core.agents.tools.transit.static_store import get_static_store
 from app.core.agents.tools.transit.utils import delay_description
 from app.core.logging import get_logger
 
@@ -116,7 +117,9 @@ async def query_bus_status(
 
     try:
         client = GTFSRealtimeClient(ctx.deps.transit_http_client, ctx.deps.settings)
-        static = await get_static_cache(ctx.deps.transit_http_client, ctx.deps.settings)
+        if ctx.deps.db_session_factory is None:
+            return "Database session not available. Bus status requires database access."
+        static = await get_static_store(ctx.deps.db_session_factory, ctx.deps.settings)
 
         if action == "status":
             result = await _handle_status(client, static, route_id, vehicle_id)

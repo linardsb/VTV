@@ -14,8 +14,8 @@ app/core/agents/
 ├── quota.py           # Daily per-IP quota tracker (50/day, auto-reset)
 ├── exceptions.py      # TransitDataError, ObsidianError → HTTP 503
 ├── tools/
-│   ├── transit/       # 5 read-only tools (GTFS-RT + static data)
-│   │   ├── schemas.py, deps.py, client.py, static_cache.py
+│   ├── transit/       # 5 read-only tools (GTFS-RT + static data, DB-backed)
+│   │   ├── schemas.py, deps.py, client.py, static_cache.py, static_store.py
 │   │   ├── query_bus_status.py      # Tool 1: status/route_overview/stop_departures
 │   │   ├── get_route_schedule.py    # Tool 2: timetable by route/date/direction
 │   │   ├── search_stops.py          # Tool 3: search by name or proximity
@@ -89,5 +89,26 @@ def process_request(user_id: str, query: str) -> dict[str, Any]:
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
+| #16621 | 12:30 PM | 🔵 | Documentation Structure Audit Reveals 75 Redundant Files | ~502 |
 | #16617 | 12:23 PM | 🔄 | Agent Module Documentation Extracted to Scoped File | ~319 |
+
+### Feb 24, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #16775 | 5:07 PM | 🔵 | Data privacy and GDPR compliance features searched | ~347 |
+
+### Feb 25, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #16918 | 6:15 AM | ⚖️ | Agent Skills System implementation plan completed | ~1484 |
+| #16875 | 5:58 AM | 🔵 | VTV Background Task & Lifespan Architecture Analysis | ~1313 |
+| #16874 | 5:56 AM | 🔵 | VTV Architecture Deep Dive - Complete Transit Management Platform Analysis | ~738 |
+
+### Feb 26, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #17522 | 1:21 PM | 🔵 | VTV Slash Command System Architecture Documented | ~1163 |
 </claude-mem-context>

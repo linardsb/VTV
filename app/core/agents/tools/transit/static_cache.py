@@ -16,7 +16,6 @@ from datetime import UTC, date, datetime
 import httpx
 
 from app.core.agents.exceptions import TransitDataError
-from app.core.config import Settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -401,28 +400,3 @@ class GTFSStaticCache:
         """
         info = self.trips.get(trip_id)
         return info.trip_headsign if info else None
-
-
-# --- Module-level singleton ---
-
-_static_cache: GTFSStaticCache | None = None
-
-
-async def get_static_cache(http_client: httpx.AsyncClient, settings: Settings) -> GTFSStaticCache:
-    """Get or create the static GTFS cache singleton.
-
-    Downloads and parses the GTFS ZIP on first call, then returns
-    cached data until the TTL expires.
-
-    Args:
-        http_client: Async HTTP client for downloading.
-        settings: Application settings with GTFS URL and TTL.
-
-    Returns:
-        Populated GTFSStaticCache instance.
-    """
-    global _static_cache
-    if _static_cache is None or _static_cache.is_stale(settings.gtfs_static_cache_ttl_hours):
-        _static_cache = GTFSStaticCache()
-        await _static_cache.load(http_client, settings.gtfs_static_url)
-    return _static_cache

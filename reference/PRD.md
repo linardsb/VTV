@@ -182,9 +182,9 @@ agent = Agent(
 | Tool | Purpose | Data Source |
 |------|---------|------------|
 | `query_bus_status` ✅ | Current delay/position status for a route or vehicle | GTFS-RT feeds (Rigas Satiksme) |
-| `get_route_schedule` ✅ | Timetable for a specific route and service date | GTFS static ZIP (stop_times, calendar, calendar_dates) |
-| `search_stops` ✅ | Search stops by name or proximity (lat/lon) | GTFS static ZIP (stops.txt, stop_times.txt) |
-| `get_adherence_report` ✅ | On-time performance metrics for routes/periods | GTFS-RT trip updates + GTFS static ZIP |
+| `get_route_schedule` ✅ | Timetable for a specific route and service date | PostgreSQL (schedules + stops tables, DB-backed GTFSStaticStore) |
+| `search_stops` ✅ | Search stops by name or proximity (lat/lon) | PostgreSQL (stops + stop_times tables, DB-backed GTFSStaticStore) |
+| `get_adherence_report` ✅ | On-time performance metrics for routes/periods | GTFS-RT trip updates + PostgreSQL (DB-backed GTFSStaticStore) |
 | `check_driver_availability` ✅ | Available drivers for a shift/date | DB-backed via `app/drivers/` (fallback: mock data for tests) |
 
 All transit tools are read-only. The agent cannot create, update, or delete any transit data. This is a safety constraint — AI advises, humans decide.

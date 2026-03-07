@@ -21,8 +21,8 @@ from app.core.agents.tools.transit.schemas import (
 from app.core.agents.tools.transit.static_cache import (
     StopTimeEntry,
     TripInfo,
-    get_static_cache,
 )
+from app.core.agents.tools.transit.static_store import get_static_store
 from app.core.agents.tools.transit.utils import (
     classify_service_type,
     delay_description,
@@ -221,7 +221,9 @@ async def get_adherence_report(
 
     try:
         client = GTFSRealtimeClient(ctx.deps.transit_http_client, ctx.deps.settings)
-        static = await get_static_cache(ctx.deps.transit_http_client, ctx.deps.settings)
+        if ctx.deps.db_session_factory is None:
+            return "Database session not available. Adherence report requires database access."
+        static = await get_static_store(ctx.deps.db_session_factory, ctx.deps.settings)
         trip_updates = await client.fetch_trip_updates()
 
         # Build trip update lookup

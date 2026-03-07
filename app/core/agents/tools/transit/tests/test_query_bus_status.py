@@ -111,6 +111,7 @@ async def test_query_bus_status_status_no_vehicles():
     ctx = MagicMock()
     ctx.deps.transit_http_client = AsyncMock()
     ctx.deps.settings = MagicMock()
+    ctx.deps.db_session_factory = MagicMock()
 
     mock_client = AsyncMock()
     mock_client.fetch_vehicle_positions.return_value = []
@@ -125,7 +126,7 @@ async def test_query_bus_status_status_no_vehicles():
             return_value=mock_client,
         ),
         patch(
-            "app.core.agents.tools.transit.query_bus_status.get_static_cache",
+            "app.core.agents.tools.transit.query_bus_status.get_static_store",
             return_value=mock_static,
         ),
     ):
@@ -140,6 +141,7 @@ async def test_query_bus_status_feed_error():
     ctx = MagicMock()
     ctx.deps.transit_http_client = AsyncMock()
     ctx.deps.settings = MagicMock()
+    ctx.deps.db_session_factory = MagicMock()
 
     with (
         patch(

@@ -30,6 +30,7 @@ def _make_ctx() -> MagicMock:
     ctx = MagicMock()
     ctx.deps.transit_http_client = AsyncMock()
     ctx.deps.settings = MagicMock()
+    ctx.deps.db_session_factory = MagicMock()
     return ctx
 
 
@@ -208,7 +209,7 @@ async def test_get_adherence_report_route_not_found():
             return_value=mock_client,
         ),
         patch(
-            "app.core.agents.tools.transit.get_adherence_report.get_static_cache",
+            "app.core.agents.tools.transit.get_adherence_report.get_static_store",
             return_value=mock_static,
         ),
     ):
@@ -232,7 +233,7 @@ async def test_get_adherence_report_no_service():
             return_value=mock_client,
         ),
         patch(
-            "app.core.agents.tools.transit.get_adherence_report.get_static_cache",
+            "app.core.agents.tools.transit.get_adherence_report.get_static_store",
             return_value=mock_static,
         ),
     ):
@@ -259,7 +260,7 @@ async def test_get_adherence_report_single_route_success():
             return_value=mock_client,
         ),
         patch(
-            "app.core.agents.tools.transit.get_adherence_report.get_static_cache",
+            "app.core.agents.tools.transit.get_adherence_report.get_static_store",
             return_value=mock_static,
         ),
     ):
@@ -296,7 +297,7 @@ async def test_get_adherence_report_all_on_time():
             return_value=mock_client,
         ),
         patch(
-            "app.core.agents.tools.transit.get_adherence_report.get_static_cache",
+            "app.core.agents.tools.transit.get_adherence_report.get_static_store",
             return_value=mock_static,
         ),
     ):
@@ -349,7 +350,7 @@ async def test_get_adherence_report_network_report():
             return_value=mock_client,
         ),
         patch(
-            "app.core.agents.tools.transit.get_adherence_report.get_static_cache",
+            "app.core.agents.tools.transit.get_adherence_report.get_static_store",
             return_value=mock_static,
         ),
     ):
@@ -383,7 +384,7 @@ async def test_get_adherence_report_time_window_filter():
             return_value=mock_client,
         ),
         patch(
-            "app.core.agents.tools.transit.get_adherence_report.get_static_cache",
+            "app.core.agents.tools.transit.get_adherence_report.get_static_store",
             return_value=mock_static,
         ),
     ):
@@ -419,7 +420,7 @@ async def test_get_adherence_report_worst_trip_identified():
             return_value=mock_client,
         ),
         patch(
-            "app.core.agents.tools.transit.get_adherence_report.get_static_cache",
+            "app.core.agents.tools.transit.get_adherence_report.get_static_store",
             return_value=mock_static,
         ),
     ):
@@ -463,7 +464,7 @@ async def test_get_adherence_report_no_realtime_data():
             return_value=mock_client,
         ),
         patch(
-            "app.core.agents.tools.transit.get_adherence_report.get_static_cache",
+            "app.core.agents.tools.transit.get_adherence_report.get_static_store",
             return_value=mock_static,
         ),
     ):

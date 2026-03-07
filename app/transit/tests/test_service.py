@@ -81,7 +81,7 @@ def _make_static_cache() -> MagicMock:
 
 
 @pytest.mark.asyncio
-@patch("app.transit.service.get_static_cache")
+@patch("app.transit.service.get_static_store")
 @patch("app.transit.service.GTFSRealtimeClient")
 async def test_get_vehicle_positions_success(
     mock_client_cls: MagicMock,
@@ -120,7 +120,7 @@ async def test_get_vehicle_positions_success(
 
 
 @pytest.mark.asyncio
-@patch("app.transit.service.get_static_cache")
+@patch("app.transit.service.get_static_store")
 @patch("app.transit.service.GTFSRealtimeClient")
 async def test_get_vehicle_positions_with_route_filter(
     mock_client_cls: MagicMock,
@@ -148,7 +148,7 @@ async def test_get_vehicle_positions_with_route_filter(
 
 
 @pytest.mark.asyncio
-@patch("app.transit.service.get_static_cache")
+@patch("app.transit.service.get_static_store")
 @patch("app.transit.service.GTFSRealtimeClient")
 async def test_get_vehicle_positions_empty(
     mock_client_cls: MagicMock,
@@ -170,7 +170,7 @@ async def test_get_vehicle_positions_empty(
 
 
 @pytest.mark.asyncio
-@patch("app.transit.service.get_static_cache")
+@patch("app.transit.service.get_static_store")
 @patch("app.transit.service.GTFSRealtimeClient")
 async def test_get_vehicle_positions_transit_error(
     mock_client_cls: MagicMock,
@@ -192,7 +192,7 @@ async def test_get_vehicle_positions_transit_error(
 
 
 @pytest.mark.asyncio
-@patch("app.transit.service.get_static_cache")
+@patch("app.transit.service.get_static_store")
 @patch("app.transit.service.GTFSRealtimeClient")
 async def test_get_vehicle_positions_speed_conversion(
     mock_client_cls: MagicMock,
@@ -215,7 +215,7 @@ async def test_get_vehicle_positions_speed_conversion(
 
 
 @pytest.mark.asyncio
-@patch("app.transit.service.get_static_cache")
+@patch("app.transit.service.get_static_store")
 @patch("app.transit.service.GTFSRealtimeClient")
 async def test_get_vehicle_positions_null_speed_and_bearing(
     mock_client_cls: MagicMock,

@@ -4,17 +4,21 @@
 import asyncio
 import json
 import time
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime
 
 import httpx
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.agents.tools.transit.client import (
     GTFSRealtimeClient,
     TripUpdateData,
     VehiclePositionData,
 )
-from app.core.agents.tools.transit.static_cache import GTFSStaticCache, get_static_cache
+from app.core.agents.tools.transit.static_cache import GTFSStaticCache
+from app.core.agents.tools.transit.static_store import get_static_store
 from app.core.config import Settings, TransitFeedConfig, get_settings
 from app.core.logging import get_logger
 from app.core.redis import get_redis
@@ -34,9 +38,11 @@ class FeedPoller:
         self,
         feed_config: TransitFeedConfig,
         settings: Settings,
+        db_session_factory: Callable[[], AbstractAsyncContextManager[AsyncSession]] | None = None,
     ) -> None:
         self.feed_config = feed_config
         self._settings = settings
+        self._db_session_factory = db_session_factory
         self._http_client = httpx.AsyncClient(
             timeout=httpx.Timeout(10.0, connect=5.0),
             limits=httpx.Limits(max_connections=5, max_keepalive_connections=3),
@@ -58,7 +64,11 @@ class FeedPoller:
         try:
             raw_vehicles = await self._rt_client.fetch_vehicle_positions()
             trip_updates = await self._rt_client.fetch_trip_updates()
-            static = await get_static_cache(self._http_client, self._settings)
+            if self._db_session_factory is None:
+                from app.core.database import get_db_context
+
+                self._db_session_factory = get_db_context
+            static = await get_static_store(self._db_session_factory, self._settings)
         except Exception as e:
             logger.error(
                 "transit.poller.fetch_failed",

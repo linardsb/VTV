@@ -5,11 +5,11 @@ Planned features and improvements. Each item links to its detailed planning docu
 ## Progress Overview
 
 ```
-Backend API       ██████████████████████░░  98%  (9/9 features: auth, knowledge, drivers, events, stops, schedules, transit, skills, vehicles + WebSocket live streaming)
-CMS Frontend      ██████████████████████░░  97%  (10/10 pages live, real API on all, WebSocket real-time vehicle positions, drag-and-drop scheduling)
-Testing           ████████████████████░░░░  85%  (786 unit tests, 105 security tests, 81 e2e tests, CI pipeline live with security gates)
+Backend API       ██████████████████████░░  99%  (9/9 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming)
+CMS Frontend      ███████████████████████░  99%  (13 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard)
+Testing           ████████████████████░░░░  87%  (822 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework)
-Latvia Platform   █████░░░░░░░░░░░░░░░░░░  20%  (Riga GTFS + PostGIS spatial queries + WebSocket live streaming, no TimescaleDB/multi-city yet)
+Latvia Platform   ██████░░░░░░░░░░░░░░░░░  25%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT, no TimescaleDB/multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -33,11 +33,11 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [ ] **Route Shape Polylines** - Display route geometry on map from GTFS `shapes.txt`. Requires polyline layer in react-leaflet, shape import during GTFS ZIP processing, and route-shape association. Enhances route visualization significantly.
 
-- [ ] **NeTEx/SIRI Compliance Exports** - EU-mandated transit data formats. NeTEx for static schedule exchange, SIRI for real-time information. Required for Latvian National Access Point (data.gov.lv) compliance. Phase 3.
+- [x] ~~**NeTEx/SIRI Compliance Exports**~~ — Moved to Completed (2026-03-07)
 
 ### Full Latvia Transit Platform
 
-- [ ] **Phase 1: Foundation** - Database extensions (TimescaleDB), GTFS static importer for all Latvia, CKAN data.gov.lv bridge for immediate ATD data, full-screen transit map in CMS. ~3 weeks remaining effort. *Largely done: GTFS import, Redis cache, REST endpoints, GTFS-RT poller, PostGIS spatial queries (GeoAlchemy2 + GIST index), and WebSocket live streaming (backend Pub/Sub + frontend real-time push with HTTP fallback) are complete. Remaining: TimescaleDB, multi-city GTFS, CKAN bridge, full-screen map.*
+- [ ] **Phase 1: Foundation** - Database extensions (TimescaleDB), GTFS static importer for all Latvia, CKAN data.gov.lv bridge for immediate ATD data, full-screen transit map in CMS. ~3 weeks remaining effort. *Largely done: GTFS import, Redis cache, REST endpoints, GTFS-RT poller, PostGIS spatial queries (GeoAlchemy2 + GIST index), WebSocket live streaming (backend Pub/Sub + frontend real-time push with HTTP fallback), and persistent GTFS storage (DB-backed static data for agent tools) are complete. Remaining: TimescaleDB, multi-city GTFS, CKAN bridge, full-screen map.*
   - Plan: [docs/PLANNING/Implementation-Plan.md](PLANNING/Implementation-Plan.md) (Phase 1)
 
 - [ ] **Phase 2: Full Latvia Coverage** - Additional city feeds (Daugavpils, Jurmala, Pieriga), train positions via WebSocket, Valhalla route matching, ETA calculator, adaptive polling, circuit breakers, TimescaleDB compression, GTFS-RT publisher. ~4 weeks effort.
@@ -186,6 +186,17 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
   - Plan: [.agents/plans/fe-calendar-event-hover-card.md](../.agents/plans/fe-calendar-event-hover-card.md)
 
 - [x] **Scoped CLAUDE.md Context Files** - Added path-scoped CLAUDE.md files across the codebase for AI-assisted development context. Cleaned up duplicate `cms/cms/` directory. (commit 4329731, 2026-02-27)
+
+- [x] **Vehicles Page** - Fleet management page at `/[locale]/vehicles`. Vehicle CRUD, maintenance tracking, driver assignment, search/filter by type/status. Backend: `/api/v1/vehicles` (8 endpoints). (commit f75988c, 2026-03-07)
+
+- [x] **Analytics Dashboard** - Analytics page at `/[locale]/analytics` with 3 tabs: Fleet (vehicle utilization, maintenance stats), Drivers (shift coverage, availability), Performance (on-time metrics, delay analysis). Read-only aggregation over existing data. Backend: `/api/v1/analytics` (4 endpoints). (commit 7bbeece, 2026-03-07)
+
+- [x] **Multi-Feed GTFS-RT Frontend** - Routes page multi-feed support: feed selector filter (ToggleGroup), per-feed marker border colors, feed health overlay with vehicle counts per feed, auto-fit bounds on feed change. WebSocket subscription filtering by feed. (commit d65a151, 2026-03-07)
+
+- [x] **EU Compliance Exports Tab** - GTFS page 4th tab "Compliance" for EU-mandated export formats: NeTEx EPIP 1.2 XML download, SIRI Vehicle Monitoring 2.0 XML download, SIRI Stop Monitoring 2.0 XML download. Agency/route/stop filters per format, export status display. Backend: `/api/v1/compliance` (4 endpoints). (commit 9aed21e, 2026-03-07)
+
+- [x] **Persistent GTFS Storage** - Migrated agent transit tools from in-memory HTTP/ZIP-based GTFSStaticCache to DB-backed GTFSStaticStore. Reads from existing schedules + stops PostgreSQL tables via ScheduleRepository. Same dataclass interface (RouteInfo, StopInfo, TripInfo, etc.), same TTL-based refresh. FK resolution maps translate integer PKs to GTFS string IDs. Updated 8 consumer files (5 agent tools + poller + transit service + analytics service) and 7 test files. 822 unit tests pass. (2026-03-07)
+  - Plan: [.agents/plans/persistent-gtfs-storage.md](../.agents/plans/persistent-gtfs-storage.md)
 
 ## Planning Documents
 

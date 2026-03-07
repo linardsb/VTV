@@ -162,7 +162,7 @@ async def test_on_time_performance_invalid_date() -> None:
 
 @pytest.mark.asyncio
 @patch("app.analytics.service.get_settings")
-@patch("app.analytics.service.get_static_cache")
+@patch("app.analytics.service.get_static_store")
 @patch("app.analytics.service.GTFSRealtimeClient")
 async def test_on_time_performance_returns_response(
     mock_client_cls: MagicMock,
@@ -199,7 +199,7 @@ async def test_on_time_performance_returns_response(
 
 @pytest.mark.asyncio
 @patch("app.analytics.service.get_settings")
-@patch("app.analytics.service.get_static_cache")
+@patch("app.analytics.service.get_static_store")
 @patch("app.analytics.service.GTFSRealtimeClient")
 async def test_on_time_performance_transit_error(
     mock_client_cls: MagicMock,

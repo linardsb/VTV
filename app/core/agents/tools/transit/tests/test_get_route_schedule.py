@@ -93,6 +93,7 @@ def _make_ctx() -> MagicMock:
     ctx = MagicMock()
     ctx.deps.transit_http_client = AsyncMock()
     ctx.deps.settings = MagicMock()
+    ctx.deps.db_session_factory = MagicMock()
     return ctx
 
 
@@ -166,7 +167,7 @@ async def test_get_route_schedule_route_not_found():
     mock_static.routes = {}
 
     with patch(
-        "app.core.agents.tools.transit.get_route_schedule.get_static_cache",
+        "app.core.agents.tools.transit.get_route_schedule.get_static_store",
         return_value=mock_static,
     ):
         result = await get_route_schedule(ctx, route_id="nonexistent", date="2026-02-17")
@@ -181,7 +182,7 @@ async def test_get_route_schedule_no_service():
     mock_static.get_active_service_ids.return_value = set()
 
     with patch(
-        "app.core.agents.tools.transit.get_route_schedule.get_static_cache",
+        "app.core.agents.tools.transit.get_route_schedule.get_static_store",
         return_value=mock_static,
     ):
         result = await get_route_schedule(ctx, route_id="bus_22", date="2026-12-25")
@@ -195,7 +196,7 @@ async def test_get_route_schedule_success():
     mock_static = _make_mock_static()
 
     with patch(
-        "app.core.agents.tools.transit.get_route_schedule.get_static_cache",
+        "app.core.agents.tools.transit.get_route_schedule.get_static_store",
         return_value=mock_static,
     ):
         result = await get_route_schedule(ctx, route_id="bus_22", date="2026-02-17")
@@ -217,7 +218,7 @@ async def test_get_route_schedule_direction_filter():
     mock_static = _make_mock_static()
 
     with patch(
-        "app.core.agents.tools.transit.get_route_schedule.get_static_cache",
+        "app.core.agents.tools.transit.get_route_schedule.get_static_store",
         return_value=mock_static,
     ):
         result = await get_route_schedule(ctx, route_id="bus_22", date="2026-02-17", direction_id=0)
@@ -236,7 +237,7 @@ async def test_get_route_schedule_feed_error():
 
     with (
         patch(
-            "app.core.agents.tools.transit.get_route_schedule.get_static_cache",
+            "app.core.agents.tools.transit.get_route_schedule.get_static_store",
             side_effect=RuntimeError("Connection refused"),
         ),
         patch("app.core.agents.tools.transit.get_route_schedule.logger"),
@@ -252,7 +253,7 @@ async def test_get_route_schedule_time_window_filter():
     mock_static = _make_mock_static()
 
     with patch(
-        "app.core.agents.tools.transit.get_route_schedule.get_static_cache",
+        "app.core.agents.tools.transit.get_route_schedule.get_static_store",
         return_value=mock_static,
     ):
         # Only t2 departs at 07:00, t1 departs at 06:00 — filter to 06:30+
@@ -273,7 +274,7 @@ async def test_get_route_schedule_no_trips_in_window():
     mock_static = _make_mock_static()
 
     with patch(
-        "app.core.agents.tools.transit.get_route_schedule.get_static_cache",
+        "app.core.agents.tools.transit.get_route_schedule.get_static_store",
         return_value=mock_static,
     ):
         result = await get_route_schedule(

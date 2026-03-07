@@ -26,7 +26,7 @@ from app.core.agents.tools.transit.client import GTFSRealtimeClient, TripUpdateD
 
 # NOTE: 2nd consumer of _compute_route_adherence — extract to app/shared/ on 3rd use.
 from app.core.agents.tools.transit.get_adherence_report import _compute_route_adherence
-from app.core.agents.tools.transit.static_cache import get_static_cache
+from app.core.agents.tools.transit.static_store import get_static_store
 from app.core.agents.tools.transit.utils import (
     classify_service_type,
     gtfs_time_to_minutes,
@@ -315,7 +315,9 @@ class AnalyticsService:
             settings = get_settings()
             async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0)) as http_client:
                 client = GTFSRealtimeClient(http_client, settings)
-                static = await get_static_cache(http_client, settings)
+                from app.core.database import get_db_context
+
+                static = await get_static_store(get_db_context, settings)
                 trip_updates = await client.fetch_trip_updates()
 
                 # Build trip update lookup

@@ -16,7 +16,8 @@ from app.core.agents.tools.transit.schemas import (
     StopResult,
     StopSearchResults,
 )
-from app.core.agents.tools.transit.static_cache import StopInfo, get_static_cache
+from app.core.agents.tools.transit.static_cache import StopInfo
+from app.core.agents.tools.transit.static_store import get_static_store
 from app.core.logging import get_logger
 from app.shared.geo import haversine_distance
 
@@ -213,7 +214,9 @@ async def search_stops(
     effective_radius = min(max(radius_meters or _DEFAULT_RADIUS_METERS, 1), _MAX_RADIUS_METERS)
 
     try:
-        static = await get_static_cache(ctx.deps.transit_http_client, ctx.deps.settings)
+        if ctx.deps.db_session_factory is None:
+            return "Database session not available. Stop search requires database access."
+        static = await get_static_store(ctx.deps.db_session_factory, ctx.deps.settings)
 
         if action == "search" and query is not None:
             results, total = _search_by_name(

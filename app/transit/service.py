@@ -16,10 +16,8 @@ from app.core.agents.tools.transit.client import (
     TripUpdateData,
     VehiclePositionData,
 )
-from app.core.agents.tools.transit.static_cache import (
-    GTFSStaticCache,
-    get_static_cache,
-)
+from app.core.agents.tools.transit.static_cache import GTFSStaticCache
+from app.core.agents.tools.transit.static_store import get_static_store
 from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
 from app.transit.schemas import VehiclePosition, VehiclePositionsResponse
@@ -91,7 +89,9 @@ class TransitService:
         """Direct GTFS-RT fetch (legacy mode, used when poller is disabled)."""
         raw_vehicles = await self._rt_client.fetch_vehicle_positions()
         trip_updates = await self._rt_client.fetch_trip_updates()
-        static = await get_static_cache(self._http_client, self._settings)
+        from app.core.database import get_db_context
+
+        static = await get_static_store(get_db_context, self._settings)
 
         # Build trip update lookup by trip_id
         trip_update_map: dict[str, TripUpdateData] = {tu.trip_id: tu for tu in trip_updates}

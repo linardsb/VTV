@@ -19,6 +19,7 @@ def _make_ctx() -> MagicMock:
     ctx = MagicMock()
     ctx.deps.transit_http_client = AsyncMock()
     ctx.deps.settings = MagicMock()
+    ctx.deps.db_session_factory = MagicMock()
     return ctx
 
 
@@ -138,7 +139,7 @@ async def test_search_stops_search_by_name() -> None:
     mock_static = _make_mock_static()
 
     with patch(
-        "app.core.agents.tools.transit.search_stops.get_static_cache",
+        "app.core.agents.tools.transit.search_stops.get_static_store",
         return_value=mock_static,
     ):
         result = await search_stops(ctx, action="search", query="Brīvības")
@@ -161,7 +162,7 @@ async def test_search_stops_search_no_matches() -> None:
     mock_static = _make_mock_static()
 
     with patch(
-        "app.core.agents.tools.transit.search_stops.get_static_cache",
+        "app.core.agents.tools.transit.search_stops.get_static_store",
         return_value=mock_static,
     ):
         result = await search_stops(ctx, action="search", query="Nonexistent")
@@ -179,7 +180,7 @@ async def test_search_stops_search_case_insensitive() -> None:
     mock_static = _make_mock_static()
 
     with patch(
-        "app.core.agents.tools.transit.search_stops.get_static_cache",
+        "app.core.agents.tools.transit.search_stops.get_static_store",
         return_value=mock_static,
     ):
         result = await search_stops(ctx, action="search", query="brīvības")
@@ -196,7 +197,7 @@ async def test_search_stops_nearby_finds_close_stops() -> None:
     mock_static = _make_mock_static()
 
     with patch(
-        "app.core.agents.tools.transit.search_stops.get_static_cache",
+        "app.core.agents.tools.transit.search_stops.get_static_store",
         return_value=mock_static,
     ):
         # Search near s1 (56.9496, 24.1052) with 1000m radius
@@ -224,7 +225,7 @@ async def test_search_stops_nearby_no_results() -> None:
     mock_static = _make_mock_static()
 
     with patch(
-        "app.core.agents.tools.transit.search_stops.get_static_cache",
+        "app.core.agents.tools.transit.search_stops.get_static_store",
         return_value=mock_static,
     ):
         # Search far from all stops with tiny radius
@@ -249,7 +250,7 @@ async def test_search_stops_nearby_sorted_by_distance() -> None:
     mock_static = _make_mock_static()
 
     with patch(
-        "app.core.agents.tools.transit.search_stops.get_static_cache",
+        "app.core.agents.tools.transit.search_stops.get_static_store",
         return_value=mock_static,
     ):
         # Large radius to get multiple results
@@ -275,7 +276,7 @@ async def test_search_stops_limit_respected() -> None:
     mock_static = _make_mock_static()
 
     with patch(
-        "app.core.agents.tools.transit.search_stops.get_static_cache",
+        "app.core.agents.tools.transit.search_stops.get_static_store",
         return_value=mock_static,
     ):
         result = await search_stops(ctx, action="search", query="a", limit=1)
@@ -292,7 +293,7 @@ async def test_search_stops_routes_populated() -> None:
     mock_static = _make_mock_static()
 
     with patch(
-        "app.core.agents.tools.transit.search_stops.get_static_cache",
+        "app.core.agents.tools.transit.search_stops.get_static_store",
         return_value=mock_static,
     ):
         result = await search_stops(ctx, action="search", query="Brīvības iela")
@@ -311,7 +312,7 @@ async def test_search_stops_feed_error() -> None:
 
     with (
         patch(
-            "app.core.agents.tools.transit.search_stops.get_static_cache",
+            "app.core.agents.tools.transit.search_stops.get_static_store",
             side_effect=RuntimeError("Connection refused"),
         ),
         patch("app.core.agents.tools.transit.search_stops.logger"),
