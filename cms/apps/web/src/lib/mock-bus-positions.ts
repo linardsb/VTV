@@ -15,6 +15,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Centrala stacija",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1002",
@@ -29,6 +31,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "stopped",
     nextStopName: "Brivibas iela",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   // Route 2 (Tram) — 2 vehicles
   {
@@ -44,6 +48,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Agenskalns",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1004",
@@ -58,6 +64,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "incoming",
     nextStopName: "Tornakalns",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   // Route 3 (Bus) — 3 vehicles
   {
@@ -73,6 +81,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Purvciems",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1006",
@@ -87,6 +97,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "stopped",
     nextStopName: "Plavnieki",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1007",
@@ -101,6 +113,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Centrala stacija",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   // Route 5 (Trolleybus) — 3 vehicles
   {
@@ -116,6 +130,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Imanta",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1009",
@@ -130,6 +146,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "stopped",
     nextStopName: "Zolitude",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1010",
@@ -144,6 +162,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "incoming",
     nextStopName: "Brivibas iela",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   // Route 5T (Tram) — 2 vehicles
   {
@@ -159,6 +179,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Jugla",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1012",
@@ -173,6 +195,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "stopped",
     nextStopName: "Purvciems",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   // Route 7101 (Bus) — 2 vehicles
   {
@@ -188,6 +212,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Jugla",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1014",
@@ -202,6 +228,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Bolderaja",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   // Route 7 (Tram) — 2 vehicles
   {
@@ -217,6 +245,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "stopped",
     nextStopName: "Imanta",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1016",
@@ -231,6 +261,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Centrala stacija",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   // Route 11 (Trolleybus) — 2 vehicles
   {
@@ -246,6 +278,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Plavnieki",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1018",
@@ -260,6 +294,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "incoming",
     nextStopName: "Purvciems",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   // Route 14 (Trolleybus) — 2 vehicles
   {
@@ -275,6 +311,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Agenskalns",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1020",
@@ -289,6 +327,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "stopped",
     nextStopName: "Zolitude",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   // Route 15 (Bus) — 3 vehicles
   {
@@ -304,6 +344,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Jugla",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1022",
@@ -318,6 +360,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "stopped",
     nextStopName: "Plavnieki",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1023",
@@ -332,6 +376,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "incoming",
     nextStopName: "Purvciems",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   // Route 22 (Bus) — 4 vehicles
   {
@@ -347,6 +393,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Bolderaja",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1025",
@@ -361,6 +409,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "stopped",
     nextStopName: "Imanta",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1026",
@@ -375,6 +425,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Tornakalns",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1027",
@@ -389,6 +441,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "incoming",
     nextStopName: "Brivibas iela",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   // Route 30 (Bus) — 1 vehicle
   {
@@ -404,6 +458,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Jugla",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   // Route 7201 (Bus) — 2 vehicles
   {
@@ -419,6 +475,8 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "stopped",
     nextStopName: "Bolderaja",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
   {
     vehicleId: "V-1030",
@@ -433,5 +491,7 @@ export const MOCK_BUS_POSITIONS: BusPosition[] = [
     currentStatus: "in_transit",
     nextStopName: "Jugla",
     timestamp: "2026-02-18T08:30:00Z",
+    feedId: "riga",
+    operatorName: "Rigas Satiksme",
   },
 ];

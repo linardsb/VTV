@@ -28,11 +28,18 @@ import {
   updateRoute,
   deleteRoute,
 } from "@/lib/schedules-sdk";
+import { fetchFeeds } from "@/lib/gtfs-sdk";
 import { toHexColor } from "@/lib/color-utils";
 import type { Route, RouteCreate, RouteUpdate } from "@/types/route";
 import type { Agency } from "@/types/schedule";
+import type { GTFSFeed } from "@/types/gtfs";
 
 const PAGE_SIZE = 20;
+
+/** Deterministic feed border colors for map markers (hex — used in Leaflet divIcon). */
+const FEED_BORDER_COLORS = [
+  "#0391F2", "#06757E", "#8E24AA", "#FB8C00", "#E53935", "#43A047",
+];
 
 function MapSkeleton() {
   return (
@@ -64,6 +71,8 @@ export default function RoutesPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [feeds, setFeeds] = useState<GTFSFeed[]>([]);
+  const [feedFilter, setFeedFilter] = useState<string | null>(null);
 
   // UI state — selectedRouteId declared early for selectedGtfsRouteId dependency
   const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
@@ -79,6 +88,19 @@ export default function RoutesPage() {
     return map;
   }, [allRoutes]);
 
+  // Feed border color map: feedId -> hex color
+  const feedColorMap = useMemo(() => {
+    const enabledFeeds = feeds.filter((f) => f.enabled);
+    const colorMap: Record<string, string> = {};
+    enabledFeeds.forEach((feed, idx) => {
+      colorMap[feed.feed_id] = FEED_BORDER_COLORS[idx % FEED_BORDER_COLORS.length];
+    });
+    return colorMap;
+  }, [feeds]);
+
+  // Triggers auto-fit bounds only when feed selection changes
+  const feedSelectionKey = useMemo(() => feedFilter ?? "all", [feedFilter]);
+
   // Selected route → GTFS ID for map highlight + WS route filter
   const selectedGtfsRouteId = useMemo(() => {
     if (!selectedRouteId) return null;
@@ -90,6 +112,7 @@ export default function RoutesPage() {
   const { vehicles: liveVehicles, connectionMode } = useVehiclePositions({
     colorMap: routeColorMap,
     routeFilter: selectedGtfsRouteId,
+    feedFilter,
   });
 
   // Filter state
@@ -129,6 +152,16 @@ export default function RoutesPage() {
     [routes, selectedRouteId],
   );
 
+
+  // Load feeds on mount
+  const loadFeeds = useCallback(async () => {
+    try {
+      const data = await fetchFeeds();
+      setFeeds(data);
+    } catch (e) {
+      console.warn("[routes] Failed to load feeds:", e);
+    }
+  }, []);
 
   // Load agencies on mount
   const loadAgencies = useCallback(async () => {
@@ -188,7 +221,8 @@ export default function RoutesPage() {
     if (status !== "authenticated") return;
     void loadAgencies();
     void loadAllRoutes();
-  }, [loadAgencies, loadAllRoutes, status]);
+    void loadFeeds();
+  }, [loadAgencies, loadAllRoutes, loadFeeds, status]);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -316,6 +350,9 @@ export default function RoutesPage() {
             onAgencyFilterChange={(id) => { setAgencyFilter(id); setPage(1); }}
             agencies={agencies}
             resultCount={totalItems}
+            feeds={feeds}
+            feedFilter={feedFilter}
+            onFeedFilterChange={setFeedFilter}
             asSheet
             sheetOpen={filterSheetOpen}
             onSheetOpenChange={setFilterSheetOpen}
@@ -356,6 +393,9 @@ export default function RoutesPage() {
                   if (route) handleSelectRoute(route.id);
                 }}
                 connectionMode={connectionMode}
+                feeds={feeds}
+                feedColors={feedColorMap}
+                feedSelectionKey={feedSelectionKey}
               />
             </TabsContent>
           </Tabs>
@@ -378,6 +418,9 @@ export default function RoutesPage() {
                 onAgencyFilterChange={(id) => { setAgencyFilter(id); setPage(1); }}
                 agencies={agencies}
                 resultCount={totalItems}
+                feeds={feeds}
+                feedFilter={feedFilter}
+                onFeedFilterChange={setFeedFilter}
               />
               <RouteTable
                 routes={routes}
@@ -405,6 +448,9 @@ export default function RoutesPage() {
                 if (route) handleSelectRoute(route.id);
               }}
               connectionMode={connectionMode}
+              feeds={feeds}
+              feedColors={feedColorMap}
+              feedSelectionKey={feedSelectionKey}
             />
           </ResizablePanel>
         </ResizablePanelGroup>

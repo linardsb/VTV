@@ -1,23 +1,55 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer } from "react-leaflet";
+import L from "leaflet";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import { useTranslations } from "next-intl";
 import type { BusPosition } from "@/types/route";
+import type { GTFSFeed } from "@/types/gtfs";
 import type { ConnectionMode } from "@/hooks/use-vehicle-positions";
 import { BusMarker } from "./bus-marker";
+import { FeedHealthOverlay } from "./feed-health-overlay";
 
 interface RouteMapProps {
   buses: BusPosition[];
   selectedRouteId: string | null;
   onSelectRoute: (routeId: string) => void;
   connectionMode?: ConnectionMode;
+  feeds?: GTFSFeed[];
+  feedColors?: Record<string, string>;
+  feedSelectionKey?: string;
 }
 
-export function RouteMap({ buses, selectedRouteId, onSelectRoute, connectionMode = "connecting" }: RouteMapProps) {
+/** Auto-fit map bounds when feed selection changes. Defined at module scope per React 19 rules. */
+function FitBounds({ bounds, trigger }: { bounds: L.LatLngBounds | null; trigger: string }) {
+  const map = useMap();
+  const prevTriggerRef = useRef(trigger);
+
+  useEffect(() => {
+    if (trigger !== prevTriggerRef.current && bounds && bounds.isValid()) {
+      prevTriggerRef.current = trigger;
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+    }
+  }, [map, bounds, trigger]);
+
+  return null;
+}
+
+export function RouteMap({ buses, selectedRouteId, onSelectRoute, connectionMode = "connecting", feeds, feedColors, feedSelectionKey }: RouteMapProps) {
   const t = useTranslations("routes.map");
   const [mapInstance] = useState(() => `map-${Date.now()}`);
+
+  const bounds = useMemo(() => {
+    if (buses.length === 0) return null;
+    const lats = buses.map((b) => b.latitude);
+    const lngs = buses.map((b) => b.longitude);
+    return L.latLngBounds(
+      [Math.min(...lats), Math.min(...lngs)],
+      [Math.max(...lats), Math.max(...lngs)],
+    );
+  }, [buses]);
+
   return (
     <div className="relative isolate h-full min-h-[50vh] w-full bg-surface">
       <div className="absolute left-3 top-3 z-[1000] rounded-md bg-surface/90 px-3 py-1.5 text-sm font-medium shadow-sm backdrop-blur-sm">
@@ -58,6 +90,7 @@ export function RouteMap({ buses, selectedRouteId, onSelectRoute, connectionMode
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           subdomains="abcd"
         />
+        <FitBounds bounds={bounds} trigger={feedSelectionKey ?? ""} />
         {buses.map((bus) => (
           <BusMarker
             key={bus.vehicleId}
@@ -65,9 +98,19 @@ export function RouteMap({ buses, selectedRouteId, onSelectRoute, connectionMode
             isHighlighted={selectedRouteId === bus.routeId}
             isDimmed={false}
             onSelect={onSelectRoute}
+            feedBorderColor={feedColors?.[bus.feedId]}
           />
         ))}
       </MapContainer>
+
+      {/* Feed health overlay */}
+      {feeds && feeds.length > 0 && (
+        <FeedHealthOverlay
+          feeds={feeds}
+          vehicles={buses}
+          feedColors={feedColors ?? {}}
+        />
+      )}
 
       {buses.length === 0 && (
         <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-surface/80">

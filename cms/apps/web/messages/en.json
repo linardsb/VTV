@@ -282,7 +282,9 @@
       "active": "Active",
       "inactive": "Inactive",
       "allAgencies": "All Operators",
-      "agency": "Operator"
+      "agency": "Operator",
+      "feed": "Data Feed",
+      "allFeeds": "All Feeds"
     },
     "table": {
       "routeNumber": "No.",
@@ -360,6 +362,14 @@
       "liveStream": "Live",
       "pollingFallback": "Polling",
       "wsConnecting": "Connecting..."
+    },
+    "feed": {
+      "healthy": "Healthy",
+      "stale": "Stale",
+      "offline": "Offline",
+      "vehicles": "{count, plural, one {# vehicle} other {# vehicles}}",
+      "lastUpdate": "Last: {time}",
+      "noFeeds": "No feeds configured"
     },
     "mobile": {
       "tableTab": "Table",

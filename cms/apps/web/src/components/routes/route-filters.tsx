@@ -19,6 +19,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { Agency } from "@/types/schedule";
+import type { GTFSFeed } from "@/types/gtfs";
 
 interface FilterContentProps {
   search: string;
@@ -31,6 +32,9 @@ interface FilterContentProps {
   onAgencyFilterChange: (agencyId: number | null) => void;
   agencies: Agency[];
   resultCount: number;
+  feeds: GTFSFeed[];
+  feedFilter: string | null;
+  onFeedFilterChange: (feedId: string | null) => void;
 }
 
 function FilterContent({
@@ -44,6 +48,9 @@ function FilterContent({
   onAgencyFilterChange,
   agencies,
   resultCount,
+  feeds,
+  feedFilter,
+  onFeedFilterChange,
 }: FilterContentProps) {
   const t = useTranslations("routes");
 
@@ -66,6 +73,40 @@ function FilterContent({
         </div>
 
         <Separator />
+
+        {/* Feed Filter */}
+        {feeds.length > 0 && (
+          <>
+            <div className="space-y-(--spacing-tight)">
+              <p className="text-xs font-medium text-label-text uppercase tracking-wide">
+                {t("filters.feed")}
+              </p>
+              <ToggleGroup
+                type="single"
+                spacing={1}
+                value={feedFilter ?? "all"}
+                onValueChange={(value) => {
+                  onFeedFilterChange(value === "all" || value === "" ? null : value);
+                }}
+                className="flex flex-col gap-1"
+              >
+                <ToggleGroupItem value="all" className="w-full justify-start rounded-md text-sm data-[state=on]:bg-filter-active-bg data-[state=on]:text-filter-active-text data-[state=on]:font-semibold">
+                  {t("filters.allFeeds")}
+                </ToggleGroupItem>
+                {feeds.filter(f => f.enabled).map((feed) => (
+                  <ToggleGroupItem
+                    key={feed.feed_id}
+                    value={feed.feed_id}
+                    className="w-full justify-start rounded-md text-sm data-[state=on]:bg-filter-active-bg data-[state=on]:text-filter-active-text data-[state=on]:font-semibold"
+                  >
+                    {feed.operator_name}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+            <Separator />
+          </>
+        )}
 
         {/* Type Filter */}
         <div className="space-y-(--spacing-tight)">
@@ -172,6 +213,9 @@ interface RouteFiltersProps {
   onAgencyFilterChange: (agencyId: number | null) => void;
   agencies: Agency[];
   resultCount: number;
+  feeds: GTFSFeed[];
+  feedFilter: string | null;
+  onFeedFilterChange: (feedId: string | null) => void;
   asSheet?: boolean;
   sheetOpen?: boolean;
   onSheetOpenChange?: (open: boolean) => void;
@@ -188,6 +232,9 @@ export function RouteFilters({
   onAgencyFilterChange,
   agencies,
   resultCount,
+  feeds,
+  feedFilter,
+  onFeedFilterChange,
   asSheet,
   sheetOpen,
   onSheetOpenChange,
@@ -214,6 +261,9 @@ export function RouteFilters({
             onAgencyFilterChange={onAgencyFilterChange}
             agencies={agencies}
             resultCount={resultCount}
+            feeds={feeds}
+            feedFilter={feedFilter}
+            onFeedFilterChange={onFeedFilterChange}
           />
         </SheetContent>
       </Sheet>
@@ -233,6 +283,9 @@ export function RouteFilters({
         onAgencyFilterChange={onAgencyFilterChange}
         agencies={agencies}
         resultCount={resultCount}
+        feeds={feeds}
+        feedFilter={feedFilter}
+        onFeedFilterChange={onFeedFilterChange}
       />
     </aside>
   );

@@ -282,7 +282,9 @@
       "active": "Aktīvs",
       "inactive": "Neaktīvs",
       "allAgencies": "Visi operatori",
-      "agency": "Operators"
+      "agency": "Operators",
+      "feed": "Datu avots",
+      "allFeeds": "Visi avoti"
     },
     "table": {
       "routeNumber": "Nr.",
@@ -360,6 +362,14 @@
       "liveStream": "Reāllaiks",
       "pollingFallback": "Atjaunināšana",
       "wsConnecting": "Savienojas..."
+    },
+    "feed": {
+      "healthy": "Aktīvs",
+      "stale": "Novecojis",
+      "offline": "Bezsaistē",
+      "vehicles": "{count, plural, one {# transportlīdzeklis} other {# transportlīdzekļi}}",
+      "lastUpdate": "Pēdējais: {time}",
+      "noFeeds": "Nav konfigurētu datu avotu"
     },
     "mobile": {
       "tableTab": "Tabula",

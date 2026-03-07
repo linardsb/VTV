@@ -11,6 +11,8 @@ interface BusMarkerProps {
   isHighlighted: boolean;
   isDimmed: boolean;
   onSelect: (routeId: string) => void;
+  /** Hex color for feed differentiation border ring. */
+  feedBorderColor?: string;
 }
 
 function getDelayLabel(
@@ -36,7 +38,7 @@ function getDelayLabel(
   };
 }
 
-export function BusMarker({ bus, isHighlighted, isDimmed, onSelect }: BusMarkerProps) {
+export function BusMarker({ bus, isHighlighted, isDimmed, onSelect, feedBorderColor }: BusMarkerProps) {
   const t = useTranslations("routes.map");
 
   const icon = useMemo(() => {
@@ -57,14 +59,14 @@ export function BusMarker({ bus, isHighlighted, isDimmed, onSelect }: BusMarkerP
         justify-content: center;
         font-size: ${isHighlighted ? 10 : 8}px;
         font-weight: 700;
-        border: 1.5px solid white;
+        border: 2px solid ${feedBorderColor ?? "white"};
         box-shadow: 0 1px 4px rgba(0,0,0,0.3);
         opacity: ${isDimmed ? 0.4 : 1};
         transition: all 200ms ease;
         font-family: 'Source Sans 3', system-ui, sans-serif;
       ">${bus.routeShortName}</div>`,
     });
-  }, [bus.routeColor, bus.routeShortName, isHighlighted, isDimmed]);
+  }, [bus.routeColor, bus.routeShortName, isHighlighted, isDimmed, feedBorderColor]);
 
   const delay = getDelayLabel(bus.delaySeconds, t);
 

@@ -19,7 +19,7 @@ src/
 │   ├── (dashboard)/
 │   │   ├── page.tsx            # Dashboard (default authenticated page)
 │   │   ├── documents/page.tsx  # Document management (upload, table, filters, detail)
-│   │   ├── routes/page.tsx     # Route management (real API CRUD, server pagination, search, resizable map; mobile: tab layout)
+│   │   ├── routes/page.tsx     # Route management (real API CRUD, server pagination, search, resizable map, multi-feed support: feed selector, per-feed marker colors, feed health overlay, auto-fit bounds; mobile: tab layout)
 │   │   ├── schedules/page.tsx  # Schedule management (calendars with unified dialog + month grid, trips, GTFS import)
 │   │   ├── stops/page.tsx      # Stop management (CRUD, Leaflet map with terminus markers, direction display, GTFS copy; mobile: tab layout)
 │   │   ├── drivers/page.tsx    # Driver management (CRUD, search, shift/status filters, license tracking)
@@ -36,7 +36,7 @@ src/
 │   ├── app-sidebar.tsx         # Responsive sidebar (desktop: w-60 aside; mobile: hamburger + Sheet — only remaining Sheet usage)
 │   ├── dashboard/              # Dashboard components (metric-card, calendar-grid, calendar-panel, dashboard-content, driver-roster, driver-drop-dialog, goals-form, goal-progress-badge, event-goal-panel, week-view, month-view, three-month-view, year-view, live-timeline)
 │   ├── documents/              # Document management (table, filters, upload-form, detail, delete-dialog)
-│   ├── routes/                 # Route management (table, filters, form, detail, type-badge, map, bus-marker)
+│   ├── routes/                 # Route management (table, filters, form, detail, type-badge, map, bus-marker, feed-health-overlay)
 │   ├── schedules/              # Schedule management (calendar-table/dialog/form/detail/month-grid/search/status-badge, trip-table/form/detail/filters/search, gtfs-import, delete dialogs)
 │   ├── stops/                  # Stop management (table, filters, form, detail, delete-dialog, map with draggable markers)
 │   ├── drivers/                # Driver management (table, filters, form, detail, delete-dialog)
@@ -44,7 +44,7 @@ src/
 │   └── gtfs/                   # GTFS data management (data-overview stats+feeds, gtfs-export with agency filter)
 ├── hooks/
 │   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
-│   ├── use-vehicle-positions.ts # useVehiclePositions() — WebSocket primary (real-time push, ~100ms latency) with SWR HTTP polling fallback (10s refresh). Route filtering via subscribe message, connection status tracking (live/polling/connecting)
+│   ├── use-vehicle-positions.ts # useVehiclePositions() — WebSocket primary (real-time push, ~100ms latency) with SWR HTTP polling fallback (10s refresh). Route + feed filtering via subscribe message, connection status tracking (live/polling/connecting)
 │   ├── use-dashboard-metrics.ts # useDashboardMetrics() — SWR, 30s refresh (vehicles + routes)
 │   ├── use-calendar-events.ts  # useCalendarEvents() — SWR via @vtv/sdk, 60s refresh (includes goals data)
 │   └── use-drivers-summary.ts  # useDriversSummary() — SWR, 120s refresh (active drivers)

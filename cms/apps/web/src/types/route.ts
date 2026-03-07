@@ -80,4 +80,8 @@ export interface BusPosition {
   currentStatus: "in_transit" | "stopped" | "incoming";
   nextStopName: string | null;
   timestamp: string;
+  /** GTFS-RT feed source identifier (e.g., "riga", "jurmala") */
+  feedId: string;
+  /** Human-readable operator name (e.g., "Rigas Satiksme") */
+  operatorName: string;
 }

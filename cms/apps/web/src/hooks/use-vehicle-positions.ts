@@ -24,6 +24,8 @@ interface ApiVehicle {
   next_stop_name: string | null;
   current_stop_name: string | null;
   timestamp: string;
+  feed_id: string;
+  operator_name: string;
 }
 
 interface ApiResponse {
@@ -44,6 +46,8 @@ interface UseVehiclePositionsOptions {
   apiBase?: string;
   /** Optional GTFS route_id to push as server-side WS filter. null = all routes. */
   routeFilter?: string | null;
+  /** Optional feed_id to push as server-side WS filter. null = all feeds. */
+  feedFilter?: string | null;
 }
 
 interface UseVehiclePositionsResult {
@@ -96,6 +100,8 @@ function mapVehicle(
     currentStatus: STATUS_MAP[v.current_status] ?? "in_transit",
     nextStopName: v.next_stop_name,
     timestamp: v.timestamp,
+    feedId: v.feed_id ?? "",
+    operatorName: v.operator_name ?? "",
   };
 }
 
@@ -127,6 +133,7 @@ export function useVehiclePositions(
     colorMap = {},
     apiBase = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123",
     routeFilter,
+    feedFilter,
   } = options;
 
   // -- State (all useState FIRST per React 19 hook ordering) ----------------
@@ -144,6 +151,7 @@ export function useVehiclePositions(
   const colorMapRef = useRef<Record<string, string>>(colorMap);
   const rawVehiclesRef = useRef<ApiVehicle[]>([]);
   const routeFilterRef = useRef<string | null>(routeFilter ?? null);
+  const feedFilterRef = useRef<string | null>(feedFilter ?? null);
 
   // -- Sync colorMap ref ----------------------------------------------------
   useEffect(() => {
@@ -158,10 +166,25 @@ export function useVehiclePositions(
         JSON.stringify({
           action: "subscribe",
           route_id: routeFilter ?? undefined,
+          feed_id: feedFilterRef.current ?? undefined,
         }),
       );
     }
   }, [routeFilter]);
+
+  // -- Sync feedFilter ref + re-subscribe on change ------------------------
+  useEffect(() => {
+    feedFilterRef.current = feedFilter ?? null;
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          action: "subscribe",
+          route_id: routeFilterRef.current ?? undefined,
+          feed_id: feedFilter ?? undefined,
+        }),
+      );
+    }
+  }, [feedFilter]);
 
   // -- Main WebSocket lifecycle ---------------------------------------------
   useEffect(() => {
@@ -189,11 +212,12 @@ export function useVehiclePositions(
         setIsWsConnected(true);
         setConnectionFailed(false);
         setError(null);
-        // Subscribe with current route filter
+        // Subscribe with current route + feed filters
         ws.send(
           JSON.stringify({
             action: "subscribe",
             route_id: routeFilterRef.current ?? undefined,
+            feed_id: feedFilterRef.current ?? undefined,
           }),
         );
       };
@@ -278,10 +302,12 @@ export function useVehiclePositions(
   }, [connectionFailed]);
 
   // -- SWR fallback when WebSocket fails ------------------------------------
-  const { data: swrData } = useSWR<ApiResponse>(
-    connectionFailed ? `${apiBase}/api/v1/transit/vehicles` : null,
-    { refreshInterval: interval },
-  );
+  const swrUrl = connectionFailed
+    ? `${apiBase}/api/v1/transit/vehicles${feedFilterRef.current ? `?feed_id=${feedFilterRef.current}` : ""}`
+    : null;
+  const { data: swrData } = useSWR<ApiResponse>(swrUrl, {
+    refreshInterval: interval,
+  });
 
   // Map SWR data when in fallback mode
   useEffect(() => {
