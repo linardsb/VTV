@@ -8,6 +8,13 @@ Run all VTV quality checks in sequence and report a pass/fail scorecard.
 
 # Validate — Run Full VTV Validation Suite
 
+## Step 0: Use jCodeMunch for Convention Checks
+
+If the project is indexed via jcodemunch, **use jcodemunch tools in Step 10**:
+- `search_symbols` → find route functions missing `current_user` dependency (auth check)
+- `get_file_outline` → scan models for `TimestampMixin` inheritance without reading full files
+- `search_symbols` → verify `rate_limit` usage across route modules
+
 ## INPUT
 
 No arguments needed. Runs all validation commands against the current codebase state.

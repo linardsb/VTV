@@ -1,186 +1,253 @@
-Run Playwright end-to-end tests for the VTV frontend.
+# E2E Test — Exploratory Browser Testing
 
-## Context
+**Usage:** `/e2e` | `/e2e routes` | `/e2e dashboard stops`
 
-Load test infrastructure context:
-- @cms/apps/web/playwright.config.ts (Playwright configuration)
-- @cms/apps/web/e2e/ (test files)
-- @cms/apps/web/CLAUDE.md (frontend conventions)
+## Pre-flight Checks
 
-## Prerequisites
+### 1. agent-browser Installation
 
-Before running tests, verify the required services:
-1. **Database**: `make db` — PostgreSQL + Redis must be running
-2. **Backend**: Backend API must be running on port 8123 (for auth and API calls)
-3. **Frontend**: The Playwright config has `webServer` that auto-starts `pnpm dev` if not already running
-
-Check with:
 ```bash
-curl -s http://localhost:8123/health | head -c 100   # Backend health
+agent-browser --version
+```
+
+If not found:
+```bash
+npm install -g agent-browser && agent-browser install --with-deps
+```
+
+### 2. Services
+
+Verify backend and frontend are running:
+```bash
+curl -s http://localhost:8123/health | head -c 100   # Backend
 curl -s http://localhost:3000 -o /dev/null -w "%{http_code}"  # Frontend
 ```
 
-If either service is down, start them with `make dev` (runs both) or start individually.
-
-## Running Tests
-
-Use the Bash tool to run Playwright tests. Do NOT use the Playwright MCP tools — use the CLI directly.
-
-### Run all tests
+If not running:
 ```bash
-cd /Users/Berzins/Desktop/VTV/cms/apps/web && npx playwright test
+make dev  # backend (:8123) + frontend (:3000)
 ```
 
-### Run specific test file
-```bash
-cd /Users/Berzins/Desktop/VTV/cms/apps/web && npx playwright test e2e/smoke.spec.ts
-```
+Wait for both to be ready before proceeding.
 
-### Run tests matching a pattern
-```bash
-cd /Users/Berzins/Desktop/VTV/cms/apps/web && npx playwright test -g "dashboard loads"
-```
+## Project Context
 
-### Run in headed mode (visible browser)
-```bash
-cd /Users/Berzins/Desktop/VTV/cms/apps/web && npx playwright test --headed
-```
+- **Frontend**: http://localhost:3000
+- **API base**: http://localhost:8123/api/v1
+- **Demo credentials**: `admin@vtv.lv` / `admin`
+- **Locales**: `/lv/` (primary), `/en/`
 
-### Run with UI mode (interactive)
-```bash
-cd /Users/Berzins/Desktop/VTV/cms/apps/web && npx playwright test --ui
-```
+## Scope Selection
 
-### Debug a failing test
-```bash
-cd /Users/Berzins/Desktop/VTV/cms/apps/web && npx playwright test --debug e2e/smoke.spec.ts
-```
+Parse `$ARGUMENTS` to determine which pages to test:
 
-### View last test report
-```bash
-cd /Users/Berzins/Desktop/VTV/cms/apps/web && npx playwright show-report
-```
+| Arguments | Pages to test |
+|-----------|---------------|
+| *(empty)* | ALL pages |
+| `routes` | Routes only |
+| `dashboard stops` | Dashboard + Stops |
+| `login dashboard routes` | Login + Dashboard + Routes |
 
-## Visual Debugging with Browser Skill
-
-When a test fails and you need to visually inspect the page state, use the `/Browser` skill:
-1. Open the failing URL in the browser
-2. Take screenshots at key interaction points
-3. Check console errors and network requests
-4. Compare against expected behavior
-
-## Test Structure
-
-```
-e2e/
-├── .auth/              # Saved auth state (gitignored)
-│   └── user.json       # Authenticated session cookies
-├── auth.setup.ts       # Login flow — runs before authenticated tests
-├── smoke.spec.ts       # Authenticated smoke tests (page loads, navigation)
-├── login.noauth.spec.ts # Unauthenticated tests (login form, redirects)
-└── {feature}.spec.ts   # Feature-specific tests
-```
-
-### Test Projects (in playwright.config.ts)
-
-- **setup**: Runs `auth.setup.ts` to authenticate and save session state
-- **chromium**: Authenticated tests — uses saved session from setup
-- **no-auth**: Unauthenticated tests — matches `*.noauth.spec.ts` files, no stored session
-
-### Writing New Tests
-
-**Authenticated test** (most common — user is logged in):
-```typescript
-// e2e/routes.spec.ts
-import { test, expect } from "@playwright/test";
-
-test.describe("Routes page", () => {
-  test("displays route table", async ({ page }) => {
-    await page.goto("/lv/routes");
-    await expect(page.getByRole("table")).toBeVisible();
-  });
-});
-```
-
-**Unauthenticated test** (login page, redirects):
-```typescript
-// e2e/auth-flow.noauth.spec.ts — note the .noauth.spec.ts suffix
-import { test, expect } from "@playwright/test";
-
-test("redirects to login when not authenticated", async ({ page }) => {
-  await page.goto("/lv/routes");
-  await expect(page).toHaveURL(/\/login/);
-});
-```
-
-**CRUD test with conditional skip** (when prerequisites may be missing):
-```typescript
-// CRUD tests that depend on UI elements or prerequisite data
-test("creates, edits, and deletes a route", async ({ page }) => {
-  await page.goto("/lv/routes");
-  const createButton = page.getByRole("button", { name: /create/i });
-
-  // CRITICAL: Use test.skip() — NEVER silently return
-  if (!(await createButton.isVisible())) {
-    test.skip(true, "Create button not visible — may require prerequisite data");
-    return;
-  }
-
-  // ... CRUD test logic
-});
-```
-
-**Rules for CRUD tests:**
-- **Always use `test.skip(true, "reason")` when prerequisites are missing** — NEVER silently `return` from a test. Silent returns make the test appear as "passed" in CI reports, hiding the fact that nothing was actually tested
-- Generate unique identifiers with `E2E-${Date.now()}` to avoid collisions
-- Self-cleaning: delete what you create at the end of the test
-- Each test should be independent — don't rely on data from other tests
-
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `BASE_URL` | `http://localhost:3000` | Frontend URL |
-| `TEST_USER_EMAIL` | `admin@vtv.lv` | Login email for auth setup |
-| `TEST_USER_PASSWORD` | `admin` | Login password for auth setup |
-
-## Execution Steps
-
-1. Check that backend (port 8123) and frontend (port 3000) are reachable
-2. If $ARGUMENTS is provided, run that specific test file or pattern:
-   ```bash
-   cd /Users/Berzins/Desktop/VTV/cms/apps/web && npx playwright test e2e/$ARGUMENTS.spec.ts
-   ```
-3. If NO arguments, auto-detect changed features and run only those tests:
-   ```bash
-   cd /Users/Berzins/Desktop/VTV/cms/apps/web && TESTS=$(./e2e/detect-changed.sh) && echo "Detected: $TESTS"
-   ```
-   - If detection returns test files → run only those: `npx playwright test $TESTS`
-   - If detection returns empty (no frontend changes) → run full suite: `npx playwright test`
-4. Report results — pass/fail count, any failures with error messages
-5. If tests fail, read the failing test file and suggest fixes
-6. For visual debugging, use the Browser skill to inspect page state
-
-## Auto-Detection Mapping
-
-The `e2e/detect-changed.sh` script maps git-changed files to test files:
-
-| Changed path | Runs |
-|---|---|
-| `components/routes/*`, `app/*/routes/*` | `routes.spec.ts` |
-| `components/stops/*`, `app/*/stops/*` | `stops.spec.ts` |
-| `components/schedules/*`, `app/*/schedules/*` | `schedules.spec.ts` |
-| `components/documents/*`, `app/*/documents/*` | `documents.spec.ts` |
-| `components/dashboard/*`, dashboard `page.tsx` | `dashboard.spec.ts` |
-| `app-sidebar*`, `middleware.ts`, `layout.tsx` | `navigation.spec.ts` |
-| `auth.ts`, `login/*` | `login.noauth.spec.ts` |
-| `components/ui/*`, `lib/*`, `hooks/*`, `types/*`, `messages/*` | ALL tests |
-
-## Make Targets
+## Phase 1: Setup
 
 ```bash
-make e2e        # Auto-detect changed features → run only those tests
-make e2e-all    # Run ALL tests regardless of changes
-make e2e-ui     # Interactive UI mode
-make e2e-headed # Visible browser
+mkdir -p e2e-screenshots/{login,dashboard,routes,stops,schedules,drivers,gtfs,documents,users,chat,responsive,dark-mode}
+```
+
+Open the app and confirm it loads:
+```bash
+agent-browser open http://localhost:3000/lv/login
+agent-browser screenshot e2e-screenshots/login/01-login-page.png
+```
+
+Use `Read` tool to view each screenshot and analyze for visual issues.
+
+## agent-browser CLI Reference
+
+```bash
+agent-browser open <url>              # Navigate to a page
+agent-browser snapshot -i             # Get interactive elements with refs (@e1, @e2...)
+agent-browser click @eN               # Click element by ref
+agent-browser fill @eN "text"         # Clear field and type
+agent-browser select @eN "option"     # Select dropdown option
+agent-browser press Enter             # Press a key
+agent-browser press Escape            # Dismiss modal/dropdown
+agent-browser screenshot <path>       # Save screenshot
+agent-browser set viewport W H        # Set viewport (e.g., 375 812 for mobile)
+agent-browser console                 # Check for JS errors
+agent-browser errors                  # Check for uncaught exceptions
+agent-browser get url                 # Get current URL
+agent-browser close                   # End session
+```
+
+**IMPORTANT:** Refs become invalid after navigation or DOM changes. Always re-snapshot after page navigation, form submissions, or dynamic content updates.
+
+## Phase 2: Login Flow
+
+1. `agent-browser snapshot -i` — get form field refs
+2. Fill email `admin@vtv.lv`, password `admin`
+3. Click Sign In button
+4. Verify redirect to `/lv/` (dashboard)
+5. Screenshot before and after login
+
+## Phase 3: Key Journeys
+
+Test each page (or only those specified in `$ARGUMENTS`). For each: navigate, snapshot, interact with every button/control, screenshot, analyze with Read tool.
+
+### Dashboard (`/lv/`)
+- Verify: 4 metric cards (active vehicles, on-time performance, delayed routes, fleet utilization)
+- Verify: Live indicator badge pulsing
+- Verify: Calendar section with view toggles (Week/Month/3 Months/Year)
+- Click: calendar view toggles, navigate dates, hover events for tooltip
+- Verify: Driver roster panel with drag hint
+- Screenshot: each calendar view mode
+
+### Routes (`/lv/routes`)
+- Verify: route table with columns (No., Name, Type, Operator, Status, Color)
+- Interact: search box — type "22" and verify filtering
+- Interact: type filter (Bus/Trolleybus/Tram), status filter (Active/Inactive)
+- Interact: agency filter dropdown
+- Click: route row → detail dialog (route info, GTFS ID, dates)
+- Click: "New Route" → create form dialog (fill fields, cancel)
+- Verify: pagination controls
+- Verify: resizable map panel with live vehicle positions
+- Verify: WebSocket connection indicator (Live/Polling/Connecting)
+- Mobile: `agent-browser set viewport 375 812` → verify Table/Map tab layout
+
+### Stops (`/lv/stops`)
+- Verify: stop table with columns (Name, GTFS ID, Location, Type, Wheelchair, Status)
+- Interact: search, status filter, location type filter (Stop/Terminus)
+- Click: stop row → detail dialog (coordinates, wheelchair, parent station)
+- Click: "New Stop" → create form dialog
+- Verify: Leaflet map with stop markers, terminus markers differentiated
+- Verify: copy GTFS ID button, copy coordinates button
+- Mobile: verify Table/Map tab layout
+
+### Schedules (`/lv/schedules`)
+- Verify: 3 tabs (Calendars, Trips, Import & Validate)
+- **Calendars tab**: table with service IDs, date ranges, operating days badges
+  - Click: calendar row → detail with month grid visualization
+  - Click: "New Calendar" → form with day checkboxes + presets (Weekdays/Weekend/Daily)
+  - Verify: status badges (Active/Expired/Upcoming)
+- **Trips tab**: table with trip IDs, routes, headsigns, directions
+  - Interact: route filter, calendar filter, direction filter, search
+  - Click: trip row → detail with stop times list
+- **Import tab**: GTFS ZIP upload dropzone + validation section
+
+### Drivers (`/lv/drivers`)
+- Verify: driver table with employee numbers, names, status badges, shift badges
+- Interact: search, status filter (Available/On Duty/On Leave/Sick), shift filter
+- Click: driver row → detail dialog (personal info, license, medical cert, qualified routes)
+- Click: "Add Driver" → multi-section create form
+- Verify: license/medical expiry warnings
+
+### GTFS (`/lv/gtfs`)
+- Verify: 3 tabs (Overview, Import, Export)
+- **Overview**: data stats cards (agencies, routes, calendars, trips, stops) + RT feed status
+- **Import**: GTFS ZIP dropzone (shared with Schedules import)
+- **Export**: agency filter dropdown + Download GTFS ZIP button
+
+### Documents (`/lv/documents`)
+- Verify: document table with columns (Name, Type, Size, Domain, Status, Language)
+- Interact: search, type filter (PDF/Word/Excel/CSV/Image/Text), status filter, domain filter, language filter
+- Click: document row → detail dialog (file info, content preview, chunks)
+- Click: "Upload Document" → upload form with dropzone, domain, language, description
+- Verify: download button, delete confirmation dialog
+
+### Users (`/lv/users`)
+- Verify: user table with columns (Name, Email, Role, Status, Created)
+- Interact: search, role filter (Admin/Dispatcher/Editor/Viewer), status filter
+- Click: user row → detail dialog
+- Click: "Add User" → create form (name, email, password, role, active toggle)
+- Verify: reset password dialog
+- Verify: delete confirmation dialog
+
+### Chat (`/lv/chat`)
+- Verify: empty state with suggestion chips
+- Click: suggestion chip → verify message sent and response streamed
+- Type: custom question in input → send
+- Verify: assistant response with markdown rendering
+- Click: copy button on response, clear conversation button
+
+### Global Features (always test these)
+- **Dark mode** — toggle theme in sidebar footer, verify pages render correctly
+  - Screenshot dark mode versions of dashboard and one data page
+- **Locale switching** — switch to English, verify translations update, switch back to Latvian
+- **Sidebar navigation** — verify all nav links, active state highlighting
+- **Logout** — click logout, verify redirect to `/lv/login`
+- **Responsive** — test at 375px (mobile), 768px (tablet), 1440px (desktop)
+  - Mobile: verify hamburger menu, sheet sidebar
+  - Screenshot: dashboard at each breakpoint
+
+## Phase 4: Issue Handling
+
+When an issue is found:
+1. Document: expected vs actual behavior, screenshot path
+2. Check `agent-browser console` and `agent-browser errors` for JS errors
+3. Fix the code directly
+4. Re-test and screenshot to confirm fix
+
+## Phase 5: Cleanup
+
+```bash
+agent-browser close
+```
+
+## Phase 6: Report
+
+Present a summary:
+
+```
+## E2E Testing Complete
+
+**Pages Tested:** [count]/11
+**Screenshots Captured:** [count]
+**Issues Found:** [count] ([count] fixed, [count] remaining)
+
+### Pages Tested
+| Page | Status | Screenshots | Issues |
+|------|--------|-------------|--------|
+| Dashboard | PASS | 5 | 0 |
+| Routes | PASS | 4 | 1 fixed |
+| ... | ... | ... | ... |
+
+### Issues Fixed During Testing
+- [Description] — [file:line] — [screenshot before/after]
+
+### Remaining Issues
+- [Description] — [severity: high/medium/low] — [screenshot]
+
+### Screenshots
+All saved to: `e2e-screenshots/`
+```
+
+## API Endpoints for Mutation Verification
+
+```bash
+# Routes
+curl -s http://localhost:8123/api/v1/schedules/routes | head -c 200
+
+# Stops
+curl -s http://localhost:8123/api/v1/stops | head -c 200
+
+# Calendars
+curl -s http://localhost:8123/api/v1/schedules/calendars | head -c 200
+
+# Trips
+curl -s http://localhost:8123/api/v1/schedules/trips | head -c 200
+
+# Drivers
+curl -s http://localhost:8123/api/v1/drivers | head -c 200
+
+# Documents
+curl -s http://localhost:8123/api/v1/knowledge/documents | head -c 200
+
+# Users
+curl -s http://localhost:8123/api/v1/auth/users | head -c 200
+
+# Events
+curl -s http://localhost:8123/api/v1/events | head -c 200
+
+# Health
+curl -s http://localhost:8123/health
 ```

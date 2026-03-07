@@ -11,6 +11,13 @@ Run all VTV frontend quality checks in sequence and report a pass/fail scorecard
 
 # Fe-Validate — Run Full VTV Frontend Validation Suite
 
+## Step 0: Use jCodeMunch for Design/i18n/a11y Checks
+
+If the project is indexed via jcodemunch, **use jcodemunch tools in Steps 4-6**:
+- `search_symbols` → find component exports to check for design system compliance
+- `get_file_outline` → scan page components for accessibility patterns without full reads
+- `search_text` → find hardcoded color values, missing i18n keys, `aria-label` gaps
+
 ## INPUT
 
 No arguments needed. Runs all validation commands against the current frontend codebase state.

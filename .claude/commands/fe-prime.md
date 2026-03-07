@@ -11,6 +11,13 @@ Load complete VTV frontend context — design system, components, pages, i18n, R
 
 # Fe-Prime — Load VTV Frontend Context
 
+## Step 0: Index and Use jCodeMunch
+
+Run `index_folder` on this project root if not already indexed. Then **use jcodemunch tools throughout this prime**:
+- `get_file_tree` → Step 3 (inventory `cms/apps/web/src/components/ui/`) and Step 4 (inventory pages)
+- `get_file_outline` → Step 6 (scan `middleware.ts` and layout for RBAC/nav without full read)
+- `search_symbols` → Step 3 (find custom components), Step 7 (check SDK generated types)
+
 ## INPUT
 
 You are priming yourself with a complete understanding of the VTV frontend. Read everything before producing output.

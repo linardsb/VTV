@@ -12,6 +12,14 @@ Load complete VTV project context — architecture, features, infrastructure sta
 
 # Prime — Load VTV Project Context
 
+## Step 0: Index and Use jCodeMunch
+
+Run `index_folder` on this project root if not already indexed. Then **use jcodemunch tools throughout this prime**:
+- `get_repo_outline` → Step 2 (project structure overview instead of `ls`)
+- `get_file_tree` → Step 2 (directory tree under `app/`)
+- `get_file_outline` → Step 2 (scan `app/main.py` for routers without reading full file)
+- `search_symbols` → Step 3 (find config classes, middleware, dependencies)
+
 ## INPUT
 
 You are priming yourself with a complete understanding of the VTV project. Read everything before producing output.
@@ -25,11 +33,11 @@ The three core docs are loaded via `@` references above. Review them for:
 - `reference/PRD.md` — product requirements and vision
 - `reference/mvp-tool-designs.md` — agent tool specifications
 
-### 2. Analyze project structure
+### 2. Analyze project structure (use jCodeMunch)
 
-- List the directory tree under `app/` (2 levels deep)
-- Identify which features exist under `app/` (each feature directory = one vertical slice)
-- Read `app/main.py` to see registered routers and middleware
+- `get_file_tree` for `app/` (2 levels deep) — identifies feature directories
+- `get_file_outline` on `app/main.py` — shows registered routers and middleware without reading the full file
+- `get_repo_outline` — high-level repo structure overview
 
 ### 3. Check infrastructure state
 
