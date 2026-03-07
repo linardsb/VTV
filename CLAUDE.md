@@ -135,6 +135,8 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 
 Security enforced through 6 automated layers. Details in `.claude/rules/security.md` and `docs/sdlc-security-framework.md`.
 
+**Context-triggered security** — 6 security contexts (AUTH, RBAC, FILE, AGENT, INFRA, INPUT) in `.claude/commands/_shared/security-contexts.md` activate based on feature scope during planning and review. Derived from audit_6 findings. Referenced by `/be-planning`, `/fe-planning`, `/review`, `/fe-review`.
+
 ## Compact instructions
 
 When compacting, preserve:

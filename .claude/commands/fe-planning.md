@@ -1,7 +1,7 @@
 ---
 description: Research frontend codebase and create a self-contained page/feature implementation plan
 argument-hint: [page-description] e.g. add routes management page
-allowed-tools: Read, Glob, Grep, Write
+allowed-tools: Read, Glob, Grep, Write, mcp__jcodemunch__get_repo_outline, mcp__jcodemunch__get_file_outline, mcp__jcodemunch__get_file_tree, mcp__jcodemunch__search_symbols
 ---
 
 Research the frontend codebase and produce a self-contained plan that `/fe-execute` can follow without additional context.
@@ -10,6 +10,7 @@ Research the frontend codebase and produce a self-contained plan that `/fe-execu
 @cms/design-system/vtv/MASTER.md
 @.claude/commands/_shared/tailwind-token-map.md
 @.claude/commands/_shared/frontend-security.md
+@.claude/commands/_shared/security-contexts.md
 
 # Fe-Planning — Create Frontend Implementation Plan
 
@@ -35,6 +36,12 @@ You are creating a detailed implementation plan that ANOTHER AGENT will execute 
 
 ### 2. Research existing frontend code
 
+**Token-efficient exploration (use jCodeMunch when the repo is indexed):**
+- Use `get_file_tree` to map `cms/apps/web/src/` structure instead of multiple Glob calls
+- Use `get_file_outline` to discover component exports and hook signatures — only `Read` the specific sections that need exact patterns in the plan
+- Use `search_symbols` to find existing components, hooks, or utilities by name
+- Fall back to `Read` for i18n JSON files, config files, and when you need exact code for the plan's code snippets
+
 - Identify which existing components this page will use
 - List all `cms/apps/web/src/components/ui/*.tsx` — note available shadcn/ui components
 - Check `cms/packages/ui/src/tokens.css` for available design tokens
@@ -46,13 +53,28 @@ You are creating a detailed implementation plan that ANOTHER AGENT will execute 
 - Check `cms/apps/web/package.json` for installed dependencies; note any new packages needed
 - **Verify component prop APIs from installed versions**: When the plan includes code snippets using third-party component props, check the actual TypeScript definitions in `node_modules/{pkg}/dist/*.d.ts` — not from memory or external docs. Package major versions rename props (e.g., `react-resizable-panels` v4 uses `orientation` not `direction`). Run `grep` on the `.d.ts` files to confirm prop names before writing code snippets.
 
-### 3. Check design system overrides
+### 3. Security Context Assessment
+
+Using the loaded `@_shared/security-contexts.md` reference, detect which security contexts apply to this frontend feature:
+
+1. **Match** the feature description against frontend-relevant contexts:
+   - **CTX-RBAC** — Almost always active for new pages (middleware route protection, role-based UI gating)
+   - **CTX-INPUT** — Active if the page has forms, search, or filters (XSS prevention, input validation)
+   - **CTX-FILE** — Active if the page has file uploads (client-side type + size validation)
+   - **CTX-AUTH** — Active if the page modifies login/session flow (token handling, cookie security)
+   - **CTX-AGENT** — Active if the page displays AI-generated content (output sanitization)
+2. **List** active contexts in the plan (see template below)
+3. **Add** context-specific tasks inline with the implementation tasks they protect
+
+Note: CTX-INFRA is backend-only. Frontend security patterns from `@_shared/frontend-security.md` always apply regardless of contexts.
+
+### 4. Check design system overrides
 
 - List files in `cms/design-system/vtv/pages/` — check if a page override already exists for this feature
 - If no override exists, note that `/fe-execute` should generate one using the ui-ux-pro-max skill
 - If an override exists, read it and incorporate its rules into the plan
 
-### 4. Plan the page
+### 5. Plan the page
 
 Design the complete page following VTV frontend conventions:
 - **Route**: `cms/apps/web/src/app/[locale]/(dashboard)/{page}/page.tsx`
@@ -63,7 +85,7 @@ Design the complete page following VTV frontend conventions:
 - **RBAC**: Which roles can access, middleware matcher pattern to add
 - **Sidebar nav**: Entry to add in locale layout
 
-### 5. Write the plan
+### 6. Write the plan
 
 Create the plan file at `.agents/plans/fe-{page-name}.md` using this template:
 
@@ -80,6 +102,15 @@ Create the plan file at `.agents/plans/fe-{page-name}.md` using this template:
 ## Feature Description
 
 [2-3 paragraphs: what this page does, the problem it solves, and user-facing behavior.]
+
+## Security Contexts
+
+**Active contexts** (detected from feature scope — see `_shared/security-contexts.md`):
+- [CTX-XXX]: [Why this context applies — 1 sentence]
+
+**Not applicable:** [List irrelevant contexts briefly]
+
+Security requirements from active contexts are woven into the implementation tasks below.
 
 ## Design System
 

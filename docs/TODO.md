@@ -8,7 +8,7 @@ Planned features and improvements. Each item links to its detailed planning docu
 Backend API       ██████████████████████░░  99%  (9/9 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming)
 CMS Frontend      ███████████████████████░  99%  (13 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard)
 Testing           ████████████████████░░░░  87%  (822 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
-Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework)
+Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ██████░░░░░░░░░░░░░░░░░  25%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT, no TimescaleDB/multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
@@ -197,6 +197,12 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [x] **Persistent GTFS Storage** - Migrated agent transit tools from in-memory HTTP/ZIP-based GTFSStaticCache to DB-backed GTFSStaticStore. Reads from existing schedules + stops PostgreSQL tables via ScheduleRepository. Same dataclass interface (RouteInfo, StopInfo, TripInfo, etc.), same TTL-based refresh. FK resolution maps translate integer PKs to GTFS string IDs. Updated 8 consumer files (5 agent tools + poller + transit service + analytics service) and 7 test files. 822 unit tests pass. (2026-03-07)
   - Plan: [.agents/plans/persistent-gtfs-storage.md](../.agents/plans/persistent-gtfs-storage.md)
+
+- [x] **Security Audit 6 Remediation** - 8 vulnerability categories addressed: fail-closed token revocation (Redis down = deny), RBAC hardening on drivers/events/knowledge endpoints (require_role), magic bytes file upload validation, prompt injection detection, brute force logging upgrade, JWT secret startup validation, CORS wildcard prevention, configurable SSL verification. 9 test fixes for updated security behavior. (commit 08c0aec, 2026-03-07)
+  - Audit: [documents/PLANNING/audit_6.txt](../documents/PLANNING/audit_6.txt)
+  - Plan: [.agents/plans/security-audit-6.md](../.agents/plans/security-audit-6.md)
+
+- [x] **Context-Triggered Security SDC** - Integrated security into the development cycle based on audit_6 findings. New `_shared/security-contexts.md` defines 6 context categories (CTX-AUTH, CTX-RBAC, CTX-FILE, CTX-AGENT, CTX-INFRA, CTX-INPUT) with trigger keywords, specific requirements, and plan task templates. Updated 7 commands: `/be-planning` and `/fe-planning` now detect and inject security contexts into plans, `/review` and `/fe-review` apply context-aware deeper checks, `/be-prime` and `/fe-prime` surface the security context system. (2026-03-07)
 
 ## Planning Documents
 

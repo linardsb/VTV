@@ -108,6 +108,7 @@ uv run ruff format . && uv run ruff check . && uv run mypy app/ && uv run pyrigh
 - Security lint: `make security-check` (standalone Ruff Bandit rules)
 - Convention tests: `uv run pytest app/tests/test_security.py -v` (65 tests: auto-discovery endpoint auth, JWT safety, bcrypt rounds, nginx headers)
 - CI gate: dedicated "Security audit" step in GitHub Actions
+- Context-triggered security: `_shared/security-contexts.md` — 6 contexts (AUTH, RBAC, FILE, AGENT, INFRA, INPUT) activated by feature scope during `/be-planning` and `/review`
 
 **Next steps:**
 - To build a new feature: `/be-planning [feature description]`

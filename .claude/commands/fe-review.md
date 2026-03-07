@@ -8,6 +8,7 @@ Review frontend code against VTV's 8 frontend quality standards and produce a fi
 
 @CLAUDE.md
 @cms/design-system/vtv/MASTER.md
+@.claude/commands/_shared/security-contexts.md
 
 # Fe-Review — Frontend Code Review Against VTV Standards
 
@@ -83,6 +84,15 @@ Read all files in the target path. For each file, check against VTV's frontend s
 - No N+1 data fetching patterns
 
 ### 8. Security
+
+**Context-aware checks** — Using the loaded `@_shared/security-contexts.md`, detect which contexts apply to the frontend code under review:
+- **CTX-RBAC** (if code is a page/route): Verify middleware route matcher exists, role-based UI gating hides unauthorized actions, no sensitive data exposed to wrong roles
+- **CTX-INPUT** (if code has forms/search/filters): Verify client-side validation, no raw user input in `dangerouslySetInnerHTML`, form submissions have both client and server validation
+- **CTX-FILE** (if code has upload UI): Verify client-side file type AND size validation before upload, accepted types match backend expectations
+- **CTX-AUTH** (if code touches login/session): Verify tokens in httpOnly cookies only, no localStorage for auth, `SameSite` cookie attributes set
+- **CTX-AGENT** (if code displays AI output): Verify LLM-generated content is escaped/sanitized before rendering, no raw HTML from agent responses
+
+Report context-specific findings with the context label (e.g., `[CTX-RBAC]`) in the Issue column for traceability.
 
 **Frontend application code:**
 - No hardcoded secrets, API keys, or credentials

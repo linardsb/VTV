@@ -13,6 +13,7 @@ Commands use a deduplication system to minimize context overhead:
   - `python-anti-patterns.md` — 59 Python anti-pattern rules (referenced by `/be-execute`, `/be-planning`)
   - `tailwind-token-map.md` — Forbidden → semantic token mappings (referenced by `/fe-execute`, `/fe-planning`, `/fe-validate`, `/fe-end-to-end-page`)
   - `frontend-security.md` — Security grep commands + checklist (referenced by `/fe-execute`, `/fe-planning`, `/fe-validate`, `/fe-end-to-end-page`)
+  - `security-contexts.md` — 6 context-triggered security requirement categories derived from audit_6 (referenced by `/be-planning`, `/fe-planning`, `/review`, `/fe-review`)
 - **Auto-format hook** (`.claude/settings.local.json`) — Runs ruff on `.py` and prettier on `.ts/.tsx` after every Edit/Write, eliminating formatting round-trips.
 - **Compaction instructions** (root `CLAUDE.md`) — Tells Claude what to preserve during auto-compaction.
 

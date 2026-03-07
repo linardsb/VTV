@@ -1,7 +1,7 @@
 ---
 description: Research codebase and create a self-contained implementation plan
 argument-hint: [feature-description] e.g. add obsidian search tool
-allowed-tools: Read, Glob, Grep, Write
+allowed-tools: Read, Glob, Grep, Write, mcp__jcodemunch__get_repo_outline, mcp__jcodemunch__get_file_outline, mcp__jcodemunch__get_file_tree, mcp__jcodemunch__search_symbols
 ---
 
 Research the codebase and produce a self-contained plan that `/be-execute` can follow without additional context.
@@ -9,6 +9,7 @@ Research the codebase and produce a self-contained plan that `/be-execute` can f
 @CLAUDE.md
 @reference/PRD.md
 @.claude/commands/_shared/python-anti-patterns.md
+@.claude/commands/_shared/security-contexts.md
 
 # Planning — Create Feature Implementation Plan
 
@@ -35,6 +36,12 @@ You are creating a detailed implementation plan that ANOTHER AGENT will execute 
 
 ### 2. Research existing code
 
+**Token-efficient exploration (use jCodeMunch when the repo is indexed):**
+- Use `get_repo_outline` or `get_file_tree` to map `app/` structure instead of multiple Glob calls
+- Use `get_file_outline` to discover function signatures and class shapes — only `Read` the specific sections that need exact line references in the plan
+- Use `search_symbols` to find reusable utilities (e.g., "PaginationParams", "TimestampMixin") instead of broad Grep sweeps
+- Fall back to `Read` for config files, small files, and when you need exact code for the plan's code snippets
+
 - Identify which existing modules this feature will interact with
 - Check `app/shared/` for reusable utilities (TimestampMixin, PaginationParams, PaginatedResponse, ErrorResponse, get_db(), get_logger())
 - Find similar features and note **exact file paths with line ranges** for patterns the executing agent must follow
@@ -44,7 +51,18 @@ You are creating a detailed implementation plan that ANOTHER AGENT will execute 
 - Identify existing features that might need changes when this feature is added (cross-feature impact)
 - Research any external libraries/APIs needed — capture documentation URLs with specific sections
 
-### 3. Agent Tool Planning (if applicable)
+### 3. Security Context Assessment
+
+Using the loaded `@_shared/security-contexts.md` reference, detect which security contexts apply to this feature:
+
+1. **Match** the feature description and affected file paths against the trigger keywords in each context (CTX-AUTH, CTX-RBAC, CTX-FILE, CTX-AGENT, CTX-INFRA, CTX-INPUT)
+2. **List** active contexts in the plan's "Security Contexts" section (see plan template below)
+3. **Inject** the corresponding plan task templates into the implementation tasks — security tasks go alongside the feature tasks they protect, not in a separate "security phase"
+4. **Add security test cases** to the testing strategy for each active context
+
+Use the "Quick Reference: Context Detection" table from the shared reference for fast matching. Most features activate 1-3 contexts — if you find 0, double-check: at minimum, any feature with endpoints activates CTX-RBAC + CTX-INPUT.
+
+### 4. Agent Tool Planning (if applicable)
 
 > **NOTE: This is tool planning for an AI agent.** Tools are functions that an LLM calls during autonomous workflows. Their docstrings, parameter design, and error handling are optimized for machine consumption, not human developers.
 
@@ -78,7 +96,7 @@ If the feature involves agent tools (detected by keywords: tool, agent, MCP, Obs
 - Add a "Composition" section showing how this tool fits into multi-step agent workflows
 - Add a "Dry-Run Behavior" section if applicable
 
-### 4. Design the vertical slice
+### 5. Design the vertical slice
 
 Plan the complete feature following VTV's vertical slice structure:
 - `app/[feature]/models.py` — SQLAlchemy models inheriting `Base` and `TimestampMixin`
@@ -87,7 +105,7 @@ Plan the complete feature following VTV's vertical slice structure:
 - `app/[feature]/service.py` — Business logic with structured logging
 - `app/[feature]/tests/` — Unit and integration tests
 
-### 5. Write the plan
+### 6. Write the plan
 
 Create the plan file at `.agents/plans/[feature-name].md` using this template:
 
@@ -108,6 +126,16 @@ Create the plan file at `.agents/plans/[feature-name].md` using this template:
 As a [specific type of user]
 I want to [specific action/capability]
 So that [specific benefit/outcome]
+
+## Security Contexts
+
+**Active contexts** (detected from feature scope — see `_shared/security-contexts.md`):
+- [CTX-XXX]: [Why this context applies — 1 sentence]
+- [CTX-YYY]: [Why this context applies — 1 sentence]
+
+**Not applicable:** [List contexts that don't apply and why, e.g., "CTX-FILE: No file uploads in this feature"]
+
+Security requirements from active contexts are woven into the implementation tasks below, not in a separate phase.
 
 ## Solution Approach
 
@@ -306,6 +334,7 @@ This feature is complete when:
 - [ ] No type suppressions added
 - [ ] Router registered in `app/main.py`
 - [ ] No regressions in existing tests
+- [ ] Security context requirements met (all active CTX-* items addressed)
 
 ## Completion Checklist
 

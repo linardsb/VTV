@@ -7,6 +7,7 @@ allowed-tools: Read, Glob, Grep, Write
 Review code against VTV's 8 quality standards and produce a findings table with fix suggestions.
 
 @CLAUDE.md
+@.claude/commands/_shared/security-contexts.md
 
 # Review — Code Review Against VTV Standards
 
@@ -72,6 +73,16 @@ Read all files in the target path. For each file, check against VTV's standards 
 - Edge cases covered
 
 ### 8. Security
+
+**Context-aware checks** — Using the loaded `@_shared/security-contexts.md`, detect which contexts apply to the code under review and apply deeper checks:
+- **CTX-AUTH** (if code touches auth/token/session): Verify fail-closed patterns — all `except` blocks in auth paths must deny, not allow. Check that Redis/external dep failures raise exceptions, not return permissive defaults
+- **CTX-RBAC** (if code has route endpoints): Verify `require_role()` with explicit role lists, not bare `get_current_user`. Check that list endpoints scope data to authorized users
+- **CTX-FILE** (if code handles uploads): Verify magic bytes validation exists alongside Content-Type checks. Verify filename sanitization and directory traversal prevention
+- **CTX-AGENT** (if code is in agents/tools/skills): Verify prompt injection scanning, skill creation defaults to inactive, tool responses don't leak credentials
+- **CTX-INFRA** (if code modifies config/docker/nginx): Verify no hardcoded credentials, SSL verify defaults to True, CORS wildcard + credentials prevention
+- **CTX-INPUT** (if code accepts user input): Verify `escape_like()` for LIKE queries, `max_length` on string params, `Literal[...]` for constrained fields
+
+Report context-specific findings with the context label (e.g., `[CTX-AUTH]`) in the Issue column for traceability.
 
 **Application code (Python):**
 - No hardcoded secrets, demo passwords, or credentials in source code

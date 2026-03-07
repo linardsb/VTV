@@ -128,6 +128,10 @@ Present a scannable summary using this structure:
 **Current Branch:** [branch name]
 **Recent Changes:** [last 3 commits, one line each]
 
+**Security Enforcement:**
+- Frontend security patterns: `_shared/frontend-security.md` (automated greps + checklist, hard gate in `/fe-validate`)
+- Context-triggered security: `_shared/security-contexts.md` — frontend-relevant contexts (RBAC, INPUT, FILE, AUTH, AGENT) activated by feature scope during `/fe-planning` and `/fe-review`
+
 **Validation Commands:**
 ```
 cd cms && pnpm --filter @vtv/web type-check && pnpm --filter @vtv/web lint && pnpm --filter @vtv/web build

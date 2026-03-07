@@ -78,7 +78,17 @@ Overwrite `app/{feature}/README.md` with real implementation details:
 
 If the feature has no database models (e.g., it's a utility or agent-only feature), omit the Database Schema section rather than leaving placeholder text.
 
-### Step 5: Update `reference/PRD.md`
+### Step 5: Update `docs/TODO.md`
+
+Read `docs/TODO.md` and update the following:
+
+1. **Progress Overview** — Update the percentage bars and descriptions to reflect the new feature (e.g., increment page count, test count, feature list)
+2. **Planned Features** — If the feature was listed under "Planned Features", move it to "Completed" with a `[x]` checkbox and add the commit hash and date
+3. **Completed section** — Add a new entry under the appropriate subsection (Backend Features, CMS Frontend Pages, or Infrastructure & Tooling) with a one-line description, commit hash, date, and link to the plan document if one exists
+
+Only modify sections where actual changes are needed.
+
+### Step 6: Update `reference/PRD.md`
 
 Search `reference/PRD.md` for the feature name in the MVP scope sections.
 
@@ -86,7 +96,7 @@ Search `reference/PRD.md` for the feature name in the MVP scope sections.
 - If the feature doesn't appear in PRD at all, skip this step entirely
 - Do NOT add features to the PRD that weren't already listed there
 
-### Step 6: Log Bugs and Fixes
+### Step 7: Log Bugs and Fixes
 
 Check the execution report (if it exists from Step 1) for:
 - "Challenges" section — issues encountered during implementation
@@ -103,7 +113,7 @@ If no execution report exists but bugs are known from git history:
 
 If no bugs were found, skip this step.
 
-### Step 7: Summary Diff
+### Step 8: Summary Diff
 
 Present a summary of every file that was modified:
 
@@ -111,6 +121,7 @@ Present a summary of every file that was modified:
 Files Updated:
 - CLAUDE.md — [what changed, e.g., "Added agents/ to project structure tree"]
 - app/{feature}/README.md — [what changed, e.g., "Replaced scaffold placeholders with real endpoints and schema"]
+- docs/TODO.md — [what changed, e.g., "Moved feature to Completed, updated progress bars"]
 - reference/PRD.md — [what changed, or "No changes needed"]
 - .agents/execution-reports/{feature}.md — [what changed, or "No bugs to log"]
 ```
