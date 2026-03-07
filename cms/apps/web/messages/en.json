@@ -16,6 +16,7 @@
     "schedules": "Schedules",
     "drivers": "Drivers",
     "vehicles": "Vehicles",
+    "analytics": "Analytics",
     "gtfs": "GTFS",
     "users": "Users",
     "documents": "Documents",
@@ -1015,6 +1016,79 @@
     },
     "mobile": {
       "showFilters": "Show Filters"
+    }
+  },
+  "analytics": {
+    "title": "Operations Analytics",
+    "refresh": "Refresh",
+    "lastUpdated": "Last updated: {time}",
+    "noData": "No data available",
+    "loading": "Loading analytics...",
+    "error": "Failed to load analytics data",
+    "kpi": {
+      "activeVehicles": "Active Vehicles",
+      "activeVehiclesOf": "of {total} total",
+      "onDutyDrivers": "Drivers On Duty",
+      "onDutyDriversOf": "of {total} total",
+      "networkOnTime": "Network On-Time",
+      "networkOnTimeTrips": "{count} tracked trips",
+      "urgentAlerts": "Urgent Alerts",
+      "urgentAlertsDesc": "maintenance & expiry"
+    },
+    "tabs": {
+      "fleet": "Fleet",
+      "drivers": "Drivers",
+      "performance": "Performance"
+    },
+    "fleet": {
+      "title": "Fleet Utilization",
+      "byType": "Vehicles by Type",
+      "byStatus": "Status Distribution",
+      "bus": "Bus",
+      "trolleybus": "Trolleybus",
+      "tram": "Tram",
+      "active": "Active",
+      "inactive": "Inactive",
+      "maintenance": "In Maintenance",
+      "unassigned": "Unassigned Vehicles",
+      "avgMileage": "Average Mileage",
+      "alerts": "Fleet Alerts",
+      "maintenanceDue": "Maintenance due within 7 days",
+      "registrationExpiring": "Registration expiring within 30 days"
+    },
+    "drivers": {
+      "title": "Driver Coverage",
+      "byShift": "Drivers by Shift",
+      "byStatus": "Status Distribution",
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening",
+      "night": "Night",
+      "available": "Available",
+      "onDuty": "On Duty",
+      "onLeave": "On Leave",
+      "sick": "Sick",
+      "alerts": "Driver Alerts",
+      "licenseExpiring": "License expiring within 30 days",
+      "medicalExpiring": "Medical cert expiring within 30 days"
+    },
+    "performance": {
+      "title": "On-Time Performance",
+      "route": "Route",
+      "scheduled": "Scheduled",
+      "tracked": "Tracked",
+      "onTime": "On Time",
+      "late": "Late",
+      "early": "Early",
+      "onTimePercent": "On-Time %",
+      "avgDelay": "Avg Delay",
+      "filterDate": "Date",
+      "filterTimeFrom": "From",
+      "filterTimeUntil": "Until",
+      "applyFilters": "Apply",
+      "seconds": "{value}s",
+      "noRoutes": "No route performance data available",
+      "transitUnavailable": "Transit data temporarily unavailable"
     }
   },
   "gtfs": {

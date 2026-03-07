@@ -16,6 +16,7 @@
     "schedules": "Grafiki",
     "drivers": "Vadītāji",
     "vehicles": "Transportlīdzekļi",
+    "analytics": "Analītika",
     "gtfs": "GTFS",
     "users": "Lietotāji",
     "documents": "Dokumenti",
@@ -1015,6 +1016,79 @@
     },
     "mobile": {
       "showFilters": "Rādīt filtrus"
+    }
+  },
+  "analytics": {
+    "title": "Darbības analītika",
+    "refresh": "Atjaunot",
+    "lastUpdated": "Pēdējo reizi atjaunots: {time}",
+    "noData": "Nav datu",
+    "loading": "Ielādē analītiku...",
+    "error": "Neizdevās ielādēt analītiku",
+    "kpi": {
+      "activeVehicles": "Aktīvi transportlīdzekļi",
+      "activeVehiclesOf": "no {total} kopumā",
+      "onDutyDrivers": "Vadītāji maiņā",
+      "onDutyDriversOf": "no {total} kopumā",
+      "networkOnTime": "Tīkla precizitāte",
+      "networkOnTimeTrips": "{count} izsekoti reisi",
+      "urgentAlerts": "Steidzami brīdinājumi",
+      "urgentAlertsDesc": "apkope un termiņi"
+    },
+    "tabs": {
+      "fleet": "Autoparks",
+      "drivers": "Vadītāji",
+      "performance": "Veiktspēja"
+    },
+    "fleet": {
+      "title": "Autoparka izmantošana",
+      "byType": "Transportlīdzekļi pēc tipa",
+      "byStatus": "Statusa sadalījums",
+      "bus": "Autobuss",
+      "trolleybus": "Trolejbuss",
+      "tram": "Tramvajs",
+      "active": "Aktīvs",
+      "inactive": "Neaktīvs",
+      "maintenance": "Apkopē",
+      "unassigned": "Nepiešķirtie",
+      "avgMileage": "Vidējais nobraukums",
+      "alerts": "Autoparka brīdinājumi",
+      "maintenanceDue": "Apkope nepieciešama 7 dienu laikā",
+      "registrationExpiring": "Reģistrācija beidzas 30 dienu laikā"
+    },
+    "drivers": {
+      "title": "Vadītāju nosegums",
+      "byShift": "Vadītāji pēc maiņas",
+      "byStatus": "Statusa sadalījums",
+      "morning": "Rīta",
+      "afternoon": "Pēcpusdienas",
+      "evening": "Vakara",
+      "night": "Nakts",
+      "available": "Pieejams",
+      "onDuty": "Maiņā",
+      "onLeave": "Atvaļinājumā",
+      "sick": "Slimības lapā",
+      "alerts": "Vadītāju brīdinājumi",
+      "licenseExpiring": "Apliecība beidzas 30 dienu laikā",
+      "medicalExpiring": "Medicīniskā izziņa beidzas 30 dienu laikā"
+    },
+    "performance": {
+      "title": "Precizitātes rādītāji",
+      "route": "Maršruts",
+      "scheduled": "Plānotie",
+      "tracked": "Izsekotie",
+      "onTime": "Laikā",
+      "late": "Kavē",
+      "early": "Agrāk",
+      "onTimePercent": "Laikā %",
+      "avgDelay": "Vid. kavēšanās",
+      "filterDate": "Datums",
+      "filterTimeFrom": "No",
+      "filterTimeUntil": "Līdz",
+      "applyFilters": "Piemērot",
+      "seconds": "{value}s",
+      "noRoutes": "Nav maršrutu veiktspējas datu",
+      "transitUnavailable": "Tranzīta dati īslaicīgi nav pieejami"
     }
   },
   "gtfs": {

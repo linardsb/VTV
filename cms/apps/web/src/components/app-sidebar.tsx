@@ -25,6 +25,7 @@ const navItems = [
   { key: "schedules", href: "/schedules", enabled: true },
   { key: "drivers", href: "/drivers", enabled: true },
   { key: "vehicles", href: "/vehicles", enabled: true },
+  { key: "analytics", href: "/analytics", enabled: true },
   { key: "gtfs", href: "/gtfs", enabled: true },
   { key: "users", href: "/users", enabled: true },
   { key: "documents", href: "/documents", enabled: true },
