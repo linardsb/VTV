@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataOverview } from "@/components/gtfs/data-overview";
 import { GTFSExport } from "@/components/gtfs/gtfs-export";
+import { ComplianceExports } from "@/components/gtfs/compliance-exports";
 import { GTFSImport } from "@/components/schedules/gtfs-import";
 import { fetchGTFSStats, fetchFeeds } from "@/lib/gtfs-sdk";
 import { fetchAgencies } from "@/lib/schedules-sdk";
@@ -78,6 +79,9 @@ export default function GTFSPage() {
           <TabsTrigger value="export" className="cursor-pointer">
             {t("tabs.export")}
           </TabsTrigger>
+          <TabsTrigger value="compliance" className="cursor-pointer">
+            {t("tabs.compliance")}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent
@@ -104,6 +108,13 @@ export default function GTFSPage() {
           className="flex-1 overflow-auto rounded-lg border border-border mt-(--spacing-tight)"
         >
           <GTFSExport agencies={agencies} />
+        </TabsContent>
+
+        <TabsContent
+          value="compliance"
+          className="flex-1 overflow-auto rounded-lg border border-border mt-(--spacing-tight)"
+        >
+          <ComplianceExports agencies={agencies} />
         </TabsContent>
       </Tabs>
     </div>

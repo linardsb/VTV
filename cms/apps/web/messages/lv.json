@@ -1107,7 +1107,8 @@
     "tabs": {
       "overview": "Pārskats",
       "import": "Imports",
-      "export": "Eksports"
+      "export": "Eksports",
+      "compliance": "Atbilstība"
     },
     "overview": {
       "dataTitle": "Datu statistika",
@@ -1134,6 +1135,59 @@
       "downloadSuccess": "GTFS dati veiksmīgi lejupielādēti",
       "downloadError": "GTFS datu lejupielāde neizdevās",
       "includesNote": "Ietver: agency.txt, routes.txt, calendar.txt, calendar_dates.txt, trips.txt, stop_times.txt, stops.txt"
+    },
+    "compliance": {
+      "title": "ES atbilstības eksporti",
+      "description": "Lejupielādēt NeTEx un SIRI formāta datus atbilstoši ES regulām",
+      "netex": {
+        "title": "NeTEx XML",
+        "description": "Pilns maršrutu un sarakstu eksports NeTEx EPIP 1.2 formātā",
+        "agencyFilter": "Aģentūra",
+        "allAgencies": "Visas aģentūras",
+        "downloadButton": "Lejupielādēt NeTEx XML",
+        "downloading": "Lejupielādē...",
+        "downloadSuccess": "NeTEx dati veiksmīgi lejupielādēti",
+        "downloadError": "Neizdevās lejupielādēt NeTEx datus",
+        "includesNote": "Ietver: maršrutus, grafikus, braucienus, pieturas un operatorus NeTEx EPIP 1.2 formātā"
+      },
+      "siriVm": {
+        "title": "SIRI-VM XML",
+        "description": "Reālā laika transportlīdzekļu pozīciju dati SIRI 2.0 formātā",
+        "routeFilter": "Maršruts (neobligāts)",
+        "routePlaceholder": "Piem., 1, 22, tram_5",
+        "feedFilter": "Datu avots (neobligāts)",
+        "feedPlaceholder": "Piem., riga_buses",
+        "downloadButton": "Lejupielādēt SIRI-VM XML",
+        "downloading": "Lejupielādē...",
+        "downloadSuccess": "SIRI-VM dati veiksmīgi lejupielādēti",
+        "downloadError": "Neizdevās lejupielādēt SIRI-VM datus"
+      },
+      "siriSm": {
+        "title": "SIRI-SM XML",
+        "description": "Pieturu uzraudzības dati SIRI 2.0 formātā",
+        "stopName": "Pieturas nosaukums",
+        "stopPlaceholder": "Piem., Centrāltirgus",
+        "feedFilter": "Datu avots (neobligāts)",
+        "feedPlaceholder": "Piem., riga_buses",
+        "downloadButton": "Lejupielādēt SIRI-SM XML",
+        "downloading": "Lejupielādē...",
+        "downloadSuccess": "SIRI-SM dati veiksmīgi lejupielādēti",
+        "downloadError": "Neizdevās lejupielādēt SIRI-SM datus",
+        "stopRequired": "Pieturas nosaukums ir obligāts"
+      },
+      "status": {
+        "title": "Eksporta statuss",
+        "format": "Formāts",
+        "version": "Versija",
+        "codespace": "Koda telpa",
+        "generatedAt": "Ģenerēts",
+        "entities": "Entītijas",
+        "agencies": "Aģentūras",
+        "routes": "Maršruti",
+        "trips": "Braucieni",
+        "stops": "Pieturas",
+        "loadError": "Neizdevās ielādēt eksporta statusu"
+      }
     }
   },
   "theme": {

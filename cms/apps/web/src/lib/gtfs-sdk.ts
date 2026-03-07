@@ -10,7 +10,7 @@ import { getFeedsApiV1TransitFeedsGet } from "@vtv/sdk";
 import { authFetch } from "@/lib/auth-fetch";
 import { fetchAgencies, fetchRoutes, fetchCalendars, fetchTrips } from "@/lib/schedules-sdk";
 import { fetchStops } from "@/lib/stops-sdk";
-import type { GTFSStats, GTFSFeed } from "@/types/gtfs";
+import type { GTFSStats, GTFSFeed, ExportMetadata } from "@/types/gtfs";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
@@ -84,4 +84,97 @@ export async function exportGTFS(agencyId?: number): Promise<void> {
   a.click();
   a.remove();
   URL.revokeObjectURL(downloadUrl);
+}
+
+/** Download NeTEx XML export. Triggers a browser download. */
+export async function exportNeTEx(agencyId?: number): Promise<void> {
+  const params = new URLSearchParams();
+  if (agencyId !== undefined) {
+    params.set("agency_id", String(agencyId));
+  }
+  const query = params.toString();
+  const url = `${BASE_URL}/api/v1/compliance/netex${query ? `?${query}` : ""}`;
+
+  const response = await authFetch(url);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "Unknown error");
+    throw new GTFSApiError(response.status, detail);
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download = "netex-export.xml";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(downloadUrl);
+}
+
+/** Download SIRI Vehicle Monitoring XML. Triggers a browser download. */
+export async function exportSiriVM(
+  routeId?: string,
+  feedId?: string,
+): Promise<void> {
+  const params = new URLSearchParams();
+  if (routeId) params.set("route_id", routeId);
+  if (feedId) params.set("feed_id", feedId);
+  const query = params.toString();
+  const url = `${BASE_URL}/api/v1/compliance/siri/vm${query ? `?${query}` : ""}`;
+
+  const response = await authFetch(url);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "Unknown error");
+    throw new GTFSApiError(response.status, detail);
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download = "siri-vm.xml";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(downloadUrl);
+}
+
+/** Download SIRI Stop Monitoring XML. Triggers a browser download. */
+export async function exportSiriSM(
+  stopName: string,
+  feedId?: string,
+): Promise<void> {
+  const params = new URLSearchParams();
+  params.set("stop_name", stopName);
+  if (feedId) params.set("feed_id", feedId);
+  const query = params.toString();
+  const url = `${BASE_URL}/api/v1/compliance/siri/sm?${query}`;
+
+  const response = await authFetch(url);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "Unknown error");
+    throw new GTFSApiError(response.status, detail);
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download = "siri-sm.xml";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(downloadUrl);
+}
+
+/** Fetch compliance export status metadata. */
+export async function fetchComplianceStatus(): Promise<ExportMetadata> {
+  const url = `${BASE_URL}/api/v1/compliance/status`;
+  const response = await authFetch(url);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "Unknown error");
+    throw new GTFSApiError(response.status, detail);
+  }
+  return response.json() as Promise<ExportMetadata>;
 }

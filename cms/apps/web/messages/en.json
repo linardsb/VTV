@@ -1107,7 +1107,8 @@
     "tabs": {
       "overview": "Overview",
       "import": "Import",
-      "export": "Export"
+      "export": "Export",
+      "compliance": "Compliance"
     },
     "overview": {
       "dataTitle": "Data Statistics",
@@ -1134,6 +1135,59 @@
       "downloadSuccess": "GTFS data downloaded successfully",
       "downloadError": "Failed to download GTFS data",
       "includesNote": "Includes: agency.txt, routes.txt, calendar.txt, calendar_dates.txt, trips.txt, stop_times.txt, stops.txt"
+    },
+    "compliance": {
+      "title": "EU Compliance Exports",
+      "description": "Download NeTEx and SIRI format data compliant with EU regulations",
+      "netex": {
+        "title": "NeTEx XML",
+        "description": "Full routes and schedules export in NeTEx EPIP 1.2 format",
+        "agencyFilter": "Agency",
+        "allAgencies": "All Agencies",
+        "downloadButton": "Download NeTEx XML",
+        "downloading": "Downloading...",
+        "downloadSuccess": "NeTEx data downloaded successfully",
+        "downloadError": "Failed to download NeTEx data",
+        "includesNote": "Includes: routes, schedules, trips, stops, and operators in NeTEx EPIP 1.2 format"
+      },
+      "siriVm": {
+        "title": "SIRI-VM XML",
+        "description": "Real-time vehicle position data in SIRI 2.0 format",
+        "routeFilter": "Route (optional)",
+        "routePlaceholder": "e.g., 1, 22, tram_5",
+        "feedFilter": "Feed (optional)",
+        "feedPlaceholder": "e.g., riga_buses",
+        "downloadButton": "Download SIRI-VM XML",
+        "downloading": "Downloading...",
+        "downloadSuccess": "SIRI-VM data downloaded successfully",
+        "downloadError": "Failed to download SIRI-VM data"
+      },
+      "siriSm": {
+        "title": "SIRI-SM XML",
+        "description": "Stop monitoring data in SIRI 2.0 format",
+        "stopName": "Stop Name",
+        "stopPlaceholder": "e.g., Centraltirgus",
+        "feedFilter": "Feed (optional)",
+        "feedPlaceholder": "e.g., riga_buses",
+        "downloadButton": "Download SIRI-SM XML",
+        "downloading": "Downloading...",
+        "downloadSuccess": "SIRI-SM data downloaded successfully",
+        "downloadError": "Failed to download SIRI-SM data",
+        "stopRequired": "Stop name is required"
+      },
+      "status": {
+        "title": "Export Status",
+        "format": "Format",
+        "version": "Version",
+        "codespace": "Codespace",
+        "generatedAt": "Generated",
+        "entities": "Entities",
+        "agencies": "Agencies",
+        "routes": "Routes",
+        "trips": "Trips",
+        "stops": "Stops",
+        "loadError": "Failed to load export status"
+      }
     }
   },
   "theme": {

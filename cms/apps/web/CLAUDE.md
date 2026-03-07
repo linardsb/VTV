@@ -23,7 +23,7 @@ src/
 │   │   ├── schedules/page.tsx  # Schedule management (calendars with unified dialog + month grid, trips, GTFS import)
 │   │   ├── stops/page.tsx      # Stop management (CRUD, Leaflet map with terminus markers, direction display, GTFS copy; mobile: tab layout)
 │   │   ├── drivers/page.tsx    # Driver management (CRUD, search, shift/status filters, license tracking)
-│   │   ├── gtfs/page.tsx       # GTFS data management (stats overview, RT feed status, ZIP export with agency filter)
+│   │   ├── gtfs/page.tsx       # GTFS data management (stats overview, RT feed status, ZIP export with agency filter, EU compliance exports — NeTEx/SIRI-VM/SIRI-SM XML downloads)
 │   │   ├── users/page.tsx      # User management (admin-only CRUD, role/status filters, search, reset-password)
 │   │   └── {page}/page.tsx     # Future feature pages
 │   ├── login/page.tsx          # Login (public)
@@ -41,7 +41,7 @@ src/
 │   ├── stops/                  # Stop management (table, filters, form, detail, delete-dialog, map with draggable markers)
 │   ├── drivers/                # Driver management (table, filters, form, detail, delete-dialog)
 │   ├── users/                  # User management (table, filters, form, detail, delete-dialog, reset-password-dialog)
-│   └── gtfs/                   # GTFS data management (data-overview stats+feeds, gtfs-export with agency filter)
+│   └── gtfs/                   # GTFS data management (data-overview stats+feeds, gtfs-export with agency filter, compliance-exports with NeTEx/SIRI downloads)
 ├── hooks/
 │   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
 │   ├── use-vehicle-positions.ts # useVehiclePositions() — WebSocket primary (real-time push, ~100ms latency) with SWR HTTP polling fallback (10s refresh). Route + feed filtering via subscribe message, connection status tracking (live/polling/connecting)
@@ -58,7 +58,7 @@ src/
 │   ├── documents-sdk.ts        # Documents SDK wrapper (upload, list, delete, download via @vtv/sdk)
 │   ├── drivers-sdk.ts          # Drivers SDK wrapper (CRUD, search, shift/status filters via @vtv/sdk)
 │   ├── events-sdk.ts           # Events SDK wrapper (CRUD, driver_id filter via @vtv/sdk)
-│   ├── gtfs-sdk.ts             # GTFS SDK wrapper (stats, feed status, ZIP export via @vtv/sdk)
+│   ├── gtfs-sdk.ts             # GTFS SDK wrapper (stats, feed status, ZIP export via @vtv/sdk, EU compliance exports — NeTEx/SIRI-VM/SIRI-SM via authFetch)
 │   ├── schedules-sdk.ts        # Schedules SDK wrapper (22 endpoints: agencies, routes, calendars, trips, import via @vtv/sdk)
 │   ├── stops-sdk.ts            # Stops SDK wrapper (CRUD, nearby search via @vtv/sdk)
 │   ├── users-sdk.ts            # Users SDK wrapper (admin-only CRUD, search, role/status filters via @vtv/sdk)

@@ -509,7 +509,7 @@ GET    /health                 — Health check
 ### EU Transit Regulations
 
 - GTFS static export compliant with MMTIS Delegated Regulation
-- NeTEx EPIP v1.2 export and SIRI 2.0 (VM + SM) endpoints implemented
+- NeTEx EPIP v1.2 export and SIRI 2.0 (VM + SM) endpoints implemented. Frontend compliance tab on GTFS page: NeTEx XML download with agency filter, SIRI-VM download with route/feed filters, SIRI-SM download with stop name/feed filters, export status metadata display
 - Data published to Latvian National Access Point (data.gov.lv)
 
 ### Data Sovereignty
