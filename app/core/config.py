@@ -144,6 +144,12 @@ class Settings(BaseSettings):
     db_pool_max_overflow: int = 5
     db_pool_recycle: int = 3600
 
+    # Historical position storage (TimescaleDB)
+    position_history_enabled: bool = True
+    position_history_retention_days: int = 90
+    position_history_compression_after_days: int = 7
+    position_history_batch_size: int = 500
+
     # Query quota (daily per IP)
     agent_daily_quota: int = 50
 

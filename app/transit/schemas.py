@@ -6,7 +6,11 @@ app/core/agents/tools/transit/schemas.py, which are optimized
 for LLM consumption.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
+
+VehicleStopStatus = Literal["IN_TRANSIT_TO", "STOPPED_AT", "INCOMING_AT"]
 
 
 class VehiclePosition(BaseModel):
@@ -39,7 +43,7 @@ class VehiclePosition(BaseModel):
     bearing: float | None = None
     speed_kmh: float | None = None
     delay_seconds: int = 0
-    current_status: str
+    current_status: VehicleStopStatus
     next_stop_name: str | None = None
     current_stop_name: str | None = None
     timestamp: str
@@ -63,3 +67,59 @@ class VehiclePositionsResponse(BaseModel):
     vehicles: list[VehiclePosition]
     fetched_at: str
     feed_id: str | None = None
+
+
+class HistoricalPosition(BaseModel):
+    """A single historical position data point."""
+
+    model_config = ConfigDict(strict=True)
+
+    recorded_at: str
+    vehicle_id: str
+    route_id: str
+    route_short_name: str
+    latitude: float
+    longitude: float
+    bearing: float | None = None
+    speed_kmh: float | None = None
+    delay_seconds: int = 0
+    current_status: VehicleStopStatus
+    feed_id: str = ""
+
+
+class VehicleHistoryResponse(BaseModel):
+    """Response for vehicle position history query."""
+
+    model_config = ConfigDict(strict=True)
+
+    vehicle_id: str
+    count: int
+    positions: list[HistoricalPosition]
+    from_time: str
+    to_time: str
+
+
+class RouteDelayTrendPoint(BaseModel):
+    """A single data point in a delay trend time series."""
+
+    model_config = ConfigDict(strict=True)
+
+    time_bucket: str
+    avg_delay_seconds: float
+    min_delay_seconds: float
+    max_delay_seconds: float
+    sample_count: int
+
+
+class RouteDelayTrendResponse(BaseModel):
+    """Response for route delay trend query."""
+
+    model_config = ConfigDict(strict=True)
+
+    route_id: str
+    route_short_name: str
+    interval_minutes: int
+    count: int
+    data_points: list[RouteDelayTrendPoint]
+    from_time: str
+    to_time: str

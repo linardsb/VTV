@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime
+from typing import cast
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.agents.tools.transit.client import (
     GTFSRealtimeClient,
@@ -19,8 +21,21 @@ from app.core.agents.tools.transit.client import (
 from app.core.agents.tools.transit.static_cache import GTFSStaticCache
 from app.core.agents.tools.transit.static_store import get_static_store
 from app.core.config import Settings, get_settings
+from app.core.database import get_db_context
 from app.core.logging import get_logger
-from app.transit.schemas import VehiclePosition, VehiclePositionsResponse
+from app.transit.repository import (
+    get_route_delay_trend,
+    get_vehicle_history,
+)
+from app.transit.schemas import (
+    HistoricalPosition,
+    RouteDelayTrendPoint,
+    RouteDelayTrendResponse,
+    VehicleHistoryResponse,
+    VehiclePosition,
+    VehiclePositionsResponse,
+    VehicleStopStatus,
+)
 
 logger = get_logger(__name__)
 
@@ -82,6 +97,95 @@ class TransitService:
         )
         return result
 
+    async def get_history(
+        self,
+        db: AsyncSession,
+        vehicle_id: str,
+        from_time: datetime,
+        to_time: datetime,
+        limit: int = 1000,
+    ) -> VehicleHistoryResponse:
+        """Get historical positions for a vehicle.
+
+        Args:
+            db: Async database session.
+            vehicle_id: Fleet vehicle identifier.
+            from_time: Start of time range (UTC).
+            to_time: End of time range (UTC).
+            limit: Maximum number of positions to return.
+
+        Returns:
+            VehicleHistoryResponse with ordered position history.
+        """
+        records = await get_vehicle_history(db, vehicle_id, from_time, to_time, limit)
+        positions = [
+            HistoricalPosition(
+                recorded_at=r.recorded_at.isoformat(),
+                vehicle_id=r.vehicle_id,
+                route_id=r.route_id,
+                route_short_name=r.route_short_name,
+                latitude=r.latitude,
+                longitude=r.longitude,
+                bearing=r.bearing,
+                speed_kmh=r.speed_kmh,
+                delay_seconds=r.delay_seconds,
+                current_status=cast(VehicleStopStatus, r.current_status),
+                feed_id=r.feed_id,
+            )
+            for r in records
+        ]
+        return VehicleHistoryResponse(
+            vehicle_id=vehicle_id,
+            count=len(positions),
+            positions=positions,
+            from_time=from_time.isoformat(),
+            to_time=to_time.isoformat(),
+        )
+
+    async def get_delay_trend(
+        self,
+        db: AsyncSession,
+        route_id: str,
+        from_time: datetime,
+        to_time: datetime,
+        interval_minutes: int = 60,
+    ) -> RouteDelayTrendResponse:
+        """Get aggregated delay trend for a route.
+
+        Args:
+            db: Async database session.
+            route_id: GTFS route identifier.
+            from_time: Start of time range (UTC).
+            to_time: End of time range (UTC).
+            interval_minutes: Time bucket size in minutes.
+
+        Returns:
+            RouteDelayTrendResponse with time-bucketed delay data.
+        """
+        raw_points = await get_route_delay_trend(db, route_id, from_time, to_time, interval_minutes)
+        static = await get_static_store(get_db_context, self._settings)
+        route_short_name = static.get_route_name(route_id)
+
+        data_points = [
+            RouteDelayTrendPoint(
+                time_bucket=str(p["time_bucket"]),
+                avg_delay_seconds=p["avg_delay"],
+                min_delay_seconds=p["min_delay"],
+                max_delay_seconds=p["max_delay"],
+                sample_count=p["sample_count"],
+            )
+            for p in raw_points
+        ]
+        return RouteDelayTrendResponse(
+            route_id=route_id,
+            route_short_name=route_short_name,
+            interval_minutes=interval_minutes,
+            count=len(data_points),
+            data_points=data_points,
+            from_time=from_time.isoformat(),
+            to_time=to_time.isoformat(),
+        )
+
     async def _fetch_direct(
         self,
         route_id: str | None = None,
@@ -89,8 +193,6 @@ class TransitService:
         """Direct GTFS-RT fetch (legacy mode, used when poller is disabled)."""
         raw_vehicles = await self._rt_client.fetch_vehicle_positions()
         trip_updates = await self._rt_client.fetch_trip_updates()
-        from app.core.database import get_db_context
-
         static = await get_static_store(get_db_context, self._settings)
 
         # Build trip update lookup by trip_id
@@ -174,7 +276,7 @@ def _enrich_vehicles(
                 bearing=v.bearing,
                 speed_kmh=speed_kmh,
                 delay_seconds=delay_seconds,
-                current_status=v.current_status,
+                current_status=cast(VehicleStopStatus, v.current_status),
                 next_stop_name=next_stop_name,
                 current_stop_name=current_stop_name,
                 timestamp=timestamp,

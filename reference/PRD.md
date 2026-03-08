@@ -498,7 +498,7 @@ GET    /health                 — Health check
 ### GDPR
 
 - Driver data pseudonymized in database
-- GPS tracking data retained max 90 days (Phase 2)
+- GPS tracking data retained max 90 days ✅ (TimescaleDB retention policy, `vehicle_positions` hypertable)
 - DPIA required before Phase 2 driver tracking
 - No tracking during driver rest periods
 - Public GTFS-RT feeds use fleet numbers, not driver IDs

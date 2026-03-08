@@ -14,6 +14,7 @@ import app.knowledge.models
 import app.schedules.models
 import app.skills.models
 import app.stops.models
+import app.transit.models
 import app.vehicles.models  # noqa: F401
 from alembic import context
 from app.core.config import get_settings

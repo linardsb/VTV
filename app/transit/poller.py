@@ -7,6 +7,7 @@ import time
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime
+from typing import TypedDict
 
 import httpx
 from redis.asyncio import Redis
@@ -24,6 +25,27 @@ from app.core.logging import get_logger
 from app.core.redis import get_redis
 
 logger = get_logger(__name__)
+
+
+class EnrichedVehicle(TypedDict):
+    """Enriched vehicle position dict for Redis serialization."""
+
+    vehicle_id: str
+    route_id: str
+    route_short_name: str
+    route_type: int
+    latitude: float
+    longitude: float
+    bearing: float | None
+    speed_kmh: float | None
+    delay_seconds: int
+    trip_id: str | None
+    current_status: str
+    next_stop_name: str | None
+    current_stop_name: str | None
+    timestamp: str
+    feed_id: str
+    operator_name: str
 
 
 class FeedPoller:
@@ -84,7 +106,7 @@ class FeedPoller:
         pipe = redis_client.pipeline()
         count = 0
 
-        enriched_vehicles: list[dict[str, object]] = []
+        enriched_vehicles: list[EnrichedVehicle] = []
         for vp in raw_vehicles:
             vehicle_data = self._enrich_vehicle(vp, trip_update_map, static)
             key = f"vehicle:{feed_id}:{vp.vehicle_id}"
@@ -110,6 +132,52 @@ class FeedPoller:
                 error_type=type(e).__name__,
             )
             return 0
+
+        # Write to historical position storage (TimescaleDB)
+        if (
+            self._settings.position_history_enabled
+            and count > 0
+            and self._db_session_factory is not None
+        ):
+            try:
+                async with self._db_session_factory() as db_session:
+                    from app.transit.repository import batch_insert_positions
+
+                    db_records: list[dict[str, object]] = []
+                    for ev in enriched_vehicles:
+                        if not ev["timestamp"]:
+                            continue
+                        db_records.append(
+                            {
+                                "recorded_at": ev["timestamp"],
+                                "feed_id": ev["feed_id"],
+                                "vehicle_id": ev["vehicle_id"],
+                                "route_id": ev["route_id"],
+                                "route_short_name": ev["route_short_name"],
+                                "trip_id": ev["trip_id"],
+                                "latitude": ev["latitude"],
+                                "longitude": ev["longitude"],
+                                "bearing": ev["bearing"],
+                                "speed_kmh": ev["speed_kmh"],
+                                "delay_seconds": ev["delay_seconds"],
+                                "current_status": ev["current_status"],
+                            }
+                        )
+                    if db_records:
+                        inserted = await batch_insert_positions(db_session, db_records)
+                        logger.info(
+                            "transit.poller.history_write_completed",
+                            feed_id=feed_id,
+                            records_inserted=inserted,
+                        )
+            except Exception as e:
+                # History write failure must NEVER block the poller
+                logger.warning(
+                    "transit.poller.history_write_failed",
+                    feed_id=feed_id,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
 
         # Publish vehicle update to Pub/Sub channel for WebSocket subscribers
         if count > 0:
@@ -140,7 +208,7 @@ class FeedPoller:
         vp: VehiclePositionData,
         trip_update_map: dict[str, TripUpdateData],
         static: GTFSStaticCache,
-    ) -> dict[str, object]:
+    ) -> EnrichedVehicle:
         """Enrich a raw vehicle position into a serializable dict."""
         # Resolve route_id (explicit from GTFS-RT, or via trip lookup)
         route_id = vp.route_id or ""
@@ -183,6 +251,7 @@ class FeedPoller:
             "bearing": vp.bearing,
             "speed_kmh": speed_kmh,
             "delay_seconds": delay_seconds,
+            "trip_id": vp.trip_id,
             "current_status": vp.current_status,
             "next_stop_name": next_stop,
             "current_stop_name": static.get_stop_name(vp.stop_id) if vp.stop_id else None,

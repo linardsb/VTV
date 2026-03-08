@@ -7,9 +7,9 @@ Planned features and improvements. Each item links to its detailed planning docu
 ```
 Backend API       ██████████████████████░░  99%  (9/9 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming)
 CMS Frontend      ███████████████████████░  99%  (13 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard)
-Testing           ████████████████████░░░░  87%  (822 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
+Testing           ████████████████████░░░░  87%  (838 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
-Latvia Platform   ██████░░░░░░░░░░░░░░░░░  25%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT, no TimescaleDB/multi-city yet)
+Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -37,7 +37,7 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 ### Full Latvia Transit Platform
 
-- [ ] **Phase 1: Foundation** - Database extensions (TimescaleDB), GTFS static importer for all Latvia, CKAN data.gov.lv bridge for immediate ATD data, full-screen transit map in CMS. ~3 weeks remaining effort. *Largely done: GTFS import, Redis cache, REST endpoints, GTFS-RT poller, PostGIS spatial queries (GeoAlchemy2 + GIST index), WebSocket live streaming (backend Pub/Sub + frontend real-time push with HTTP fallback), and persistent GTFS storage (DB-backed static data for agent tools) are complete. Remaining: TimescaleDB, multi-city GTFS, CKAN bridge, full-screen map.*
+- [ ] **Phase 1: Foundation** - Database extensions (TimescaleDB), GTFS static importer for all Latvia, CKAN data.gov.lv bridge for immediate ATD data, full-screen transit map in CMS. ~3 weeks remaining effort. *Largely done: GTFS import, Redis cache, REST endpoints, GTFS-RT poller, PostGIS spatial queries (GeoAlchemy2 + GIST index), WebSocket live streaming (backend Pub/Sub + frontend real-time push with HTTP fallback), persistent GTFS storage (DB-backed static data for agent tools), and TimescaleDB historical position storage (hypertable, compression, 90-day retention, vehicle history + delay trend endpoints) are complete. Remaining: multi-city GTFS, CKAN bridge, full-screen map.*
   - Plan: [docs/PLANNING/Implementation-Plan.md](PLANNING/Implementation-Plan.md) (Phase 1)
 
 - [ ] **Phase 2: Full Latvia Coverage** - Additional city feeds (Daugavpils, Jurmala, Pieriga), train positions via WebSocket, Valhalla route matching, ETA calculator, adaptive polling, circuit breakers, TimescaleDB compression, GTFS-RT publisher. ~4 weeks effort.
@@ -201,6 +201,10 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 - [x] **Security Audit 6 Remediation** - 8 vulnerability categories addressed: fail-closed token revocation (Redis down = deny), RBAC hardening on drivers/events/knowledge endpoints (require_role), magic bytes file upload validation, prompt injection detection, brute force logging upgrade, JWT secret startup validation, CORS wildcard prevention, configurable SSL verification. 9 test fixes for updated security behavior. (commit 08c0aec, 2026-03-07)
   - Audit: [documents/PLANNING/audit_6.txt](../documents/PLANNING/audit_6.txt)
   - Plan: [.agents/plans/security-audit-6.md](../.agents/plans/security-audit-6.md)
+
+- [x] **Historical Position Storage (TimescaleDB)** - Time-series vehicle position storage with TimescaleDB hypertable. Dual-write from poller (Redis + TimescaleDB, non-blocking). `vehicle_positions` table with compression (7d) and retention (90d) policies. Vehicle history and route delay trend REST endpoints with RBAC. `VehicleStopStatus` Literal type, `EnrichedVehicle` TypedDict, `DelayTrendBucket` TypedDict. 838 unit tests. (2026-03-07)
+  - Plan: [.agents/plans/historical-position-storage.md](../.agents/plans/historical-position-storage.md)
+  - Review: [.agents/code-reviews/transit-history-review.md](../.agents/code-reviews/transit-history-review.md)
 
 - [x] **Context-Triggered Security SDC** - Integrated security into the development cycle based on audit_6 findings. New `_shared/security-contexts.md` defines 6 context categories (CTX-AUTH, CTX-RBAC, CTX-FILE, CTX-AGENT, CTX-INFRA, CTX-INPUT) with trigger keywords, specific requirements, and plan task templates. Updated 7 commands: `/be-planning` and `/fe-planning` now detect and inject security contexts into plans, `/review` and `/fe-review` apply context-aware deeper checks, `/be-prime` and `/fe-prime` surface the security context system. (2026-03-07)
 

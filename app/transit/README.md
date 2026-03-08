@@ -1,6 +1,6 @@
-# Transit — Multi-Feed GTFS-RT with Redis Caching + WebSocket Live Streaming
+# Transit — Multi-Feed GTFS-RT with Redis Caching + WebSocket Live Streaming + TimescaleDB Historical Storage
 
-Multi-feed real-time vehicle tracking with Redis-backed caching and WebSocket push. Supports multiple GTFS-RT providers (Riga, Jurmala, Pieriga, ATD intercity) with per-feed background polling, Redis pipeline writes, batch MGET reads for sub-ms latency, and WebSocket live streaming via Redis Pub/Sub fan-out.
+Multi-feed real-time vehicle tracking with Redis-backed caching, WebSocket push, and TimescaleDB time-series historical storage. Supports multiple GTFS-RT providers (Riga, Jurmala, Pieriga, ATD intercity) with per-feed background polling, Redis pipeline writes, batch MGET reads for sub-ms latency, WebSocket live streaming via Redis Pub/Sub fan-out, and persistent position history with compression and retention policies.
 
 ## Key Flows
 
@@ -24,11 +24,13 @@ Multi-feed real-time vehicle tracking with Redis-backed caching and WebSocket pu
 1. `start_pollers()` called during FastAPI lifespan startup
 2. Creates one asyncio task per enabled feed from `TRANSIT_FEEDS_JSON` config
 3. Each task runs `poll_once()` in a loop with `asyncio.sleep(poll_interval)`
-4. `poll_once()`: fetch protobuf -> parse -> enrich -> Redis pipeline write -> Redis PUBLISH
-5. After writing to Redis, publishes enriched vehicles to `transit:vehicles:{feed_id}` Pub/Sub channel
-6. `stop_pollers()` called during shutdown, cancels all tasks gracefully
-7. Graceful degradation: if Redis is unavailable at startup, pollers are skipped (app still serves other endpoints)
-8. Pub/Sub publish failure is non-blocking (warning logged, polling continues)
+4. `poll_once()`: fetch protobuf -> parse -> enrich -> Redis pipeline write -> TimescaleDB batch insert -> Redis PUBLISH
+5. After writing to Redis, batch inserts enriched positions into TimescaleDB `vehicle_positions` hypertable (non-blocking, failure logged but never blocks poller)
+6. Publishes enriched vehicles to `transit:vehicles:{feed_id}` Pub/Sub channel
+7. `stop_pollers()` called during shutdown, cancels all tasks gracefully
+8. Graceful degradation: if Redis is unavailable at startup, pollers are skipped (app still serves other endpoints)
+9. Pub/Sub publish failure is non-blocking (warning logged, polling continues)
+10. TimescaleDB write failure is non-blocking (warning logged, polling continues)
 
 ### WebSocket Live Streaming
 
@@ -55,6 +57,21 @@ Replaces HTTP polling with push-based updates for near-instant vehicle position 
 - Server → Client: `{"type": "ack", ...}` — action acknowledgement with current filter state
 - Server → Client: `{"type": "error", ...}` — error notification
 
+### Historical Position Queries
+
+**Vehicle History** — `GET /api/v1/transit/vehicles/{vehicle_id}/history`
+1. Parse and validate ISO 8601 time range parameters (422 on invalid format)
+2. Require admin, dispatcher, or editor role (403 for viewer)
+3. Query `vehicle_positions` hypertable with time range filter, ordered by `recorded_at ASC`
+4. Map ORM records to `HistoricalPosition` schema with route name resolution
+5. Return `VehicleHistoryResponse` with position array (default limit 1000, max 10000)
+
+**Route Delay Trend** — `GET /api/v1/transit/routes/{route_id}/delay-trend`
+1. Parse time range and interval_minutes (5-1440, default 60)
+2. Require admin, dispatcher, or editor role
+3. Use TimescaleDB `time_bucket()` for efficient time-series aggregation
+4. Return `RouteDelayTrendResponse` with avg/min/max delay and sample count per bucket
+
 ### Error Handling
 
 1. Redis unavailable at startup: logged, pollers skipped, app starts in degraded mode
@@ -64,14 +81,44 @@ Replaces HTTP polling with push-based updates for near-instant vehicle position 
 5. WebSocket subscriber reconnects with exponential backoff (1s → 30s max) on Redis connection loss
 6. One broken WebSocket client doesn't block broadcast to other clients (per-client error isolation)
 7. Pub/Sub publish failure in poller is non-blocking (warning logged, polling continues)
+8. TimescaleDB write failure in poller is non-blocking (warning logged, polling continues)
+9. Invalid ISO 8601 time parameters return 422 with descriptive error message
 
 ## Database Schema
 
-No database tables. All data is ephemeral:
+### Real-time (ephemeral)
 - **Redis keys**: Vehicle positions with 60s TTL per key (`vehicle:{feed_id}:{vehicle_id}`)
 - **Redis Pub/Sub**: Vehicle updates published to `transit:vehicles:{feed_id}` channels
 - **In-memory**: GTFS static cache (routes, stops, trips) with 24h TTL
 - **In-memory**: WebSocket ConnectionManager tracks active clients with `dict[int, _ClientSubscription]`
+
+### Historical (persistent) — TimescaleDB Hypertable
+
+Table: `vehicle_positions` (converted to TimescaleDB hypertable, partitioned by `recorded_at`)
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | Integer | PK, autoincrement | Primary key |
+| `recorded_at` | DateTime(tz) | Not null, indexed | GTFS-RT measurement timestamp (UTC) |
+| `feed_id` | String(50) | Not null | Source feed (e.g., "riga") |
+| `vehicle_id` | String(100) | Not null | Fleet vehicle identifier |
+| `route_id` | String(100) | Not null, default="" | GTFS route ID |
+| `route_short_name` | String(50) | Not null, default="" | Human-readable route number |
+| `trip_id` | String(200) | Nullable | GTFS trip identifier |
+| `latitude` | Float | Not null | WGS84 latitude |
+| `longitude` | Float | Not null | WGS84 longitude |
+| `bearing` | Float | Nullable | Compass heading (0-360) |
+| `speed_kmh` | Float | Nullable | Speed in km/h |
+| `delay_seconds` | SmallInteger | Not null, default=0 | Schedule deviation (positive=late) |
+| `current_status` | String(20) | Not null, default="IN_TRANSIT_TO" | GTFS-RT vehicle stop status |
+
+**Indexes:** `(vehicle_id, recorded_at)`, `(route_id, recorded_at)`, `(feed_id, recorded_at)`
+
+**TimescaleDB policies:**
+- Compression: automatic after 7 days (`segmentby: feed_id, vehicle_id; orderby: recorded_at DESC`)
+- Retention: automatic drop after 90 days
+
+**Note:** Does not use `TimestampMixin`. The hypertable is partitioned by `recorded_at` (GTFS-RT measurement time), not DB insert time. Adding `created_at`/`updated_at` would increase row size on a high-volume table without operational benefit.
 
 ## Business Rules
 
@@ -82,8 +129,11 @@ No database tables. All data is ephemeral:
 5. Each feed has independent `feed_id` and `operator_name` attached to vehicle positions
 6. Feed configs support per-feed `poll_interval_seconds` and `enabled` toggle
 7. Legacy single-feed config (`GTFS_RT_VEHICLE_URL`) auto-migrates to multi-feed format
-8. REST endpoints: no authentication required (GTFS-RT data is public)
-9. WebSocket endpoint: JWT authentication required via `?token=` query parameter
+8. Real-time REST endpoints: authenticated (any role) — GTFS-RT vehicle positions and feed status
+9. Historical REST endpoints: require admin, dispatcher, or editor role (RBAC via `require_role()`)
+10. WebSocket endpoint: JWT authentication required via `?token=` query parameter
+11. Historical position writes controlled by `POSITION_HISTORY_ENABLED` feature flag
+12. Vehicle positions retained for 90 days (TimescaleDB retention policy), compressed after 7 days
 10. WebSocket max connections capped at `WS_MAX_CONNECTIONS` (default 100) to prevent memory exhaustion
 11. Nginx limits WebSocket connections to 10 per IP (`limit_conn addr 10`)
 
@@ -93,7 +143,9 @@ No database tables. All data is ephemeral:
 - **`app.core.config`**: `TransitFeedConfig` model, `transit_feeds` computed property, `REDIS_URL`
 - **`app.core.agents.tools.transit.client`**: Reuses `GTFSRealtimeClient` for GTFS-RT feed parsing
 - **`app.core.agents.tools.transit.static_cache`**: Reuses `GTFSStaticCache` singleton for route/stop/trip name resolution
+- **`app.core.agents.tools.transit.static_store`**: DB-backed GTFSStaticStore for route/stop/trip name resolution (replaced HTTP-based GTFSStaticCache)
 - **`app.core.agents.exceptions`**: Uses `TransitDataError` for feed failure propagation (HTTP 503)
+- **`app.core.database`**: `get_db()` for REST endpoint sessions, `get_db_context()` for standalone poller writes
 - **`app.core.health`**: Redis health check at `/health/redis`, included in `/health/ready`
 - **`app.transit.ws_manager`**: ConnectionManager singleton, shared between ws_routes (client mgmt) and ws_subscriber (broadcast)
 - **`app.transit.ws_subscriber`**: Background asyncio task bridging Redis Pub/Sub → ConnectionManager
@@ -102,12 +154,13 @@ No database tables. All data is ephemeral:
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/transit/vehicles` | All vehicle positions across all feeds (optional `?route_id=X`, `?feed_id=Y`) |
-| GET | `/api/v1/transit/vehicles/{feed_id}` | Vehicle positions for a specific feed |
-| GET | `/api/v1/transit/feeds` | Status of all configured feeds (feed_id, operator, enabled, vehicle count) |
-| WS | `/ws/transit/vehicles?token=JWT` | Live vehicle position stream with subscribe/unsubscribe filtering |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/v1/transit/vehicles` | Any role | All vehicle positions across all feeds (optional `?route_id=X`, `?feed_id=Y`) |
+| GET | `/api/v1/transit/feeds` | Any role | Status of all configured feeds (feed_id, operator, enabled) |
+| GET | `/api/v1/transit/vehicles/{vehicle_id}/history` | admin/dispatcher/editor | Historical positions for a vehicle within a time range |
+| GET | `/api/v1/transit/routes/{route_id}/delay-trend` | admin/dispatcher/editor | Aggregated delay trend with TimescaleDB `time_bucket()` |
+| WS | `/ws/transit/vehicles?token=JWT` | JWT token | Live vehicle position stream with subscribe/unsubscribe filtering |
 
 ### Response Schema (vehicles)
 
@@ -174,6 +227,10 @@ GTFS_STATIC_URL=https://...
 WS_ENABLED=true                      # Feature flag (disable to stop accepting WS connections)
 WS_HEARTBEAT_INTERVAL_SECONDS=30     # Application-level ping interval
 WS_MAX_CONNECTIONS=100               # Hard cap on concurrent WebSocket connections
+
+# Historical position storage (TimescaleDB)
+POSITION_HISTORY_ENABLED=true        # Feature flag for TimescaleDB writes from poller
+REDIS_VEHICLE_TTL_SECONDS=60         # TTL for Redis vehicle position keys
 ```
 
 ## Planned Upgrades
@@ -181,7 +238,8 @@ WS_MAX_CONNECTIONS=100               # Hard cap on concurrent WebSocket connecti
 | Upgrade | Phase | Description |
 |---------|-------|-------------|
 | ~~WebSocket streaming~~ | ~~Phase 1~~ | ✅ **Implemented** — `WS /ws/transit/vehicles` with per-client feed/route filtering, Redis Pub/Sub fan-out |
-| GTFS database import | Phase 1 | Persist GTFS static data to PostgreSQL tables (currently in-memory only) |
+| ~~GTFS database import~~ | ~~Phase 1~~ | ✅ **Implemented** — DB-backed GTFSStaticStore replacing HTTP/ZIP-based cache |
+| ~~TimescaleDB history~~ | ~~Phase 1~~ | ✅ **Implemented** — `vehicle_positions` hypertable with compression, 90-day retention, vehicle history + delay trend endpoints |
 | Additional city feeds | Phase 2 | Daugavpils, Liepaja, Rezekne GPS text feeds |
 | Train positions | Phase 2 | WebSocket listener for `wss://trainmap.pv.lv/ws` |
 | ETA calculator | Phase 2 | Valhalla map-matching + distance-to-stop / speed calculation |

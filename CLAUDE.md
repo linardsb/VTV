@@ -79,7 +79,7 @@ VTV/
 │   ├── stops/          # Stop management (6 endpoints, PostGIS spatial queries)
 │   ├── schedules/      # GTFS schedule management (23 endpoints, ZIP import/export)
 │   ├── skills/         # Agent skills system (7 endpoints)
-│   ├── transit/        # Multi-feed GTFS-RT tracking (3 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub)
+│   ├── transit/        # Multi-feed GTFS-RT tracking (5 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage)
 │   ├── vehicles/       # Vehicle management (8 endpoints, fleet CRUD, maintenance, driver assignment)
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
