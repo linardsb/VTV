@@ -49,7 +49,8 @@ cms/.env.*.local
 
 # Build artifacts
 cms/apps/web/.next/
-cms/packages/sdk/src/client/
+# SDK client is generated but must be committed for Docker builds
+# cms/packages/sdk/src/client/
 
 # ui-ux-pro-max skill (installed locally, not committed)
 .claude/skills/ui-ux-pro-max/
