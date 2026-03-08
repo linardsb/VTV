@@ -237,6 +237,19 @@ def _enrich_vehicles(
         route_info = static.routes.get(resolved_route_id)
         route_type = route_info.route_type if route_info else 3
 
+        # Fallback: extract route number from vehicle label (e.g. "Trolejbuss 15" → "15")
+        if not route_short_name and v.vehicle_label:
+            parts = v.vehicle_label.rsplit(" ", 1)
+            if len(parts) == 2:
+                route_short_name = parts[1]
+                prefix = parts[0].lower()
+                if "tram" in prefix:
+                    route_type = 0
+                elif "trol" in prefix:
+                    route_type = 800
+                elif "auto" in prefix or "bus" in prefix:
+                    route_type = 3
+
         # Get delay and next stop from trip updates
         delay_seconds = 0
         next_stop_name: str | None = None

@@ -40,6 +40,7 @@ class VehiclePositionData:
     current_status: str  # "IN_TRANSIT_TO", "STOPPED_AT", "INCOMING_AT"
     stop_id: str | None
     timestamp: int  # POSIX
+    vehicle_label: str = ""  # e.g. "Trolejbuss 15" — fallback for route name
 
 
 @dataclass
@@ -215,6 +216,7 @@ class GTFSRealtimeClient:
                 continue
             vp = entity.vehicle
             vehicle_id = vp.vehicle.id if vp.HasField("vehicle") else ""
+            vehicle_label = vp.vehicle.label if vp.HasField("vehicle") and vp.vehicle.label else ""
             trip_id = vp.trip.trip_id if vp.HasField("trip") and vp.trip.trip_id else None
             route_id = vp.trip.route_id if vp.HasField("trip") and vp.trip.route_id else None
 
@@ -223,6 +225,7 @@ class GTFSRealtimeClient:
                     vehicle_id=vehicle_id,
                     trip_id=trip_id,
                     route_id=route_id,
+                    vehicle_label=vehicle_label,
                     latitude=vp.position.latitude,
                     longitude=vp.position.longitude,
                     bearing=vp.position.bearing if vp.position.bearing else None,

@@ -220,6 +220,20 @@ class FeedPoller:
         route_info = static.routes.get(route_id)
         route_type = route_info.route_type if route_info else 3
 
+        # Fallback: extract route number from vehicle label (e.g. "Trolejbuss 15" → "15")
+        if not route_name and vp.vehicle_label:
+            parts = vp.vehicle_label.rsplit(" ", 1)
+            if len(parts) == 2:
+                route_name = parts[1]
+                # Infer route_type from label prefix
+                prefix = parts[0].lower()
+                if "tram" in prefix:
+                    route_type = 0
+                elif "trol" in prefix:
+                    route_type = 800
+                elif "auto" in prefix or "bus" in prefix:
+                    route_type = 3
+
         # Extract delay from trip updates
         delay_seconds = 0
         if vp.trip_id and vp.trip_id in trip_update_map:
