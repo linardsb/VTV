@@ -62,9 +62,7 @@ def upgrade() -> None:
     # Convert to TimescaleDB hypertable (if TimescaleDB is available)
     conn = op.get_bind()
     result = conn.execute(
-        sa.text(
-            "SELECT EXISTS(SELECT 1 FROM pg_available_extensions WHERE name = 'timescaledb')"
-        )
+        sa.text("SELECT EXISTS(SELECT 1 FROM pg_available_extensions WHERE name = 'timescaledb')")
     )
     has_timescaledb = result.scalar()
 
@@ -90,9 +88,7 @@ def downgrade() -> None:
     """Remove vehicle_positions hypertable and policies."""
     conn = op.get_bind()
     result = conn.execute(
-        sa.text(
-            "SELECT EXISTS(SELECT 1 FROM pg_available_extensions WHERE name = 'timescaledb')"
-        )
+        sa.text("SELECT EXISTS(SELECT 1 FROM pg_available_extensions WHERE name = 'timescaledb')")
     )
     if result.scalar():
         op.execute("SELECT remove_retention_policy('vehicle_positions', if_exists => true)")

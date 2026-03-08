@@ -90,6 +90,22 @@ VTV/
 └── pyproject.toml      # Dependencies, tooling config (ruff, mypy, pyright, pytest)
 ```
 
+### Fleet Management & Vehicle Tracking (Planned)
+
+LocTracker-inspired fleet management extension — hardware GPS tracking, OBD-II telemetry, tachograph compliance, fuel monitoring, and geofencing for RS's 300-700 vehicles. Full plan: `docs/PLANNING/fleet-management-tracking.md`.
+
+**New vertical slices (planned):**
+- `app/fleet/` — Traccar bridge, device management, OBD-II telemetry, fuel monitoring, LocShare (~15 endpoints)
+- `app/geofences/` — PostGIS Polygon zones, entry/exit detection, dwell time tracking (~8 endpoints)
+- `app/tachograph/` — Remote DDD download, EU 561/2006 driving hours calculator, compliance dashboard (~10 endpoints)
+- `app/messaging/` — Dispatcher↔driver messaging, task assignment (Phase 5)
+
+**Extensions to existing slices:** `vehicles/` (device linking), `drivers/` (tachograph cards), `alerts/` (geofence/speed/driving hours rules), `analytics/` (fleet distance, fuel, compliance reports)
+
+**Infrastructure:** Traccar (GPS protocol gateway, Docker sidecar), OSRM (self-hosted routing, Latvia OSM), HERE Maps API (fallback)
+
+**Phases:** 1. GPS+Live Tracking (MVP) → 2. Fuel+Analytics → 3. Tachograph Compliance → 4. Routing → 5. Mobile App+Messaging. ~140 person-days total.
+
 ### Database
 
 - **Async SQLAlchemy** with configurable connection pooling (pool_size=3, max_overflow=5)
