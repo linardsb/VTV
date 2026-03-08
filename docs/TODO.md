@@ -5,9 +5,9 @@ Planned features and improvements. Each item links to its detailed planning docu
 ## Progress Overview
 
 ```
-Backend API       ██████████████████████░░  99%  (10/10 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts)
+Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
 CMS Frontend      ███████████████████████░  99%  (13 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard)
-Testing           ████████████████████░░░░  89%  (879 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
+Testing           ████████████████████░░░░  90%  (927 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
@@ -37,8 +37,11 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 ### Fleet Management & Vehicle Tracking (LocTracker-inspired)
 
-- [ ] **Phase 1: GPS Telemetry + Live Tracking (MVP)** — Traccar Docker sidecar for Teltonika Codec 8/8E protocol, `app/fleet/` vertical slice (device management, telemetry ingestion, OBD-II parsing), `app/geofences/` vertical slice (PostGIS Polygon zones, entry/exit detection, dwell time). Shared `vehicle_positions` hypertable with `source` column. CMS: fleet devices page, extended live map, geofence editor, telemetry gauges. ~34 days effort.
-  - Plan: [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) (Phase 1)
+- [x] **Phase 1A: Device Management + Telemetry Ingestion** — `app/fleet/` vertical slice: TrackedDevice CRUD (5 endpoints + RBAC), Traccar webhook bridge with OBD-II parsing, `vehicle_positions` hypertable extended with `source` + `obd_data` columns, Traccar Docker sidecar (`--profile fleet`). 17 unit tests. (commit 10ff86c, 2026-03-08)
+  - Plan: [.agents/plans/fleet-core-1a.md](../.agents/plans/fleet-core-1a.md)
+
+- [x] **Phase 1B: Geofencing (Backend)** — `app/geofences/` vertical slice: PostGIS POLYGON zones with GIST indexing, 8 REST endpoints (CRUD + event queries + dwell reports), background evaluator (30s cycle, Redis state, ST_Contains), entry/exit/dwell detection with alerts integration, 2 tables (geofences + geofence_events), 23 unit tests. CMS fleet pages still pending. (2026-03-08)
+  - Plan: [.agents/plans/geofences-phase-1b.md](../.agents/plans/geofences-phase-1b.md)
 
 - [ ] **Phase 2: Fuel + Analytics + LocShare** — Fuel monitoring (refueling/drain detection from OBD), fuel consumption analytics, fleet distance/drive time reports, idle time detection, LocPoints dwell time, LocShare (JWT expiring public tracking links), PDF/CSV report export, speed/device-offline alerts. CMS: fuel dashboard, analytics pages, LocShare management. ~27 days effort.
   - Plan: [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) (Phase 2)
@@ -228,6 +231,9 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [x] **Notification/Alerts System** - Proactive alerting with configurable rules and background evaluator. 11 REST endpoints under `/api/v1/alerts` (rule CRUD + instance lifecycle + dashboard summary). Background evaluator checks 3 rule types: `maintenance_due`, `registration_expiry`, `delay_threshold`. Partial unique index for active alert deduplication. RBAC: admin-only rules, admin+dispatcher instances, all-auth summary. 2 tables (`alert_rules`, `alert_instances`), 40 unit tests. (2026-03-08)
   - Plan: [.agents/plans/notification-alerts-system.md](../.agents/plans/notification-alerts-system.md)
+
+- [x] **Geofence Zone Monitoring (Phase 1B Backend)** - PostGIS POLYGON zones with GIST indexing and ST_Contains containment queries. 8 REST endpoints (CRUD + event history + dwell reports). Background evaluator (30s cycle) detects vehicle entry/exit/dwell via Redis state tracking, creates alert instances. 2 tables (geofences, geofence_events), 3 new alert types (geofence_enter/exit/dwell). 23 unit tests. (2026-03-08)
+  - Plan: [.agents/plans/geofences-phase-1b.md](../.agents/plans/geofences-phase-1b.md)
 
 - [x] **Context-Triggered Security SDC** - Integrated security into the development cycle based on audit_6 findings. New `_shared/security-contexts.md` defines 6 context categories (CTX-AUTH, CTX-RBAC, CTX-FILE, CTX-AGENT, CTX-INFRA, CTX-INPUT) with trigger keywords, specific requirements, and plan task templates. Updated 7 commands: `/be-planning` and `/fe-planning` now detect and inject security contexts into plans, `/review` and `/fe-review` apply context-aware deeper checks, `/be-prime` and `/fe-prime` surface the security context system. (2026-03-07)
 

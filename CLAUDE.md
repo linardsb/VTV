@@ -33,7 +33,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (879 tests, ~15s)
+make test            # Unit tests (904 tests, ~15s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -77,6 +77,8 @@ VTV/
 │   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)
+│   ├── fleet/          # Fleet device management (6 endpoints, Traccar GPS bridge, OBD-II telemetry)
+│   ├── geofences/      # Geofence zone monitoring (8 endpoints, PostGIS polygons, background evaluator, dwell tracking)
 │   ├── stops/          # Stop management (6 endpoints, PostGIS spatial queries)
 │   ├── schedules/      # GTFS schedule management (23 endpoints, ZIP import/export)
 │   ├── skills/         # Agent skills system (7 endpoints)
@@ -90,21 +92,22 @@ VTV/
 └── pyproject.toml      # Dependencies, tooling config (ruff, mypy, pyright, pytest)
 ```
 
-### Fleet Management & Vehicle Tracking (Planned)
+### Fleet Management & Vehicle Tracking
 
-LocTracker-inspired fleet management extension — hardware GPS tracking, OBD-II telemetry, tachograph compliance, fuel monitoring, and geofencing for RS's 300-700 vehicles. Full plan: `docs/PLANNING/fleet-management-tracking.md`.
+LocTracker-inspired fleet management extension. Full plan: `docs/PLANNING/fleet-management-tracking.md`.
 
-**New vertical slices (planned):**
-- `app/fleet/` — Traccar bridge, device management, OBD-II telemetry, fuel monitoring, LocShare (~15 endpoints)
-- `app/geofences/` — PostGIS Polygon zones, entry/exit detection, dwell time tracking (~8 endpoints)
+**Phase 1A (implemented):** `app/fleet/` — Device CRUD (5 endpoints + RBAC), Traccar webhook bridge for hardware GPS ingestion, OBD-II telemetry parsing, `vehicle_positions` hypertable extended with `source` discriminator + `obd_data` JSONB. Traccar Docker sidecar (`--profile fleet`). 17 unit tests.
+
+**Phase 1B (implemented — backend):** `app/geofences/` — PostGIS POLYGON zones with GIST indexing, 8 REST endpoints (CRUD + events + dwell reports), background evaluator (30s cycle, Redis state tracking, `ST_Contains` containment queries), entry/exit/dwell detection with alerts integration. 23 unit tests.
+
+**Remaining phases (planned):**
 - `app/tachograph/` — Remote DDD download, EU 561/2006 driving hours calculator, compliance dashboard (~10 endpoints)
 - `app/messaging/` — Dispatcher↔driver messaging, task assignment (Phase 5)
-
-**Extensions to existing slices:** `vehicles/` (device linking), `drivers/` (tachograph cards), `alerts/` (geofence/speed/driving hours rules), `analytics/` (fleet distance, fuel, compliance reports)
+- CMS fleet pages — fleet devices page, geofence editor, telemetry gauges (Phase 1B frontend)
 
 **Infrastructure:** Traccar (GPS protocol gateway, Docker sidecar), OSRM (self-hosted routing, Latvia OSM), HERE Maps API (fallback)
 
-**Phases:** 1. GPS+Live Tracking (MVP) → 2. Fuel+Analytics → 3. Tachograph Compliance → 4. Routing → 5. Mobile App+Messaging. ~140 person-days total.
+**Phases:** 1A. Device CRUD+Telemetry (done) → 1B. Geofencing (backend done, CMS pending) → 2. Fuel+Analytics → 3. Tachograph → 4. Routing → 5. Mobile App. ~110 person-days remaining.
 
 ### Database
 

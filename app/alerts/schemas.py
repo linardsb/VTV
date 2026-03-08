@@ -8,7 +8,15 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 AlertSeverityType = Literal["critical", "high", "medium", "low", "info"]
 AlertStatusType = Literal["active", "acknowledged", "resolved"]
-AlertRuleType = Literal["delay_threshold", "maintenance_due", "registration_expiry", "manual"]
+AlertRuleType = Literal[
+    "delay_threshold",
+    "maintenance_due",
+    "registration_expiry",
+    "manual",
+    "geofence_enter",
+    "geofence_exit",
+    "geofence_dwell",
+]
 SourceEntityType = Literal["vehicle", "route", "driver"]
 
 

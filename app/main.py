@@ -40,6 +40,8 @@ from app.core.redis import close_redis
 from app.drivers.routes import router as drivers_router
 from app.events.routes import router as events_router
 from app.fleet.routes import router as fleet_router
+from app.geofences.evaluator import start_geofence_evaluator, stop_geofence_evaluator
+from app.geofences.routes import router as geofences_router
 from app.knowledge.routes import router as knowledge_router
 from app.schedules.routes import router as schedules_router
 from app.skills.routes import router as skills_router
@@ -108,6 +110,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Start alert evaluator background task
     await start_evaluator(settings)
 
+    # Start geofence evaluator background task
+    await start_geofence_evaluator(settings)
+
     # Start WebSocket subscriber (pushes Redis Pub/Sub -> WebSocket clients)
     if settings.ws_enabled and settings.poller_enabled:
         ws_manager = get_ws_manager()
@@ -117,6 +122,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
     # Shutdown
+    await stop_geofence_evaluator()
     await stop_evaluator()
     await stop_ws_subscriber()
     close_ws_manager()
@@ -173,6 +179,7 @@ app.include_router(compliance_router)
 app.include_router(analytics_router)
 app.include_router(alerts_router)
 app.include_router(fleet_router)
+app.include_router(geofences_router)
 
 
 @app.get("/")

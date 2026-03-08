@@ -204,6 +204,10 @@ class Settings(BaseSettings):
         "battery_voltage",
     ]
 
+    # Geofence evaluator
+    geofence_evaluator_enabled: bool = True
+    geofence_check_interval_seconds: int = 30
+
     @model_validator(mode="after")
     def _reject_default_secrets_in_production(self) -> "Settings":
         """Refuse to start with default JWT secret in non-development environments."""
