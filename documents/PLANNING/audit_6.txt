@@ -1,0 +1,184 @@
+we need to address first the security audit fail again. Please see the areas that need to be improved immediately. make plan for this to execute in methodical and thorough pattern. make a TODO for this security audit to address each step by step. 
+
+
+## VTV Security Vulnerability Traces
+Security audit codemap tracing critical vulnerabilities across authentication, infrastructure, and agent systems. Key traces include fail-open token revocation [1c], backend port exposure [2c], and prompt injection attacks [4d].
+### 1. Fail-Open Token Revocation Bypass
+Authentication system fails open when Redis unavailable, allowing revoked tokens to remain valid
+### 1a. Token revocation check entry (`token.py:97`)
+Function checks if token JTI exists in Redis denylist
+```text
+async def is_token_revoked(jti: str) -> bool:
+```
+### 1b. Redis connection attempt (`token.py:111`)
+Attempts to get Redis client for denylist lookup
+```text
+redis_client = await get_redis()
+```
+### 1c. Critical fail-open behavior (`token.py:120`)
+Returns False when Redis unavailable, allowing revoked tokens
+```text
+return False  # Redis down = allow (fail-open for availability
+```
+### 1d. Refresh token revocation (`routes.py:75`)
+Attempts to revoke used refresh token during rotation
+```text
+await revoke_token(payload.jti, ttl_seconds=REFRESH_TOKEN_TTL_SECONDS)
+```
+### 1e. Revocation check in auth flow (`dependencies.py:76`)
+Every authenticated request checks token revocation status
+```text
+if await is_token_revoked(payload.jti):
+```
+### 2. Backend Port Exposure & Rate Limit Bypass
+Container configuration exposes backend directly, allowing rate limit bypass via IP spoofing
+### 2a. Backend port exposed (`docker-compose.yml:97`)
+FastAPI backend port 8123 mapped to host
+```text
+ports:
+      - "8123:8123"
+```
+### 2b. Redis port exposed (`docker-compose.yml:43`)
+Redis port 6379 also directly accessible
+```text
+ports:
+      - "6379:6379"
+```
+### 2c. Trusted client IP header (`rate_limit.py:33`)
+Rate limiter trusts X-Real-IP without proxy verification
+```text
+real_ip = request.headers.get("X-Real-IP")
+```
+### 2d. IP spoofing vulnerability (`rate_limit.py:34`)
+Returns client-provided IP for rate limiting
+```text
+if real_ip:
+        return real_ip.strip()
+```
+### 3. Insecure Direct Object Reference Across Resources
+Any authenticated user can access all drivers, events, and knowledge documents regardless of role
+### 3a. Minimal auth requirement (`routes.py:38`)
+Driver endpoints only require basic authentication
+```text
+_current_user: User = Depends(get_current_user)
+```
+### 3b. All drivers accessible (`routes.py:42`)
+Returns all driver data to any authenticated user
+```text
+return await service.list_drivers(
+```
+### 3c. Events auth bypass (`routes.py:39`)
+Operational events accessible to all roles
+```text
+_current_user: User = Depends(get_current_user)
+```
+### 3d. Knowledge base exposure (`routes.py:144`)
+All documents and content accessible to viewers
+```text
+_current_user: User = Depends(get_current_user)
+```
+### 4. Prompt Injection & Agent Skill Escalation
+LLM can be manipulated to create persistent skills that alter future agent behavior
+### 4a. Unsanitized user input (`service.py:86`)
+User message passed directly to LLM without filtering
+```text
+current_prompt = request.messages[-1].content
+```
+### 4b. Skills loaded as instructions (`service.py:102`)
+Active skills injected into every agent call
+```text
+skills_instructions = await skill_service.get_active_skills_content()
+```
+### 4c. Agent execution with tools (`service.py:109`)
+LLM can invoke tools including skill management
+```text
+result = await agent.run(current_prompt, deps=self._deps,
+```
+### 4d. LLM creates persistent skills (`manage_skills.py:121`)
+Agent can create skills that affect all future interactions
+```text
+skill_response = await service.create_skill(data)
+```
+### 5. Brute Force Protection Fail-Open
+Redis-based brute force lockout fails open, allowing password guessing attacks
+### 5a. Redis lockout check (`service.py:104`)
+Fast-path lockout check before database query
+```text
+if await _check_redis_brute_force(email):
+```
+### 5b. Redis lookup for lockout (`service.py:40`)
+Checks if user email is locked in Redis
+```text
+locked = await redis_client.get(key)
+```
+### 5c. Fail-open on Redis failure (`service.py:44`)
+Returns False (not locked) when Redis unavailable
+```text
+return False
+```
+### 5d. Failed attempt tracking (`service.py:133`)
+Records failed attempts in Redis for lockout enforcement
+```text
+await _record_failed_attempt_redis(email)
+```
+### 6. File Upload Security Bypass
+Content-Type based file detection allows malicious file uploads
+### 6a. Client-controlled type detection (`routes.py:95`)
+File type determined solely by client Content-Type header
+```text
+source_type = _detect_source_type(file.content_type)
+```
+### 6b. Header validation only (`routes.py:64`)
+No server-side magic bytes verification
+```text
+if content_type in _CONTENT_TYPE_MAP:
+```
+### 6c. Type rejection logic (`routes.py:96`)
+Only rejects unmapped Content-Type values
+```text
+if source_type == "unknown":
+```
+### 6d. File ingestion (`routes.py:124`)
+Processes file based on potentially spoofed type
+```text
+return await service.ingest_document(
+```
+### 7. Hardcoded Production Credentials
+Real email and weak passwords hardcoded in source code
+### 7a. Real email exposed (`service.py:353`)
+Actual developer email in seed data
+```text
+("linardsberzins@gmail.com", password, "Linards Berzins", "admin"),
+```
+### 7b. Default JWT secret (`config.py:117`)
+Well-known default secret key
+```text
+jwt_secret_key: str = "CHANGE-ME-IN-PRODUCTION"
+```
+### 7c. Default demo password (`config.py:123`)
+Trivially guessable default password
+```text
+demo_user_password: str = "admin"
+```
+### 8. Infrastructure Security Misconfigurations
+Multiple infrastructure components have insecure default configurations
+### 8a. SSL verification disabled (`deps.py:72`)
+Obsidian client bypasses SSL certificate validation
+```text
+verify=False,  # noqa: S501 - Obsidian Local REST API uses self-signed cert
+```
+### 8b. Unencrypted backups (`db-backup.sh:12`)
+Database backups stored without encryption
+```text
+NOTE: Backups are not encrypted at rest
+```
+### 8c. Weak password policy (`schemas.py:25`)
+No special character requirement in password validation
+```text
+if not any(c.isupper() for c in password):
+```
+### 8d. CORS credentials enabled (`middleware.py:172`)
+Allows credentials with potentially wildcard origins
+```text
+allow_credentials=True
+```
