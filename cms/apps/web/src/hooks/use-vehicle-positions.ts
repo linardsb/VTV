@@ -69,18 +69,14 @@ const STATUS_MAP: Record<string, BusPosition["currentStatus"]> = {
   INCOMING_AT: "incoming",
 };
 
-/** Deterministic color from route short name when no color map is available. */
-function routeColor(shortName: string): string {
-  const PALETTE = [
-    "#1E88E5", "#E53935", "#43A047", "#FB8C00",
-    "#8E24AA", "#00ACC1", "#D81B60", "#3949AB",
-    "#6D4C41", "#546E7A", "#F4511E", "#00897B",
-  ];
-  let hash = 0;
-  for (let i = 0; i < shortName.length; i++) {
-    hash = (hash * 31 + shortName.charCodeAt(i)) | 0;
-  }
-  return PALETTE[Math.abs(hash) % PALETTE.length];
+/** Color by route type matching Rīgas Satiksme scheme. */
+function routeTypeColor(routeType: number): string {
+  // Tram (0, 900-999)
+  if (routeType === 0 || (routeType >= 900 && routeType <= 999)) return "#E53935";
+  // Trolleybus (800-899)
+  if (routeType >= 800 && routeType <= 899) return "#1E88E5";
+  // Bus (3, 700-799) and default
+  return "#FB8C00";
 }
 
 function mapVehicle(
@@ -92,7 +88,7 @@ function mapVehicle(
     routeId: v.route_id,
     routeShortName: v.route_short_name,
     routeType: v.route_type,
-    routeColor: colorMap[v.route_id] ?? routeColor(v.route_short_name),
+    routeColor: colorMap[v.route_id] ?? routeTypeColor(v.route_type),
     latitude: v.latitude,
     longitude: v.longitude,
     bearing: v.bearing,
