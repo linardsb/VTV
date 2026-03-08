@@ -16,6 +16,7 @@ from app.schedules.models import (
     Calendar,
     CalendarDate,
     Route,
+    Shape,
     StopTime,
     Trip,
 )
@@ -38,6 +39,7 @@ class GTFSParseResult:
     trips: list[Trip] = field(default_factory=lambda: list[Trip]())
     stop_times: list[StopTime] = field(default_factory=lambda: list[StopTime]())
     stops: list[Stop] = field(default_factory=lambda: list[Stop]())
+    shapes: list[Shape] = field(default_factory=lambda: list[Shape]())
     skipped_stop_times: int = 0
     warnings: list[str] = field(default_factory=lambda: list[str]())
     # Parallel parent-reference lists for FK resolution after flush.
@@ -147,6 +149,9 @@ class GTFSImporter:
                 zf, file_names, trip_map, stop_map, stops
             )
 
+            # Parse shapes
+            shapes = self._parse_shapes(zf, file_names)
+
         return GTFSParseResult(
             agencies=agencies,
             routes=routes,
@@ -155,6 +160,7 @@ class GTFSImporter:
             trips=trips,
             stop_times=stop_times,
             stops=stops,
+            shapes=shapes,
             skipped_stop_times=skipped,
             warnings=self.warnings,
             route_agency_refs=route_agency_refs,
@@ -417,6 +423,7 @@ class GTFSImporter:
                     direction_id=direction_id,
                     trip_headsign=row.get("trip_headsign") or None,
                     block_id=row.get("block_id") or None,
+                    shape_id=row.get("shape_id") or None,
                 )
             )
             route_refs.append(route_map[route_id_str])
@@ -495,6 +502,60 @@ class GTFSImporter:
         if skipped > 0:
             self.warnings.append(f"Skipped {skipped} stop_times with unknown trip or stop")
         return stop_times, trip_refs, stop_refs, skipped
+
+    def _parse_shapes(self, zf: zipfile.ZipFile, file_names: list[str]) -> list[Shape]:
+        """Parse shapes.txt.
+
+        Args:
+            zf: Open ZipFile instance.
+            file_names: List of files in the ZIP.
+
+        Returns:
+            List of Shape model instances.
+        """
+        reader = self._read_csv(zf, "shapes.txt")
+        if reader is None:
+            return []
+        _ = file_names
+        shapes: list[Shape] = []
+        for row in reader:
+            shape_id = row.get("shape_id", "")
+            if not shape_id:
+                continue
+
+            lat_str = row.get("shape_pt_lat", "")
+            lon_str = row.get("shape_pt_lon", "")
+            seq_str = row.get("shape_pt_sequence", "0")
+            dist_str = row.get("shape_dist_traveled", "")
+
+            try:
+                lat = float(lat_str)
+                lon = float(lon_str)
+            except (ValueError, TypeError):
+                self.warnings.append(
+                    f"Skipping shape point {shape_id}/{seq_str}: invalid coordinates"
+                )
+                continue
+
+            sequence = int(seq_str) if seq_str.isdigit() else 0
+            dist_traveled: float | None = None
+            if dist_str:
+                try:
+                    dist_traveled = float(dist_str)
+                except (ValueError, TypeError):
+                    pass
+
+            shapes.append(
+                Shape(
+                    gtfs_shape_id=shape_id,
+                    feed_id=self.feed_id,
+                    shape_pt_lat=lat,
+                    shape_pt_lon=lon,
+                    shape_pt_sequence=sequence,
+                    shape_dist_traveled=dist_traveled,
+                )
+            )
+        return shapes
 
     def _parse_stops(self, zf: zipfile.ZipFile, file_names: list[str]) -> list[Stop]:
         """Parse stops.txt.

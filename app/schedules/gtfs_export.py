@@ -9,7 +9,7 @@ import csv
 import io
 import zipfile
 
-from app.schedules.models import Agency, Calendar, CalendarDate, Route, StopTime, Trip
+from app.schedules.models import Agency, Calendar, CalendarDate, Route, Shape, StopTime, Trip
 from app.stops.models import Stop
 
 
@@ -45,6 +45,7 @@ class GTFSExporter:
         trips: list[Trip],
         stop_times: list[StopTime],
         stops: list[Stop],
+        shapes: list[Shape] | None = None,
     ) -> None:
         self.agencies = agencies
         self.routes = routes
@@ -53,6 +54,7 @@ class GTFSExporter:
         self.trips = trips
         self.stop_times = stop_times
         self.stops = stops
+        self.shapes = shapes or []
 
         # Build lookup maps for GTFS IDs
         self._agency_gtfs: dict[int, str] = {a.id: a.gtfs_agency_id for a in agencies}
@@ -73,6 +75,8 @@ class GTFSExporter:
             zf.writestr("trips.txt", self._trips_csv())
             zf.writestr("stop_times.txt", self._stop_times_csv())
             zf.writestr("stops.txt", self._stops_csv())
+            if self.shapes:
+                zf.writestr("shapes.txt", self._shapes_csv())
         return buf.getvalue()
 
     def _agency_csv(self) -> str:
@@ -160,7 +164,15 @@ class GTFSExporter:
         return _write_csv(rows, fields)
 
     def _trips_csv(self) -> str:
-        fields = ["route_id", "service_id", "trip_id", "trip_headsign", "direction_id", "block_id"]
+        fields = [
+            "route_id",
+            "service_id",
+            "trip_id",
+            "trip_headsign",
+            "direction_id",
+            "block_id",
+            "shape_id",
+        ]
         rows = [
             {
                 "route_id": self._route_gtfs.get(t.route_id, ""),
@@ -169,6 +181,7 @@ class GTFSExporter:
                 "trip_headsign": t.trip_headsign or "",
                 "direction_id": str(t.direction_id) if t.direction_id is not None else "",
                 "block_id": t.block_id or "",
+                "shape_id": t.shape_id or "",
             }
             for t in self.trips
         ]
@@ -223,5 +236,28 @@ class GTFSExporter:
                 "wheelchair_boarding": str(s.wheelchair_boarding),
             }
             for s in self.stops
+        ]
+        return _write_csv(rows, fields)
+
+    def _shapes_csv(self) -> str:
+        """Generate shapes.txt CSV content."""
+        fields = [
+            "shape_id",
+            "shape_pt_lat",
+            "shape_pt_lon",
+            "shape_pt_sequence",
+            "shape_dist_traveled",
+        ]
+        rows = [
+            {
+                "shape_id": s.gtfs_shape_id,
+                "shape_pt_lat": str(s.shape_pt_lat),
+                "shape_pt_lon": str(s.shape_pt_lon),
+                "shape_pt_sequence": str(s.shape_pt_sequence),
+                "shape_dist_traveled": str(s.shape_dist_traveled)
+                if s.shape_dist_traveled is not None
+                else "",
+            }
+            for s in self.shapes
         ]
         return _write_csv(rows, fields)

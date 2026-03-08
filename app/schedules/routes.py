@@ -23,6 +23,7 @@ from app.schedules.schemas import (
     GTFSImportResponse,
     RouteCreate,
     RouteResponse,
+    RouteShapesResponse,
     RouteUpdate,
     StopTimeResponse,
     StopTimesBulkUpdate,
@@ -154,6 +155,25 @@ async def delete_route(
     """Delete a route by its database ID."""
     _ = request
     await service.delete_route(route_id)
+
+
+@router.get(
+    "/routes/{route_id}/shapes",
+    response_model=RouteShapesResponse,
+    summary="Get route shapes",
+    description="Returns all shape polylines for a route, grouped by shape_id. "
+    "Each shape contains an ordered array of lat/lon coordinates.",
+)
+@limiter.limit("30/minute")
+async def get_route_shapes(
+    request: Request,
+    route_id: int,
+    service: ScheduleService = Depends(get_service),  # noqa: B008
+    _user: User = Depends(get_current_user),  # noqa: B008
+) -> RouteShapesResponse:
+    """Get shape polylines for a route."""
+    _ = request
+    return await service.get_route_shapes(route_id)
 
 
 # --- Calendar endpoints ---

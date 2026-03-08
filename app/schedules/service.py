@@ -8,6 +8,7 @@ from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import NotFoundError
 from app.core.logging import get_logger
 from app.schedules.exceptions import (
     AgencyAlreadyExistsError,
@@ -38,7 +39,10 @@ from app.schedules.schemas import (
     GTFSImportResponse,
     RouteCreate,
     RouteResponse,
+    RouteShapeResponse,
+    RouteShapesResponse,
     RouteUpdate,
+    ShapePointResponse,
     StopTimeResponse,
     StopTimesBulkUpdate,
     TripCreate,
@@ -707,6 +711,7 @@ class ScheduleService:
                         "direction_id": t.direction_id,
                         "trip_headsign": t.trip_headsign,
                         "block_id": t.block_id,
+                        "shape_id": t.shape_id,
                     }
                     for i, t in enumerate(result.trips)
                 ]
@@ -732,6 +737,13 @@ class ScheduleService:
                         st.stop_id = stop_id_map.get(stop_ref.gtfs_stop_id, st.stop_id)
                 await self.repository.bulk_create_stop_times(result.stop_times)
 
+            # 8. Delete + re-insert shapes for this feed
+            shapes_count = 0
+            if result.shapes:
+                await self.repository.delete_shapes_for_feed(feed_id)
+                await self.repository.bulk_create_shapes(result.shapes)
+                shapes_count = len(result.shapes)
+
             await self.db.commit()
 
             duration = time.monotonic() - start_time
@@ -744,6 +756,7 @@ class ScheduleService:
                 trips=len(result.trips),
                 stop_times=len(result.stop_times),
                 stops=len(result.stops),
+                shapes=shapes_count,
                 skipped_stop_times=result.skipped_stop_times,
                 duration_seconds=round(duration, 2),
             )
@@ -767,6 +780,7 @@ class ScheduleService:
                 stops_count=len(result.stops),
                 stops_created=stops_created,
                 stops_updated=stops_updated,
+                shapes_count=shapes_count,
                 skipped_stop_times=result.skipped_stop_times,
                 warnings=result.warnings,
             )
@@ -875,6 +889,8 @@ class ScheduleService:
         stop_repo = StopRepository(self.db)
         stops = await stop_repo.list_all()
 
+        shapes = await self.repository.list_all_shapes(feed_id=feed_id)
+
         exporter = GTFSExporter(
             agencies=agencies,
             routes=routes,
@@ -883,6 +899,7 @@ class ScheduleService:
             trips=trips,
             stop_times=stop_times,
             stops=stops,
+            shapes=shapes,
         )
 
         logger.info(
@@ -894,3 +911,45 @@ class ScheduleService:
         )
 
         return exporter.export()
+
+    # --- Shape ---
+
+    async def get_route_shapes(self, route_id: int) -> RouteShapesResponse:
+        """Get all shapes for a route, grouped by shape_id.
+
+        Args:
+            route_id: Database route ID.
+
+        Returns:
+            RouteShapesResponse with ordered coordinate arrays per shape.
+
+        Raises:
+            NotFoundError: If route does not exist.
+        """
+        route = await self.repository.get_route(route_id)
+        if route is None:
+            raise NotFoundError(f"Route {route_id} not found")
+
+        shape_points = await self.repository.get_shapes_for_route(route_id)
+
+        # Group points by shape_id
+        shapes_by_id: dict[str, list[ShapePointResponse]] = {}
+        for sp in shape_points:
+            if sp.gtfs_shape_id not in shapes_by_id:
+                shapes_by_id[sp.gtfs_shape_id] = []
+            shapes_by_id[sp.gtfs_shape_id].append(
+                ShapePointResponse(
+                    lat=sp.shape_pt_lat,
+                    lon=sp.shape_pt_lon,
+                    sequence=sp.shape_pt_sequence,
+                    dist_traveled=sp.shape_dist_traveled,
+                )
+            )
+
+        return RouteShapesResponse(
+            route_id=route.id,
+            gtfs_route_id=route.gtfs_route_id,
+            shapes=[
+                RouteShapeResponse(shape_id=sid, points=pts) for sid, pts in shapes_by_id.items()
+            ],
+        )

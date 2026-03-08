@@ -15,6 +15,7 @@ from app.schedules.models import (
     Calendar,
     CalendarDate,
     Route,
+    Shape,
     StopTime,
     Trip,
 )
@@ -920,7 +921,14 @@ class ScheduleRepository:
             [v["gtfs_trip_id"] for v in values],
             values[0]["feed_id"],
         )
-        update_cols = ["route_id", "calendar_id", "direction_id", "trip_headsign", "block_id"]
+        update_cols = [
+            "route_id",
+            "calendar_id",
+            "direction_id",
+            "trip_headsign",
+            "block_id",
+            "shape_id",
+        ]
         for i in range(0, len(values), _BATCH_SIZE):
             batch = values[i : i + _BATCH_SIZE]
             stmt = pg_insert(Trip).values(batch)
@@ -1051,12 +1059,78 @@ class ScheduleRepository:
             ids.update(result.scalars().all())
         return ids
 
+    # --- Shape ---
+
+    async def bulk_create_shapes(self, items: list[Shape]) -> None:
+        """Bulk insert shape points in batches. Flush only, no commit.
+
+        Args:
+            items: List of Shape model instances.
+        """
+        for i in range(0, len(items), _BATCH_SIZE):
+            self.db.add_all(items[i : i + _BATCH_SIZE])
+            await self.db.flush()
+
+    async def delete_shapes_for_feed(self, feed_id: str) -> int:
+        """Delete all shape points for a feed. Returns count deleted.
+
+        Args:
+            feed_id: The feed identifier.
+
+        Returns:
+            Number of rows deleted.
+        """
+        result = await self.db.execute(delete(Shape).where(Shape.feed_id == feed_id))
+        await self.db.flush()
+        return result.rowcount  # type: ignore[no-any-return, attr-defined]
+
+    async def get_shapes_for_route(self, route_id: int) -> list[Shape]:
+        """Get all shape points for shapes referenced by a route's trips.
+
+        Finds distinct shape_ids from trips belonging to this route,
+        then returns all shape points ordered by shape_id and sequence.
+
+        Args:
+            route_id: The route's database ID.
+
+        Returns:
+            List of Shape instances ordered by shape_id and sequence.
+        """
+        shape_ids_subq = (
+            select(Trip.shape_id)
+            .where(Trip.route_id == route_id, Trip.shape_id.isnot(None))
+            .distinct()
+            .scalar_subquery()
+        )
+        result = await self.db.execute(
+            select(Shape)
+            .where(Shape.gtfs_shape_id.in_(shape_ids_subq))
+            .order_by(Shape.gtfs_shape_id, Shape.shape_pt_sequence)
+        )
+        return list(result.scalars().all())
+
+    async def list_all_shapes(self, feed_id: str | None = None) -> list[Shape]:
+        """List all shape points, optionally filtered by feed_id.
+
+        Args:
+            feed_id: Optional feed filter.
+
+        Returns:
+            List of Shape instances ordered by shape_id and sequence.
+        """
+        stmt = select(Shape).order_by(Shape.gtfs_shape_id, Shape.shape_pt_sequence)
+        if feed_id:
+            stmt = stmt.where(Shape.feed_id == feed_id)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
     async def clear_all_schedule_data(self) -> None:
         """Delete all schedule data in reverse FK order.
 
         Order: stop_times -> trips -> calendar_dates -> calendars -> routes -> agencies.
         """
         await self.db.execute(delete(StopTime))
+        await self.db.execute(delete(Shape))
         await self.db.execute(delete(Trip))
         await self.db.execute(delete(CalendarDate))
         await self.db.execute(delete(Calendar))

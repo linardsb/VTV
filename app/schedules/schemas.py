@@ -257,6 +257,33 @@ class StopTimesBulkUpdate(BaseModel):
     stop_times: list[StopTimeCreate]
 
 
+# --- Shape ---
+
+
+class ShapePointResponse(BaseModel):
+    """Schema for a single shape point."""
+
+    lat: float
+    lon: float
+    sequence: int
+    dist_traveled: float | None = None
+
+
+class RouteShapeResponse(BaseModel):
+    """Schema for a single shape (ordered polyline) belonging to a route."""
+
+    shape_id: str
+    points: list[ShapePointResponse]
+
+
+class RouteShapesResponse(BaseModel):
+    """Schema for all shapes associated with a route (typically 1-2 per direction)."""
+
+    route_id: int
+    gtfs_route_id: str
+    shapes: list[RouteShapeResponse]
+
+
 # --- Import ---
 
 
@@ -286,6 +313,7 @@ class GTFSImportResponse(BaseModel):
     stops_count: int = 0
     stops_created: int = 0
     stops_updated: int = 0
+    shapes_count: int = 0
     skipped_stop_times: int
     warnings: list[str]
 

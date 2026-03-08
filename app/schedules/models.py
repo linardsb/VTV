@@ -10,7 +10,7 @@ from __future__ import annotations
 import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Date, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -119,6 +119,7 @@ class Trip(Base, TimestampMixin):
     direction_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     trip_headsign: Mapped[str | None] = mapped_column(String(200), nullable=True)
     block_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    shape_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
 
 
 class StopTime(Base, TimestampMixin):
@@ -143,3 +144,22 @@ class StopTime(Base, TimestampMixin):
     departure_time: Mapped[str] = mapped_column(String(8), nullable=False)
     pickup_type: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     drop_off_type: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class Shape(Base, TimestampMixin):
+    """Shape point database model (GTFS shapes.txt)."""
+
+    __tablename__ = "shapes"
+    __table_args__ = (
+        UniqueConstraint(
+            "feed_id", "gtfs_shape_id", "shape_pt_sequence", name="uq_shape_feed_id_seq"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    gtfs_shape_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    feed_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True, default="riga")
+    shape_pt_lat: Mapped[float] = mapped_column(Float, nullable=False)
+    shape_pt_lon: Mapped[float] = mapped_column(Float, nullable=False)
+    shape_pt_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    shape_dist_traveled: Mapped[float | None] = mapped_column(Float, nullable=True)
