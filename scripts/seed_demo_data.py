@@ -1,8 +1,9 @@
 """Seed demo data for production deployment — drivers, vehicles, events, alerts, maintenance."""
 import json
 import sys
+import time
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 BASE = "http://localhost:8123"
 
@@ -56,17 +57,17 @@ ALERT_RULES = [
 
 
 def _now() -> str:
-    return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _dt(days_offset: int, hour: int = 8, minute: int = 0) -> str:
-    dt = datetime.utcnow() + timedelta(days=days_offset)
+    dt = datetime.now(timezone.utc) + timedelta(days=days_offset)
     dt = dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _date(days_offset: int) -> str:
-    dt = datetime.utcnow() + timedelta(days=days_offset)
+    dt = datetime.now(timezone.utc) + timedelta(days=days_offset)
     return dt.strftime("%Y-%m-%d")
 
 
@@ -120,19 +121,33 @@ def api_call(method: str, path: str, data: dict | None = None, token: str = "") 
     if not url.startswith(("http://", "https://")):  # noqa: S310
         raise ValueError(f"Invalid URL scheme: {url}")
     body = json.dumps(data).encode() if data else None
-    req = urllib.request.Request(url, data=body, method=method)  # noqa: S310
-    req.add_header("Content-Type", "application/json")
-    if token:
-        req.add_header("Authorization", f"Bearer {token}")
-    try:
-        with urllib.request.urlopen(req) as resp:  # noqa: S310
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        err = e.read().decode()
-        if "already exists" in err.lower() or "duplicate" in err.lower() or e.code == 409:
-            return None  # skip duplicates
-        print(f"  ERROR {e.code}: {err[:200]}")
-        return None
+
+    for attempt in range(3):
+        req = urllib.request.Request(url, data=body, method=method)  # noqa: S310
+        req.add_header("Content-Type", "application/json")
+        if token:
+            req.add_header("Authorization", f"Bearer {token}")
+        try:
+            with urllib.request.urlopen(req) as resp:  # noqa: S310
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            err = e.read().decode()
+            if e.code == 429:
+                wait = 8 * (attempt + 1)
+                print(f"  Rate limited, waiting {wait}s...")
+                time.sleep(wait)
+                continue
+            if e.code == 307:
+                # Follow redirect (trailing slash)
+                location = e.headers.get("Location", "")
+                if location:
+                    url = location
+                    continue
+            if "already exists" in err.lower() or "duplicate" in err.lower() or e.code == 409:
+                return None
+            print(f"  ERROR {e.code}: {err[:200]}")
+            return None
+    return None
 
 
 def main() -> None:
