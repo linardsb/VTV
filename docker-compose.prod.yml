@@ -54,12 +54,19 @@ services:
           memory: 1G
 
   cms:
+    build:
+      context: ./cms
+      dockerfile: apps/web/Dockerfile
+      args:
+        - NEXT_PUBLIC_AGENT_URL=http://204.168.156.137
     read_only: true
     tmpfs:
       - /tmp:size=100M
     environment:
-      - NEXT_PUBLIC_AGENT_URL=http://app:8123
+      - NEXT_PUBLIC_AGENT_URL=http://204.168.156.137
       - AUTH_SECRET=${AUTH_SECRET:?Set AUTH_SECRET in .env.production}
+      - AUTH_URL=${AUTH_URL:-http://204.168.156.137}
+      - AUTH_TRUST_HOST=true
     deploy:
       resources:
         limits:

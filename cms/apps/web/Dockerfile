@@ -30,6 +30,10 @@ COPY --from=deps /app/packages/sdk/node_modules ./packages/sdk/node_modules
 # Copy all source
 COPY . .
 
+# NEXT_PUBLIC_ vars must be present at build time (baked into JS bundle)
+ARG NEXT_PUBLIC_AGENT_URL=http://localhost:8123
+ENV NEXT_PUBLIC_AGENT_URL=$NEXT_PUBLIC_AGENT_URL
+
 # Build the web app (turbo handles workspace dependency builds)
 RUN pnpm --filter @vtv/web build
 
