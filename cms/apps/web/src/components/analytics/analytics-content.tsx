@@ -106,23 +106,25 @@ export function AnalyticsContent({ locale }: AnalyticsContentProps) {
 
       <div className="grid grid-cols-1 gap-(--spacing-grid) sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          icon={<Truck className="size-4 text-foreground-muted" />}
+          icon={<Truck className="size-4 text-interactive" />}
           title={t("kpi.activeVehicles")}
           value={String(data.fleet.active_vehicles)}
           subtitle={t("kpi.activeVehiclesOf", {
             total: data.fleet.total_vehicles,
           })}
+          accentColor="border-l-interactive"
         />
         <MetricCard
-          icon={<Users className="size-4 text-foreground-muted" />}
+          icon={<Users className="size-4 text-status-ontime" />}
           title={t("kpi.onDutyDrivers")}
           value={String(data.drivers.on_duty_drivers)}
           subtitle={t("kpi.onDutyDriversOf", {
             total: data.drivers.total_drivers,
           })}
+          accentColor="border-l-status-ontime"
         />
         <MetricCard
-          icon={<Clock className="size-4 text-foreground-muted" />}
+          icon={<Clock className="size-4 text-interactive" />}
           title={t("kpi.networkOnTime")}
           value={`${data.on_time.network_on_time_percentage}%`}
           delta={`${data.on_time.network_on_time_percentage}%`}
@@ -132,14 +134,16 @@ export function AnalyticsContent({ locale }: AnalyticsContentProps) {
             75
           )}
           subtitle={t("kpi.networkOnTimeTrips", { count: trackedTrips })}
+          accentColor="border-l-status-ontime"
         />
         <MetricCard
-          icon={<AlertTriangle className="size-4 text-foreground-muted" />}
+          icon={<AlertTriangle className="size-4 text-status-critical" />}
           title={t("kpi.urgentAlerts")}
           value={String(alertCount)}
           delta={alertCount > 0 ? String(alertCount) : "0"}
           deltaType={alertCount > 0 ? "negative" : "positive"}
           subtitle={t("kpi.urgentAlertsDesc")}
+          accentColor={alertCount > 0 ? "border-l-status-critical" : "border-l-status-ontime"}
         />
       </div>
 
