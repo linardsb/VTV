@@ -189,6 +189,21 @@ class Settings(BaseSettings):
     alerts_enabled: bool = True
     alerts_check_interval_seconds: int = 60
 
+    # Fleet management / Traccar GPS gateway
+    traccar_enabled: bool = False
+    traccar_base_url: str = "http://traccar:8082"
+    traccar_webhook_token: str = "vtv-traccar-webhook"  # noqa: S105
+    fleet_telemetry_source: str = "hardware"
+    fleet_obd_fields: list[str] = [
+        "speed",
+        "rpm",
+        "fuel_level",
+        "coolant_temp",
+        "odometer",
+        "engine_load",
+        "battery_voltage",
+    ]
+
     @model_validator(mode="after")
     def _reject_default_secrets_in_production(self) -> "Settings":
         """Refuse to start with default JWT secret in non-development environments."""
@@ -196,6 +211,9 @@ class Settings(BaseSettings):
             msg = (
                 f"JWT_SECRET_KEY must be overridden in production (environment={self.environment})"
             )
+            raise ValueError(msg)
+        if self.traccar_enabled and self.traccar_webhook_token == "vtv-traccar-webhook":  # noqa: S105
+            msg = "TRACCAR_WEBHOOK_TOKEN must be overridden when Traccar is enabled in production"
             raise ValueError(msg)
         return self
 

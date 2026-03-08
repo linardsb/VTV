@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
+<properties>
+    <!-- Database: use H2 embedded (Traccar is gateway-only, VTV owns the data) -->
+    <entry key='database.driver'>org.h2.Driver</entry>
+    <entry key='database.url'>jdbc:h2:/opt/traccar/data/database</entry>
+    <entry key='database.user'>sa</entry>
+    <entry key='database.password'></entry>
+
+    <!-- Forward all events to VTV webhook -->
+    <entry key='forward.enable'>true</entry>
+    <entry key='forward.url'>http://app:8123/api/v1/fleet/webhook/traccar</entry>
+    <entry key='forward.header.Authorization'>Bearer ${TRACCAR_WEBHOOK_TOKEN:-vtv-traccar-webhook}</entry>
+    <entry key='forward.json'>true</entry>
+
+    <!-- Enable protocols (Teltonika + Queclink + OsmAnd for testing) -->
+    <entry key='teltonika.port'>5027</entry>
+    <entry key='queclink.port'>5023</entry>
+    <entry key='osmand.port'>5055</entry>
+
+    <!-- Logging -->
+    <entry key='logger.enable'>true</entry>
+    <entry key='logger.level'>info</entry>
+</properties>

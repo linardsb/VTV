@@ -39,6 +39,7 @@ from app.core.rate_limit import limiter
 from app.core.redis import close_redis
 from app.drivers.routes import router as drivers_router
 from app.events.routes import router as events_router
+from app.fleet.routes import router as fleet_router
 from app.knowledge.routes import router as knowledge_router
 from app.schedules.routes import router as schedules_router
 from app.skills.routes import router as skills_router
@@ -171,6 +172,7 @@ app.include_router(vehicles_router)
 app.include_router(compliance_router)
 app.include_router(analytics_router)
 app.include_router(alerts_router)
+app.include_router(fleet_router)
 
 
 @app.get("/")

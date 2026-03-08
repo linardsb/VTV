@@ -6,8 +6,10 @@ compression policies, and continuous aggregates.
 """
 
 import datetime
+from typing import Any
 
 from sqlalchemy import DateTime, Float, Index, Integer, SmallInteger, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -61,9 +63,12 @@ class VehiclePositionRecord(Base):
     current_status: Mapped[str] = mapped_column(
         String(20), nullable=False, server_default="IN_TRANSIT_TO"
     )
+    source: Mapped[str] = mapped_column(String(20), nullable=False, server_default="gtfs-rt")
+    obd_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
         Index("ix_vehicle_positions_vehicle_time", "vehicle_id", "recorded_at"),
         Index("ix_vehicle_positions_route_time", "route_id", "recorded_at"),
         Index("ix_vehicle_positions_feed_time", "feed_id", "recorded_at"),
+        Index("ix_vehicle_positions_source", "source"),
     )
