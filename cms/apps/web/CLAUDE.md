@@ -25,6 +25,10 @@ src/
 │   │   ├── drivers/page.tsx    # Driver management (CRUD, search, shift/status filters, license tracking)
 │   │   ├── gtfs/page.tsx       # GTFS data management (stats overview, RT feed status, ZIP export with agency filter, EU compliance exports — NeTEx/SIRI-VM/SIRI-SM XML downloads)
 │   │   ├── users/page.tsx      # User management (admin-only CRUD, role/status filters, search, reset-password)
+│   │   ├── fleet/page.tsx      # Fleet devices (CRUD, search, protocol/status filters, vehicle linking)
+│   │   ├── fleet/map/page.tsx  # Fleet map (Leaflet device markers, 15s refresh, device sidebar)
+│   │   ├── fleet/telemetry/page.tsx  # Telemetry dashboard (6 Recharts gauges, device selector, time range)
+│   │   ├── geofences/page.tsx  # Geofences (CRUD, polygon map editor, events, dwell reports, split layout)
 │   │   └── {page}/page.tsx     # Future feature pages
 │   ├── login/page.tsx          # Login (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect
@@ -41,14 +45,16 @@ src/
 │   ├── stops/                  # Stop management (table, filters, form, detail, delete-dialog, map with draggable markers)
 │   ├── drivers/                # Driver management (table, filters, form, detail, delete-dialog)
 │   ├── users/                  # User management (table, filters, form, detail, delete-dialog, reset-password-dialog)
-│   └── gtfs/                   # GTFS data management (data-overview stats+feeds, gtfs-export with agency filter, compliance-exports with NeTEx/SIRI downloads)
+│   ├── gtfs/                   # GTFS data management (data-overview stats+feeds, gtfs-export with agency filter, compliance-exports with NeTEx/SIRI downloads)
+│   ├── fleet/                  # Fleet management (devices-table, devices-filters, device-form, device-detail, delete-device-dialog, fleet-map, telemetry-dashboard)
+│   └── geofences/              # Geofence management (geofences-table, geofences-filters, geofence-form, geofence-detail, geofence-map, delete-geofence-dialog)
 ├── hooks/
 │   ├── use-mobile.ts           # useIsMobile() hook (768px breakpoint)
 │   ├── use-vehicle-positions.ts # useVehiclePositions() — WebSocket primary (real-time push, ~100ms latency) with SWR HTTP polling fallback (10s refresh). Route + feed filtering via subscribe message, connection status tracking (live/polling/connecting)
 │   ├── use-dashboard-metrics.ts # useDashboardMetrics() — SWR, 30s refresh (vehicles + routes)
 │   ├── use-calendar-events.ts  # useCalendarEvents() — SWR via @vtv/sdk, 60s refresh (includes goals data)
 │   └── use-drivers-summary.ts  # useDriversSummary() — SWR, 120s refresh (active drivers)
-├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts, driver.ts, event.ts, gtfs.ts, user.ts)
+├── types/                      # TypeScript types (route.ts, schedule.ts, dashboard.ts, document.ts, stop.ts, driver.ts, event.ts, gtfs.ts, user.ts, fleet.ts, geofence.ts)
 ├── lib/
 │   ├── auth-fetch.ts            # JWT-authenticated fetch wrapper (getToken with 60s cache, dual server/client context)
 │   ├── swr-fetcher.ts          # SWR fetcher wrapping authFetch (shared across all SWR hooks)
@@ -62,6 +68,8 @@ src/
 │   ├── schedules-sdk.ts        # Schedules SDK wrapper (22 endpoints: agencies, routes, calendars, trips, import via @vtv/sdk)
 │   ├── stops-sdk.ts            # Stops SDK wrapper (CRUD, nearby search via @vtv/sdk)
 │   ├── users-sdk.ts            # Users SDK wrapper (admin-only CRUD, search, role/status filters via @vtv/sdk)
+│   ├── fleet-sdk.ts            # Fleet SDK wrapper (device CRUD, positions, vehicle history via authFetch)
+│   ├── geofences-sdk.ts        # Geofences SDK wrapper (CRUD, events, dwell reports via authFetch)
 │   ├── color-utils.ts          # Hex color conversion (backend "FF7043" ↔ frontend "#FF7043")
 │   ├── mock-bus-positions.ts   # Mock bus position data (dev fallback)
 │   └── mock-dashboard-data.ts  # Mock dashboard metrics (calendar events now from real API)

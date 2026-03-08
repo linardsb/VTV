@@ -3,10 +3,10 @@ import { NextResponse } from "next/server";
 
 // VTV RBAC — maps roles to allowed path prefixes (PRD Section 7.5)
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  admin: ["/routes", "/stops", "/schedules", "/drivers", "/vehicles", "/analytics", "/gtfs", "/users", "/chat", "/documents"],
-  dispatcher: ["/routes", "/stops", "/schedules", "/drivers", "/vehicles", "/analytics", "/chat", "/documents"],
-  editor: ["/routes", "/stops", "/schedules", "/drivers", "/vehicles", "/analytics", "/gtfs", "/documents"],
-  viewer: ["/routes", "/stops", "/schedules", "/drivers", "/vehicles", "/analytics", "/documents"],
+  admin: ["/routes", "/stops", "/schedules", "/drivers", "/vehicles", "/fleet", "/geofences", "/analytics", "/gtfs", "/users", "/chat", "/documents"],
+  dispatcher: ["/routes", "/stops", "/schedules", "/drivers", "/vehicles", "/fleet", "/geofences", "/analytics", "/chat", "/documents"],
+  editor: ["/routes", "/stops", "/schedules", "/drivers", "/vehicles", "/fleet", "/geofences", "/analytics", "/gtfs", "/documents"],
+  viewer: ["/routes", "/stops", "/schedules", "/drivers", "/vehicles", "/fleet", "/geofences", "/analytics", "/documents"],
 };
 
 export default auth((req) => {
@@ -31,5 +31,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/(lv|en)/(routes|stops|schedules|drivers|vehicles|analytics|gtfs|users|chat|documents)/:path*"],
+  matcher: ["/(lv|en)/(routes|stops|schedules|drivers|vehicles|fleet|geofences|analytics|gtfs|users|chat|documents)/:path*"],
 };

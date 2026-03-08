@@ -38,7 +38,7 @@ function getDelayLabel(
   };
 }
 
-export function BusMarker({ bus, isHighlighted, isDimmed, onSelect, feedBorderColor }: BusMarkerProps) {
+export function BusMarker({ bus, isHighlighted, isDimmed, onSelect }: BusMarkerProps) {
   const t = useTranslations("routes.map");
 
   const icon = useMemo(() => {

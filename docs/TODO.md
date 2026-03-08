@@ -6,7 +6,7 @@ Planned features and improvements. Each item links to its detailed planning docu
 
 ```
 Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
-CMS Frontend      ███████████████████████░  99%  (13 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard)
+CMS Frontend      ███████████████████████░  99%  (17 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences)
 Testing           ████████████████████░░░░  90%  (927 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
@@ -40,8 +40,11 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 - [x] **Phase 1A: Device Management + Telemetry Ingestion** — `app/fleet/` vertical slice: TrackedDevice CRUD (5 endpoints + RBAC), Traccar webhook bridge with OBD-II parsing, `vehicle_positions` hypertable extended with `source` + `obd_data` columns, Traccar Docker sidecar (`--profile fleet`). 17 unit tests. (commit 10ff86c, 2026-03-08)
   - Plan: [.agents/plans/fleet-core-1a.md](../.agents/plans/fleet-core-1a.md)
 
-- [x] **Phase 1B: Geofencing (Backend)** — `app/geofences/` vertical slice: PostGIS POLYGON zones with GIST indexing, 8 REST endpoints (CRUD + event queries + dwell reports), background evaluator (30s cycle, Redis state, ST_Contains), entry/exit/dwell detection with alerts integration, 2 tables (geofences + geofence_events), 23 unit tests. CMS fleet pages still pending. (2026-03-08)
+- [x] **Phase 1B: Geofencing (Backend)** — `app/geofences/` vertical slice: PostGIS POLYGON zones with GIST indexing, 8 REST endpoints (CRUD + event queries + dwell reports), background evaluator (30s cycle, Redis state, ST_Contains), entry/exit/dwell detection with alerts integration, 2 tables (geofences + geofence_events), 23 unit tests. (2026-03-08)
   - Plan: [.agents/plans/geofences-phase-1b.md](../.agents/plans/geofences-phase-1b.md)
+
+- [x] **Phase 1C: CMS Fleet Pages** — 4 frontend pages: Fleet Devices CRUD (`/fleet` — table, filters, form, detail, delete), Fleet Map (`/fleet/map` — Leaflet with device markers, 15s auto-refresh, device sidebar), Telemetry Dashboard (`/fleet/telemetry` — 6 Recharts gauges: speed, RPM, fuel, coolant, engine load, battery), Geofences (`/geofences` — split table+polygon map, click-to-place editor, event history tab, dwell reports). ~160 i18n keys per locale, RBAC, responsive layouts. (2026-03-08)
+  - Plan: [.agents/plans/fleet-cms-phase-1c.md](../.agents/plans/fleet-cms-phase-1c.md)
 
 - [ ] **Phase 2: Fuel + Analytics + LocShare** — Fuel monitoring (refueling/drain detection from OBD), fuel consumption analytics, fleet distance/drive time reports, idle time detection, LocPoints dwell time, LocShare (JWT expiring public tracking links), PDF/CSV report export, speed/device-offline alerts. CMS: fuel dashboard, analytics pages, LocShare management. ~27 days effort.
   - Plan: [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) (Phase 2)
@@ -143,6 +146,15 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 - [x] **Drivers Page** - Real API CRUD against backend `/api/v1/drivers`. Driver profiles, shift management, availability tracking, search and filters. 10 e2e tests.
 
 - [x] **GTFS Page** - Dedicated GTFS data management page at `/[locale]/gtfs` with 3 tabs: Data Overview (5 stat cards — agencies, routes, calendars, trips, stops + GTFS-RT feed status), Import (reuses GTFSImport from Schedules), Export (agency filter + download). Semantic tokens, full i18n (30 keys per locale). Backend data from `/api/v1/schedules` + `/api/v1/transit/feeds`.
+
+- [x] **Fleet Devices Page** - Fleet device CRUD at `/[locale]/fleet`. Table with status badges, protocol/status/vehicle-link filters, IMEI validation, device detail with OBD-II telemetry tab. Backend: `/api/v1/fleet/devices`. (2026-03-08)
+
+- [x] **Fleet Map Page** - Live fleet map at `/[locale]/fleet/map`. Leaflet with device markers (color by source, size by selection), 15s auto-refresh, device list sidebar, connection status. Backend: `/api/v1/fleet/positions`. (2026-03-08)
+
+- [x] **Telemetry Dashboard Page** - OBD-II telemetry at `/[locale]/fleet/telemetry`. 6 Recharts gauges (speed, RPM, fuel level, coolant temp, engine load, battery voltage), device selector, 1h/6h/24h time range. Backend: `/api/v1/fleet/history`. (2026-03-08)
+
+- [x] **Geofences Page** - Geofence management at `/[locale]/geofences`. Desktop: split table+polygon map layout. Click-to-place polygon editor in form. Zone type colors, severity badges, event history tab, dwell time reports. Backend: `/api/v1/geofences` (8 endpoints). (2026-03-08)
+  - Plan: [.agents/plans/fleet-cms-phase-1c.md](../.agents/plans/fleet-cms-phase-1c.md)
 
 - [x] **Mobile Responsive** - All pages: tab-based Table/Map switching, collapsible filter Sheet, hamburger sidebar. (commit 032e617)
 

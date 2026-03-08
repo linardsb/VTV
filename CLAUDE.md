@@ -100,14 +100,15 @@ LocTracker-inspired fleet management extension. Full plan: `docs/PLANNING/fleet-
 
 **Phase 1B (implemented — backend):** `app/geofences/` — PostGIS POLYGON zones with GIST indexing, 8 REST endpoints (CRUD + events + dwell reports), background evaluator (30s cycle, Redis state tracking, `ST_Contains` containment queries), entry/exit/dwell detection with alerts integration. 23 unit tests.
 
+**Phase 1C (implemented — frontend):** CMS fleet pages — Fleet Devices CRUD (`/fleet`), Fleet Map with 15s auto-refresh (`/fleet/map`), Telemetry Dashboard with 6 Recharts gauges (`/fleet/telemetry`), Geofences with split table+polygon map editor, event history, dwell reports (`/geofences`). 4 pages, ~160 i18n keys per locale.
+
 **Remaining phases (planned):**
 - `app/tachograph/` — Remote DDD download, EU 561/2006 driving hours calculator, compliance dashboard (~10 endpoints)
 - `app/messaging/` — Dispatcher↔driver messaging, task assignment (Phase 5)
-- CMS fleet pages — fleet devices page, geofence editor, telemetry gauges (Phase 1B frontend)
 
 **Infrastructure:** Traccar (GPS protocol gateway, Docker sidecar), OSRM (self-hosted routing, Latvia OSM), HERE Maps API (fallback)
 
-**Phases:** 1A. Device CRUD+Telemetry (done) → 1B. Geofencing (backend done, CMS pending) → 2. Fuel+Analytics → 3. Tachograph → 4. Routing → 5. Mobile App. ~110 person-days remaining.
+**Phases:** 1A. Device CRUD+Telemetry (done) → 1B. Geofencing backend (done) → 1C. CMS fleet pages (done) → 2. Fuel+Analytics → 3. Tachograph → 4. Routing → 5. Mobile App. ~110 person-days remaining.
 
 ### Database
 
@@ -130,7 +131,7 @@ Turborepo monorepo under `cms/` with pnpm workspaces. **Full documentation in `c
 
 - **Stack:** Next.js 16 + React 19, Tailwind CSS v4 + semantic tokens, shadcn/ui + CVA, Auth.js v5 (4-role RBAC), next-intl (lv/en)
 - **SDK:** `@vtv/sdk` — auto-generated TypeScript client (66 endpoints, 95+ types). All 13 API domains migrated from hand-written fetch to SDK wrappers.
-- **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, Vehicles, GTFS, Documents, Users, Chat, Login
+- **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, Vehicles, Fleet Devices, Fleet Map, Telemetry, Geofences, GTFS, Documents, Users, Chat, Login
 - **New page checklist:** page component → i18n keys (lv + en) → sidebar nav → middleware RBAC → semantic tokens only
 
 ## Development Guidelines

@@ -21,6 +21,10 @@
     "users": "Lietotāji",
     "documents": "Dokumenti",
     "chat": "AI palīgs",
+    "fleet": "Flotes ierīces",
+    "fleetMap": "Flotes karte",
+    "geofences": "Geozonējums",
+    "telemetry": "Telemetrija",
     "menu": "Izvēlne"
   },
   "dashboard": {
@@ -1293,6 +1297,247 @@
     },
     "mobile": {
       "showFilters": "Filtri"
+    }
+  },
+  "fleet": {
+    "title": "Flotes ierīces",
+    "description": "GPS izsekošanas ierīču pārvaldība",
+    "search": "Meklēt ierīces...",
+    "filters": {
+      "allStatuses": "Visi statusi",
+      "active": "Aktīva",
+      "inactive": "Neaktīva",
+      "offline": "Bezsaistē",
+      "allProtocols": "Visi protokoli",
+      "teltonika": "Teltonika",
+      "queclink": "Queclink",
+      "general": "Vispārējs",
+      "osmand": "OsmAnd",
+      "other": "Cits",
+      "linkedOnly": "Tikai saistītās",
+      "unlinkedOnly": "Tikai nesaistītās",
+      "allLinks": "Visas ierīces",
+      "status": "Statuss",
+      "protocol": "Protokols",
+      "vehicleLink": "Transportlīdzekļa saite"
+    },
+    "table": {
+      "imei": "IMEI",
+      "deviceName": "Ierīces nosaukums",
+      "simNumber": "SIM numurs",
+      "protocol": "Protokols",
+      "status": "Statuss",
+      "vehicle": "Transportlīdzeklis",
+      "lastSeen": "Pēdējo reizi redzēta",
+      "actions": "Darbības",
+      "noResults": "Ierīces nav atrastas",
+      "unlinked": "Nav saistīta",
+      "neverSeen": "Nekad"
+    },
+    "detail": {
+      "title": "Ierīces informācija",
+      "tabs": {
+        "info": "Informācija",
+        "telemetry": "Telemetrija"
+      },
+      "imei": "IMEI",
+      "simNumber": "SIM numurs",
+      "protocol": "Protokols",
+      "firmware": "Programmaparatūras versija",
+      "vehicle": "Saistītais transportlīdzeklis",
+      "status": "Statuss",
+      "lastSeen": "Pēdējo reizi redzēta",
+      "notes": "Piezīmes",
+      "createdAt": "Izveidota",
+      "noTelemetry": "Telemetrijas dati nav pieejami"
+    },
+    "form": {
+      "createTitle": "Pievienot ierīci",
+      "editTitle": "Rediģēt ierīci",
+      "imei": "IMEI",
+      "imeiHelp": "15 ciparu starptautiskais mobilā aprīkojuma identifikators",
+      "deviceName": "Ierīces nosaukums",
+      "simNumber": "SIM numurs",
+      "protocol": "Protokola tips",
+      "firmware": "Programmaparatūras versija",
+      "vehicle": "Saistītais transportlīdzeklis",
+      "vehiclePlaceholder": "Izvēlēties transportlīdzekli...",
+      "notes": "Piezīmes"
+    },
+    "actions": {
+      "create": "Pievienot ierīci",
+      "edit": "Rediģēt",
+      "delete": "Dzēst",
+      "save": "Saglabāt",
+      "cancel": "Atcelt",
+      "refresh": "Atjaunināt"
+    },
+    "delete": {
+      "title": "Dzēst ierīci",
+      "confirmation": "Vai tiešām vēlaties dzēst ierīci {imei}?",
+      "warning": "Šo darbību nevar atsaukt. Visi ar šo ierīci saistītie telemetrijas dati tiks saglabāti.",
+      "cancel": "Atcelt",
+      "confirm": "Dzēst"
+    },
+    "toast": {
+      "created": "Ierīce veiksmīgi pievienota",
+      "updated": "Ierīce veiksmīgi atjaunināta",
+      "deleted": "Ierīce veiksmīgi dzēsta",
+      "loadError": "Neizdevās ielādēt ierīces",
+      "createError": "Neizdevās pievienot ierīci",
+      "updateError": "Neizdevās atjaunināt ierīci",
+      "deleteError": "Neizdevās dzēst ierīci"
+    },
+    "map": {
+      "title": "Flotes karte",
+      "vehicles": "{count, plural, one {{count} ierīce} other {{count} ierīces}}",
+      "noData": "Nav pieejami ierīču pozīciju dati",
+      "deviceStatus": "Statuss",
+      "lastUpdate": "Pēdējā atjaunināšana",
+      "speed": "Ātrums",
+      "noDevices": "Nav flotes ierīču ar pozīcijām"
+    },
+    "telemetry": {
+      "title": "Telemetrijas panelis",
+      "description": "Transportlīdzekļu OBD-II telemetrijas uzraudzība",
+      "selectDevice": "Izvēlēties ierīci",
+      "timeRange": "Laika diapazons",
+      "last1h": "1h",
+      "last6h": "6h",
+      "last24h": "24h",
+      "speed": "Ātrums (km/h)",
+      "rpm": "RPM",
+      "fuelLevel": "Degvielas līmenis (%)",
+      "coolantTemp": "Dzesēšanas temperatūra (\u00b0C)",
+      "engineLoad": "Dzinēja slodze (%)",
+      "battery": "Akumulators (V)",
+      "noData": "Telemetrijas dati nav pieejami",
+      "loadError": "Neizdevās ielādēt telemetrijas datus"
+    },
+    "mobile": {
+      "showFilters": "Filtri"
+    }
+  },
+  "geofences": {
+    "title": "Geozonējums",
+    "description": "Ģeogrāfisko zonu pārvaldība un uzraudzība",
+    "search": "Meklēt geozonas...",
+    "filters": {
+      "allTypes": "Visi tipi",
+      "depot": "Depo",
+      "terminal": "Terminālis",
+      "restricted": "Ierobežota",
+      "customer": "Klients",
+      "custom": "Pielāgota",
+      "activeOnly": "Tikai aktīvās",
+      "inactiveOnly": "Tikai neaktīvās",
+      "allStatuses": "Visi statusi",
+      "zoneType": "Zonas tips",
+      "status": "Statuss"
+    },
+    "table": {
+      "name": "Nosaukums",
+      "zoneType": "Zonas tips",
+      "alertsEnabled": "Brīdinājumi",
+      "severity": "Svarīgums",
+      "status": "Statuss",
+      "actions": "Darbības",
+      "noResults": "Geozonas nav atrastas",
+      "active": "Aktīva",
+      "inactive": "Neaktīva"
+    },
+    "detail": {
+      "title": "Geozonas informācija",
+      "tabs": {
+        "info": "Informācija",
+        "events": "Notikumi",
+        "dwell": "Uzturēšanās pārskats"
+      },
+      "name": "Nosaukums",
+      "zoneType": "Zonas tips",
+      "color": "Krāsa",
+      "description": "Apraksts",
+      "alertOnEnter": "Brīdinājums ieejot",
+      "alertOnExit": "Brīdinājums izejot",
+      "alertOnDwell": "Brīdinājums par uzturēšanos",
+      "dwellThreshold": "Uzturēšanās slieksnis",
+      "severity": "Brīdinājuma svarīgums",
+      "status": "Statuss",
+      "createdAt": "Izveidota"
+    },
+    "form": {
+      "createTitle": "Izveidot geozonu",
+      "editTitle": "Rediģēt geozonu",
+      "name": "Nosaukums",
+      "zoneType": "Zonas tips",
+      "color": "Krāsa",
+      "description": "Apraksts",
+      "alertOnEnter": "Brīdinājums ieejot",
+      "alertOnExit": "Brīdinājums izejot",
+      "alertOnDwell": "Brīdinājums par uzturēšanos",
+      "dwellThreshold": "Uzturēšanās slieksnis (minūtes)",
+      "dwellThresholdHelp": "Laiks minūtēs pirms uzturēšanās brīdinājuma aktivizēšanas",
+      "severity": "Brīdinājuma svarīgums",
+      "coordinates": "Zonas koordinātas",
+      "coordinatesHelp": "Noklikšķiniet uz kartes, lai definētu zonas robežu",
+      "drawOnMap": "Zīmēt kartē"
+    },
+    "actions": {
+      "create": "Izveidot geozonu",
+      "edit": "Rediģēt",
+      "delete": "Dzēst",
+      "save": "Saglabāt",
+      "cancel": "Atcelt"
+    },
+    "delete": {
+      "title": "Dzēst geozonu",
+      "confirmation": "Vai tiešām vēlaties dzēst geozonu \"{name}\"?",
+      "warning": "Šo darbību nevar atsaukt. Visi saistītie notikumi arī tiks dzēsti.",
+      "cancel": "Atcelt",
+      "confirm": "Dzēst"
+    },
+    "toast": {
+      "created": "Geozona veiksmīgi izveidota",
+      "updated": "Geozona veiksmīgi atjaunināta",
+      "deleted": "Geozona veiksmīgi dzēsta",
+      "loadError": "Neizdevās ielādēt geozonas",
+      "createError": "Neizdevās izveidot geozonu",
+      "updateError": "Neizdevās atjaunināt geozonu",
+      "deleteError": "Neizdevās dzēst geozonu"
+    },
+    "events": {
+      "title": "Notikumi",
+      "vehicleId": "Transportlīdzeklis",
+      "eventType": "Notikuma tips",
+      "enteredAt": "Ieeja",
+      "exitedAt": "Izeja",
+      "dwellTime": "Uzturēšanās laiks",
+      "noEvents": "Notikumi nav reģistrēti",
+      "enter": "Ieeja",
+      "exit": "Izeja",
+      "dwellExceeded": "Uzturēšanās pārsniegta"
+    },
+    "dwell": {
+      "title": "Uzturēšanās pārskats",
+      "totalEvents": "Kopā notikumi",
+      "avgDwell": "Vid. uzturēšanās laiks",
+      "maxDwell": "Maks. uzturēšanās laiks",
+      "vehiclesInside": "Transportlīdzekļi iekšā",
+      "minutes": "{count} min",
+      "noData": "Uzturēšanās dati nav pieejami"
+    },
+    "map": {
+      "title": "Geozonas karte",
+      "drawPolygon": "Zīmēt daudzstūri",
+      "editPolygon": "Rediģēt daudzstūri",
+      "clearPolygon": "Notīrīt daudzstūri",
+      "clickToPlace": "Noklikšķiniet, lai novietotu virsotnes",
+      "polygonComplete": "Daudzstūris pabeigts"
+    },
+    "mobile": {
+      "showFilters": "Filtri",
+      "showMap": "Rādīt karti",
+      "showList": "Rādīt sarakstu"
     }
   }
 }

@@ -21,6 +21,10 @@
     "users": "Users",
     "documents": "Documents",
     "chat": "AI Assistant",
+    "fleet": "Fleet Devices",
+    "fleetMap": "Fleet Map",
+    "geofences": "Geofences",
+    "telemetry": "Telemetry",
     "menu": "Menu"
   },
   "dashboard": {
@@ -1293,6 +1297,247 @@
     },
     "mobile": {
       "showFilters": "Filters"
+    }
+  },
+  "fleet": {
+    "title": "Fleet Devices",
+    "description": "Manage GPS tracking devices",
+    "search": "Search devices...",
+    "filters": {
+      "allStatuses": "All Statuses",
+      "active": "Active",
+      "inactive": "Inactive",
+      "offline": "Offline",
+      "allProtocols": "All Protocols",
+      "teltonika": "Teltonika",
+      "queclink": "Queclink",
+      "general": "General",
+      "osmand": "OsmAnd",
+      "other": "Other",
+      "linkedOnly": "Linked Only",
+      "unlinkedOnly": "Unlinked Only",
+      "allLinks": "All Devices",
+      "status": "Status",
+      "protocol": "Protocol",
+      "vehicleLink": "Vehicle Link"
+    },
+    "table": {
+      "imei": "IMEI",
+      "deviceName": "Device Name",
+      "simNumber": "SIM Number",
+      "protocol": "Protocol",
+      "status": "Status",
+      "vehicle": "Vehicle",
+      "lastSeen": "Last Seen",
+      "actions": "Actions",
+      "noResults": "No devices found",
+      "unlinked": "Unlinked",
+      "neverSeen": "Never"
+    },
+    "detail": {
+      "title": "Device Details",
+      "tabs": {
+        "info": "Info",
+        "telemetry": "Telemetry"
+      },
+      "imei": "IMEI",
+      "simNumber": "SIM Number",
+      "protocol": "Protocol",
+      "firmware": "Firmware Version",
+      "vehicle": "Linked Vehicle",
+      "status": "Status",
+      "lastSeen": "Last Seen",
+      "notes": "Notes",
+      "createdAt": "Created At",
+      "noTelemetry": "No telemetry data available"
+    },
+    "form": {
+      "createTitle": "Add Device",
+      "editTitle": "Edit Device",
+      "imei": "IMEI",
+      "imeiHelp": "15-digit International Mobile Equipment Identity",
+      "deviceName": "Device Name",
+      "simNumber": "SIM Number",
+      "protocol": "Protocol Type",
+      "firmware": "Firmware Version",
+      "vehicle": "Linked Vehicle",
+      "vehiclePlaceholder": "Select vehicle...",
+      "notes": "Notes"
+    },
+    "actions": {
+      "create": "Add Device",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel",
+      "refresh": "Refresh"
+    },
+    "delete": {
+      "title": "Delete Device",
+      "confirmation": "Are you sure you want to delete device {imei}?",
+      "warning": "This action cannot be undone. All telemetry data associated with this device will be preserved.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    },
+    "toast": {
+      "created": "Device added successfully",
+      "updated": "Device updated successfully",
+      "deleted": "Device deleted successfully",
+      "loadError": "Failed to load devices",
+      "createError": "Failed to add device",
+      "updateError": "Failed to update device",
+      "deleteError": "Failed to delete device"
+    },
+    "map": {
+      "title": "Fleet Map",
+      "vehicles": "{count, plural, one {{count} device} other {{count} devices}}",
+      "noData": "No device positions available",
+      "deviceStatus": "Status",
+      "lastUpdate": "Last Update",
+      "speed": "Speed",
+      "noDevices": "No fleet devices with positions"
+    },
+    "telemetry": {
+      "title": "Telemetry Dashboard",
+      "description": "Vehicle OBD-II telemetry monitoring",
+      "selectDevice": "Select Device",
+      "timeRange": "Time Range",
+      "last1h": "1h",
+      "last6h": "6h",
+      "last24h": "24h",
+      "speed": "Speed (km/h)",
+      "rpm": "RPM",
+      "fuelLevel": "Fuel Level (%)",
+      "coolantTemp": "Coolant Temp (\u00b0C)",
+      "engineLoad": "Engine Load (%)",
+      "battery": "Battery (V)",
+      "noData": "No telemetry data available",
+      "loadError": "Failed to load telemetry data"
+    },
+    "mobile": {
+      "showFilters": "Filters"
+    }
+  },
+  "geofences": {
+    "title": "Geofences",
+    "description": "Geographic zone management and monitoring",
+    "search": "Search geofences...",
+    "filters": {
+      "allTypes": "All Types",
+      "depot": "Depot",
+      "terminal": "Terminal",
+      "restricted": "Restricted",
+      "customer": "Customer",
+      "custom": "Custom",
+      "activeOnly": "Active Only",
+      "inactiveOnly": "Inactive Only",
+      "allStatuses": "All Statuses",
+      "zoneType": "Zone Type",
+      "status": "Status"
+    },
+    "table": {
+      "name": "Name",
+      "zoneType": "Zone Type",
+      "alertsEnabled": "Alerts",
+      "severity": "Severity",
+      "status": "Status",
+      "actions": "Actions",
+      "noResults": "No geofences found",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "detail": {
+      "title": "Geofence Details",
+      "tabs": {
+        "info": "Info",
+        "events": "Events",
+        "dwell": "Dwell Report"
+      },
+      "name": "Name",
+      "zoneType": "Zone Type",
+      "color": "Color",
+      "description": "Description",
+      "alertOnEnter": "Alert on Enter",
+      "alertOnExit": "Alert on Exit",
+      "alertOnDwell": "Alert on Dwell",
+      "dwellThreshold": "Dwell Threshold",
+      "severity": "Alert Severity",
+      "status": "Status",
+      "createdAt": "Created At"
+    },
+    "form": {
+      "createTitle": "Create Geofence",
+      "editTitle": "Edit Geofence",
+      "name": "Name",
+      "zoneType": "Zone Type",
+      "color": "Color",
+      "description": "Description",
+      "alertOnEnter": "Alert on Enter",
+      "alertOnExit": "Alert on Exit",
+      "alertOnDwell": "Alert on Dwell",
+      "dwellThreshold": "Dwell Threshold (minutes)",
+      "dwellThresholdHelp": "Time in minutes before dwell alert triggers",
+      "severity": "Alert Severity",
+      "coordinates": "Zone Coordinates",
+      "coordinatesHelp": "Click on the map to define the zone boundary",
+      "drawOnMap": "Draw on Map"
+    },
+    "actions": {
+      "create": "Create Geofence",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "delete": {
+      "title": "Delete Geofence",
+      "confirmation": "Are you sure you want to delete geofence \"{name}\"?",
+      "warning": "This action cannot be undone. All associated events will also be deleted.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    },
+    "toast": {
+      "created": "Geofence created successfully",
+      "updated": "Geofence updated successfully",
+      "deleted": "Geofence deleted successfully",
+      "loadError": "Failed to load geofences",
+      "createError": "Failed to create geofence",
+      "updateError": "Failed to update geofence",
+      "deleteError": "Failed to delete geofence"
+    },
+    "events": {
+      "title": "Events",
+      "vehicleId": "Vehicle",
+      "eventType": "Event Type",
+      "enteredAt": "Entered At",
+      "exitedAt": "Exited At",
+      "dwellTime": "Dwell Time",
+      "noEvents": "No events recorded",
+      "enter": "Enter",
+      "exit": "Exit",
+      "dwellExceeded": "Dwell Exceeded"
+    },
+    "dwell": {
+      "title": "Dwell Report",
+      "totalEvents": "Total Events",
+      "avgDwell": "Avg Dwell Time",
+      "maxDwell": "Max Dwell Time",
+      "vehiclesInside": "Vehicles Inside",
+      "minutes": "{count} min",
+      "noData": "No dwell data available"
+    },
+    "map": {
+      "title": "Geofence Map",
+      "drawPolygon": "Draw Polygon",
+      "editPolygon": "Edit Polygon",
+      "clearPolygon": "Clear Polygon",
+      "clickToPlace": "Click to place vertices",
+      "polygonComplete": "Polygon complete"
+    },
+    "mobile": {
+      "showFilters": "Filters",
+      "showMap": "Show Map",
+      "showList": "Show List"
     }
   }
 }
