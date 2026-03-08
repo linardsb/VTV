@@ -59,30 +59,42 @@ def upgrade() -> None:
         ["feed_id", "recorded_at"],
     )
 
-    # Convert to TimescaleDB hypertable
-    op.execute("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
-    op.execute(
-        "SELECT create_hypertable('vehicle_positions', 'recorded_at', "
-        "chunk_time_interval => INTERVAL '1 day', "
-        "migrate_data => true)"
+    # Convert to TimescaleDB hypertable (if TimescaleDB is available)
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT EXISTS(SELECT 1 FROM pg_available_extensions WHERE name = 'timescaledb')"
+        )
     )
+    has_timescaledb = result.scalar()
 
-    # Compression policy: compress chunks older than 7 days
-    op.execute(
-        "ALTER TABLE vehicle_positions SET ("
-        "timescaledb.compress, "
-        "timescaledb.compress_segmentby = 'feed_id, vehicle_id, route_id', "
-        "timescaledb.compress_orderby = 'recorded_at DESC'"
-        ")"
-    )
-    op.execute("SELECT add_compression_policy('vehicle_positions', INTERVAL '7 days')")
-
-    # Retention policy: drop chunks older than 90 days
-    op.execute("SELECT add_retention_policy('vehicle_positions', INTERVAL '90 days')")
+    if has_timescaledb:
+        op.execute("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
+        op.execute(
+            "SELECT create_hypertable('vehicle_positions', 'recorded_at', "
+            "chunk_time_interval => INTERVAL '1 day', "
+            "migrate_data => true)"
+        )
+        op.execute(
+            "ALTER TABLE vehicle_positions SET ("
+            "timescaledb.compress, "
+            "timescaledb.compress_segmentby = 'feed_id, vehicle_id, route_id', "
+            "timescaledb.compress_orderby = 'recorded_at DESC'"
+            ")"
+        )
+        op.execute("SELECT add_compression_policy('vehicle_positions', INTERVAL '7 days')")
+        op.execute("SELECT add_retention_policy('vehicle_positions', INTERVAL '90 days')")
 
 
 def downgrade() -> None:
     """Remove vehicle_positions hypertable and policies."""
-    op.execute("SELECT remove_retention_policy('vehicle_positions', if_exists => true)")
-    op.execute("SELECT remove_compression_policy('vehicle_positions', if_exists => true)")
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT EXISTS(SELECT 1 FROM pg_available_extensions WHERE name = 'timescaledb')"
+        )
+    )
+    if result.scalar():
+        op.execute("SELECT remove_retention_policy('vehicle_positions', if_exists => true)")
+        op.execute("SELECT remove_compression_policy('vehicle_positions', if_exists => true)")
     op.drop_table("vehicle_positions")
