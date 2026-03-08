@@ -21,6 +21,8 @@ from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.transit.schemas import (
     RouteDelayTrendResponse,
+    TransitFeedsResponse,
+    TransitFeedStatus,
     VehicleHistoryResponse,
     VehiclePositionsResponse,
 )
@@ -66,24 +68,25 @@ async def get_vehicles(
     return await service.get_vehicle_positions(route_id=route_id, feed_id=feed_id)
 
 
-@router.get("/feeds")
+@router.get("/feeds", response_model=TransitFeedsResponse)
 @limiter.limit("30/minute")
 async def get_feeds(
     request: Request,
     _current_user: User = Depends(get_current_user),  # noqa: B008
-) -> list[dict[str, object]]:
+) -> TransitFeedsResponse:
     """List configured transit feeds and their status."""
     _ = request
     settings = get_settings()
-    return [
-        {
-            "feed_id": f.feed_id,
-            "operator_name": f.operator_name,
-            "enabled": f.enabled,
-            "poll_interval_seconds": f.poll_interval_seconds,
-        }
+    feeds = [
+        TransitFeedStatus(
+            feed_id=f.feed_id,
+            operator_name=f.operator_name,
+            enabled=f.enabled,
+            poll_interval_seconds=f.poll_interval_seconds,
+        )
         for f in settings.transit_feeds
     ]
+    return TransitFeedsResponse(feeds=feeds)
 
 
 @router.get("/vehicles/{vehicle_id}/history", response_model=VehicleHistoryResponse)

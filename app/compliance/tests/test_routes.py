@@ -111,6 +111,42 @@ async def test_status_returns_json(mock_status: AsyncMock) -> None:
 
 
 @pytest.mark.asyncio
+async def test_compliance_endpoints_in_openapi_spec() -> None:
+    """All 4 compliance endpoints appear in the OpenAPI schema."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/openapi.json")
+
+    assert response.status_code == 200
+    spec = response.json()
+    paths = spec["paths"]
+
+    expected_paths = [
+        "/api/v1/compliance/netex",
+        "/api/v1/compliance/siri/vm",
+        "/api/v1/compliance/siri/sm",
+        "/api/v1/compliance/status",
+    ]
+    for path in expected_paths:
+        assert path in paths, f"{path} missing from OpenAPI spec"
+
+    # XML endpoints should document application/xml response
+    for xml_path in expected_paths[:3]:
+        responses = paths[xml_path]["get"]["responses"]
+        assert "200" in responses
+        content = responses["200"].get("content", {})
+        assert "application/xml" in content, f"{xml_path} missing application/xml content type"
+
+    # Status endpoint should document application/json response
+    status_responses = paths[expected_paths[3]]["get"]["responses"]
+    assert "200" in status_responses
+    status_content = status_responses["200"].get("content", {})
+    assert "application/json" in status_content
+
+
+@pytest.mark.asyncio
 async def test_endpoints_require_authentication() -> None:
     """All compliance endpoints return 401 without auth."""
     # Remove the auth override

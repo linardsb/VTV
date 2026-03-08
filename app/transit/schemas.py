@@ -69,6 +69,36 @@ class VehiclePositionsResponse(BaseModel):
     feed_id: str | None = None
 
 
+class TransitFeedStatus(BaseModel):
+    """Status of a single configured transit feed.
+
+    Attributes:
+        feed_id: Unique identifier for the feed (e.g., "riga").
+        operator_name: Human-readable operator name.
+        enabled: Whether the feed is actively polled.
+        poll_interval_seconds: Polling frequency in seconds.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    feed_id: str
+    operator_name: str
+    enabled: bool
+    poll_interval_seconds: int
+
+
+class TransitFeedsResponse(BaseModel):
+    """Response for transit feeds status endpoint.
+
+    Attributes:
+        feeds: List of configured transit feed statuses.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    feeds: list[TransitFeedStatus]
+
+
 class HistoricalPosition(BaseModel):
     """A single historical position data point."""
 

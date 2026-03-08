@@ -14,7 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.auth.models import User
-from app.compliance.schemas import ExportMetadata
+from app.compliance.schemas import (
+    NETEX_RESPONSES,
+    SIRI_SM_RESPONSES,
+    SIRI_VM_RESPONSES,
+    ExportMetadata,
+)
 from app.compliance.service import ComplianceService
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
@@ -31,7 +36,7 @@ def _get_service(
     return ComplianceService(db, settings)
 
 
-@router.get("/netex")
+@router.get("/netex", responses=NETEX_RESPONSES)
 @limiter.limit("3/minute")
 async def export_netex(
     request: Request,
@@ -49,7 +54,7 @@ async def export_netex(
     )
 
 
-@router.get("/siri/vm")
+@router.get("/siri/vm", responses=SIRI_VM_RESPONSES)
 @limiter.limit("10/minute")
 async def get_siri_vm(
     request: Request,
@@ -67,7 +72,7 @@ async def get_siri_vm(
     )
 
 
-@router.get("/siri/sm")
+@router.get("/siri/sm", responses=SIRI_SM_RESPONSES)
 @limiter.limit("10/minute")
 async def get_siri_sm(
     request: Request,

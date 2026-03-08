@@ -165,11 +165,14 @@ async def test_get_feeds(mock_get_settings: MagicMock) -> None:
 
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2
-    assert data[0]["feed_id"] == "riga"
-    assert data[0]["enabled"] is True
-    assert data[1]["feed_id"] == "jurmala"
-    assert data[1]["enabled"] is False
+    assert "feeds" in data
+    feeds = data["feeds"]
+    assert len(feeds) == 2
+    assert feeds[0]["feed_id"] == "riga"
+    assert feeds[0]["enabled"] is True
+    assert feeds[0]["poll_interval_seconds"] == 10
+    assert feeds[1]["feed_id"] == "jurmala"
+    assert feeds[1]["enabled"] is False
 
 
 @pytest.mark.asyncio
