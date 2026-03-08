@@ -33,7 +33,7 @@ async def test_parse_agencies():
         agency_txt="agency_id,agency_name,agency_url,agency_timezone,agency_lang\n"
         "RS,Rigas Satiksme,https://www.rigassatiksme.lv,Europe/Riga,lv\n"
     )
-    importer = GTFSImporter(zip_data)
+    importer = GTFSImporter(zip_data, feed_id="test")
     result = importer.parse(stop_map={})
 
     assert len(result.agencies) == 1
@@ -52,7 +52,7 @@ async def test_parse_routes():
         "trol_14,RS,14,Centrs - Imanta,11\n"
         "tram_1,RS,1,Jugla - Imanta,0\n",
     )
-    importer = GTFSImporter(zip_data)
+    importer = GTFSImporter(zip_data, feed_id="test")
     result = importer.parse(stop_map={})
 
     assert len(result.routes) == 3
@@ -72,7 +72,7 @@ async def test_parse_calendars_and_dates():
         "weekday_1,20260315,2\n"
         "weekday_1,20260316,1\n",
     )
-    importer = GTFSImporter(zip_data)
+    importer = GTFSImporter(zip_data, feed_id="test")
     result = importer.parse(stop_map={})
 
     assert len(result.calendars) == 1
@@ -98,7 +98,7 @@ async def test_parse_trips():
         "bus_22,weekday_1,trip_22_1,0,Jugla\n"
         "bus_22,weekday_1,trip_22_2,1,Centrs\n",
     )
-    importer = GTFSImporter(zip_data)
+    importer = GTFSImporter(zip_data, feed_id="test")
     result = importer.parse(stop_map={})
 
     assert len(result.trips) == 2
@@ -123,7 +123,7 @@ async def test_parse_stop_times_with_stop_map():
         "trip_22_1,08:00:00,08:01:00,1001,1\n"
         "trip_22_1,08:05:00,08:06:00,1002,2\n",
     )
-    importer = GTFSImporter(zip_data)
+    importer = GTFSImporter(zip_data, feed_id="test")
     result = importer.parse(stop_map=stop_map)
 
     assert len(result.stop_times) == 2
@@ -149,7 +149,7 @@ async def test_parse_stop_times_missing_stop_skipped():
         "trip_22_1,08:00:00,08:01:00,1001,1\n"
         "trip_22_1,08:05:00,08:06:00,1002,2\n",
     )
-    importer = GTFSImporter(zip_data)
+    importer = GTFSImporter(zip_data, feed_id="test")
     result = importer.parse(stop_map=stop_map)
 
     assert len(result.stop_times) == 1
@@ -163,7 +163,7 @@ async def test_missing_agencies_file_creates_default():
         routes_txt="route_id,agency_id,route_short_name,route_long_name,route_type\n"
         "bus_22,,22,Centrs - Jugla,3\n",
     )
-    importer = GTFSImporter(zip_data)
+    importer = GTFSImporter(zip_data, feed_id="test")
     result = importer.parse(stop_map={})
 
     assert len(result.agencies) == 1

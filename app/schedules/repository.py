@@ -106,13 +106,19 @@ class ScheduleRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list_agencies(self) -> list[Agency]:
+    async def list_agencies(self, feed_id: str | None = None) -> list[Agency]:
         """List all agencies.
 
+        Args:
+            feed_id: Optional feed filter. If None, returns all feeds.
+
         Returns:
-            List of all Agency instances.
+            List of matching Agency instances.
         """
-        result = await self.db.execute(select(Agency).order_by(Agency.agency_name))
+        query = select(Agency)
+        if feed_id is not None:
+            query = query.where(Agency.feed_id == feed_id)
+        result = await self.db.execute(query.order_by(Agency.agency_name))
         return list(result.scalars().all())
 
     # --- Route ---
@@ -165,6 +171,7 @@ class ScheduleRepository:
         route_type: int | None = None,
         agency_id: int | None = None,
         is_active: bool | None = None,
+        feed_id: str | None = None,
     ) -> list[Route]:
         """List routes with pagination and filtering.
 
@@ -191,6 +198,8 @@ class ScheduleRepository:
             query = query.where(Route.agency_id == agency_id)
         if is_active is not None:
             query = query.where(Route.is_active == is_active)
+        if feed_id is not None:
+            query = query.where(Route.feed_id == feed_id)
         query = query.order_by(Route.route_short_name).offset(offset).limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -202,6 +211,7 @@ class ScheduleRepository:
         route_type: int | None = None,
         agency_id: int | None = None,
         is_active: bool | None = None,
+        feed_id: str | None = None,
     ) -> int:
         """Count routes matching filters.
 
@@ -226,6 +236,8 @@ class ScheduleRepository:
             query = query.where(Route.agency_id == agency_id)
         if is_active is not None:
             query = query.where(Route.is_active == is_active)
+        if feed_id is not None:
+            query = query.where(Route.feed_id == feed_id)
         result = await self.db.execute(query)
         return result.scalar_one()
 
@@ -626,44 +638,92 @@ class ScheduleRepository:
 
     # --- Export helpers (unpaginated) ---
 
-    async def list_all_agencies(self) -> list[Agency]:
-        """List all agencies without pagination (for GTFS export)."""
-        result = await self.db.execute(select(Agency).order_by(Agency.id))
+    async def list_all_agencies(self, feed_id: str | None = None) -> list[Agency]:
+        """List all agencies without pagination (for GTFS export).
+
+        Args:
+            feed_id: Optional feed filter. If None, returns all feeds.
+        """
+        query = select(Agency)
+        if feed_id is not None:
+            query = query.where(Agency.feed_id == feed_id)
+        result = await self.db.execute(query.order_by(Agency.id))
         return list(result.scalars().all())
 
-    async def list_all_routes(self, agency_id: int | None = None) -> list[Route]:
-        """List all routes without pagination (for GTFS export)."""
+    async def list_all_routes(
+        self, agency_id: int | None = None, feed_id: str | None = None
+    ) -> list[Route]:
+        """List all routes without pagination (for GTFS export).
+
+        Args:
+            agency_id: Optional agency filter.
+            feed_id: Optional feed filter. If None, returns all feeds.
+        """
         query = select(Route)
         if agency_id is not None:
             query = query.where(Route.agency_id == agency_id)
+        if feed_id is not None:
+            query = query.where(Route.feed_id == feed_id)
         query = query.order_by(Route.id)
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def list_all_calendars(self) -> list[Calendar]:
-        """List all calendars without pagination (for GTFS export)."""
-        result = await self.db.execute(select(Calendar).order_by(Calendar.id))
+    async def list_all_calendars(self, feed_id: str | None = None) -> list[Calendar]:
+        """List all calendars without pagination (for GTFS export).
+
+        Args:
+            feed_id: Optional feed filter. If None, returns all feeds.
+        """
+        query = select(Calendar)
+        if feed_id is not None:
+            query = query.where(Calendar.feed_id == feed_id)
+        result = await self.db.execute(query.order_by(Calendar.id))
         return list(result.scalars().all())
 
-    async def list_all_calendar_dates(self) -> list[CalendarDate]:
-        """List all calendar date exceptions without pagination (for GTFS export)."""
-        result = await self.db.execute(select(CalendarDate).order_by(CalendarDate.id))
+    async def list_all_calendar_dates(self, feed_id: str | None = None) -> list[CalendarDate]:
+        """List all calendar date exceptions without pagination (for GTFS export).
+
+        Args:
+            feed_id: Optional feed filter. If None, returns all feeds.
+        """
+        query = select(CalendarDate)
+        if feed_id is not None:
+            query = query.join(Calendar).where(Calendar.feed_id == feed_id)
+        result = await self.db.execute(query.order_by(CalendarDate.id))
         return list(result.scalars().all())
 
-    async def list_all_trips(self, route_ids: list[int] | None = None) -> list[Trip]:
-        """List all trips without pagination (for GTFS export)."""
+    async def list_all_trips(
+        self, route_ids: list[int] | None = None, feed_id: str | None = None
+    ) -> list[Trip]:
+        """List all trips without pagination (for GTFS export).
+
+        Args:
+            route_ids: Optional route ID filter.
+            feed_id: Optional feed filter. If None, returns all feeds.
+        """
         query = select(Trip)
         if route_ids is not None:
             query = query.where(Trip.route_id.in_(route_ids))
+        if feed_id is not None:
+            query = query.where(Trip.feed_id == feed_id)
         query = query.order_by(Trip.id)
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def list_all_stop_times(self, trip_ids: list[int] | None = None) -> list[StopTime]:
-        """List all stop times without pagination (for GTFS export)."""
+    async def list_all_stop_times(
+        self, trip_ids: list[int] | None = None, feed_id: str | None = None
+    ) -> list[StopTime]:
+        """List all stop times without pagination (for GTFS export).
+
+        Args:
+            trip_ids: Optional trip ID filter.
+            feed_id: Optional feed filter. If None, returns all feeds.
+        """
         query = select(StopTime)
         if trip_ids is not None:
             query = query.where(StopTime.trip_id.in_(trip_ids))
+        if feed_id is not None:
+            query = query.join(Trip).where(Trip.feed_id == feed_id)
         query = query.order_by(StopTime.trip_id, StopTime.stop_sequence)
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -743,13 +803,16 @@ class ScheduleRepository:
         """
         if not values:
             return 0, 0
-        existing_ids = await self._existing_gtfs_ids(
-            Agency.gtfs_agency_id, [v["gtfs_agency_id"] for v in values]
+        existing_ids = await self._existing_gtfs_ids_for_feed(
+            Agency.gtfs_agency_id,
+            Agency.feed_id,
+            [v["gtfs_agency_id"] for v in values],
+            values[0]["feed_id"],
         )
         update_cols = ["agency_name", "agency_url", "agency_timezone", "agency_lang"]
         stmt = pg_insert(Agency).values(values)
         stmt = stmt.on_conflict_do_update(
-            index_elements=["gtfs_agency_id"],
+            constraint="uq_agency_feed_gtfs_id",
             set_={c: stmt.excluded[c] for c in update_cols},
         )
         await self.db.execute(stmt)
@@ -771,8 +834,11 @@ class ScheduleRepository:
         """
         if not values:
             return 0, 0
-        existing_ids = await self._existing_gtfs_ids(
-            Route.gtfs_route_id, [v["gtfs_route_id"] for v in values]
+        existing_ids = await self._existing_gtfs_ids_for_feed(
+            Route.gtfs_route_id,
+            Route.feed_id,
+            [v["gtfs_route_id"] for v in values],
+            values[0]["feed_id"],
         )
         update_cols = [
             "agency_id",
@@ -785,7 +851,7 @@ class ScheduleRepository:
         ]
         stmt = pg_insert(Route).values(values)
         stmt = stmt.on_conflict_do_update(
-            index_elements=["gtfs_route_id"],
+            constraint="uq_route_feed_gtfs_id",
             set_={c: stmt.excluded[c] for c in update_cols},
         )
         await self.db.execute(stmt)
@@ -807,8 +873,11 @@ class ScheduleRepository:
         """
         if not values:
             return 0, 0
-        existing_ids = await self._existing_gtfs_ids(
-            Calendar.gtfs_service_id, [v["gtfs_service_id"] for v in values]
+        existing_ids = await self._existing_gtfs_ids_for_feed(
+            Calendar.gtfs_service_id,
+            Calendar.feed_id,
+            [v["gtfs_service_id"] for v in values],
+            values[0]["feed_id"],
         )
         update_cols = [
             "monday",
@@ -823,7 +892,7 @@ class ScheduleRepository:
         ]
         stmt = pg_insert(Calendar).values(values)
         stmt = stmt.on_conflict_do_update(
-            index_elements=["gtfs_service_id"],
+            constraint="uq_calendar_feed_gtfs_id",
             set_={c: stmt.excluded[c] for c in update_cols},
         )
         await self.db.execute(stmt)
@@ -845,15 +914,18 @@ class ScheduleRepository:
         """
         if not values:
             return 0, 0
-        existing_ids = await self._existing_gtfs_ids(
-            Trip.gtfs_trip_id, [v["gtfs_trip_id"] for v in values]
+        existing_ids = await self._existing_gtfs_ids_for_feed(
+            Trip.gtfs_trip_id,
+            Trip.feed_id,
+            [v["gtfs_trip_id"] for v in values],
+            values[0]["feed_id"],
         )
         update_cols = ["route_id", "calendar_id", "direction_id", "trip_headsign", "block_id"]
         for i in range(0, len(values), _BATCH_SIZE):
             batch = values[i : i + _BATCH_SIZE]
             stmt = pg_insert(Trip).values(batch)
             stmt = stmt.on_conflict_do_update(
-                index_elements=["gtfs_trip_id"],
+                constraint="uq_trip_feed_gtfs_id",
                 set_={c: stmt.excluded[c] for c in update_cols},
             )
             await self.db.execute(stmt)
@@ -887,62 +959,95 @@ class ScheduleRepository:
             await self.db.execute(delete(StopTime).where(StopTime.trip_id.in_(batch)))
         await self.db.flush()
 
-    async def get_agency_gtfs_map(self) -> dict[str, int]:
-        """Get mapping of gtfs_agency_id to database id for all agencies.
+    async def get_agency_gtfs_map(self, feed_id: str | None = None) -> dict[str, int]:
+        """Get mapping of gtfs_agency_id to database id.
+
+        Args:
+            feed_id: Optional feed filter. If None, returns all feeds.
 
         Returns:
             Dict mapping GTFS agency ID strings to integer database IDs.
         """
-        result = await self.db.execute(select(Agency.gtfs_agency_id, Agency.id))
+        query = select(Agency.gtfs_agency_id, Agency.id)
+        if feed_id is not None:
+            query = query.where(Agency.feed_id == feed_id)
+        result = await self.db.execute(query)
         return {row[0]: row[1] for row in result.all()}
 
-    async def get_route_gtfs_map(self) -> dict[str, int]:
-        """Get mapping of gtfs_route_id to database id for all routes.
+    async def get_route_gtfs_map(self, feed_id: str | None = None) -> dict[str, int]:
+        """Get mapping of gtfs_route_id to database id.
+
+        Args:
+            feed_id: Optional feed filter. If None, returns all feeds.
 
         Returns:
             Dict mapping GTFS route ID strings to integer database IDs.
         """
-        result = await self.db.execute(select(Route.gtfs_route_id, Route.id))
+        query = select(Route.gtfs_route_id, Route.id)
+        if feed_id is not None:
+            query = query.where(Route.feed_id == feed_id)
+        result = await self.db.execute(query)
         return {row[0]: row[1] for row in result.all()}
 
-    async def get_calendar_gtfs_map(self) -> dict[str, int]:
-        """Get mapping of gtfs_service_id to database id for all calendars.
+    async def get_calendar_gtfs_map(self, feed_id: str | None = None) -> dict[str, int]:
+        """Get mapping of gtfs_service_id to database id.
+
+        Args:
+            feed_id: Optional feed filter. If None, returns all feeds.
 
         Returns:
             Dict mapping GTFS service ID strings to integer database IDs.
         """
-        result = await self.db.execute(select(Calendar.gtfs_service_id, Calendar.id))
+        query = select(Calendar.gtfs_service_id, Calendar.id)
+        if feed_id is not None:
+            query = query.where(Calendar.feed_id == feed_id)
+        result = await self.db.execute(query)
         return {row[0]: row[1] for row in result.all()}
 
-    async def get_trip_gtfs_map(self) -> dict[str, int]:
-        """Get mapping of gtfs_trip_id to database id for all trips.
+    async def get_trip_gtfs_map(self, feed_id: str | None = None) -> dict[str, int]:
+        """Get mapping of gtfs_trip_id to database id.
+
+        Args:
+            feed_id: Optional feed filter. If None, returns all feeds.
 
         Returns:
             Dict mapping GTFS trip ID strings to integer database IDs.
         """
-        result = await self.db.execute(select(Trip.gtfs_trip_id, Trip.id))
+        query = select(Trip.gtfs_trip_id, Trip.id)
+        if feed_id is not None:
+            query = query.where(Trip.feed_id == feed_id)
+        result = await self.db.execute(query)
         return {row[0]: row[1] for row in result.all()}
 
-    async def _existing_gtfs_ids(
+    async def _existing_gtfs_ids_for_feed(
         self,
-        column: InstrumentedAttribute[str],
+        gtfs_id_column: InstrumentedAttribute[str],
+        feed_id_column: InstrumentedAttribute[str],
         gtfs_ids: list[str],
+        feed_id: str,
     ) -> set[str]:
-        """Find which GTFS IDs already exist in the database.
+        """Find which GTFS IDs already exist for a specific feed.
 
         Args:
-            column: The GTFS ID column to filter on.
+            gtfs_id_column: The GTFS ID column to filter on.
+            feed_id_column: The feed_id column to scope the query.
             gtfs_ids: List of GTFS ID strings to check.
+            feed_id: The feed identifier to scope the lookup.
 
         Returns:
-            Set of GTFS IDs that already exist.
+            Set of GTFS IDs that already exist for this feed.
         """
         if not gtfs_ids:
             return set()
         ids: set[str] = set()
         for i in range(0, len(gtfs_ids), _BATCH_SIZE):
             batch = gtfs_ids[i : i + _BATCH_SIZE]
-            result = await self.db.execute(select(column).where(column.in_(batch)))
+            result = await self.db.execute(
+                select(gtfs_id_column).where(
+                    feed_id_column == feed_id,
+                    gtfs_id_column.in_(batch),
+                )
+            )
             ids.update(result.scalars().all())
         return ids
 

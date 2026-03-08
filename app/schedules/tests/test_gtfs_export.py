@@ -280,4 +280,4 @@ class TestExportEndpoint:
         ) as mock_export:
             response = client.get("/api/v1/schedules/export?agency_id=1")
         assert response.status_code == 200
-        mock_export.assert_awaited_once_with(agency_id=1)
+        mock_export.assert_awaited_once_with(agency_id=1, feed_id=None)

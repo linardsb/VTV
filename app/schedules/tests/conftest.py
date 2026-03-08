@@ -29,6 +29,7 @@ def make_agency(**overrides: object) -> Agency:
     defaults: dict[str, object] = {
         "id": 1,
         "gtfs_agency_id": "RS",
+        "feed_id": "riga",
         "agency_name": "Rigas Satiksme",
         "agency_url": "https://www.rigassatiksme.lv",
         "agency_timezone": "Europe/Riga",
@@ -53,6 +54,7 @@ def make_route(**overrides: object) -> Route:
     defaults: dict[str, object] = {
         "id": 1,
         "gtfs_route_id": "bus_22",
+        "feed_id": "riga",
         "agency_id": 1,
         "route_short_name": "22",
         "route_long_name": "Centrs - Jugla",
@@ -81,6 +83,7 @@ def make_calendar(**overrides: object) -> Calendar:
     defaults: dict[str, object] = {
         "id": 1,
         "gtfs_service_id": "weekday_1",
+        "feed_id": "riga",
         "monday": True,
         "tuesday": True,
         "wednesday": True,
@@ -133,6 +136,7 @@ def make_trip(**overrides: object) -> Trip:
     defaults: dict[str, object] = {
         "id": 1,
         "gtfs_trip_id": "trip_22_1",
+        "feed_id": "riga",
         "route_id": 1,
         "calendar_id": 1,
         "direction_id": 0,

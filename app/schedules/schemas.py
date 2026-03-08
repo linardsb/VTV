@@ -22,6 +22,7 @@ class AgencyResponse(BaseModel):
 
     id: int
     gtfs_agency_id: str
+    feed_id: str
     agency_name: str
     agency_url: str | None
     agency_timezone: str
@@ -67,6 +68,7 @@ class RouteResponse(BaseModel):
 
     id: int
     gtfs_route_id: str
+    feed_id: str
     agency_id: int
     route_short_name: str
     route_long_name: str
@@ -139,6 +141,7 @@ class CalendarResponse(BaseModel):
 
     id: int
     gtfs_service_id: str
+    feed_id: str
     monday: bool
     tuesday: bool
     wednesday: bool
@@ -185,6 +188,7 @@ class TripResponse(BaseModel):
 
     id: int
     gtfs_trip_id: str
+    feed_id: str
     route_id: int
     calendar_id: int
     direction_id: int | None
@@ -264,6 +268,7 @@ class GTFSImportResponse(BaseModel):
     new entities are created, entities not in the ZIP are preserved.
     """
 
+    feed_id: str
     agencies_count: int
     agencies_created: int = 0
     agencies_updated: int = 0

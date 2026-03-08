@@ -24,9 +24,11 @@ class Agency(Base, TimestampMixin):
     """Transit agency database model (GTFS agency.txt)."""
 
     __tablename__ = "agencies"
+    __table_args__ = (UniqueConstraint("feed_id", "gtfs_agency_id", name="uq_agency_feed_gtfs_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    gtfs_agency_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    gtfs_agency_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    feed_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True, default="riga")
     agency_name: Mapped[str] = mapped_column(String(200), nullable=False)
     agency_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     agency_timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="Europe/Riga")
@@ -37,9 +39,11 @@ class Route(Base, TimestampMixin):
     """Transit route database model (GTFS routes.txt)."""
 
     __tablename__ = "routes"
+    __table_args__ = (UniqueConstraint("feed_id", "gtfs_route_id", name="uq_route_feed_gtfs_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    gtfs_route_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    gtfs_route_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    feed_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True, default="riga")
     agency_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("agencies.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -56,11 +60,13 @@ class Calendar(Base, TimestampMixin):
     """Service calendar database model (GTFS calendar.txt)."""
 
     __tablename__ = "calendars"
+    __table_args__ = (
+        UniqueConstraint("feed_id", "gtfs_service_id", name="uq_calendar_feed_gtfs_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    gtfs_service_id: Mapped[str] = mapped_column(
-        String(50), unique=True, nullable=False, index=True
-    )
+    gtfs_service_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    feed_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True, default="riga")
     monday: Mapped[bool] = mapped_column(Boolean, nullable=False)
     tuesday: Mapped[bool] = mapped_column(Boolean, nullable=False)
     wednesday: Mapped[bool] = mapped_column(Boolean, nullable=False)
@@ -99,9 +105,11 @@ class Trip(Base, TimestampMixin):
     """Trip database model (GTFS trips.txt)."""
 
     __tablename__ = "trips"
+    __table_args__ = (UniqueConstraint("feed_id", "gtfs_trip_id", name="uq_trip_feed_gtfs_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    gtfs_trip_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    gtfs_trip_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    feed_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True, default="riga")
     route_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("routes.id", ondelete="CASCADE"), nullable=False, index=True
     )

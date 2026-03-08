@@ -53,12 +53,13 @@ def get_service(db: AsyncSession = Depends(get_db)) -> ScheduleService:  # noqa:
 @limiter.limit("30/minute")
 async def list_agencies(
     request: Request,
+    feed_id: str | None = Query(None, max_length=50),
     service: ScheduleService = Depends(get_service),  # noqa: B008
     _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> list[AgencyResponse]:
     """List all transit agencies."""
     _ = request
-    return await service.list_agencies()
+    return await service.list_agencies(feed_id=feed_id)
 
 
 @router.post("/agencies", response_model=AgencyResponse, status_code=status.HTTP_201_CREATED)
@@ -86,13 +87,19 @@ async def list_routes(
     route_type: int | None = Query(None, ge=0),
     agency_id: int | None = Query(None),
     is_active: bool | None = Query(None),
+    feed_id: str | None = Query(None, max_length=50),
     service: ScheduleService = Depends(get_service),  # noqa: B008
     _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> PaginatedResponse[RouteResponse]:
     """List routes with pagination and filtering."""
     _ = request
     return await service.list_routes(
-        pagination, search=search, route_type=route_type, agency_id=agency_id, is_active=is_active
+        pagination,
+        search=search,
+        route_type=route_type,
+        agency_id=agency_id,
+        is_active=is_active,
+        feed_id=feed_id,
     )
 
 
@@ -346,12 +353,13 @@ async def replace_stop_times(
 async def export_gtfs(
     request: Request,
     agency_id: int | None = Query(None),
+    feed_id: str | None = Query(None, max_length=50),
     service: ScheduleService = Depends(get_service),  # noqa: B008
     _current_user: User = Depends(get_current_user),  # noqa: B008
 ) -> Response:
     """Export schedule data as a GTFS-compliant ZIP file."""
     _ = request
-    zip_bytes = await service.export_gtfs(agency_id=agency_id)
+    zip_bytes = await service.export_gtfs(agency_id=agency_id, feed_id=feed_id)
     return Response(
         content=zip_bytes,
         media_type="application/zip",
@@ -364,6 +372,7 @@ async def export_gtfs(
 async def import_gtfs(
     request: Request,
     file: UploadFile,
+    feed_id: str = Query("riga", max_length=50),
     service: ScheduleService = Depends(get_service),  # noqa: B008
     _current_user: User = Depends(require_role("admin", "editor")),  # noqa: B008
 ) -> GTFSImportResponse:
@@ -381,7 +390,7 @@ async def import_gtfs(
             )
         chunks.append(chunk)
     zip_data = b"".join(chunks)
-    return await service.import_gtfs(zip_data)
+    return await service.import_gtfs(zip_data, feed_id=feed_id)
 
 
 @router.post("/validate", response_model=ValidationResult)

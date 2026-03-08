@@ -69,13 +69,16 @@ class ScheduleService:
 
     # --- Agency ---
 
-    async def list_agencies(self) -> list[AgencyResponse]:
+    async def list_agencies(self, feed_id: str | None = None) -> list[AgencyResponse]:
         """List all agencies.
+
+        Args:
+            feed_id: Optional feed filter. If None, returns all feeds.
 
         Returns:
             List of AgencyResponse.
         """
-        agencies = await self.repository.list_agencies()
+        agencies = await self.repository.list_agencies(feed_id=feed_id)
         return [AgencyResponse.model_validate(a) for a in agencies]
 
     async def create_agency(self, data: AgencyCreate) -> AgencyResponse:
@@ -133,6 +136,7 @@ class ScheduleService:
         route_type: int | None = None,
         agency_id: int | None = None,
         is_active: bool | None = None,
+        feed_id: str | None = None,
     ) -> PaginatedResponse[RouteResponse]:
         """List routes with pagination and filtering.
 
@@ -160,9 +164,14 @@ class ScheduleService:
             route_type=route_type,
             agency_id=agency_id,
             is_active=is_active,
+            feed_id=feed_id,
         )
         total = await self.repository.count_routes(
-            search=search, route_type=route_type, agency_id=agency_id, is_active=is_active
+            search=search,
+            route_type=route_type,
+            agency_id=agency_id,
+            is_active=is_active,
+            feed_id=feed_id,
         )
         items = [RouteResponse.model_validate(r) for r in routes]
         logger.info("schedules.route.list_completed", total=total, result_count=len(items))
@@ -544,7 +553,7 @@ class ScheduleService:
 
     # --- GTFS Import ---
 
-    async def import_gtfs(self, zip_data: bytes) -> GTFSImportResponse:
+    async def import_gtfs(self, zip_data: bytes, feed_id: str = "riga") -> GTFSImportResponse:
         """Import schedule data from a GTFS ZIP file using merge/upsert.
 
         Entities with matching GTFS IDs are updated in place, new entities are
@@ -561,7 +570,7 @@ class ScheduleService:
         Raises:
             GTFSImportError: If import fails critically.
         """
-        logger.info("schedules.import_started")
+        logger.info("schedules.import_started", feed_id=feed_id)
         start_time = time.monotonic()
 
         try:
@@ -571,7 +580,7 @@ class ScheduleService:
             stop_map: dict[str, int] = {s.gtfs_stop_id: s.id for s in all_stops}
 
             # Parse GTFS ZIP (if stop_map empty, parser also parses stops.txt)
-            importer = GTFSImporter(zip_data)
+            importer = GTFSImporter(zip_data, feed_id=feed_id)
             result = importer.parse(stop_map=stop_map)
 
             # --- Merge/upsert flow (no clear_all) ---
@@ -602,6 +611,7 @@ class ScheduleService:
                 agency_values = [
                     {
                         "gtfs_agency_id": a.gtfs_agency_id,
+                        "feed_id": feed_id,
                         "agency_name": a.agency_name,
                         "agency_url": a.agency_url,
                         "agency_timezone": a.agency_timezone,
@@ -613,8 +623,8 @@ class ScheduleService:
                     agency_values
                 )
 
-            # Reload agency map: gtfs_agency_id -> DB id
-            agency_map = await self.repository.get_agency_gtfs_map()
+            # Reload agency map: gtfs_agency_id -> DB id (scoped to feed)
+            agency_map = await self.repository.get_agency_gtfs_map(feed_id=feed_id)
 
             # 3. Upsert routes (resolve agency_id via map)
             routes_created = 0
@@ -623,6 +633,7 @@ class ScheduleService:
                 route_values = [
                     {
                         "gtfs_route_id": r.gtfs_route_id,
+                        "feed_id": feed_id,
                         "agency_id": agency_map[result.route_agency_refs[i].gtfs_agency_id],
                         "route_short_name": r.route_short_name,
                         "route_long_name": r.route_long_name,
@@ -645,6 +656,7 @@ class ScheduleService:
                 calendar_values = [
                     {
                         "gtfs_service_id": c.gtfs_service_id,
+                        "feed_id": feed_id,
                         "monday": c.monday,
                         "tuesday": c.tuesday,
                         "wednesday": c.wednesday,
@@ -661,8 +673,8 @@ class ScheduleService:
                     calendar_values
                 )
 
-            # Reload calendar map: gtfs_service_id -> DB id
-            calendar_map = await self.repository.get_calendar_gtfs_map()
+            # Reload calendar map: gtfs_service_id -> DB id (scoped to feed)
+            calendar_map = await self.repository.get_calendar_gtfs_map(feed_id=feed_id)
 
             # 5. Delete + re-insert calendar_dates for affected calendars
             if result.calendar_dates:
@@ -679,8 +691,8 @@ class ScheduleService:
                     ]
                 await self.repository.bulk_create_calendar_dates(result.calendar_dates)
 
-            # Reload route map: gtfs_route_id -> DB id
-            route_map = await self.repository.get_route_gtfs_map()
+            # Reload route map: gtfs_route_id -> DB id (scoped to feed)
+            route_map = await self.repository.get_route_gtfs_map(feed_id=feed_id)
 
             # 6. Upsert trips (resolve route_id + calendar_id via maps)
             trips_created = 0
@@ -689,6 +701,7 @@ class ScheduleService:
                 trip_values = [
                     {
                         "gtfs_trip_id": t.gtfs_trip_id,
+                        "feed_id": feed_id,
                         "route_id": route_map[result.trip_route_refs[i].gtfs_route_id],
                         "calendar_id": calendar_map[result.trip_calendar_refs[i].gtfs_service_id],
                         "direction_id": t.direction_id,
@@ -699,8 +712,8 @@ class ScheduleService:
                 ]
                 trips_created, trips_updated = await self.repository.bulk_upsert_trips(trip_values)
 
-            # Reload trip + stop maps for stop_time FK resolution
-            trip_map = await self.repository.get_trip_gtfs_map()
+            # Reload trip + stop maps for stop_time FK resolution (scoped to feed)
+            trip_map = await self.repository.get_trip_gtfs_map(feed_id=feed_id)
             stop_id_map = await stop_repo.get_gtfs_map()
 
             # 7. Delete + re-insert stop_times for affected trips
@@ -736,6 +749,7 @@ class ScheduleService:
             )
 
             return GTFSImportResponse(
+                feed_id=feed_id,
                 agencies_count=len(result.agencies),
                 agencies_created=agencies_created,
                 agencies_updated=agencies_updated,
@@ -832,28 +846,29 @@ class ScheduleService:
 
     # --- GTFS Export ---
 
-    async def export_gtfs(self, agency_id: int | None = None) -> bytes:
+    async def export_gtfs(self, agency_id: int | None = None, feed_id: str | None = None) -> bytes:
         """Export schedule data as a GTFS-compliant ZIP file.
 
         Args:
             agency_id: Optional agency ID to filter export to a single agency.
+            feed_id: Optional feed filter. If None, exports all feeds.
 
         Returns:
             ZIP file bytes.
         """
         from app.schedules.gtfs_export import GTFSExporter
 
-        agencies = await self.repository.list_all_agencies()
-        routes = await self.repository.list_all_routes(agency_id=agency_id)
-        calendars = await self.repository.list_all_calendars()
-        calendar_dates = await self.repository.list_all_calendar_dates()
+        agencies = await self.repository.list_all_agencies(feed_id=feed_id)
+        routes = await self.repository.list_all_routes(agency_id=agency_id, feed_id=feed_id)
+        calendars = await self.repository.list_all_calendars(feed_id=feed_id)
+        calendar_dates = await self.repository.list_all_calendar_dates(feed_id=feed_id)
 
         route_ids = [r.id for r in routes] if agency_id is not None else None
-        trips = await self.repository.list_all_trips(route_ids=route_ids)
+        trips = await self.repository.list_all_trips(route_ids=route_ids, feed_id=feed_id)
 
         trip_ids = [t.id for t in trips]
         stop_times = await self.repository.list_all_stop_times(
-            trip_ids=trip_ids if trip_ids else None
+            trip_ids=trip_ids if trip_ids else None, feed_id=feed_id
         )
 
         # Cross-feature read: get stops referenced by stop_times

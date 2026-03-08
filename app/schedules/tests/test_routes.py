@@ -369,6 +369,7 @@ def test_import_gtfs_200():
     mock_svc = _mock_service()
     mock_svc.import_gtfs = AsyncMock(
         return_value=GTFSImportResponse(
+            feed_id="riga",
             agencies_count=1,
             agencies_created=1,
             agencies_updated=0,

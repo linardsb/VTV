@@ -58,13 +58,15 @@ class GTFSImporter:
         result = importer.parse(stop_map={"1001": 42, "1002": 43})
     """
 
-    def __init__(self, zip_data: bytes) -> None:
+    def __init__(self, zip_data: bytes, feed_id: str) -> None:
         """Initialize with ZIP file bytes.
 
         Args:
             zip_data: Raw bytes of a GTFS ZIP file.
+            feed_id: Feed identifier for multi-feed isolation.
         """
         self.zip_data = zip_data
+        self.feed_id = feed_id
         self.warnings: list[str] = []
 
     def _validate_zip_safety(self) -> None:
@@ -194,6 +196,7 @@ class GTFSImporter:
             return [
                 Agency(
                     gtfs_agency_id="default",
+                    feed_id=self.feed_id,
                     agency_name="Default Agency",
                     agency_timezone="Europe/Riga",
                 )
@@ -204,6 +207,7 @@ class GTFSImporter:
             agencies.append(
                 Agency(
                     gtfs_agency_id=row.get("agency_id", "default"),
+                    feed_id=self.feed_id,
                     agency_name=row.get("agency_name", "Unknown"),
                     agency_url=row.get("agency_url") or None,
                     agency_timezone=row.get("agency_timezone", "Europe/Riga"),
@@ -215,6 +219,7 @@ class GTFSImporter:
             agencies.append(
                 Agency(
                     gtfs_agency_id="default",
+                    feed_id=self.feed_id,
                     agency_name="Default Agency",
                     agency_timezone="Europe/Riga",
                 )
@@ -261,6 +266,7 @@ class GTFSImporter:
             routes.append(
                 Route(
                     gtfs_route_id=row.get("route_id", ""),
+                    feed_id=self.feed_id,
                     agency_id=0,  # placeholder, resolved after agency flush
                     route_short_name=row.get("route_short_name", ""),
                     route_long_name=row.get("route_long_name", ""),
@@ -303,6 +309,7 @@ class GTFSImporter:
             calendars.append(
                 Calendar(
                     gtfs_service_id=row.get("service_id", ""),
+                    feed_id=self.feed_id,
                     monday=row.get("monday", "0") == "1",
                     tuesday=row.get("tuesday", "0") == "1",
                     wednesday=row.get("wednesday", "0") == "1",
@@ -404,6 +411,7 @@ class GTFSImporter:
             trips.append(
                 Trip(
                     gtfs_trip_id=row.get("trip_id", ""),
+                    feed_id=self.feed_id,
                     route_id=0,  # placeholder, resolved after route flush
                     calendar_id=0,  # placeholder, resolved after calendar flush
                     direction_id=direction_id,
