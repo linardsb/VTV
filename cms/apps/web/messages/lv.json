@@ -1062,6 +1062,7 @@
       "maintenance": "Apkopē",
       "unassigned": "Nepiešķirtie",
       "avgMileage": "Vidējais nobraukums",
+      "utilization": "Izmantojums",
       "alerts": "Autoparka brīdinājumi",
       "maintenanceDue": "Apkope nepieciešama 7 dienu laikā",
       "registrationExpiring": "Reģistrācija beidzas 30 dienu laikā"
@@ -1078,6 +1079,7 @@
       "onDuty": "Maiņā",
       "onLeave": "Atvaļinājumā",
       "sick": "Slimības lapā",
+      "staffAvailability": "Personāla pieejamība",
       "alerts": "Vadītāju brīdinājumi",
       "licenseExpiring": "Apliecība beidzas 30 dienu laikā",
       "medicalExpiring": "Medicīniskā izziņa beidzas 30 dienu laikā"

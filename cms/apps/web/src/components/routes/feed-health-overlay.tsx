@@ -42,7 +42,7 @@ export function FeedHealthOverlay({
   if (feedStats.length === 0) return null;
 
   return (
-    <div className="absolute left-3 top-14 z-[1000] flex flex-col gap-(--spacing-tight) rounded-md bg-surface/90 px-2 py-1.5 shadow-sm backdrop-blur-sm">
+    <div className="absolute left-12 top-14 z-[1000] flex flex-col gap-(--spacing-tight) rounded-md bg-surface/90 px-2 py-1.5 shadow-sm backdrop-blur-sm">
       <TooltipProvider delayDuration={200}>
         {feedStats.map((feed) => {
           const abbreviated =

@@ -52,7 +52,7 @@ export function RouteMap({ buses, selectedRouteId, onSelectRoute, connectionMode
 
   return (
     <div className="relative isolate h-full min-h-[50vh] w-full bg-surface">
-      <div className="absolute left-3 top-3 z-[1000] rounded-md bg-surface/90 px-3 py-1.5 text-sm font-medium shadow-sm backdrop-blur-sm">
+      <div className="absolute left-12 top-3 z-[1000] rounded-md bg-surface/90 px-3 py-1.5 text-sm font-medium shadow-sm backdrop-blur-sm">
         {t("title")} - {buses.length} {t("vehicles")}
       </div>
 

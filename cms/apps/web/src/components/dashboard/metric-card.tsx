@@ -10,6 +10,7 @@ interface MetricCardProps {
   delta?: string;
   deltaType?: "positive" | "negative" | "neutral";
   subtitle: string;
+  accentColor?: string;
 }
 
 const deltaStyles = {
@@ -25,9 +26,13 @@ export function MetricCard({
   delta,
   deltaType,
   subtitle,
+  accentColor,
 }: MetricCardProps) {
   return (
-    <div className="rounded-lg border border-card-border bg-card-bg p-(--spacing-card) transition-shadow duration-200 hover:shadow-md">
+    <div className={cn(
+      "border border-card-border bg-card-bg p-(--spacing-card) transition-shadow duration-200 hover:shadow-md",
+      accentColor && `border-l-4 ${accentColor}`,
+    )}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-(--spacing-inline)">
           {icon}

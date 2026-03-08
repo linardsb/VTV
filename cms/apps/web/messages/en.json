@@ -1062,6 +1062,7 @@
       "maintenance": "In Maintenance",
       "unassigned": "Unassigned Vehicles",
       "avgMileage": "Average Mileage",
+      "utilization": "Utilization",
       "alerts": "Fleet Alerts",
       "maintenanceDue": "Maintenance due within 7 days",
       "registrationExpiring": "Registration expiring within 30 days"
@@ -1078,6 +1079,7 @@
       "onDuty": "On Duty",
       "onLeave": "On Leave",
       "sick": "Sick",
+      "staffAvailability": "Staff Availability",
       "alerts": "Driver Alerts",
       "licenseExpiring": "License expiring within 30 days",
       "medicalExpiring": "Medical cert expiring within 30 days"
