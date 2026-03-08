@@ -25,11 +25,8 @@ COPY --from=builder /tmp/ngx_http_brotli_static_module.so /usr/lib/nginx/modules
 # Remove default config
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy custom config
-COPY nginx.conf /etc/nginx/nginx.conf
-
-# Copy SSL certs (self-signed for dev)
-COPY certs/ /etc/nginx/certs/
+# Copy custom config (HTTP-only for IP deployments; switch to nginx.conf for SSL)
+COPY nginx-http.conf /etc/nginx/nginx.conf
 
 # SECURITY: Create writable directories for non-root nginx
 RUN chown -R nginx:nginx /var/cache/nginx /var/run /var/log/nginx && \
