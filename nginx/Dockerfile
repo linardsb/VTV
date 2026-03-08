@@ -1,7 +1,7 @@
 # Build stage: compile Brotli dynamic module for nginx
 FROM nginx:1.27-alpine AS builder
 
-RUN apk add --no-cache git gcc g++ make pcre-dev zlib-dev linux-headers \
+RUN apk add --no-cache git gcc g++ make pcre-dev zlib-dev linux-headers cmake \
     && git clone --recurse-submodules https://github.com/google/ngx_brotli.git /tmp/ngx_brotli \
     && cd /tmp/ngx_brotli/deps/brotli && mkdir out && cd out \
     && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF .. && make -j$(nproc) \

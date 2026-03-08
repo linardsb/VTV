@@ -37,10 +37,6 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=100M
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=${LOG_LEVEL:-WARNING}
@@ -61,10 +57,6 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=100M
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
     environment:
       - NEXT_PUBLIC_AGENT_URL=http://app:8123
       - AUTH_SECRET=${AUTH_SECRET:?Set AUTH_SECRET in .env.production}
@@ -75,12 +67,6 @@ services:
           memory: 1G
 
   nginx:
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - NET_BIND_SERVICE
     ports:
       - "443:443"
       - "80:80"
