@@ -1,4 +1,4 @@
-.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit
+.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick
 
 # === Local Development (terminals) ===
 
@@ -113,6 +113,25 @@ security-audit-full: ## Security audit (full - all checks including container + 
 
 dep-audit: ## Scan dependencies for known vulnerabilities
 	uv run pip-audit --desc --ignore-vuln CVE-2025-69872 --ignore-vuln CVE-2024-23342
+
+# === Deploy ===
+
+PROD_HOST ?= root@204.168.156.137
+PROD_DIR ?= ~/VTV
+
+deploy: ## Deploy to production (git push + rebuild containers on server)
+	@echo "==> Pushing to origin..."
+	git push origin main
+	@echo "==> Deploying on $(PROD_HOST)..."
+	ssh $(PROD_HOST) 'cd $(PROD_DIR) && git pull origin main && docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up -d --build'
+	@echo "==> Deploy complete! Site: http://204.168.156.137"
+
+deploy-quick: ## Deploy without rebuilding containers (code-only, faster)
+	@echo "==> Pushing to origin..."
+	git push origin main
+	@echo "==> Pulling code on $(PROD_HOST)..."
+	ssh $(PROD_HOST) 'cd $(PROD_DIR) && git pull origin main && docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml restart cms app'
+	@echo "==> Deploy complete! Site: http://204.168.156.137"
 
 # === Help ===
 

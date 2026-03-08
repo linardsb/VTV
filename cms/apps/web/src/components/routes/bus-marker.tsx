@@ -44,8 +44,9 @@ export function BusMarker({ bus, isHighlighted, isDimmed, onSelect, feedBorderCo
   const icon = useMemo(() => {
     const hasName = bus.routeShortName && bus.routeShortName.length > 0;
     const nameLen = bus.routeShortName?.length ?? 0;
-    const w = isHighlighted ? (nameLen > 2 ? 36 : 30) : (nameLen > 2 ? 32 : 26);
-    const h = isHighlighted ? 26 : 22;
+    const size = isHighlighted ? 22 : 18;
+    const w = hasName ? (isHighlighted ? (nameLen > 2 ? 28 : 24) : (nameLen > 2 ? 24 : 20)) : size;
+    const h = size;
     return L.divIcon({
       className: "",
       iconSize: [w, h],
@@ -54,20 +55,20 @@ export function BusMarker({ bus, isHighlighted, isDimmed, onSelect, feedBorderCo
       html: `<div style="
         min-width: ${w}px;
         height: ${h}px;
-        border-radius: ${hasName ? '4px' : '50%'};
+        border-radius: ${h / 2}px;
         background-color: ${bus.routeColor};
         color: white;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: ${isHighlighted ? 12 : 11}px;
+        font-size: ${isHighlighted ? 10 : 9}px;
         font-weight: 700;
-        padding: 0 4px;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        padding: 0 3px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         opacity: ${isDimmed ? 0.4 : 1};
         transition: all 200ms ease;
         font-family: 'Source Sans 3', system-ui, sans-serif;
-      ">${bus.routeShortName || '•'}</div>`,
+      ">${hasName ? bus.routeShortName : ''}</div>`,
     });
   }, [bus.routeColor, bus.routeShortName, isHighlighted, isDimmed]);
 
