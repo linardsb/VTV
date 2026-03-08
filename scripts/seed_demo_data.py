@@ -122,6 +122,7 @@ def api_call(method: str, path: str, data: dict | None = None, token: str = "") 
         raise ValueError(f"Invalid URL scheme: {url}")
     body = json.dumps(data).encode() if data else None
 
+    time.sleep(1)  # Pace requests to avoid rate limiting
     for attempt in range(3):
         req = urllib.request.Request(url, data=body, method=method)  # noqa: S310
         req.add_header("Content-Type", "application/json")
