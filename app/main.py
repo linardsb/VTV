@@ -21,6 +21,8 @@ from fastapi import FastAPI
 from slowapi import _rate_limit_exceeded_handler  # pyright: ignore[reportMissingTypeStubs]
 from slowapi.errors import RateLimitExceeded  # pyright: ignore[reportMissingTypeStubs]
 
+from app.alerts.evaluator import start_evaluator, stop_evaluator
+from app.alerts.routes import router as alerts_router
 from app.analytics.routes import router as analytics_router
 from app.auth.routes import router as auth_router
 from app.compliance.routes import router as compliance_router
@@ -102,6 +104,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await start_pollers()
     logger.info("transit.poller.lifecycle_started")
 
+    # Start alert evaluator background task
+    await start_evaluator(settings)
+
     # Start WebSocket subscriber (pushes Redis Pub/Sub -> WebSocket clients)
     if settings.ws_enabled and settings.poller_enabled:
         ws_manager = get_ws_manager()
@@ -111,6 +116,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
     # Shutdown
+    await stop_evaluator()
     await stop_ws_subscriber()
     close_ws_manager()
     logger.info("transit.ws.lifecycle_stopped")
@@ -164,6 +170,7 @@ app.include_router(skills_router)
 app.include_router(vehicles_router)
 app.include_router(compliance_router)
 app.include_router(analytics_router)
+app.include_router(alerts_router)
 
 
 @app.get("/")

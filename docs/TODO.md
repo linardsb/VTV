@@ -5,9 +5,9 @@ Planned features and improvements. Each item links to its detailed planning docu
 ## Progress Overview
 
 ```
-Backend API       ██████████████████████░░  99%  (9/9 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming)
+Backend API       ██████████████████████░░  99%  (10/10 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts)
 CMS Frontend      ███████████████████████░  99%  (13 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard)
-Testing           ████████████████████░░░░  87%  (838 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
+Testing           ████████████████████░░░░  89%  (879 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
@@ -178,7 +178,7 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 - [x] **Users Page** - Admin-only user management page at `/[locale]/users`. CRUD with search, role/status filters, reset-password dialog. Backend: `/api/v1/auth/users` (5 endpoints). (commit b2d5e1d, 2026-02-25)
   - Plan: [.agents/plans/fe-users-page.md](../.agents/plans/fe-users-page.md)
 
-- [x] **@vtv/sdk Generation + Full Migration** - Auto-generated TypeScript client from FastAPI OpenAPI schema. 47 endpoints, 68 types. Auth via request interceptor (JWT, dual server/client context). All 8 API domains migrated from hand-written `authFetch` to thin SDK wrappers, eliminating ~1,200 lines of boilerplate. (commits b2d5e1d, b9e34f0, 2026-02-25/26)
+- [x] **@vtv/sdk Generation + Full Migration** - Auto-generated TypeScript client from FastAPI OpenAPI schema. 66 endpoints, 95+ types (as of 2026-03-08). Auth via request interceptor (JWT, dual server/client context). All 13 API domains migrated from hand-written `authFetch` to thin SDK wrappers, eliminating ~1,200 lines of boilerplate. (commits b2d5e1d, b9e34f0, 2026-02-25/26)
   - Plan: [.agents/plans/fe-sdk-generation.md](../.agents/plans/fe-sdk-generation.md)
   - Migration plan: [.agents/plans/fe-sdk-migration.md](../.agents/plans/fe-sdk-migration.md)
 
@@ -205,6 +205,12 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 - [x] **Historical Position Storage (TimescaleDB)** - Time-series vehicle position storage with TimescaleDB hypertable. Dual-write from poller (Redis + TimescaleDB, non-blocking). `vehicle_positions` table with compression (7d) and retention (90d) policies. Vehicle history and route delay trend REST endpoints with RBAC. `VehicleStopStatus` Literal type, `EnrichedVehicle` TypedDict, `DelayTrendBucket` TypedDict. 838 unit tests. (2026-03-07)
   - Plan: [.agents/plans/historical-position-storage.md](../.agents/plans/historical-position-storage.md)
   - Review: [.agents/code-reviews/transit-history-review.md](../.agents/code-reviews/transit-history-review.md)
+
+- [x] **OpenAPI Spec Completions + SDK Regeneration** - Added OpenAPI response schemas to compliance XML endpoints (`responses` parameter with `application/xml` content type), typed transit `/feeds` endpoint with `TransitFeedsResponse` model, and regenerated `@vtv/sdk` from live spec. SDK now covers all 66 endpoints (was 48) across 13 API domains with 95+ TypeScript types. (commit aa9d9f3, 2026-03-08)
+  - Plan: [.agents/plans/openapi-spec-completions.md](../.agents/plans/openapi-spec-completions.md)
+
+- [x] **Notification/Alerts System** - Proactive alerting with configurable rules and background evaluator. 11 REST endpoints under `/api/v1/alerts` (rule CRUD + instance lifecycle + dashboard summary). Background evaluator checks 3 rule types: `maintenance_due`, `registration_expiry`, `delay_threshold`. Partial unique index for active alert deduplication. RBAC: admin-only rules, admin+dispatcher instances, all-auth summary. 2 tables (`alert_rules`, `alert_instances`), 40 unit tests. (2026-03-08)
+  - Plan: [.agents/plans/notification-alerts-system.md](../.agents/plans/notification-alerts-system.md)
 
 - [x] **Context-Triggered Security SDC** - Integrated security into the development cycle based on audit_6 findings. New `_shared/security-contexts.md` defines 6 context categories (CTX-AUTH, CTX-RBAC, CTX-FILE, CTX-AGENT, CTX-INFRA, CTX-INPUT) with trigger keywords, specific requirements, and plan task templates. Updated 7 commands: `/be-planning` and `/fe-planning` now detect and inject security contexts into plans, `/review` and `/fe-review` apply context-aware deeper checks, `/be-prime` and `/fe-prime` surface the security context system. (2026-03-07)
 

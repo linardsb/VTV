@@ -185,6 +185,10 @@ class Settings(BaseSettings):
     netex_codespace: str = "VTV"
     netex_participant_ref: str = "VTV"
 
+    # Alerts system
+    alerts_enabled: bool = True
+    alerts_check_interval_seconds: int = 60
+
     @model_validator(mode="after")
     def _reject_default_secrets_in_production(self) -> "Settings":
         """Refuse to start with default JWT secret in non-development environments."""

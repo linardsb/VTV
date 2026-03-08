@@ -44,6 +44,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 - Internationalization — Latvian (primary) + English ✅ (proper diacritics, 142+ i18n keys per locale)
 - Dashboard goal tracking — Events support structured goals (route assignment, transport type, vehicle, checklist items) with JSONB storage, two-step driver scheduling dialog, goal progress badges on calendar, interactive goal completion panel ✅
 - Responsive dashboard layout (✅ dashboard + routes + chat pages are mobile responsive, dashboard metrics + calendar events on real API)
+- Dashboard alert indicator ✅ — Backed by notification/alerts system: 11 REST endpoints, configurable alert rules (maintenance_due, registration_expiry, delay_threshold, manual), background evaluator, severity-based dashboard badge counts, RBAC enforcement
 
 **AI Agent Service (FastAPI + Pydantic AI)**
 - Single unified agent with transit + vault + knowledge + skills tools
@@ -115,7 +116,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 | CMS Framework | Next.js 16 (App Router) | Full-stack, production-ready, enterprise patterns via implementation |
 | UI | Shadcn/ui + Tailwind v4 | No framework lock-in, CSS variable theming |
 | Data Tables | TanStack Table v8 | Server-side filtering/pagination |
-| API | REST + @vtv/sdk (OpenAPI-generated) ✅ | Type-safe client from FastAPI spec (47 endpoints, 70+ types including EventGoals/GoalItem, all 8 domains migrated); tRPC v11 planned for CMS-native routes |
+| API | REST + @vtv/sdk (OpenAPI-generated) ✅ | Type-safe client from FastAPI spec (66 endpoints, 95+ types, all 13 API domains); tRPC v11 planned for CMS-native routes |
 | ORM | SQLAlchemy 2.0 (async) | Backend ORM with pgvector; Drizzle planned for CMS PostGIS layer |
 | Database | PostgreSQL 18 + pgvector + PostGIS | Vector search for RAG; PostGIS for spatial queries ✅ |
 | Maps | react-leaflet v5 + Leaflet 1.9 | OpenStreetMap tiles, marker clustering planned |

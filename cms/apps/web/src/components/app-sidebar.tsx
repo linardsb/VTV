@@ -141,7 +141,7 @@ export function AppSidebar({ locale }: AppSidebarProps) {
   }
 
   return (
-    <aside className="flex w-60 flex-col border-r border-border bg-surface p-4">
+    <aside className="flex w-48 flex-col border-r border-border bg-surface p-3">
       <NavContent locale={locale} />
     </aside>
   );

@@ -391,7 +391,7 @@ export default function VehiclesPage() {
 
       {/* Form Dialog */}
       <VehicleForm
-        key={formKey}
+        key={`vehicle-${formKey}`}
         mode={formMode}
         vehicle={formMode === "edit" ? selectedVehicle : null}
         open={formOpen}
@@ -409,7 +409,7 @@ export default function VehiclesPage() {
 
       {/* Maintenance Form Dialog */}
       <MaintenanceForm
-        key={maintenanceFormKey}
+        key={`maintenance-${maintenanceFormKey}`}
         open={maintenanceFormOpen}
         onOpenChange={setMaintenanceFormOpen}
         onSubmit={handleMaintenanceSubmit}

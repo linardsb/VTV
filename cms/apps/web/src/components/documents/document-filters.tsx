@@ -263,7 +263,7 @@ export function DocumentFilters({
   }
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface p-(--spacing-card) overflow-y-auto">
+    <aside className="flex w-52 shrink-0 flex-col border-r border-border bg-surface p-(--spacing-card) overflow-y-auto">
       <FilterContent
         search={search}
         onSearchChange={onSearchChange}

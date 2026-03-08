@@ -53,7 +53,8 @@ export async function fetchFeeds(): Promise<GTFSFeed[]> {
       typeof error === "string" ? error : "Failed to fetch feeds",
     );
   }
-  return data as unknown as GTFSFeed[];
+  const result = data as unknown as { feeds: GTFSFeed[] } | GTFSFeed[];
+  return Array.isArray(result) ? result : result.feeds;
 }
 
 /** Export GTFS data as a ZIP file. Triggers a browser download. Uses authFetch for binary blob. */
