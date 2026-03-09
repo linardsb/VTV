@@ -132,20 +132,34 @@ class GTFSStaticStore(GTFSStaticCache):
                         trip_headsign=t.trip_headsign,
                     )
 
-                # --- Load stop times ---
-                all_stop_times = await repo.list_all_stop_times()
-                for st in all_stop_times:
-                    gtfs_trip_id = trip_pk_to_gtfs.get(st.trip_id, "")
-                    gtfs_stop_id = stop_pk_to_gtfs.get(st.stop_id, "")
-                    entry = StopTimeEntry(
-                        stop_id=gtfs_stop_id,
-                        stop_sequence=st.stop_sequence,
-                        arrival_time=st.arrival_time,
-                        departure_time=st.departure_time,
+                # --- Load stop times (stream to avoid materializing 600K+ rows at once) ---
+                from app.schedules.models import StopTime
+
+                stop_time_query = (
+                    select(
+                        StopTime.trip_id,
+                        StopTime.stop_id,
+                        StopTime.stop_sequence,
+                        StopTime.arrival_time,
+                        StopTime.departure_time,
                     )
-                    if gtfs_trip_id not in self.trip_stop_times:
-                        self.trip_stop_times[gtfs_trip_id] = []
-                    self.trip_stop_times[gtfs_trip_id].append(entry)
+                    .order_by(StopTime.trip_id, StopTime.stop_sequence)
+                    .execution_options(yield_per=5000)
+                )
+                result = await db.stream(stop_time_query)
+                async for partition in result.partitions():
+                    for row in partition:
+                        gtfs_trip_id = trip_pk_to_gtfs.get(row.trip_id, "")
+                        gtfs_stop_id = stop_pk_to_gtfs.get(row.stop_id, "")
+                        entry = StopTimeEntry(
+                            stop_id=gtfs_stop_id,
+                            stop_sequence=row.stop_sequence,
+                            arrival_time=row.arrival_time,
+                            departure_time=row.departure_time,
+                        )
+                        if gtfs_trip_id not in self.trip_stop_times:
+                            self.trip_stop_times[gtfs_trip_id] = []
+                        self.trip_stop_times[gtfs_trip_id].append(entry)
 
                 # Sort each trip's stops by sequence
                 for stops in self.trip_stop_times.values():
