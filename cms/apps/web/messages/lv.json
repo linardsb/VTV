@@ -21,9 +21,10 @@
     "users": "Lietotāji",
     "documents": "Dokumenti",
     "chat": "AI palīgs",
-    "fleet": "Flotes ierīces",
-    "fleetMap": "Flotes karte",
-    "geofences": "Geozonējums",
+    "fleetGroup": "Autoparks",
+    "fleetDevices": "Ierīces",
+    "fleetMap": "Tiešraide",
+    "geofences": "Geozonas",
     "telemetry": "Telemetrija",
     "menu": "Izvēlne"
   },

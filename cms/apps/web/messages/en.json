@@ -21,8 +21,9 @@
     "users": "Users",
     "documents": "Documents",
     "chat": "AI Assistant",
-    "fleet": "Fleet Devices",
-    "fleetMap": "Fleet Map",
+    "fleetGroup": "Fleet",
+    "fleetDevices": "Devices",
+    "fleetMap": "Live Map",
     "geofences": "Geofences",
     "telemetry": "Telemetry",
     "menu": "Menu"
