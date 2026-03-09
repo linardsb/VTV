@@ -1,0 +1,26 @@
+name: Deploy to Hetzner
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: root
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd VTV
+            git pull origin main
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production up -d --build
+            echo "Deploy complete: $(git log --oneline -1)"
