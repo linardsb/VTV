@@ -7,7 +7,7 @@ Planned features and improvements. Each item links to its detailed planning docu
 ```
 Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
 CMS Frontend      ███████████████████████░  99%  (17 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences)
-Testing           ████████████████████░░░░  90%  (927 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
+Testing           ████████████████████░░░░  90%  (964 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
@@ -20,6 +20,47 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 - [ ] **CRUD E2E Tests** - Tests that create/edit/delete records and verify persistence. Current 81 tests cover page loads, filters, navigation, and UI interactions but don't test full write operations (require seeded test data).
 
 ## Planned Features
+
+### Agent Architecture Improvements
+
+Techniques learned from merkle-email-hub's mature agent system. Reference: custom protocol-based blueprint engine with state machine orchestration, structured inter-agent communication, comprehensive eval framework.
+
+#### Priority 1: Quick Wins
+- [x] ~~**Multi-Tier Model Routing**~~ — Implemented. Heuristic prompt classifier in `routing.py` routes simple lookups to fast tier, standard queries to default, complex analysis to premium. `resolve_tier_model()` in `config.py` resolves tier-specific models. Integrated into `AgentService.chat()`. 6 env vars (`LLM_FAST_*`/`LLM_STANDARD_*`/`LLM_COMPLEX_*`). 37 new tests. (2026-03-09)
+  - Plan: [.agents/plans/agent-model-routing.md](../.agents/plans/agent-model-routing.md)
+
+- [ ] **RAG Retrieval Quick Wins** — (a) Increase chunk overlap 50→100 chars to reduce information loss at boundaries, (b) Expand search result truncation 500→1000-1500 chars (500 often cuts mid-concept, especially for Latvian), (c) Add metadata filtering by `created_at` range for time-sensitive documents, (d) Tune RRF weights by query type (keyword-heavy → weight fulltext, semantic → weight vector).
+
+- [ ] **Always-On Reranking** — Make cross-encoder reranking default instead of optional. The quality jump from vector-only to vector+rerank is significant for hybrid search accuracy.
+
+#### Priority 2: Agent Intelligence
+- [ ] **Query Routing** — Detect if query needs RAG at all (transit schedule queries rarely do, policy/SOP questions always do). Route to appropriate search strategy before executing. Saves unnecessary embedding API calls.
+
+- [ ] **Query Expansion (HyDE)** — Generate a hypothetical answer from the LLM, embed that instead of the raw query. Especially valuable for Latvian queries where embedding models have weaker coverage. Alternative: multi-query expansion (rephrase query 2-3 ways, search all, merge results).
+
+- [ ] **Semantic Chunking** — Replace fixed 512-char recursive splitting with heading-aware, topic-boundary chunking. Use document structure (headings, sections) to create coherent chunks. Adaptive sizing: 512 for dense reference docs, 1024+ for narrative content.
+
+- [ ] **Server-Side Agent Memory** — Persistent semantic memory with pgvector (like merkle-email-hub's `app/memory/`). Track user query patterns, successful tool call sequences, temporal decay via DCG compaction. Memory types: procedural (how-to), episodic (past interactions), semantic (domain knowledge). Eliminates current stateless limitation where agent can't learn from repeated usage.
+
+- [ ] **Embedding Cache** — Cache frequent query embeddings in Redis to avoid redundant API calls. Especially useful for repeated transit queries (same route/stop lookups).
+
+#### Priority 3: Architecture Evolution
+- [ ] **Multi-Agent with Task Routing** — Split monolithic 11-tool agent into domain-specific agents: transit agent (5 tools), vault agent (4 tools), knowledge agent (1 tool + enhanced retrieval). Router agent selects appropriate specialist. Improves tool selection accuracy and allows per-domain system prompts.
+
+- [ ] **Bounded Self-Correction** — Add QA validation after agent responses with recovery routing (max 2 self-correction rounds). Deterministic QA checks catch factual errors, citation issues, language mismatches. Failed checks trigger targeted re-generation with failure context injected.
+
+- [ ] **Structured Inter-Agent Communication** — If multi-agent is adopted, implement `AgentHandoff` protocol: frozen dataclass carrying decisions, warnings, confidence scores, component refs between agents. Enables audit trail and confidence-based routing (low confidence → escalate to more capable model).
+
+- [ ] **Circuit Breaker** — Wrap LLM providers with circuit breaker that tracks failure rates, auto-switches to fallback after N consecutive failures (currently only FallbackModel exists, no failure-rate tracking). Add per-provider health metrics.
+
+#### Priority 4: Eval & Quality
+- [ ] **Agent Eval Framework** — Synthetic test cases per tool domain (transit schedules, knowledge searches, vault operations). Binary LLM judges for response quality (accuracy, language correctness, citation quality, Latvian grammar). TPR/TNR calibration vs human labels. Regression baselines to catch quality drops on model/prompt changes. Reference: merkle-email-hub's comprehensive `app/ai/agents/evals/` with runner → judges → calibration → regression pipeline.
+
+- [ ] **RAG Eval Pipeline** — Measure faithfulness (is answer grounded in retrieved chunks?), relevance (right chunks retrieved?), completeness (all relevant info surfaced?). Generate synthetic QA pairs from existing documents for retrieval testing.
+
+- [ ] **Prompt Injection Hardening** — Current detection is log-only (3 regex patterns). Add blocking mode for high-confidence injections, output validation to prevent data exfiltration via crafted responses.
+
+- [ ] **Enhanced Citation Quality** — Track section headers during chunking for page/section-level citations instead of generic `chunk {index}`. Store heading hierarchy in chunk metadata.
 
 ### Knowledge Base
 
@@ -246,6 +287,9 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [x] **Geofence Zone Monitoring (Phase 1B Backend)** - PostGIS POLYGON zones with GIST indexing and ST_Contains containment queries. 8 REST endpoints (CRUD + event history + dwell reports). Background evaluator (30s cycle) detects vehicle entry/exit/dwell via Redis state tracking, creates alert instances. 2 tables (geofences, geofence_events), 3 new alert types (geofence_enter/exit/dwell). 23 unit tests. (2026-03-08)
   - Plan: [.agents/plans/geofences-phase-1b.md](../.agents/plans/geofences-phase-1b.md)
+
+- [x] **Multi-Tier Agent Model Routing** - Heuristic prompt classifier (`routing.py`) routes queries by complexity: fast tier (simple lookups, status checks), standard tier (default), complex tier (analysis, bulk ops, optimization). `resolve_tier_model()` resolves tier-specific LLM models from 6 env vars (`LLM_FAST_PROVIDER/MODEL`, `LLM_STANDARD_PROVIDER/MODEL`, `LLM_COMPLEX_PROVIDER/MODEL`). Zero latency overhead (regex classification). 100% backward compatible (all tiers fall back to primary model when unset). 37 new tests (29 classification + 8 tier resolution). (2026-03-09)
+  - Plan: [.agents/plans/agent-model-routing.md](../.agents/plans/agent-model-routing.md)
 
 - [x] **Context-Triggered Security SDC** - Integrated security into the development cycle based on audit_6 findings. New `_shared/security-contexts.md` defines 6 context categories (CTX-AUTH, CTX-RBAC, CTX-FILE, CTX-AGENT, CTX-INFRA, CTX-INPUT) with trigger keywords, specific requirements, and plan task templates. Updated 7 commands: `/be-planning` and `/fe-planning` now detect and inject security contexts into plans, `/review` and `/fe-review` apply context-aware deeper checks, `/be-prime` and `/fe-prime` surface the security context system. (2026-03-07)
 

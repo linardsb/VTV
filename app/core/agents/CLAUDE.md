@@ -11,6 +11,7 @@ app/core/agents/
 ├── service.py         # Orchestration, deps injection, model building (singleton), skills injection via instructions param
 ├── schemas.py         # OpenAI-compatible request/response schemas
 ├── config.py          # LLM provider settings (model names, tokens, timeouts)
+├── routing.py         # Multi-tier model routing (fast/standard/complex classification)
 ├── quota.py           # Daily per-IP quota tracker (50/day, auto-reset)
 ├── exceptions.py      # TransitDataError, ObsidianError → HTTP 503
 ├── tools/
@@ -34,8 +35,21 @@ app/core/agents/
 │   │   └── tests/                   # 7 tests
 │   └── skills/        # 1 skills management tool
 │       └── manage_skills.py         # Tool 11: list/create operational skills
-└── tests/             # 22 agent-level tests
+└── tests/             # 66 agent-level tests (incl. routing + config tier tests)
 ```
+
+## Planned Improvements
+
+See `docs/TODO.md` → "Agent Architecture Improvements" for the full roadmap. Key priorities:
+
+1. **Multi-tier model routing** - Heuristic prompt classifier in `routing.py`, tier model resolution via `resolve_tier_model()` in `config.py`, integrated into `AgentService.chat()`. Configure via `LLM_FAST_*`/`LLM_STANDARD_*`/`LLM_COMPLEX_*` env vars.
+2. **RAG retrieval** — Increase chunk overlap (50→100), expand result truncation (500→1500 chars), always-on reranking, query routing (skip RAG for transit queries), HyDE query expansion for Latvian
+3. **Server-side memory** — pgvector-backed semantic memory with temporal decay (procedural/episodic/semantic types)
+4. **Multi-agent splitting** — Separate transit/vault/knowledge agents with router for better tool selection
+5. **Bounded self-correction** — QA validation + recovery routing (max 2 rounds)
+6. **Eval framework** — Synthetic test cases, binary LLM judges, TPR/TNR calibration, regression baselines
+
+Techniques derived from merkle-email-hub's blueprint engine architecture (state machine orchestration, `AgentHandoff` protocol, circuit breakers, comprehensive eval pipeline).
 
 ## Safety Constraints
 

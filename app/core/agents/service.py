@@ -18,7 +18,9 @@ from pydantic_ai.messages import (
 )
 
 from app.core.agents.agent import agent, build_instructions_with_skills
+from app.core.agents.config import resolve_tier_model
 from app.core.agents.exceptions import AgentExecutionError
+from app.core.agents.routing import classify_prompt
 from app.core.agents.schemas import (
     ChatCompletionChoice,
     ChatCompletionRequest,
@@ -114,11 +116,17 @@ class AgentService:
         # Check for prompt injection patterns (log-only, does not block)
         _check_prompt_injection(current_prompt)
 
+        # Classify prompt complexity for model routing
+        tier = classify_prompt(current_prompt)
+        tier_model = resolve_tier_model(tier)
+
         logger.info(
             "agent.chat_started",
             message_count=len(request.messages),
             history_count=len(prior_messages),
             user_prompt_length=len(current_prompt),
+            model_tier=tier,
+            tier_override=tier_model is not None,
         )
 
         # Load active skills for dynamic instructions
@@ -138,6 +146,7 @@ class AgentService:
                 deps=self._deps,
                 message_history=message_history,
                 instructions=instructions,
+                model=tier_model,
             )
         except Exception as e:
             logger.error(
@@ -150,7 +159,11 @@ class AgentService:
 
         response_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
         settings = get_settings()
-        model_name = f"{settings.llm_provider}:{settings.llm_model}"
+        model_name = (
+            str(tier_model)
+            if tier_model is not None
+            else f"{settings.llm_provider}:{settings.llm_model}"
+        )
 
         response = ChatCompletionResponse(
             id=response_id,

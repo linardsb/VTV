@@ -207,6 +207,8 @@ The agent service treats the LLM as a swappable dependency. RS can run entirely 
 
 #### Provider Configuration
 
+The agent supports **multi-tier model routing** — simple lookups (delays, schedules) auto-route to cheap/fast models (Haiku), standard queries use the default model (Sonnet), and complex analysis (multi-step, bulk operations) routes to premium models (Opus). Classification is heuristic-based (zero latency overhead). Configure via `LLM_FAST_*`/`LLM_STANDARD_*`/`LLM_COMPLEX_*` env vars. When unset, all tiers use the primary model.
+
 A single environment variable controls which LLM powers the agent:
 
 ```bash
@@ -270,7 +272,7 @@ If the primary model fails (timeout, rate limit, error), `FallbackModel` automat
 |---------|-----------|-------------|----------|
 | **Zero-cost local** | Ollama `llama3.1:70b` | EUR 0 | RS wants no API costs; has GPU server |
 | **Budget local** | Ollama `qwen2.5:32b` | EUR 0 | Smaller GPU; acceptable quality |
-| **Cloud optimized** | Haiku for routing + Sonnet for reasoning | ~EUR 30-50 | Best cost/quality ratio |
+| **Cloud optimized** | Haiku for simple lookups + Sonnet for standard + Opus for analysis (via multi-tier routing) | ~EUR 30-50 | Best cost/quality ratio |
 | **Cloud premium** | Claude Sonnet for everything | ~EUR 60-90 | Best quality, simplest config |
 | **Hybrid** | Ollama primary + Claude fallback | ~EUR 10-20 | Local handles most queries; cloud for complex ones |
 

@@ -8,7 +8,7 @@ from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.groq import GroqModel
 from pydantic_ai.models.test import TestModel
 
-from app.core.agents.config import build_model_string, get_agent_model
+from app.core.agents.config import build_model_string, get_agent_model, resolve_tier_model
 from app.core.config import Settings, get_settings
 
 
@@ -111,3 +111,102 @@ def test_get_agent_model_groq_missing_key():
     )
     result = get_agent_model(settings)
     assert isinstance(result, TestModel)
+
+
+def test_resolve_tier_model_no_override() -> None:
+    """Returns None when no tier-specific model is configured."""
+    settings = create_settings(LLM_PROVIDER="anthropic", LLM_MODEL="claude-sonnet-4-5")
+    result = resolve_tier_model("fast", settings)
+    assert result is None
+
+
+def test_resolve_tier_model_fast_anthropic() -> None:
+    """Resolves fast tier to Anthropic model when configured."""
+    settings = create_settings(
+        LLM_PROVIDER="anthropic",
+        LLM_MODEL="claude-sonnet-4-5",
+        LLM_FAST_PROVIDER="anthropic",
+        LLM_FAST_MODEL="claude-haiku-4-5",
+        ANTHROPIC_API_KEY="sk-test-key",
+    )
+    result = resolve_tier_model("fast", settings)
+    assert isinstance(result, AnthropicModel)
+
+
+def test_resolve_tier_model_complex_anthropic() -> None:
+    """Resolves complex tier to Anthropic model when configured."""
+    settings = create_settings(
+        LLM_PROVIDER="anthropic",
+        LLM_MODEL="claude-sonnet-4-5",
+        LLM_COMPLEX_PROVIDER="anthropic",
+        LLM_COMPLEX_MODEL="claude-opus-4-5",
+        ANTHROPIC_API_KEY="sk-test-key",
+    )
+    result = resolve_tier_model("complex", settings)
+    assert isinstance(result, AnthropicModel)
+
+
+def test_resolve_tier_model_standard_no_override() -> None:
+    """Standard tier returns None when not explicitly configured."""
+    settings = create_settings(
+        LLM_PROVIDER="anthropic",
+        LLM_MODEL="claude-sonnet-4-5",
+        LLM_FAST_PROVIDER="anthropic",
+        LLM_FAST_MODEL="claude-haiku-4-5",
+        ANTHROPIC_API_KEY="sk-test-key",
+    )
+    result = resolve_tier_model("standard", settings)
+    assert result is None
+
+
+def test_resolve_tier_model_missing_api_key() -> None:
+    """Returns None when tier provider API key is missing."""
+    settings = create_settings(
+        LLM_PROVIDER="google",
+        LLM_MODEL="gemini-2.0-flash",
+        LLM_FAST_PROVIDER="anthropic",
+        LLM_FAST_MODEL="claude-haiku-4-5",
+        GOOGLE_API_KEY="test-google-key",
+    )
+    result = resolve_tier_model("fast", settings)
+    assert result is None
+
+
+def test_resolve_tier_model_test_provider() -> None:
+    """Test provider returns TestModel for tier."""
+    settings = create_settings(
+        LLM_PROVIDER="anthropic",
+        LLM_MODEL="claude-sonnet-4-5",
+        LLM_FAST_PROVIDER="test",
+        LLM_FAST_MODEL="test-model",
+        ANTHROPIC_API_KEY="sk-test-key",
+    )
+    result = resolve_tier_model("fast", settings)
+    assert isinstance(result, TestModel)
+
+
+def test_resolve_tier_model_google() -> None:
+    """Resolves tier to Google model."""
+    settings = create_settings(
+        LLM_PROVIDER="anthropic",
+        LLM_MODEL="claude-sonnet-4-5",
+        LLM_FAST_PROVIDER="google",
+        LLM_FAST_MODEL="gemini-2.0-flash",
+        ANTHROPIC_API_KEY="sk-test-key",
+        GOOGLE_API_KEY="test-google-key",
+    )
+    result = resolve_tier_model("fast", settings)
+    assert isinstance(result, GoogleModel)
+
+
+def test_resolve_tier_model_generic_string() -> None:
+    """Returns provider:model string for unknown providers."""
+    settings = create_settings(
+        LLM_PROVIDER="anthropic",
+        LLM_MODEL="claude-sonnet-4-5",
+        LLM_FAST_PROVIDER="openrouter",
+        LLM_FAST_MODEL="meta-llama/llama-3.1-8b",
+        ANTHROPIC_API_KEY="sk-test-key",
+    )
+    result = resolve_tier_model("fast", settings)
+    assert result == "openrouter:meta-llama/llama-3.1-8b"

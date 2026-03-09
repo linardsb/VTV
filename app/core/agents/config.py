@@ -4,6 +4,8 @@ This module provides functions to build model strings and resolve
 the appropriate Pydantic AI model instance based on application settings.
 """
 
+from typing import Literal
+
 from pydantic_ai.models import Model
 from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.models.fallback import FallbackModel
@@ -103,3 +105,68 @@ def get_agent_model(settings: Settings | None = None) -> str | Model:
         return FallbackModel(primary, fallback)
 
     return primary
+
+
+ModelTier = Literal["fast", "standard", "complex"]
+
+
+def resolve_tier_model(tier: ModelTier, settings: Settings | None = None) -> str | Model | None:
+    """Resolve a model for a specific routing tier.
+
+    Returns the tier-specific model if configured, or None to use the agent's
+    default model (set at creation time via get_agent_model).
+
+    Args:
+        tier: The routing tier - "fast", "standard", or "complex".
+        settings: Optional settings. If None, uses get_settings().
+
+    Returns:
+        A Pydantic AI model instance/string for the tier, or None if the tier
+        has no override configured (meaning: use the agent's default model).
+    """
+    if settings is None:
+        settings = get_settings()
+
+    tier_map: dict[ModelTier, tuple[str | None, str | None]] = {
+        "fast": (settings.llm_fast_provider, settings.llm_fast_model),
+        "standard": (settings.llm_standard_provider, settings.llm_standard_model),
+        "complex": (settings.llm_complex_provider, settings.llm_complex_model),
+    }
+
+    provider, model = tier_map[tier]
+
+    # No tier override configured — caller should use agent default
+    if provider is None or model is None:
+        return None
+
+    # Test provider
+    if provider == "test":
+        return TestModel()
+
+    # Anthropic
+    if provider == "anthropic":
+        if not settings.anthropic_api_key:
+            logger.warning("agent.config.tier_api_key_missing", tier=tier, provider=provider)
+            return None
+        return AnthropicModel(model, provider=AnthropicProvider(api_key=settings.anthropic_api_key))
+
+    # Google
+    if provider == "google":
+        if not settings.google_api_key:
+            logger.warning("agent.config.tier_api_key_missing", tier=tier, provider=provider)
+            return None
+        return GoogleModel(model, provider=GoogleProvider(api_key=settings.google_api_key))
+
+    # Groq
+    if provider == "groq":
+        if not settings.groq_api_key:
+            logger.warning("agent.config.tier_api_key_missing", tier=tier, provider=provider)
+            return None
+        return GroqModel(model, provider=GroqProvider(api_key=settings.groq_api_key))
+
+    # Ollama
+    if provider == "ollama":
+        return OpenAIChatModel(model, provider=OllamaProvider(base_url=settings.ollama_base_url))
+
+    # Generic provider:model string
+    return f"{provider}:{model}"

@@ -62,6 +62,14 @@ class Settings(BaseSettings):
     llm_fallback_provider: str | None = None
     llm_fallback_model: str | None = None
 
+    # Multi-tier model routing (optional — falls back to primary model when None)
+    llm_fast_provider: str | None = None
+    llm_fast_model: str | None = None
+    llm_standard_provider: str | None = None
+    llm_standard_model: str | None = None
+    llm_complex_provider: str | None = None
+    llm_complex_model: str | None = None
+
     # LLM API keys
     anthropic_api_key: str | None = None
 

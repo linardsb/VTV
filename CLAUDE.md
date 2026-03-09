@@ -33,7 +33,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (904 tests, ~15s)
+make test            # Unit tests (964 tests, ~20s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
