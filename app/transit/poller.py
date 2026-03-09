@@ -149,7 +149,7 @@ class FeedPoller:
                             continue
                         db_records.append(
                             {
-                                "recorded_at": ev["timestamp"],
+                                "recorded_at": datetime.fromisoformat(ev["timestamp"]),
                                 "feed_id": ev["feed_id"],
                                 "vehicle_id": ev["vehicle_id"],
                                 "route_id": ev["route_id"],
