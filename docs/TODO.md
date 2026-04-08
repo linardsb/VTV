@@ -2,14 +2,21 @@
 
 Planned features and improvements. Each item links to its detailed planning document where available.
 
+> Architecture: Vertical Slice, security-first, async-first, Latvian-first
+> Pattern: Each task = one planning + implementation session
+> Agent Intelligence Plan: [docs/PLANNING/agent-intelligence-plan.md](PLANNING/agent-intelligence-plan.md)
+
+---
+
 ## Progress Overview
 
 ```
 Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
 CMS Frontend      ███████████████████████░  99%  (17 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences)
-Testing           ████████████████████░░░░  90%  (964 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
+Testing           ████████████████████░░░░  90%  (974 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
+Agent Intelligence ███░░░░░░░░░░░░░░░░░░░░  12%  (Multi-tier routing done. AI-1.1 reranking always-on done. 7 phases: RAG, HyDE, memory+bridge, chunking, self-correction, multi-agent+harness+L3 skills, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -19,48 +26,499 @@ Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░�
 
 - [ ] **CRUD E2E Tests** - Tests that create/edit/delete records and verify persistence. Current 81 tests cover page loads, filters, navigation, and UI interactions but don't test full write operations (require seeded test data).
 
+---
+
+## Agent Intelligence — Phased Implementation
+
+Techniques learned from merkle-email-hub's production multi-agent system. Full analysis: [docs/PLANNING/agent-intelligence-plan.md](PLANNING/agent-intelligence-plan.md).
+
+### Phase AI-1: RAG Retrieval Quick Wins (3 days)
+
+> **Sprint deliverable:** Immediate RAG quality boost with zero architectural changes. Reranking on by default, larger context windows, confidence gating.
+
+#### AI-1.1 Always-On Cross-Encoder Reranking ✅
+**Status:** Done — reranking was already default (`reranker_provider="local"`). Added `warm_up()` for startup preloading (eliminates 2-5s cold start), startup health log (`knowledge.reranker.loaded`), 10 unit tests for reranker providers. Route test updated to assert `reranked=True`. Plan: `.agents/plans/always-on-reranking.md`.
+
+#### AI-1.2 Chunk Overlap + Result Truncation Expansion
+**What:** (a) Increase chunk overlap from 50 → 100 chars in `ChunkingConfig`. (b) Expand search result truncation from 500 → 1500 chars in `search_knowledge_base` tool. (c) Add `created_at` range filtering to hybrid search for time-sensitive documents.
+**Why:** 50-char overlap loses context at chunk boundaries, especially for Latvian compound words (agglutinative language, long words). 500-char truncation cuts mid-concept — dispatchers get incomplete SOP steps. Transit shift notes from yesterday should rank higher than last month's.
+**Implementation:**
+- `app/knowledge/chunking.py` — `chunk_overlap: int = 100`
+- `app/core/agents/tools/knowledge/search_knowledge.py` — truncation `500` → `1500`
+- `app/knowledge/repository.py` — add optional `created_after: datetime | None` and `created_before: datetime | None` params to `hybrid_search()`, filter via `WHERE d.created_at >= :created_after`
+- `app/knowledge/service.py` — pass date filters through
+**Verify:** Upload a 3-page SOP PDF. Search for a term near a chunk boundary. Confirm the result includes context from both sides. Confirm `created_after` filter excludes older documents.
+
+#### AI-1.3 Temporal Boost + RRF Weight Tuning
+**What:** Add temporal relevance boost to hybrid search scoring — recent documents score higher. Tune RRF fusion weights based on query type: keyword-heavy queries weight fulltext higher, semantic queries weight vector higher.
+**Why:** Transit documents have dramatically different relevance lifecycles. Shift handover notes from today matter 10x more than last month's. RRF equal-weighting hurts when query type strongly favors one retrieval method.
+**Implementation:**
+- `app/knowledge/repository.py` — add `_temporal_boost(doc_created_at, query_time) -> float` (today: 1.5×, this week: 1.2×, this month: 1.0×, older: 0.8×). Apply as multiplier after RRF fusion.
+- `app/knowledge/repository.py` — add `_detect_query_type(query) -> Literal["keyword", "semantic", "mixed"]` heuristic (route numbers, stop names → keyword; "how do I", "what's the procedure" → semantic). Adjust RRF weights: keyword → fulltext 0.7/vector 0.3, semantic → vector 0.7/fulltext 0.3, mixed → 0.5/0.5.
+- Add `evergreen: bool = False` column to `Document` model — evergreen docs skip temporal decay (regulations, SOPs)
+**Verify:** Upload two versions of a shift note (one from today, one from 2 months ago). Search — today's version should rank first. Mark a regulation doc as evergreen — confirm it's not penalized by age.
+
+#### AI-1.4 Confidence Threshold + "No Results" Response
+**What:** Add a confidence threshold (default 0.3) below which the knowledge search tool returns "No relevant documents found" instead of low-quality matches. Prevents hallucination when the knowledge base doesn't contain relevant information.
+**Why:** Currently the agent receives low-relevance chunks and hallucinates answers grounded in irrelevant content. Dispatchers need to know when the system genuinely doesn't have the information.
+**Implementation:**
+- `app/core/agents/tools/knowledge/search_knowledge.py` — after retrieval, check `if not results or results[0].score < 0.3: return "No relevant documents found for this query."` 
+- `app/core/config.py` — add `KNOWLEDGE__CONFIDENCE_THRESHOLD: float = 0.3` to `KnowledgeConfig`
+- Agent system prompt in `agent.py` — add instruction: "When the knowledge base returns 'No relevant documents found', say so honestly. Do not fabricate answers."
+**Verify:** Search for "company policy on employee pets" (not in KB). Confirm agent responds with "I don't have information about this" rather than hallucinating a policy.
+
+---
+
+### Phase AI-2: Query Router + HyDE (4 days)
+
+> **Sprint deliverable:** Skip RAG for transit queries (60% of volume), fix Latvian embedding weakness via HyDE. Net result: faster responses + better retrieval quality.
+
+#### AI-2.1 RAG Query Router
+**What:** Create `app/knowledge/router.py` — a lightweight classifier that determines if a query needs RAG retrieval at all. Transit status, schedule, and vault queries skip RAG entirely. Knowledge, policy, and SOP queries use RAG.
+**Why:** ~60% of VTV queries are transit operations ("which routes are delayed?", "schedule for route 3") that never need document retrieval. Skipping RAG for these saves embedding API calls ($0.50/mo) and reduces latency by 200-400ms per query.
+**Implementation:**
+- Create `app/knowledge/router.py` — `QueryRouter` class with signal-based scoring:
+  - `RAG_SIGNALS`: {"SOP", "procedure", "protocol", "regulation", "policy", "dokument", "noteikum", "kārtīb", "instrukcij"}
+  - `SKIP_SIGNALS`: {"route", "maršrut", "delay", "kavē", "schedule", "grafik", "stop", "pietura", "bus", "autobus", "vault", "note"}
+  - `needs_rag(query: str) -> bool` — RAG score > skip score
+- `app/core/agents/service.py` — integrate router before tool execution. If `not needs_rag(prompt)`, set `search_knowledge_base` tool to no-op mode or remove from available tools for this run.
+- Add `KNOWLEDGE__ROUTER_ENABLED: bool = True` config flag
+- Add structured logging: `knowledge.router.decision` with `{query_hash, needs_rag, rag_score, skip_score}`
+**Verify:** Send "Kuri maršruti kavējas?" — confirm RAG is skipped (check logs). Send "Kāda ir procedūra, ja autobuss sabojājas?" — confirm RAG is invoked. Track metrics over 50 test queries — expect ~60% skip rate.
+
+#### AI-2.2 HyDE (Hypothetical Document Embeddings)
+**What:** Create `app/knowledge/hyde.py` — before embedding a query for vector search, generate a hypothetical answer using a fast/cheap LLM, then embed that instead of the raw query.
+**Why:** Latvian is a low-resource language for embedding models. Even Jina v3 (best multilingual option) has weaker coverage for Latvian. HyDE sidesteps this: the hypothetical answer is in document-like language, so it embeds closer to actual documents. Expected 15-20% retrieval quality improvement for Latvian queries at ~$0.001/query cost.
+**Implementation:**
+- Create `app/knowledge/hyde.py`:
+  ```python
+  class HyDEExpander:
+      HYDE_PROMPT = "Given this question about transit operations, write a short paragraph
+          that would appear in an internal document answering it. Write in the same language
+          as the question. Be specific and factual.\n\nQuestion: {query}"
+
+      async def expand(self, query: str) -> str:
+          response = await self.llm.complete(self.HYDE_PROMPT.format(query=query),
+              model=self.fast_model, max_tokens=200)
+          return response.text
+  ```
+- `app/knowledge/service.py` — in `search()`, if `KNOWLEDGE__HYDE_ENABLED`, call `hyde.expand(query)` and embed the result instead of the raw query. Keep original query for fulltext search.
+- `app/core/config.py` — add `KNOWLEDGE__HYDE_ENABLED: bool = True`, `KNOWLEDGE__HYDE_MODEL: str = ""` (defaults to fast tier)
+- Use fast-tier model (cheapest available) — 200 token output max
+**Verify:** Compare retrieval quality for "Ko darīt, ja autobuss sabojājas maršrutā?" with HyDE on vs off. HyDE should surface SOP documents in top 3 that were previously at position 5+. Measure latency overhead — should be <500ms with fast model.
+
+#### AI-2.3 Embedding Cache
+**What:** Cache query embeddings in Redis with TTL to avoid redundant embedding API calls for repeated queries. Use normalized query text as cache key (lowercase, stripped whitespace, sorted words).
+**Why:** Dispatchers ask the same questions repeatedly ("route 3 status", "which routes delayed"). Caching embeddings for these saves API costs and reduces latency from ~200ms to <5ms for cached queries.
+**Implementation:**
+- `app/knowledge/embedding.py` — wrap `embed()` with Redis cache layer:
+  - Key: `emb:{provider}:{blake2b(normalized_query)[:16]}`
+  - Value: JSON-serialized float list
+  - TTL: 1 hour (configurable via `KNOWLEDGE__EMBEDDING_CACHE_TTL`)
+- `app/core/config.py` — add `KNOWLEDGE__EMBEDDING_CACHE_ENABLED: bool = True`, `KNOWLEDGE__EMBEDDING_CACHE_TTL: int = 3600`
+- Add cache hit/miss logging: `knowledge.embedding_cache.hit` / `knowledge.embedding_cache.miss`
+**Verify:** Send same query twice. First call hits embedding API (check logs). Second call hits cache (check logs, latency <5ms). Wait past TTL — next call hits API again.
+
+---
+
+### Phase AI-3: Persistent Agent Memory + Bridge (6 days)
+
+> **Sprint deliverable:** Agent learns from usage. Stores successful tool sequences, dispatcher patterns, and transit domain knowledge. Memory bridge auto-persists from agent results (fire-and-forget). Recalled before each agent run and injected as context. LLM-based intent merging during compaction.
+
+#### AI-3.1 Memory Vertical Slice — Models + Repository
+**What:** Create `app/memory/` vertical slice with `MemoryEntry` SQLAlchemy model backed by pgvector. 4 memory types: procedural (learned patterns), episodic (session logs), semantic (durable facts), query_pattern (frequent queries).
+**Why:** The agent is currently stateless — it can't learn from repeated usage. The same dispatcher asking the same question gets no benefit from prior interactions. Email-hub's `app/memory/` proves this pattern works at scale with pgvector + temporal decay.
+**Implementation:**
+- Create `app/memory/models.py`:
+  - `MemoryEntry(Base, TimestampMixin)`: id, agent_type (str), memory_type (str enum), content (str), embedding (Vector(1024)), metadata_json (JSONB), decay_weight (float, default 1.0), is_evergreen (bool, default False), source (str: "agent"|"dispatcher"|"compaction"), recalled_count (int, default 0)
+- Create `app/memory/repository.py`:
+  - `store(entry: MemoryEntry) -> MemoryEntry`
+  - `recall(embedding: list[float], agent_type: str | None, limit: int, min_score: float) -> list[MemoryEntry]` — pgvector cosine similarity + metadata filtering
+  - `get_by_type(memory_type: str, limit: int) -> list[MemoryEntry]`
+  - `increment_recalled_count(entry_id: int) -> None`
+  - `delete_decayed(threshold: float) -> int`
+- Alembic migration: `memory_entries` table with `ivfflat` index on embedding column
+**Verify:** `make db-migrate` succeeds. Unit tests: store a memory, recall by similarity, verify cosine ordering. 15+ tests.
+
+#### AI-3.2 Memory Service — Store, Recall, Compact
+**What:** Create `app/memory/service.py` with memory lifecycle management: store (with embedding), recall (similarity search), compact (merge similar, apply decay), and promote (episodic → procedural after 3+ recalls).
+**Why:** Raw storage isn't enough — memories need lifecycle management. Transit operations knowledge has seasonal patterns (90-day procedural decay, 30-day episodic decay). Auto-promotion captures recurring patterns without manual intervention.
+**Implementation:**
+- Create `app/memory/service.py`:
+  ```python
+  class MemoryService:
+      async def store(content, memory_type, agent_type, metadata) -> MemoryEntry
+          # Embed content, check for duplicates (cosine > 0.95 = skip), store
+      async def recall(query, agent_type=None, limit=5) -> list[MemoryEntry]
+          # Embed query, similarity search, increment recalled_count
+      async def compact() -> CompactionResult
+          # Apply decay: procedural 90d, episodic 30d, semantic evergreen, query_pattern 60d
+          # Merge entries with cosine > 0.92 (keep higher recalled_count)
+          # Delete entries with decay_weight < 0.1
+      async def promote_episodes() -> int
+          # Find episodic entries with recalled_count >= 3, clone as procedural
+  ```
+- Create `app/memory/schemas.py` — Pydantic request/response schemas
+- Create `app/memory/routes.py` — admin-only: `GET /api/v1/memory` (list), `GET /api/v1/memory/{id}`, `DELETE /api/v1/memory/{id}`, `POST /api/v1/memory/compact` (trigger manual compaction)
+- `app/core/config.py` — `MemoryConfig`: enabled (bool), procedural_decay_days (90), episodic_decay_days (30), query_pattern_decay_days (60), promotion_threshold (3), max_recall_results (5)
+**Verify:** Store 10 memories. Recall by query — top 5 returned in cosine order. Run compact — decayed entries deleted. Recall an episodic memory 3 times — confirm auto-promoted to procedural. 20+ tests.
+
+#### AI-3.3 Memory Bridge — Auto-Persist from Agent Results
+**What:** Create `app/memory/bridge.py` — fire-and-forget callback that auto-persists successful multi-tool agent interactions as episodic memories. Adapted from email-hub's `HandoffMemoryBridge` pattern (`app/ai/blueprints/handoff_memory.py`).
+**Why:** Email-hub wires this as a callback after every agentic node — the bridge captures what the agent learned without any manual intervention. Failure-safe (exceptions caught, logged, never crash pipeline). This is the mechanism that makes memory actually accumulate.
+**Implementation:**
+- Create `app/memory/bridge.py`:
+  - `persist_agent_episode(agent_name, prompt, response, tools_used, confidence)` — fire-and-forget
+  - Only persists when 2+ distinct tools used (multi-tool interactions are more valuable)
+  - Content format: `"[{agent_name}] Dispatcher asked: {prompt[:150]}. Agent used: {tools}. Response: {response[:300]}"`
+  - Metadata: `{source: "agent", agent_name, tools, confidence}`
+  - Opens own DB session via `get_db_context()` (isolated transaction)
+  - All exceptions caught and logged as warnings — never crashes pipeline
+- Wire into `AgentService.chat()` — call after successful `agent.run()` response
+**Verify:** Send multi-tool query ("which stops on route 22 have delays?"). Check DB — episodic memory stored. Send single-tool query — no memory stored (only multi-tool). Force DB error — pipeline continues normally, warning logged. 8+ tests.
+
+#### AI-3.4 Memory Integration into Agent Pipeline
+**What:** Integrate memory recall before `agent.run()` and episodic storage via bridge after responses. Memory context injected as system-level context alongside skills. Add LLM-based intent merging to compaction (from email-hub).
+**Why:** Memory is useless if it's not in the agent's context window. Integration must happen at the service layer to work across all agent types. LLM-based intent merging (email-hub's `judge_functional_equivalence()`) prevents memory bloat better than cosine similarity alone.
+**Implementation:**
+- `app/core/agents/service.py` — in `AgentService.chat()`:
+  1. Before `agent.run()`: `memories = await memory_service.recall(prompt, limit=5)`
+  2. Filter: only results with `score > 0.3` (similarity threshold, from email-hub)
+  3. Format as context: `"## Relevant memories\n" + "\n".join(m.content for m in memories)`
+  4. Inject via `instructions=` parameter alongside skills
+  5. After `agent.run()`: call `persist_agent_episode()` from bridge (AI-3.3)
+- `app/memory/service.py` — enhance `compact()` with LLM-based intent merging:
+  - Find memory pairs with cosine > 0.85
+  - Lightweight LLM judge confirms functional equivalence (fast model, <100 tokens)
+  - Keep entry with higher `recalled_count`, delete the other
+- Background task in `app/core/lifespan.py` — run `memory_service.compact()` daily at 03:00 UTC
+- Background task — run `memory_service.promote_episodes()` daily at 03:15 UTC
+- Add `MEMORY__ENABLED: bool = False` config flag (default off for safe rollout)
+- Add `MEMORY__CONTEXT_INJECTION_LIMIT: int = 10` (max memories to inject, recall uses limit=5)
+**Verify:** Enable memory. Ask "Which routes are frequently delayed?" — agent responds. Ask again next session — confirm memory of prior interaction appears in context (check structured logs). Confirm LLM intent merging deduplicates similar memories during compaction. 12+ tests.
+
+---
+
+### Phase AI-4: Semantic Chunking + Parent-Child Retrieval (4 days)
+
+> **Sprint deliverable:** Documents chunked by meaning boundaries, not character count. Matched chunks return full parent section for context. Re-chunk existing documents via migration script.
+
+#### AI-4.1 Heading-Aware Semantic Chunker
+**What:** Replace the fixed 512-char recursive splitter in `chunking.py` with a heading-aware chunker that respects document structure. Creates chunks at heading/section boundaries with adaptive sizing.
+**Why:** Fixed-size splitting breaks mid-sentence, mid-paragraph, and mid-SOP-step. A "What to do when bus breaks down" SOP gets split into fragments that individually make no sense. Heading-aware chunking keeps each section coherent.
+**Implementation:**
+- `app/knowledge/chunking.py` — add `SemanticChunker` class:
+  - Detect headings: markdown `#`, PDF section headers (bold + larger font), DOCX heading styles
+  - Split at heading boundaries first, then at paragraph boundaries within sections
+  - Adaptive sizing: min 256 chars, max 1500 chars, target 800 chars
+  - If a section exceeds max, split at paragraph boundaries within it
+  - Preserve heading text as `heading_path` metadata on each chunk
+- Keep `RecursiveChunker` as fallback for unstructured documents
+- `app/core/config.py` — `KNOWLEDGE__SEMANTIC_CHUNKING_ENABLED: bool = True`, `KNOWLEDGE__CHUNK_TARGET_SIZE: int = 800`
+**Verify:** Upload a multi-section SOP PDF. Inspect chunks — each should align with a section, not split mid-sentence. Compare retrieval quality vs old chunking on 5 test queries.
+
+#### AI-4.2 Parent-Child Chunk Model
+**What:** Extend `DocumentChunk` model with `parent_chunk_id`, `heading_path`, and `section_type` fields. Create parent chunks (full sections) with child chunks (paragraphs) linked via foreign key.
+**Why:** When a paragraph chunk matches, the dispatcher often needs the surrounding section context. Parent-child enables "return the full section when a paragraph matches" retrieval, critical for SOPs where steps reference earlier context.
+**Implementation:**
+- `app/knowledge/models.py` — add to `DocumentChunk`:
+  - `parent_chunk_id: Mapped[int | None] = mapped_column(ForeignKey("document_chunks.id"))`
+  - `heading_path: Mapped[str | None]` — e.g., "Emergency Procedures > Route Deviation"
+  - `section_type: Mapped[str | None]` — "heading" | "body" | "list" | "table"
+- Alembic migration for new columns + self-referential FK
+- `app/knowledge/chunking.py` — `SemanticChunker` creates parent chunks (embedded, searchable) and child chunks (linked to parent)
+**Verify:** `make db-migrate` succeeds. Upload SOP — inspect DB: child chunks have `parent_chunk_id` set. Query returns both child match and parent context. 10+ tests.
+
+#### AI-4.3 Parent-Child Retrieval + Context Expansion
+**What:** When hybrid search returns a child chunk match, automatically fetch and include the parent chunk content in the agent's context. Deduplicate when multiple children from the same parent match.
+**Why:** A child chunk matching "call depot X" is useless without the parent context "When bus breaks down on route 22, follow these steps: 1. call depot X, 2. reroute via Y, 3. notify dispatcher Z."
+**Implementation:**
+- `app/knowledge/repository.py` — in `hybrid_search()`, after retrieval:
+  1. For each result with `parent_chunk_id`, fetch parent chunk
+  2. Deduplicate parents (same parent from multiple children = one parent)
+  3. Return `SearchResult` with `chunks` (original matches) + `parent_contexts` (expanded sections)
+- `app/core/agents/tools/knowledge/search_knowledge.py` — format results with parent context: `"[Section: {heading_path}]\n{parent_content}\n\n[Matched passage:]\n{child_content}"`
+- `app/core/config.py` — `KNOWLEDGE__PARENT_CONTEXT_ENABLED: bool = True`
+**Verify:** Upload multi-section SOP. Search for specific step mentioned in section 3. Result should include full section 3 as context, not just the matched paragraph.
+
+#### AI-4.4 Re-Chunk Existing Documents
+**What:** Migration script to re-chunk all existing documents using the new semantic chunker. Preserves document metadata, regenerates chunks and embeddings.
+**Why:** Existing documents were chunked with the old 512-char recursive splitter. They need to be re-chunked to benefit from semantic boundaries and parent-child structure.
+**Implementation:**
+- Create `scripts/rechunk_documents.py`:
+  1. Fetch all documents from DB
+  2. For each: delete old chunks, re-chunk with `SemanticChunker`, re-embed, store new chunks
+  3. Progress bar, batch processing (10 docs at a time to avoid memory issues)
+  4. Dry-run mode: show what would change without modifying DB
+- Add `make rechunk` Makefile target
+- Handle edge case: documents with no raw text stored (re-extract from file)
+**Verify:** Run `make rechunk --dry-run` — shows expected changes. Run `make rechunk` — all documents re-chunked. Search quality on 5 test queries should improve vs old chunking.
+
+---
+
+### Phase AI-5: Bounded Self-Correction (3 days)
+
+> **Sprint deliverable:** Agent validates its own responses before returning to dispatchers. Factual errors (wrong route numbers, impossible times) caught and corrected via 1 retry round.
+
+#### AI-5.1 Self-Correction Loop
+**What:** Create `app/core/agents/correction.py` — after `agent.run()`, run deterministic QA checks. If checks fail, retry once with failure context injected. If still failing, return response with warnings (current behavior).
+**Why:** Currently, validation issues are appended as footnote warnings but the incorrect content is still shown. One retry with explicit failure context lets the agent correct simple factual errors (wrong route number, impossible departure time) before dispatchers see them.
+**Implementation:**
+- Create `app/core/agents/correction.py`:
+  ```python
+  MAX_SELF_CORRECTION_ROUNDS = 1  # Transit needs fast responses
+
+  class SelfCorrectionLoop:
+      async def run_with_correction(self, agent, prompt, history, deps) -> CorrectedResult:
+          for iteration in range(MAX_SELF_CORRECTION_ROUNDS + 1):
+              result = await agent.run(prompt, message_history=history, deps=deps)
+              issues = self.validator.validate(result.data)
+              if not issues:
+                  return CorrectedResult(content=result.data, issues=[], iteration=iteration)
+              if iteration < MAX_SELF_CORRECTION_ROUNDS:
+                  correction_prompt = self._build_correction_prompt(prompt, result.data, issues)
+                  # Append as new turn, retry
+              else:
+                  return CorrectedResult(content=result.data, issues=issues,
+                      warnings=[f"Validation: {i.description}" for i in issues])
+  ```
+- `app/core/config.py` — `AGENT__SELF_CORRECTION_ENABLED: bool = True`, `AGENT__MAX_CORRECTION_ROUNDS: int = 1`
+- Structured logging: `agent.correction.triggered`, `agent.correction.resolved`, `agent.correction.exhausted`
+**Verify:** Mock a response mentioning route 999 (doesn't exist). Confirm correction loop retries. Confirm corrected response doesn't mention route 999. Confirm `iteration=1` in logs. 10+ tests.
+
+#### AI-5.2 Extended QA Checks
+**What:** Add 6 new deterministic QA checks beyond existing `validation.py`: route existence, stop existence, time consistency, citation grounding, language match, and stale data warning.
+**Why:** Current validation catches basic issues (route number range, delay magnitude). These new checks catch the most common factual errors dispatchers report: non-existent routes, impossible times, and ungrounded citations.
+**Implementation:**
+- `app/core/agents/validation.py` — add checks:
+  1. `check_route_existence(response, static_cache)` — extract route numbers via regex, verify against GTFS static cache
+  2. `check_stop_existence(response, static_cache)` — extract stop names, verify against stop DB
+  3. `check_time_consistency(response)` — detect impossible times (25:30, departures in the past for future queries)
+  4. `check_citation_grounding(response, tool_results)` — verify cited documents were in search results
+  5. `check_language_match(prompt, response)` — detect language mismatch (query LV, response EN)
+  6. `check_stale_data(tool_results, max_age_seconds)` — flag if GTFS-RT data older than cache TTL
+- Each check returns `Issue(check_name, description, severity)` — severity: error (triggers retry) vs warning (footnote only)
+**Verify:** Test each check with a crafted response that should trigger it. Confirm error-severity issues trigger self-correction. Confirm warning-severity issues only add footnotes. 12+ tests.
+
+#### AI-5.3 Correction Metrics + Dashboard
+**What:** Track self-correction metrics: correction rate, retry success rate, common failure types. Expose via admin endpoint for monitoring.
+**Why:** Need to know if self-correction is actually improving response quality or just adding latency. High correction rates on specific checks indicate prompt engineering opportunities.
+**Implementation:**
+- `app/core/agents/correction.py` — add in-memory metrics counter:
+  - `corrections_triggered`, `corrections_resolved`, `corrections_exhausted` (per check type)
+  - Reset daily at 00:00 UTC
+- `app/core/agents/routes.py` — add `GET /v1/chat/metrics` (admin-only) returning correction stats
+- Structured logging on each correction: `agent.correction.metric {check_name, resolved, latency_ms}`
+**Verify:** Trigger 10 corrections via test queries. Hit metrics endpoint — confirm counts match. Confirm resolved vs exhausted ratio. 5+ tests.
+
+---
+
+### Phase AI-6: Multi-Agent + Harness + L3 Skills (9 days)
+
+> **Sprint deliverable:** Monolithic 11-tool agent split into 3 domain specialists + router. Full BaseAgentService harness (9 hook points, confidence extraction, context budgets). Progressive L3 skill loading with token budgets and priority gating. Token usage drops ~40%. Tool selection accuracy improves.
+> **Depends on:** Phase AI-3 (memory — shared across agents)
+
+#### AI-6.1 BaseAgentService Shared Pipeline (Full Harness)
+**What:** Extract shared agent pipeline logic from `AgentService` into `app/core/agents/base.py` — full `BaseAgentService` harness adapted from email-hub's `app/ai/agents/base.py` (468 lines, 9 hook points). Handles: tier routing → skill detection → memory recall → prompt building → agent execution → post-processing → confidence extraction → self-correction → memory bridge → response construction.
+**Why:** Email-hub's `BaseAgentService` eliminates ~80% code duplication across 9 agents. Each domain agent needs the same pipeline but different tools, prompts, and QA checks. The harness pattern provides 9 extensibility hook points that subclasses override while the base handles the battle-tested flow.
+**Implementation:**
+- Create `app/core/agents/base.py` with **9 hook points** (from email-hub):
+  1. `build_system_prompt(relevant_skills) -> str` — **MUST override**. Agent-specific system prompt with L3 skills injected.
+  2. `detect_relevant_skills(prompt) -> list[str]` — Optional. Keyword → L3 skill file detection (see AI-6.5).
+  3. `_build_user_message(request) -> str` — **MUST override**. Transform request → user message for LLM.
+  4. `_post_process(content) -> str` — Optional. Agent-specific output validation (default: strip markdown fences).
+  5. `_run_qa(response) -> list[ValidationIssue]` — Optional. Agent-specific QA checks (default: route/stop existence, language match).
+  6. `_should_run_qa() -> bool` — Optional. Whether to run QA at all (default: `self.run_qa_default`).
+  7. `_get_model_tier(prompt) -> str` — Optional. Per-request tier override (default: class-level `self.model_tier`).
+  8. `_build_response(content, model, confidence, warnings) -> ChatCompletionResponse` — Formats OpenAI-compatible response.
+  9. `_persist_episode(prompt, response, result)` — Memory bridge callback (fire-and-forget, from AI-3.3).
+- **Class-level config** per agent: `agent_name`, `model_tier`, `max_tokens`, `run_qa_default`, `context_budget: ContextBudget`
+- **Confidence extraction** (from email-hub): append `CONFIDENCE_INSTRUCTION` to system prompt, LLM responds with `<!-- CONFIDENCE: X.XX -->`, base extracts via regex, passes to response builder and memory bridge.
+- **Context budget** (from email-hub's `context_budget.py`): per-agent token limits for system prompt, skills, memories, user message. Prevents context overflow.
+- **Pipeline flow** (9 phases):
+  ```
+  Phase 1: _get_model_tier() → resolve model
+  Phase 2: detect_relevant_skills() → load_skills_within_budget()
+  Phase 3: memory_service.recall() → format memories
+  Phase 4: build_system_prompt() + skills + memories + CONFIDENCE_INSTRUCTION
+  Phase 5: _build_user_message() → agent.run()
+  Phase 6: _post_process() + extract_confidence()
+  Phase 7: self-correction loop (if _should_run_qa() and enabled)
+  Phase 8: _persist_episode() via memory bridge (fire-and-forget)
+  Phase 9: _build_response()
+  ```
+- Refactor existing `AgentService` to extend `BaseAgentService`
+**Verify:** Existing `AgentService` works identically after refactor. All 964 unit tests pass. No behavioral change — pure refactor. Each hook point tested independently.
+
+#### AI-6.2 Domain-Specific Agents
+**What:** Create 3 domain agents: `TransitAgent` (5 transit tools), `KnowledgeAgent` (1 RAG tool), `VaultAgent` (4 obsidian tools). Each extends `BaseAgentService` with domain-focused system prompt and tools.
+**Why:** The unified agent loads all 11 tool docstrings (~3000 tokens) for every query. A transit query doesn't need vault tools in context. Domain-specific prompts can be shorter and more focused, improving tool selection accuracy.
+**Implementation:**
+- Create `app/core/agents/agents/transit.py`:
+  - System prompt: Latvian transit glossary, GTFS data interpretation, delay analysis rules
+  - Tools: query_bus_status, get_route_schedule, search_stops, get_adherence_report, check_driver_availability
+- Create `app/core/agents/agents/knowledge.py`:
+  - System prompt: Citation rules, document grounding, "I don't know" instruction, response synthesis
+  - Tools: search_knowledge_base
+- Create `app/core/agents/agents/vault.py`:
+  - System prompt: Note organization, frontmatter conventions, safe deletion (require confirm)
+  - Tools: obsidian_query_vault, obsidian_manage_notes, obsidian_manage_folders, obsidian_bulk_operations
+- Keep existing `AgentService` as `UnifiedAgent` fallback (all 11 tools)
+**Verify:** Each agent responds correctly to domain-specific queries. Transit agent can't access vault tools. Knowledge agent enforces citations. 15+ tests per agent.
+
+#### AI-6.3 Agent Router
+**What:** Create `app/core/agents/router.py` — routes incoming queries to the appropriate domain agent using keyword signals. Cross-domain or unclassifiable queries fall back to `UnifiedAgent`.
+**Why:** Without routing, all queries hit the unified agent. With routing, domain-specific agents get focused context, reducing token waste and improving tool selection. The router is heuristic (zero LLM latency) like the existing tier classifier.
+**Implementation:**
+- Create `app/core/agents/router.py`:
+  ```python
+  class AgentRouter:
+      TRANSIT_SIGNALS = {"maršrut", "pietura", "autobus", "kavē", "route", "stop",
+                         "delay", "bus", "schedule", "departure", "reiss", "grafik"}
+      KNOWLEDGE_SIGNALS = {"dokument", "noteikum", "procedūr", "SOP", "regul",
+                           "policy", "document", "procedure"}
+      VAULT_SIGNALS = {"vault", "obsidian", "piezīm", "note", "folder", "tag"}
+
+      def route(self, prompt: str) -> AgentDomain:
+          # Score each domain. If top score == 0 or tie → UNIFIED
+  ```
+- `app/core/agents/routes.py` — `POST /v1/chat/completions` uses router to select agent
+- Add `AGENT__MULTI_AGENT_ENABLED: bool = False` config flag (default off, safe rollout)
+- Structured logging: `agent.router.decision {domain, scores, prompt_hash}`
+**Verify:** "Kuri maršruti kavējas?" → TransitAgent. "Kāda ir procedūra?" → KnowledgeAgent. "Show my vault notes" → VaultAgent. "What routes serve the hospitals mentioned in the SOP?" → UnifiedAgent (cross-domain). 20+ tests.
+
+#### AI-6.4 Progressive Skill System (L3 Skills)
+**What:** Implement email-hub's progressive skill disclosure pattern: per-agent L3 skill files loaded on-demand based on query keywords, within per-agent token budgets. Replaces current flat skill injection (all active skills → every request).
+**Why:** Email-hub's skill system ("teach on demand") keeps context lean — agents only learn about patterns they'll actually use. Each L3 file has `token_cost` and `priority` front matter. Priority 3 (supplementary) skills skipped when capacity < 70%, priority 2 (standard) when < 30%. VTV's flat system injects all active skills regardless of relevance, wasting context tokens on irrelevant knowledge.
+**Implementation:**
+- Create `app/core/agents/context_budget.py`:
+  - `ContextBudget` frozen dataclass: `system_prompt_max=3000`, `skill_docs_max=2000`, `memory_max=1500`, `user_message_max=3000`, `total_max=10000`
+  - `AGENT_BUDGETS` dict: transit=2500 skills, knowledge=2000, vault=1500, unified=3000
+- Create `app/core/agents/skill_loader.py`:
+  - `SkillMeta` dataclass: `token_cost`, `priority` (1/2/3), `version`
+  - `parse_skill_file(path) -> tuple[SkillMeta, str]` — parse YAML front matter + body
+  - `load_skills_within_budget(skill_names, budget, skill_dir) -> str` — load L3 files respecting budget
+  - Priority gating: P1 always, P2 skipped when <30% capacity, P3 when <70% capacity
+- Create L3 skill files:
+  - `app/core/agents/skills/transit/` — `delay_analysis.md` (P2, 450 tokens), `schedule_interpretation.md` (P2, 400), `route_comparison.md` (P3, 350), `driver_availability.md` (P3, 300), `adherence_reporting.md` (P3, 350)
+  - `app/core/agents/skills/knowledge/` — `sop_retrieval.md` (P1, 500), `regulation_interpretation.md` (P2, 450), `shift_handover.md` (P3, 300), `incident_response.md` (P2, 400)
+  - `app/core/agents/skills/vault/` — `search_patterns.md` (P2, 300), `bulk_operations.md` (P3, 250), `folder_organization.md` (P3, 250)
+- Each agent's `detect_relevant_skills()` uses keyword matching (see AI-6.2)
+- Backwards compat: existing flat skill system (`app/skills/`) still works alongside L3 skills
+**Verify:** Transit query about delays loads `delay_analysis.md` but not `driver_availability.md`. Knowledge query about SOPs loads `sop_retrieval.md` (P1, always). Hit budget limit — confirm P3 skills skipped first. Compare token usage before/after — expect ~30% reduction for domain agents. 15+ tests.
+
+#### AI-6.5 Lightweight AgentResult Protocol
+**What:** Implement `AgentResult` frozen dataclass for structured agent responses — content, confidence, warnings, tools used, domain. Enables confidence-based routing and audit trails.
+**Why:** Simplified version of email-hub's `AgentHandoff`. VTV doesn't need the full protocol (no agent chaining), but confidence scoring enables "route low-confidence to better model" and warnings enable transparent data quality communication.
+**Implementation:**
+- Add to `app/core/agents/base.py`:
+  ```python
+  @dataclass(frozen=True)
+  class AgentResult:
+      content: str
+      confidence: float | None       # 0.0-1.0 (from reranker score or tool success rate)
+      warnings: tuple[str, ...]      # Stale data, partial results, etc.
+      tools_used: tuple[str, ...]    # For episodic memory
+      domain: str                    # transit | knowledge | vault | unified
+  ```
+- `BaseAgentService.chat()` returns `AgentResult` internally, converts to `ChatCompletionResponse` at route level
+- If `confidence < 0.3` and complex tier available, re-run with complex model
+**Verify:** Transit query with fresh data → confidence > 0.7. Knowledge query with no relevant docs → confidence < 0.3. Low-confidence query re-routed to complex model. 8+ tests.
+
+---
+
+### Phase AI-7: Evaluation Framework (5 days)
+
+> **Sprint deliverable:** Synthetic test cases per domain, LLM judges for quality assessment, regression baselines. `make eval` runs full suite. `make eval-judge` assesses traces.
+> **Depends on:** Phases AI-1 through AI-6 (evaluates the full system)
+
+#### AI-7.1 Synthetic Test Cases
+**What:** Create YAML test case files for each agent domain: 15 transit cases, 10 knowledge cases, 5 vault cases. Each case specifies: prompt, expected tools, language, and 5 quality criteria.
+**Why:** Without test cases, agent quality is unmeasured. Model updates, prompt changes, or RAG tweaks can silently degrade quality. Email-hub's eval framework caught 21/45 criteria with >20% flip rate during model changes.
+**Implementation:**
+- Create `app/core/agents/evals/cases/transit.yaml` — 15 cases covering:
+  - Simple status queries (LV + EN)
+  - Diacriticless Latvian input
+  - Cross-tool queries (bus status + stop search)
+  - Non-existent route handling
+  - Schedule queries with date filtering
+  - Adherence report interpretation
+  - Multi-route comparison
+- Create `app/core/agents/evals/cases/knowledge.yaml` — 10 cases covering:
+  - SOP retrieval with citation
+  - "No relevant docs" honesty
+  - Regulation interpretation
+  - Cross-lingual queries (LV question, EN document)
+  - Temporal relevance (recent vs old docs)
+- Create `app/core/agents/evals/cases/vault.yaml` — 5 cases covering:
+  - Note search, creation, safe deletion
+**Verify:** Cases load without errors. Each case has all required fields. Cover all agent tools across the suite.
+
+#### AI-7.2 Eval Runner + Trace Collection
+**What:** Create `app/core/agents/evals/runner.py` — CLI that runs synthetic test cases against the live agent, collects traces (input, output, tool calls, timing, errors) as JSONL.
+**Why:** Traces are the foundation for both automated judging and manual review. JSONL format enables streaming, grep, and analysis scripts.
+**Implementation:**
+- Create `app/core/agents/evals/runner.py`:
+  ```python
+  class EvalRunner:
+      async def run_suite(self, suite: str) -> list[EvalTrace]:
+          cases = self._load_cases(suite)
+          traces = []
+          for case in cases:
+              trace = await self._run_case(case)  # Actually calls agent
+              traces.append(trace)
+          self._write_traces(traces, output_path)
+          return traces
+  ```
+- `EvalTrace` dataclass: case_id, prompt, response, tool_calls, tool_results, latency_ms, error, timestamp
+- Output: `evals/traces/{suite}_{timestamp}.jsonl`
+- CLI: `python -m app.core.agents.evals.runner --suite transit`
+- Add `make eval` Makefile target
+**Verify:** `make eval` runs 30 test cases, produces JSONL traces, reports pass/fail summary.
+
+#### AI-7.3 LLM Judge + Quality Criteria
+**What:** Create `app/core/agents/evals/judge.py` — LLM-based judge that evaluates traces against 5 domain-specific quality criteria. Binary pass/fail per criterion with one-line reasoning.
+**Why:** Human review doesn't scale. LLM judges enable automated quality gates. Email-hub calibrates judges to TPR >= 0.85 / TNR >= 0.80 vs human labels.
+**Implementation:**
+- Create `app/core/agents/evals/judge.py`:
+  - Transit criteria: factual_accuracy, language_correctness, actionability, data_freshness, completeness
+  - Knowledge criteria: factual_accuracy, citation_quality, grounding, language_correctness, honesty
+  - Vault criteria: operation_correctness, safety, completeness, language_correctness, formatting
+- Judge prompt includes: query, tool calls, tool results, agent response, criteria definitions
+- Output: `JudgeVerdict` per case with per-criterion pass/fail + reasoning
+- CLI: `python -m app.core.agents.evals.judge_runner --traces evals/traces/latest/`
+- Add `make eval-judge` Makefile target
+**Verify:** Run judge on 30 traces. Review 10 verdicts manually — judge should agree with human assessment on 8+/10. Identify any calibration issues.
+
+#### AI-7.4 Regression Baselines
+**What:** Generate initial regression baselines from first eval run. Future runs compare against baselines — flag per-criterion regressions exceeding 3 percentage points.
+**Why:** Quality regressions from model updates, prompt changes, or RAG modifications must be caught before deployment. A 3pp tolerance prevents false alarms from noise.
+**Implementation:**
+- Create `app/core/agents/evals/regression.py`:
+  - `generate_baseline(verdicts) -> BaselineReport` — per-criterion pass rates
+  - `check_regression(current, baseline, tolerance=0.03) -> list[Regression]`
+  - Baseline stored as JSON: `evals/baselines/{suite}_baseline.json`
+- Add `make eval-check` — runs eval + judge + regression check (CI-friendly)
+- Add `--update-baseline` flag to regenerate baselines after intentional changes
+**Verify:** Generate baseline. Deliberately degrade a prompt. Run eval-check — confirm regression detected and reported. 8+ tests.
+
+---
+
+### Additional Agent Improvements (not phased)
+
+These items from the original roadmap are standalone improvements that don't fit neatly into the AI phases above but remain planned.
+
+- [ ] **Circuit Breaker** — Wrap LLM providers with circuit breaker that tracks failure rates, auto-switches to fallback after N consecutive failures (currently only FallbackModel exists, no failure-rate tracking). Add per-provider health metrics. Independent of agent intelligence phases.
+
+- [ ] **Prompt Injection Hardening** — Current detection is log-only (3 regex patterns). Add blocking mode for high-confidence injections, output validation to prevent data exfiltration via crafted responses. Can be done anytime.
+
+- [ ] **Enhanced Citation Quality** — Track section headers during chunking for page/section-level citations instead of generic `chunk {index}`. Store heading hierarchy in chunk metadata. *Partially addressed by AI-4.2 (heading_path on chunks) — this item covers the remaining agent-side formatting (rendering heading breadcrumbs in response citations).*
+
+- [ ] **RAG Eval Pipeline** — Measure faithfulness (is answer grounded in retrieved chunks?), relevance (right chunks retrieved?), completeness (all relevant info surfaced?). Generate synthetic QA pairs from existing documents for retrieval testing. *Separate from AI-7's agent eval — this evaluates retrieval quality independent of agent response quality.*
+
+---
+
 ## Planned Features
-
-### Agent Architecture Improvements
-
-Techniques learned from merkle-email-hub's mature agent system. Reference: custom protocol-based blueprint engine with state machine orchestration, structured inter-agent communication, comprehensive eval framework.
-
-#### Priority 1: Quick Wins
-- [x] ~~**Multi-Tier Model Routing**~~ — Implemented. Heuristic prompt classifier in `routing.py` routes simple lookups to fast tier, standard queries to default, complex analysis to premium. `resolve_tier_model()` in `config.py` resolves tier-specific models. Integrated into `AgentService.chat()`. 6 env vars (`LLM_FAST_*`/`LLM_STANDARD_*`/`LLM_COMPLEX_*`). 37 new tests. (2026-03-09)
-  - Plan: [.agents/plans/agent-model-routing.md](../.agents/plans/agent-model-routing.md)
-
-- [ ] **RAG Retrieval Quick Wins** — (a) Increase chunk overlap 50→100 chars to reduce information loss at boundaries, (b) Expand search result truncation 500→1000-1500 chars (500 often cuts mid-concept, especially for Latvian), (c) Add metadata filtering by `created_at` range for time-sensitive documents, (d) Tune RRF weights by query type (keyword-heavy → weight fulltext, semantic → weight vector).
-
-- [ ] **Always-On Reranking** — Make cross-encoder reranking default instead of optional. The quality jump from vector-only to vector+rerank is significant for hybrid search accuracy.
-
-#### Priority 2: Agent Intelligence
-- [ ] **Query Routing** — Detect if query needs RAG at all (transit schedule queries rarely do, policy/SOP questions always do). Route to appropriate search strategy before executing. Saves unnecessary embedding API calls.
-
-- [ ] **Query Expansion (HyDE)** — Generate a hypothetical answer from the LLM, embed that instead of the raw query. Especially valuable for Latvian queries where embedding models have weaker coverage. Alternative: multi-query expansion (rephrase query 2-3 ways, search all, merge results).
-
-- [ ] **Semantic Chunking** — Replace fixed 512-char recursive splitting with heading-aware, topic-boundary chunking. Use document structure (headings, sections) to create coherent chunks. Adaptive sizing: 512 for dense reference docs, 1024+ for narrative content.
-
-- [ ] **Server-Side Agent Memory** — Persistent semantic memory with pgvector (like merkle-email-hub's `app/memory/`). Track user query patterns, successful tool call sequences, temporal decay via DCG compaction. Memory types: procedural (how-to), episodic (past interactions), semantic (domain knowledge). Eliminates current stateless limitation where agent can't learn from repeated usage.
-
-- [ ] **Embedding Cache** — Cache frequent query embeddings in Redis to avoid redundant API calls. Especially useful for repeated transit queries (same route/stop lookups).
-
-#### Priority 3: Architecture Evolution
-- [ ] **Multi-Agent with Task Routing** — Split monolithic 11-tool agent into domain-specific agents: transit agent (5 tools), vault agent (4 tools), knowledge agent (1 tool + enhanced retrieval). Router agent selects appropriate specialist. Improves tool selection accuracy and allows per-domain system prompts.
-
-- [ ] **Bounded Self-Correction** — Add QA validation after agent responses with recovery routing (max 2 self-correction rounds). Deterministic QA checks catch factual errors, citation issues, language mismatches. Failed checks trigger targeted re-generation with failure context injected.
-
-- [ ] **Structured Inter-Agent Communication** — If multi-agent is adopted, implement `AgentHandoff` protocol: frozen dataclass carrying decisions, warnings, confidence scores, component refs between agents. Enables audit trail and confidence-based routing (low confidence → escalate to more capable model).
-
-- [ ] **Circuit Breaker** — Wrap LLM providers with circuit breaker that tracks failure rates, auto-switches to fallback after N consecutive failures (currently only FallbackModel exists, no failure-rate tracking). Add per-provider health metrics.
-
-#### Priority 4: Eval & Quality
-- [ ] **Agent Eval Framework** — Synthetic test cases per tool domain (transit schedules, knowledge searches, vault operations). Binary LLM judges for response quality (accuracy, language correctness, citation quality, Latvian grammar). TPR/TNR calibration vs human labels. Regression baselines to catch quality drops on model/prompt changes. Reference: merkle-email-hub's comprehensive `app/ai/agents/evals/` with runner → judges → calibration → regression pipeline.
-
-- [ ] **RAG Eval Pipeline** — Measure faithfulness (is answer grounded in retrieved chunks?), relevance (right chunks retrieved?), completeness (all relevant info surfaced?). Generate synthetic QA pairs from existing documents for retrieval testing.
-
-- [ ] **Prompt Injection Hardening** — Current detection is log-only (3 regex patterns). Add blocking mode for high-confidence injections, output validation to prevent data exfiltration via crafted responses.
-
-- [ ] **Enhanced Citation Quality** — Track section headers during chunking for page/section-level citations instead of generic `chunk {index}`. Store heading hierarchy in chunk metadata.
 
 ### Knowledge Base
 
@@ -169,6 +627,9 @@ Techniques learned from merkle-email-hub's mature agent system. Reference: custo
   - Plan: [.agents/plans/vehicle-management.md](../.agents/plans/vehicle-management.md)
   - Review: [.agents/code-reviews/vehicles-review.md](../.agents/code-reviews/vehicles-review.md)
 
+- [x] **Multi-Tier Model Routing** — Heuristic prompt classifier in `routing.py` routes simple lookups to fast tier, standard queries to default, complex analysis to premium. `resolve_tier_model()` in `config.py` resolves tier-specific models. Integrated into `AgentService.chat()`. 6 env vars (`LLM_FAST_*`/`LLM_STANDARD_*`/`LLM_COMPLEX_*`). 37 new tests. (2026-03-09)
+  - Plan: [.agents/plans/agent-model-routing.md](../.agents/plans/agent-model-routing.md)
+
 ### CMS Frontend Pages
 
 - [x] **Dashboard** - 4 metric cards (real API via SWR: vehicles + routes, 30s polling), multi-view calendar (week/month/3-month/year, real events via `useCalendarEvents` SWR hook), drag-and-drop driver scheduling (driver roster + 5 action types), live timeline, resizable panels. (commit 852ee95, updated 2026-02-25)
@@ -216,90 +677,3 @@ Techniques learned from merkle-email-hub's mature agent system. Reference: custo
 - [x] **Codebase Audit** - 120 findings documented in `.agents/code-reviews/AUDIT-SUMMARY.md`. (2026-02-21)
 
 - [x] **Documentation Cleanup** - 74 redundant CLAUDE.md files removed, 5 substantive files retained. (2026-02-21)
-
-- [x] **Security Audit Remediation** - 13 findings from third-party security audit fixed. Streaming upload with 50MB limit, regex filename sanitization, path traversal prevention, ILIKE wildcard escaping, X-Real-IP rate limiting, Redis URL redaction, Docker env var interpolation, transit input validation, nginx HTTPS template, environment-controlled demo credentials. 33 security regression tests. (commit 85bf32d, 2026-02-22)
-  - Audit: [docs/security_audit.txt](security_audit.txt)
-
-- [x] **Security Audit 2 Remediation** - Second audit addressing code quality, data integrity, and testing gaps. `ValidationError` → `DomainValidationError` rename (Pydantic clash), Content-Length header hardening, transit tool deduplication (6 functions → `utils.py`), GTFS time validation (min/sec range), unique constraints on `(trip_id, stop_sequence)` and `(calendar_id, date)` + 2 migrations, knowledge empty update rejection, unknown file type rejection, exception handling improvements, cookie SameSite, locale-aware auth redirects, schedule edge case tests, knowledge repository + route layer tests. 34 new tests (520 → 554). (2026-02-23)
-  - Audit: [docs/security_audit_2.txt](security_audit_2.txt)
-
-- [x] **Security Hardening v3** - 19-task, 4-phase hardening: bcrypt timing normalization, password complexity on reset, CORS method/header allowlists, health endpoint redaction, convention enforcement tests (auto-discover all endpoints for auth). 84 security tests. (2026-02-24)
-  - Plan: [.agents/plans/security-hardening-v3.md](../.agents/plans/security-hardening-v3.md)
-
-- [x] **Security Hardening v4** - 15-task, 4-phase hardening: CI/CD security gates (dedicated Ruff Bandit step, pip-audit), container hardening (non-root, cap_drop ALL, no-new-privileges), automated backups with GDPR retention, GDPR right-to-erasure endpoint, pre-commit hook (Bandit + sensitive file check). (2026-02-24)
-  - Plan: [.agents/plans/security-hardening-v4.md](../.agents/plans/security-hardening-v4.md)
-  - Audit: [docs/security_audit_4.txt](security_audit_4.txt)
-
-- [x] **Security Hardening v5** - 16 findings (4 CRIT, 5 HIGH, 7 MED): quota IP bypass fix, logout endpoint, refresh token single-use, ZIP bomb protection, streaming GTFS upload, SSRF localhost validation, request ID sanitization, file path redaction. 94 security tests. (commit 6eb1ed0, 2026-02-25)
-  - Plan: [.agents/plans/security-hardening-v5.md](../.agents/plans/security-hardening-v5.md)
-  - Audit: [docs/security_audit_5.txt](security_audit_5.txt)
-
-- [x] **SDLC Security Audit Framework** - Three-tiered security scanning (quick/standard/full) integrated into development lifecycle. `scripts/security-audit.sh` runner with Docker/nginx validators (`scripts/check-docker-security.py`, `scripts/check-nginx-security.py`). GitHub Actions scheduled workflow (`.github/workflows/security.yml`, weekly cron + manual dispatch). Audit tracking registry (`.agents/audits/tracking.md`). 11 new convention tests (TestSDLCSecurityGates + TestAuditCoverageCompleteness). Security checks integrated into 7 slash commands. `make security-audit-quick/standard/full` targets. 690 total unit tests, 105 security tests. (2026-02-25)
-  - Plan: [.agents/plans/sdlc-security-audits.md](../.agents/plans/sdlc-security-audits.md)
-
-- [x] **CI Pipeline** - GitHub Actions workflow (`.github/workflows/ci.yml`): backend checks (ruff lint + dedicated security audit via `ruff --select=S` + mypy + pyright + pytest with PostgreSQL + Redis), frontend checks (TypeScript + ESLint + build), e2e tests (docker-compose + Playwright). Dependency scanning via pip-audit. (2026-02-24)
-
-- [x] **Performance Optimization (5 phases)** - Phase 1: Redis-backed rate limiting (cross-worker), poller leader election (Redis SETNX), Gunicorn multi-worker (4 UvicornWorkers), configurable connection pool. Phase 2: Auth user cache (TTLCache, 30s TTL, invalidate on update). Phase 3: Nginx upstream keepalive, Brotli compression (multi-stage Docker build), HTTP cache headers (GET-only on semi-static endpoints). Phase 4: SWR data fetching (request dedup, stale-while-revalidate, focus revalidation), session token caching (60s). Phase 5: Font weight reduction, react-leaflet tree-shaking. 12 code review findings fixed. 693 unit tests. (2026-02-25)
-  - Plan: plan mode session
-  - Review: [.agents/code-reviews/perf-optimization-review.md](../.agents/code-reviews/perf-optimization-review.md)
-  - Report: [.agents/execution-reports/perf-optimization.md](../.agents/execution-reports/perf-optimization.md)
-
-- [x] **Dashboard Drag-and-Drop Scheduling** - Driver roster sidebar with draggable cards (HTML5 DnD API), calendar drop zones on week/month views with precise time calculation. 5 action types: assign shift, mark leave, mark sick day, schedule training, custom event. RBAC-enforced (admin/editor only). SWR-based `useDriversSummary` hook (120s refresh). `DriverDropDialog` with i18n-templated event titles. 46 new i18n keys per locale. (2026-02-25)
-  - Plan: [.agents/plans/fe-dashboard-dnd.md](../.agents/plans/fe-dashboard-dnd.md)
-  - Review: [.agents/code-reviews/fe-dashboard-dnd-review.md](../.agents/code-reviews/fe-dashboard-dnd-review.md)
-
-- [x] **Users Page** - Admin-only user management page at `/[locale]/users`. CRUD with search, role/status filters, reset-password dialog. Backend: `/api/v1/auth/users` (5 endpoints). (commit b2d5e1d, 2026-02-25)
-  - Plan: [.agents/plans/fe-users-page.md](../.agents/plans/fe-users-page.md)
-
-- [x] **@vtv/sdk Generation + Full Migration** - Auto-generated TypeScript client from FastAPI OpenAPI schema. 66 endpoints, 95+ types (as of 2026-03-08). Auth via request interceptor (JWT, dual server/client context). All 13 API domains migrated from hand-written `authFetch` to thin SDK wrappers, eliminating ~1,200 lines of boilerplate. (commits b2d5e1d, b9e34f0, 2026-02-25/26)
-  - Plan: [.agents/plans/fe-sdk-generation.md](../.agents/plans/fe-sdk-generation.md)
-  - Migration plan: [.agents/plans/fe-sdk-migration.md](../.agents/plans/fe-sdk-migration.md)
-
-- [x] **Calendar Event Hover Cards** - Tooltip hover cards on calendar events (week/month/3-month views) showing event details, goals, and driver info. shadcn/ui HoverCard component with semantic tokens. (commit 15d39d2, 2026-02-27)
-  - Plan: [.agents/plans/fe-calendar-event-hover-card.md](../.agents/plans/fe-calendar-event-hover-card.md)
-
-- [x] **Scoped CLAUDE.md Context Files** - Added path-scoped CLAUDE.md files across the codebase for AI-assisted development context. Cleaned up duplicate `cms/cms/` directory. (commit 4329731, 2026-02-27)
-
-- [x] **Vehicles Page** - Fleet management page at `/[locale]/vehicles`. Vehicle CRUD, maintenance tracking, driver assignment, search/filter by type/status. Backend: `/api/v1/vehicles` (8 endpoints). (commit f75988c, 2026-03-07)
-
-- [x] **Analytics Dashboard** - Analytics page at `/[locale]/analytics` with 3 tabs: Fleet (vehicle utilization, maintenance stats), Drivers (shift coverage, availability), Performance (on-time metrics, delay analysis). Read-only aggregation over existing data. Backend: `/api/v1/analytics` (4 endpoints). (commit 7bbeece, 2026-03-07)
-
-- [x] **Multi-Feed GTFS-RT Frontend** - Routes page multi-feed support: feed selector filter (ToggleGroup), per-feed marker border colors, feed health overlay with vehicle counts per feed, auto-fit bounds on feed change. WebSocket subscription filtering by feed. (commit d65a151, 2026-03-07)
-
-- [x] **EU Compliance Exports Tab** - GTFS page 4th tab "Compliance" for EU-mandated export formats: NeTEx EPIP 1.2 XML download, SIRI Vehicle Monitoring 2.0 XML download, SIRI Stop Monitoring 2.0 XML download. Agency/route/stop filters per format, export status display. Backend: `/api/v1/compliance` (4 endpoints). (commit 9aed21e, 2026-03-07)
-
-- [x] **Persistent GTFS Storage** - Migrated agent transit tools from in-memory HTTP/ZIP-based GTFSStaticCache to DB-backed GTFSStaticStore. Reads from existing schedules + stops PostgreSQL tables via ScheduleRepository. Same dataclass interface (RouteInfo, StopInfo, TripInfo, etc.), same TTL-based refresh. FK resolution maps translate integer PKs to GTFS string IDs. Updated 8 consumer files (5 agent tools + poller + transit service + analytics service) and 7 test files. 822 unit tests pass. (2026-03-07)
-  - Plan: [.agents/plans/persistent-gtfs-storage.md](../.agents/plans/persistent-gtfs-storage.md)
-
-- [x] **Security Audit 6 Remediation** - 8 vulnerability categories addressed: fail-closed token revocation (Redis down = deny), RBAC hardening on drivers/events/knowledge endpoints (require_role), magic bytes file upload validation, prompt injection detection, brute force logging upgrade, JWT secret startup validation, CORS wildcard prevention, configurable SSL verification. 9 test fixes for updated security behavior. (commit 08c0aec, 2026-03-07)
-  - Audit: [documents/PLANNING/audit_6.txt](../documents/PLANNING/audit_6.txt)
-  - Plan: [.agents/plans/security-audit-6.md](../.agents/plans/security-audit-6.md)
-
-- [x] **Historical Position Storage (TimescaleDB)** - Time-series vehicle position storage with TimescaleDB hypertable. Dual-write from poller (Redis + TimescaleDB, non-blocking). `vehicle_positions` table with compression (7d) and retention (90d) policies. Vehicle history and route delay trend REST endpoints with RBAC. `VehicleStopStatus` Literal type, `EnrichedVehicle` TypedDict, `DelayTrendBucket` TypedDict. 838 unit tests. (2026-03-07)
-  - Plan: [.agents/plans/historical-position-storage.md](../.agents/plans/historical-position-storage.md)
-  - Review: [.agents/code-reviews/transit-history-review.md](../.agents/code-reviews/transit-history-review.md)
-
-- [x] **OpenAPI Spec Completions + SDK Regeneration** - Added OpenAPI response schemas to compliance XML endpoints (`responses` parameter with `application/xml` content type), typed transit `/feeds` endpoint with `TransitFeedsResponse` model, and regenerated `@vtv/sdk` from live spec. SDK now covers all 66 endpoints (was 48) across 13 API domains with 95+ TypeScript types. (commit aa9d9f3, 2026-03-08)
-  - Plan: [.agents/plans/openapi-spec-completions.md](../.agents/plans/openapi-spec-completions.md)
-
-- [x] **Notification/Alerts System** - Proactive alerting with configurable rules and background evaluator. 11 REST endpoints under `/api/v1/alerts` (rule CRUD + instance lifecycle + dashboard summary). Background evaluator checks 3 rule types: `maintenance_due`, `registration_expiry`, `delay_threshold`. Partial unique index for active alert deduplication. RBAC: admin-only rules, admin+dispatcher instances, all-auth summary. 2 tables (`alert_rules`, `alert_instances`), 40 unit tests. (2026-03-08)
-  - Plan: [.agents/plans/notification-alerts-system.md](../.agents/plans/notification-alerts-system.md)
-
-- [x] **Geofence Zone Monitoring (Phase 1B Backend)** - PostGIS POLYGON zones with GIST indexing and ST_Contains containment queries. 8 REST endpoints (CRUD + event history + dwell reports). Background evaluator (30s cycle) detects vehicle entry/exit/dwell via Redis state tracking, creates alert instances. 2 tables (geofences, geofence_events), 3 new alert types (geofence_enter/exit/dwell). 23 unit tests. (2026-03-08)
-  - Plan: [.agents/plans/geofences-phase-1b.md](../.agents/plans/geofences-phase-1b.md)
-
-- [x] **Multi-Tier Agent Model Routing** - Heuristic prompt classifier (`routing.py`) routes queries by complexity: fast tier (simple lookups, status checks), standard tier (default), complex tier (analysis, bulk ops, optimization). `resolve_tier_model()` resolves tier-specific LLM models from 6 env vars (`LLM_FAST_PROVIDER/MODEL`, `LLM_STANDARD_PROVIDER/MODEL`, `LLM_COMPLEX_PROVIDER/MODEL`). Zero latency overhead (regex classification). 100% backward compatible (all tiers fall back to primary model when unset). 37 new tests (29 classification + 8 tier resolution). (2026-03-09)
-  - Plan: [.agents/plans/agent-model-routing.md](../.agents/plans/agent-model-routing.md)
-
-- [x] **Context-Triggered Security SDC** - Integrated security into the development cycle based on audit_6 findings. New `_shared/security-contexts.md` defines 6 context categories (CTX-AUTH, CTX-RBAC, CTX-FILE, CTX-AGENT, CTX-INFRA, CTX-INPUT) with trigger keywords, specific requirements, and plan task templates. Updated 7 commands: `/be-planning` and `/fe-planning` now detect and inject security contexts into plans, `/review` and `/fe-review` apply context-aware deeper checks, `/be-prime` and `/fe-prime` surface the security context system. (2026-03-07)
-
-## Planning Documents
-
-| Document | Path | Description |
-|----------|------|-------------|
-| Implementation Plan | [docs/PLANNING/Implementation-Plan.md](PLANNING/Implementation-Plan.md) | Full Latvia transit platform (4 phases, 16+ weeks) |
-| RAG Improvements | [docs/PLANNING/rag-improvements.md](PLANNING/rag-improvements.md) | Knowledge base enhancements (10 improvements) |
-| SOP Automation | [docs/PLANNING/sop-file-automation.md](PLANNING/sop-file-automation.md) | Automated ingestion + SOP generation |
-| Latvian Language Research | [docs/PLANNING/latvian-language-and-model-research.md](PLANNING/latvian-language-and-model-research.md) | Model benchmarks, embedding selection, DMS architecture |
-| Command Architecture | [docs/PLANNING/command-planning.md](PLANNING/command-planning.md) | Slash command design decisions and audit |
-| Schedule Management | [.agents/plans/schedule-management.md](../.agents/plans/schedule-management.md) | GTFS schedule management backend implementation |

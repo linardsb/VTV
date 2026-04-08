@@ -30,6 +30,10 @@ class RerankResult:
 class RerankerProvider(Protocol):
     """Protocol for reranker providers."""
 
+    async def warm_up(self) -> None:
+        """Pre-load model so first search has no cold start."""
+        ...
+
     async def rerank(self, query: str, documents: list[str], top_k: int = 10) -> list[RerankResult]:
         """Rerank documents by relevance to query.
 
@@ -68,6 +72,14 @@ class LocalRerankerProvider:
 
             self._model = CrossEncoder(self._model_name)
         return self._model
+
+    async def warm_up(self) -> None:
+        """Pre-load the cross-encoder model so first search has no cold start."""
+        start = time.monotonic()
+        logger.info("knowledge.reranker.warming_up", model=self._model_name)
+        await asyncio.to_thread(self._get_model)
+        duration_ms = int((time.monotonic() - start) * 1000)
+        logger.info("knowledge.reranker.loaded", model=self._model_name, duration_ms=duration_ms)
 
     async def rerank(self, query: str, documents: list[str], top_k: int = 10) -> list[RerankResult]:
         """Rerank documents using cross-encoder scoring.
@@ -114,6 +126,10 @@ class LocalRerankerProvider:
 
 class NoopRerankerProvider:
     """Pass-through reranker that preserves original order."""
+
+    async def warm_up(self) -> None:
+        """No-op warm up."""
+        logger.info("knowledge.reranker.loaded", model="noop")
 
     async def rerank(self, query: str, documents: list[str], top_k: int = 10) -> list[RerankResult]:
         """Return documents in original order with score 1.0.

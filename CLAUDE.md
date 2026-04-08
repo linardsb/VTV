@@ -16,9 +16,15 @@ VTV is a unified transit operations platform targeting all of Latvia's public tr
 
 ## Slash Commands
 
-25 AI-assisted development commands (8 backend + 7 frontend + 9 cross-cutting + 1 testing). Full docs: `.claude/commands/CLAUDE.md`. Workflows: `.claude/commands/WORKFLOW.md`.
+33 AI-assisted development commands (10 backend + 9 frontend + 4 accelerators + 9 cross-cutting + 1 testing). Full docs: `.claude/commands/CLAUDE.md`. Workflows: `.claude/commands/WORKFLOW.md`.
 
-**Workflows:** `/be-prime` → `/be-planning` → `/be-execute` → `/be-validate` → `/commit` | Frontend: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` → `/e2e` → `/commit`
+**Workflows:**
+- Standard BE: `/be-prime` → `/be-planning` → `/be-execute` → `/be-ship` → `/commit`
+- Fast path BE: `/parallel-plan` → `/preflight-check` → `/be-execute` → `/be-ship` → `/commit`
+- Bug fix BE: `/be-code-review-fix` → `/be-validate` → `/commit`
+- Standard FE: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-ship` → `/commit`
+- Fast path FE: `/fe-parallel-plan` → `/fe-preflight-check` → `/fe-execute` → `/fe-ship` → `/commit`
+- Bug fix FE: `/fe-code-review-fix` → `/fe-validate` → `/commit`
 
 ## Essential Commands
 
@@ -33,7 +39,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (964 tests, ~20s)
+make test            # Unit tests (974 tests, ~20s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 

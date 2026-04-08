@@ -113,6 +113,14 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Start geofence evaluator background task
     await start_geofence_evaluator(settings)
 
+    # Pre-load reranker model (avoids cold-start on first search)
+    try:
+        from app.knowledge.service import warm_up_reranker
+
+        await warm_up_reranker()
+    except Exception:
+        logger.warning("knowledge.reranker.warm_up_failed", exc_info=True)
+
     # Start WebSocket subscriber (pushes Redis Pub/Sub -> WebSocket clients)
     if settings.ws_enabled and settings.poller_enabled:
         ws_manager = get_ws_manager()

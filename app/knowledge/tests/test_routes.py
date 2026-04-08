@@ -359,7 +359,7 @@ def test_search_documents():
             results=[search_result],
             query="transit schedule",
             total_candidates=10,
-            reranked=False,
+            reranked=True,
         )
     )
     client, app = _client()

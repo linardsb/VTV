@@ -65,6 +65,12 @@ def _get_reranker() -> RerankerProvider:
     return _reranker_provider
 
 
+async def warm_up_reranker() -> None:
+    """Pre-load reranker model for startup."""
+    provider = _get_reranker()
+    await provider.warm_up()
+
+
 class KnowledgeService:
     """Business logic for knowledge base operations."""
 
