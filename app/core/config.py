@@ -182,7 +182,7 @@ class Settings(BaseSettings):
 
     # Knowledge base
     knowledge_chunk_size: int = 512
-    knowledge_chunk_overlap: int = 50
+    knowledge_chunk_overlap: int = 100
     knowledge_search_limit: int = 50  # Candidates before reranking
 
     # Auto-tagging (LLM classification on document upload)

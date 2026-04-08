@@ -205,7 +205,7 @@ async def test_file_stored_on_ingest() -> None:
         mock_chunk.return_value = []
         mock_settings.return_value.document_storage_path = "data/documents"
         mock_settings.return_value.knowledge_chunk_size = 512
-        mock_settings.return_value.knowledge_chunk_overlap = 50
+        mock_settings.return_value.knowledge_chunk_overlap = 100
         mock_settings.return_value.auto_tag_enabled = False
 
         await service.ingest_document(

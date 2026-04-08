@@ -152,13 +152,13 @@ async def test_search_service_error_returns_message() -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_truncates_content_to_500_chars() -> None:
-    """Verify chunk content is truncated to 500 characters."""
+async def test_search_truncates_content_to_1500_chars() -> None:
+    """Verify chunk content is truncated to 1500 characters."""
     ctx = MagicMock()
     ctx.deps.settings = MagicMock()
     ctx.deps.settings.embedding_provider = "jina"
 
-    long_content = "A" * 1000
+    long_content = "A" * 3000
 
     mock_result = MagicMock()
     mock_result.chunk_content = long_content
@@ -191,7 +191,7 @@ async def test_search_truncates_content_to_500_chars() -> None:
             result_json = await search_knowledge_base(ctx, query="hr policy")
 
     result = json.loads(result_json)
-    assert len(result["results"][0]["content"]) == 500
+    assert len(result["results"][0]["content"]) == 1500
 
 
 def test_system_prompt_contains_citation_rules() -> None:

@@ -1,6 +1,7 @@
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportCallIssue=false, reportArgumentType=false
 """Integration tests for knowledge repository."""
 
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -398,3 +399,82 @@ async def test_list_domains(repo: KnowledgeRepository, mock_db: AsyncMock) -> No
 
     domains = await repo.list_domains()
     assert domains == []
+
+
+# --- Test 11: Vector search with created_after filter ---
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_search_vector_with_created_after_filter(
+    repo: KnowledgeRepository, mock_db: AsyncMock
+) -> None:
+    """Documents before created_after are excluded from vector search."""
+    now = utcnow()
+    recent_doc = make_document(id=1, created_at=now)
+    recent_chunk = make_chunk(id=1, document_id=1, content="Recent info")
+
+    mock_rows = [(recent_chunk, recent_doc, 0.2)]
+    mock_result = MagicMock()
+    mock_result.all.return_value = mock_rows
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    query_embedding = [0.1] * 1024
+    results = await repo.search_vector(
+        query_embedding, limit=10, created_after=now - timedelta(hours=1)
+    )
+
+    assert len(results) == 1
+    mock_db.execute.assert_awaited_once()
+
+
+# --- Test 12: Fulltext search with created_before filter ---
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_search_fulltext_with_created_before_filter(
+    repo: KnowledgeRepository, mock_db: AsyncMock
+) -> None:
+    """Documents after created_before are excluded from fulltext search."""
+    now = utcnow()
+    old_doc = make_document(id=1, created_at=now - timedelta(days=7))
+    old_chunk = make_chunk(id=1, document_id=1, content="Old transit data")
+
+    mock_rows = [(old_chunk, old_doc, 0.8)]
+    mock_result = MagicMock()
+    mock_result.all.return_value = mock_rows
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    results = await repo.search_fulltext("transit data", limit=10, created_before=now)
+
+    assert len(results) == 1
+    mock_db.execute.assert_awaited_once()
+
+
+# --- Test 13: Vector search with date range ---
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_search_vector_with_date_range(repo: KnowledgeRepository, mock_db: AsyncMock) -> None:
+    """Both created_after and created_before filter together."""
+    now = utcnow()
+    doc = make_document(id=1, created_at=now - timedelta(hours=12))
+    chunk = make_chunk(id=1, document_id=1, content="In-range content")
+
+    mock_rows = [(chunk, doc, 0.3)]
+    mock_result = MagicMock()
+    mock_result.all.return_value = mock_rows
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    query_embedding = [0.1] * 1024
+    results = await repo.search_vector(
+        query_embedding,
+        limit=10,
+        created_after=now - timedelta(days=1),
+        created_before=now,
+    )
+
+    assert len(results) == 1
+    mock_db.execute.assert_awaited_once()

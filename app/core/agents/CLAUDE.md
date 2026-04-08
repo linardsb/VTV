@@ -43,7 +43,7 @@ app/core/agents/
 See `docs/TODO.md` → "Agent Architecture Improvements" for the full roadmap. Key priorities:
 
 1. **Multi-tier model routing** - Heuristic prompt classifier in `routing.py`, tier model resolution via `resolve_tier_model()` in `config.py`, integrated into `AgentService.chat()`. Configure via `LLM_FAST_*`/`LLM_STANDARD_*`/`LLM_COMPLEX_*` env vars.
-2. **RAG retrieval** — Increase chunk overlap (50→100), expand result truncation (500→1500 chars), always-on reranking, query routing (skip RAG for transit queries), HyDE query expansion for Latvian
+2. **RAG retrieval** — ✅ Chunk overlap 50→100, ✅ result truncation 500→1500 chars, ✅ always-on reranking (AI-1.1), ✅ created_at date filtering (AI-1.2). Remaining: query routing (skip RAG for transit queries), HyDE query expansion for Latvian
 3. **Server-side memory** — pgvector-backed semantic memory with temporal decay (procedural/episodic/semantic types)
 4. **Multi-agent splitting** — Separate transit/vault/knowledge agents with router for better tool selection
 5. **Bounded self-correction** — QA validation + recovery routing (max 2 rounds)

@@ -47,6 +47,16 @@ def test_latvian_diacritics_preserved(sample_latvian_text: str) -> None:
     assert "Satiksme" in all_text
 
 
+def test_chunk_overlap_100_preserves_boundary_context():
+    """100-char overlap preserves content at chunk boundaries."""
+    text = "word " * 200  # Long enough for multiple chunks
+    result = chunk_text(text, chunk_size=200, chunk_overlap=100)
+    assert len(result) >= 2
+    # Verify overlap: end of chunk[0] appears in start of chunk[1]
+    overlap_text = result[0].content[-100:]
+    assert overlap_text in result[1].content
+
+
 def test_metadata_char_offsets():
     """Chunks should include char_start and char_end metadata."""
     text = "First section.\n\nSecond section.\n\nThird section."

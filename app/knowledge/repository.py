@@ -1,6 +1,8 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
 """Data access layer for knowledge base with pgvector hybrid search."""
 
+from datetime import datetime
+
 from sqlalchemy import delete, distinct, func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -259,6 +261,8 @@ class KnowledgeRepository:
         limit: int,
         domain: str | None = None,
         language: str | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
     ) -> list[tuple[DocumentChunk, Document, float]]:
         """Search chunks by vector similarity (cosine distance).
 
@@ -267,6 +271,8 @@ class KnowledgeRepository:
             limit: Maximum results.
             domain: Optional domain filter.
             language: Optional language filter.
+            created_after: Exclude documents created before this timestamp.
+            created_before: Exclude documents created after this timestamp.
 
         Returns:
             List of (chunk, document, distance) tuples sorted by distance ascending.
@@ -283,6 +289,10 @@ class KnowledgeRepository:
             query = query.where(Document.domain == domain)
         if language:
             query = query.where(Document.language == language)
+        if created_after is not None:
+            query = query.where(Document.created_at >= created_after)
+        if created_before is not None:
+            query = query.where(Document.created_at <= created_before)
 
         result = await self.db.execute(query)
         rows: list[tuple[DocumentChunk, Document, float]] = [
@@ -296,6 +306,8 @@ class KnowledgeRepository:
         limit: int,
         domain: str | None = None,
         language: str | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
     ) -> list[tuple[DocumentChunk, Document, float]]:
         """Search chunks using PostgreSQL full-text search.
 
@@ -307,6 +319,8 @@ class KnowledgeRepository:
             limit: Maximum results.
             domain: Optional domain filter.
             language: Optional language filter.
+            created_after: Exclude documents created before this timestamp.
+            created_before: Exclude documents created after this timestamp.
 
         Returns:
             List of (chunk, document, rank) tuples sorted by rank descending.
@@ -326,6 +340,10 @@ class KnowledgeRepository:
             query = query.where(Document.domain == domain)
         if language:
             query = query.where(Document.language == language)
+        if created_after is not None:
+            query = query.where(Document.created_at >= created_after)
+        if created_before is not None:
+            query = query.where(Document.created_at <= created_before)
 
         result = await self.db.execute(query)
         rows: list[tuple[DocumentChunk, Document, float]] = [

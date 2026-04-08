@@ -39,15 +39,8 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 #### AI-1.1 Always-On Cross-Encoder Reranking ✅
 **Status:** Done — reranking was already default (`reranker_provider="local"`). Added `warm_up()` for startup preloading (eliminates 2-5s cold start), startup health log (`knowledge.reranker.loaded`), 10 unit tests for reranker providers. Route test updated to assert `reranked=True`. Plan: `.agents/plans/always-on-reranking.md`.
 
-#### AI-1.2 Chunk Overlap + Result Truncation Expansion
-**What:** (a) Increase chunk overlap from 50 → 100 chars in `ChunkingConfig`. (b) Expand search result truncation from 500 → 1500 chars in `search_knowledge_base` tool. (c) Add `created_at` range filtering to hybrid search for time-sensitive documents.
-**Why:** 50-char overlap loses context at chunk boundaries, especially for Latvian compound words (agglutinative language, long words). 500-char truncation cuts mid-concept — dispatchers get incomplete SOP steps. Transit shift notes from yesterday should rank higher than last month's.
-**Implementation:**
-- `app/knowledge/chunking.py` — `chunk_overlap: int = 100`
-- `app/core/agents/tools/knowledge/search_knowledge.py` — truncation `500` → `1500`
-- `app/knowledge/repository.py` — add optional `created_after: datetime | None` and `created_before: datetime | None` params to `hybrid_search()`, filter via `WHERE d.created_at >= :created_after`
-- `app/knowledge/service.py` — pass date filters through
-**Verify:** Upload a 3-page SOP PDF. Search for a term near a chunk boundary. Confirm the result includes context from both sides. Confirm `created_after` filter excludes older documents.
+#### AI-1.2 Chunk Overlap + Result Truncation Expansion ✅
+**Status:** Done — chunk overlap 50→100 (`chunking.py` + `config.py`), truncation 500→1500 (`search_knowledge.py`), `created_after`/`created_before` date filtering added to `SearchRequest` schema, repository (`search_vector` + `search_fulltext`), service layer, and agent tool (ISO string params). 4 new tests + 2 updated tests. Plan: `.agents/plans/ai-1.2-chunk-overlap-truncation.md`.
 
 #### AI-1.3 Temporal Boost + RRF Weight Tuning
 **What:** Add temporal relevance boost to hybrid search scoring — recent documents score higher. Tune RRF fusion weights based on query type: keyword-heavy queries weight fulltext higher, semantic queries weight vector higher.

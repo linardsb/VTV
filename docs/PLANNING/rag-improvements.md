@@ -7,8 +7,8 @@ The RAG knowledge base is fully implemented with:
 - **Hybrid search**: pgvector cosine similarity + PostgreSQL fulltext (RRF fusion, k=60)
 - **Cross-encoder reranking**: Local BGE-Reranker-v2-m3 or noop
 - **Configurable embeddings**: OpenAI, Jina, or local sentence-transformers (BGE-M3)
-- **Recursive chunking**: Paragraphs -> lines -> sentences -> words (512 chars, 50 overlap)
-- **Agent tool**: `search_knowledge_base` with 500-char truncation for token efficiency
+- **Recursive chunking**: Paragraphs -> lines -> sentences -> words (512 chars, 100 overlap)
+- **Agent tool**: `search_knowledge_base` with 1500-char truncation for token efficiency, `created_after`/`created_before` date filtering
 - **REST API**: 5 endpoints for upload, list, get, delete, search
 
 ## Phase 1: High-Value Document Types

@@ -21,7 +21,7 @@ class ChunkResult:
 def chunk_text(
     text: str,
     chunk_size: int = 512,
-    chunk_overlap: int = 50,
+    chunk_overlap: int = 100,
 ) -> list[ChunkResult]:
     """Split text into overlapping chunks using recursive splitting.
 

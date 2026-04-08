@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import datetime
 
 from pydantic_ai import RunContext
 
@@ -23,7 +24,7 @@ from app.knowledge.service import KnowledgeService
 
 logger = get_logger(__name__)
 
-_MAX_CONTENT_CHARS = 500
+_MAX_CONTENT_CHARS = 1500
 
 
 async def search_knowledge_base(
@@ -32,6 +33,8 @@ async def search_knowledge_base(
     domain: str | None = None,
     language: str | None = None,
     limit: int = 5,
+    created_after: str | None = None,
+    created_before: str | None = None,
 ) -> str:
     """Search organizational documents for policies, procedures, and records.
 
@@ -49,6 +52,8 @@ async def search_knowledge_base(
     EFFICIENCY: Keep limit low (3-5) for focused answers. Use domain filter
     ("transit", "hr", "legal", "compliance") when the category is clear.
     Use language filter ("lv" or "en") if the user specifies a language.
+    Use created_after/created_before to narrow time-sensitive searches
+    (e.g., recent shift notes, documents uploaded this week).
 
     COMPOSITION: Use standalone for document questions. Chain with
     obsidian_manage_notes to save findings. If the answer references
@@ -60,6 +65,8 @@ async def search_knowledge_base(
         domain: Optional domain filter (e.g., "transit", "hr", "legal").
         language: Optional language filter ("lv" or "en").
         limit: Maximum results to return (1-20, default 5).
+        created_after: ISO datetime string to filter documents created after this time.
+        created_before: ISO datetime string to filter documents created before this time.
 
     Returns:
         JSON string with search results including document_id for citation links.
@@ -74,6 +81,8 @@ async def search_knowledge_base(
         domain=domain,
         language=language,
         limit=limit,
+        created_after=created_after,
+        created_before=created_before,
         embedding_provider=_settings.embedding_provider,
     )
 
@@ -86,12 +95,17 @@ async def search_knowledge_base(
     try:
         async with AsyncSessionLocal() as db:
             service = KnowledgeService(db)
+            parsed_after = datetime.fromisoformat(created_after) if created_after else None
+            parsed_before = datetime.fromisoformat(created_before) if created_before else None
+
             response = await service.search(
                 SearchRequest(
                     query=query,
                     domain=domain,
                     language=language,
                     limit=effective_limit,
+                    created_after=parsed_after,
+                    created_before=parsed_before,
                 )
             )
 

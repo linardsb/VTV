@@ -144,6 +144,12 @@ class SearchRequest(BaseModel):
     domain: str | None = Field(None, description="Filter by domain")
     language: str | None = Field(None, description="Filter by language")
     limit: int = Field(default=10, ge=1, le=50, description="Max results to return")
+    created_after: datetime | None = Field(
+        None, description="Filter documents created after this timestamp"
+    )
+    created_before: datetime | None = Field(
+        None, description="Filter documents created before this timestamp"
+    )
 
 
 class SearchResult(BaseModel):

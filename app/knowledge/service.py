@@ -336,10 +336,20 @@ class KnowledgeService:
         # Run both searches
         search_limit = settings.knowledge_search_limit
         vector_results = await self.repository.search_vector(
-            query_embedding, search_limit, request.domain, request.language
+            query_embedding,
+            search_limit,
+            request.domain,
+            request.language,
+            request.created_after,
+            request.created_before,
         )
         text_results = await self.repository.search_fulltext(
-            request.query, search_limit, request.domain, request.language
+            request.query,
+            search_limit,
+            request.domain,
+            request.language,
+            request.created_after,
+            request.created_before,
         )
 
         # RRF fusion
