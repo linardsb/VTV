@@ -106,7 +106,10 @@ export async function fetchFleetPositions(
   );
   if (!res.ok)
     throw new FleetApiError(res.status, "Failed to fetch fleet positions");
-  return res.json() as Promise<VehiclePositionWithTelemetry[]>;
+  const data = (await res.json()) as {
+    vehicles: VehiclePositionWithTelemetry[];
+  };
+  return data.vehicles;
 }
 
 /** Fetch telemetry history for a specific vehicle. */
