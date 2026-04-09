@@ -22,9 +22,7 @@ depends_on: str | Sequence[str] | None = None
 def _table_exists(name: str) -> bool:
     conn = op.get_bind()
     result = conn.execute(
-        sa.text(
-            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = :name)"
-        ),
+        sa.text("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = :name)"),
         {"name": name},
     ).scalar()
     return bool(result)
@@ -69,9 +67,15 @@ def upgrade() -> None:
             ),
             sa.Column("color", sa.String(7), nullable=True),
             sa.Column("description", sa.Text(), nullable=True),
-            sa.Column("alert_on_enter", sa.Boolean(), nullable=False, server_default=sa.text("true")),
-            sa.Column("alert_on_exit", sa.Boolean(), nullable=False, server_default=sa.text("true")),
-            sa.Column("alert_on_dwell", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+            sa.Column(
+                "alert_on_enter", sa.Boolean(), nullable=False, server_default=sa.text("true")
+            ),
+            sa.Column(
+                "alert_on_exit", sa.Boolean(), nullable=False, server_default=sa.text("true")
+            ),
+            sa.Column(
+                "alert_on_dwell", sa.Boolean(), nullable=False, server_default=sa.text("false")
+            ),
             sa.Column("dwell_threshold_minutes", sa.Integer(), nullable=True),
             sa.Column(
                 "alert_severity", sa.String(20), nullable=False, server_default=sa.text("'medium'")

@@ -1,6 +1,6 @@
 # VTV Slash Commands & Workflows
 
-25 slash commands organized into pipelines. Each command produces artifacts that the next command consumes, forming composable workflows.
+33 slash commands organized into pipelines. Each command produces artifacts that the next command consumes, forming composable workflows.
 
 ---
 
@@ -20,10 +20,11 @@ Commands use a deduplication architecture to minimize token waste:
 ├── commands/
 │   ├── _shared/            # Deduplication — loaded via @ references, NOT always-on
 │   │   ├── python-anti-patterns.md   # 59 rules, single source of truth
+│   │   ├── security-contexts.md      # 6 context-triggered security categories
 │   │   ├── tailwind-token-map.md     # Forbidden → semantic token mappings
 │   │   └── frontend-security.md      # Security grep commands + checklist
-│   ├── be-*.md             # Backend commands
-│   ├── fe-*.md             # Frontend commands
+│   ├── be-*.md             # Backend commands (10)
+│   ├── fe-*.md             # Frontend commands (9)
 │   └── *.md                # Cross-cutting commands
 ├── hooks/
 │   └── filter-test-output.sh  # (Optional) Caps test output to last 60 lines
@@ -118,6 +119,44 @@ Researches the frontend codebase and creates a 400-600 line plan. Checks design 
 
 ---
 
+### Accelerator Commands
+
+#### `/parallel-plan {description}`
+Replaces the sequential `/be-prime` → `/be-planning` flow with 3 parallel agents: **Researcher** (jCodeMunch/jDocMunch exploration), **Test Scout** (fixtures, factories, test patterns), and **Pyright Baseline** (current error counts). Results merge into a single 600-700 line plan.
+
+**Example:** `/parallel-plan add driver availability tracking`
+**Loads:** `@CLAUDE.md`, `@_shared/python-anti-patterns.md`, `@_shared/security-contexts.md`
+**When to use:** When you want faster planning — skips the separate prime step.
+**Produces:** `.agents/plans/{feature-name}.md` — same format as `/be-planning`.
+**Chains with:** `/parallel-plan` → `/preflight-check` → `/be-execute` → `/be-ship` → `/commit`
+
+#### `/fe-parallel-plan {description}`
+Replaces the sequential `/fe-prime` → `/fe-planning` flow with 3 parallel agents: **Researcher** (routes, components, hooks, RBAC), **Test Scout** (Playwright tests, SDK types, mock patterns), and **TypeScript Baseline** (current tsc/eslint error counts). Results merge into a single 400-600 line plan.
+
+**Example:** `/fe-parallel-plan add fleet telemetry dashboard`
+**Loads:** `@CLAUDE.md`, `@cms/design-system/vtv/MASTER.md`, `@_shared/tailwind-token-map.md`, `@_shared/frontend-security.md`, `@_shared/security-contexts.md`
+**When to use:** When you want faster frontend planning — skips the separate prime step.
+**Produces:** `.agents/plans/fe-{feature-name}.md` — same format as `/fe-planning`.
+**Chains with:** `/fe-parallel-plan` → `/fe-preflight-check` → `/fe-execute` → `/fe-ship` → `/commit`
+
+#### `/preflight-check {plan-file}`
+Scans the plan's target files for fragile patterns that historically cause fix cycles during `/be-execute`. Auto-fixes hardcoded count assertions, tuple unpacking, string assertions, parameter propagation, and Pydantic field annotations. Captures pyright/mypy baseline.
+
+**Example:** `/preflight-check .agents/plans/driver-availability.md`
+**When to use:** After `/parallel-plan` or `/be-planning`, before `/be-execute`.
+**Produces:** Preflight report with fixes applied + safe patterns + type check baseline.
+**Chains with:** Run before `/be-execute` to prevent fix cycles.
+
+#### `/fe-preflight-check {plan-file}`
+Scans the plan's target frontend files for fragile patterns. Auto-fixes hardcoded `toHaveLength` assertions, snapshot tests, mock return values, `as any` casts, destructured props, and API response types. Captures tsc baseline. Flags hardcoded i18n strings.
+
+**Example:** `/fe-preflight-check .agents/plans/fe-fleet-telemetry.md`
+**When to use:** After `/fe-parallel-plan` or `/fe-planning`, before `/fe-execute`.
+**Produces:** Preflight report with fixes applied + safe patterns + tsc baseline + i18n flags.
+**Chains with:** Run before `/fe-execute` to prevent fix cycles.
+
+---
+
 ### Execution Commands
 
 #### `/be-execute {plan-file}`
@@ -127,7 +166,7 @@ Takes a plan file and implements every step in order. Pre-flight checks, then cr
 **Loads:** `@_shared/python-anti-patterns.md` (59 rules for correct code on first pass)
 **When to use:** After `/be-planning` creates a plan.
 **Produces:** Implemented feature code, passing validation suite.
-**Chains with:** Run `/be-validate` after for explicit confirmation, then `/commit`.
+**Chains with:** Run `/be-ship` after for full quality gate, then `/commit`.
 
 #### `/fe-execute {plan-file}`
 Takes a frontend plan and implements every step. Per-task TypeScript validation after each file. Uses semantic design tokens, next-intl translations, server components by default. Design system compliance scan + security verification.
@@ -136,7 +175,7 @@ Takes a frontend plan and implements every step. Per-task TypeScript validation 
 **Loads:** `@cms/design-system/vtv/MASTER.md`, `@_shared/tailwind-token-map.md`, `@_shared/frontend-security.md`
 **When to use:** After `/fe-planning` creates a plan.
 **Produces:** Implemented frontend feature, passing validation suite.
-**Chains with:** Run `/fe-validate` after, then `/e2e`, then `/commit`.
+**Chains with:** Run `/fe-ship` after for full quality gate, then `/commit`.
 
 #### `/implement-fix {rca-file}`
 Takes an RCA document (from `/rca`) and applies the proposed fix. Writes regression tests named `test_issue_{id}_{description}()`. Runs migrations if needed. Full validation suite.
@@ -158,18 +197,32 @@ One-pass error resolution combining investigation + fix. Gathers error details (
 ### Validation Commands
 
 #### `/be-validate`
-Runs ALL backend quality checks in sequence: ruff format → ruff check → mypy → pyright → pytest (unit) → pytest (integration, if Docker) → SDK sync (if API running) → server health.
+Runs ALL backend quality checks in sequence: ruff format → ruff check → mypy → pyright → pytest (unit) → pytest (integration, if Docker) → SDK sync (if API running) → server health → security lint → security convention tests.
 
 **When to use:** After any backend code changes, before committing.
-**Hard gates:** Steps 1-5 must pass. Steps 6-8 are conditional/soft.
+**Hard gates:** Steps 1-5 and 9-10 must pass. Steps 6-8 are conditional/soft.
 **Produces:** Pass/fail scorecard — the go/no-go for committing.
 
 #### `/fe-validate`
-Runs ALL frontend quality checks: TypeScript type-check → ESLint lint → Next.js build (hard gates) → design system compliance → i18n completeness → accessibility spot-check → security pattern scan.
+Runs ALL frontend quality checks: TypeScript type-check → ESLint lint → Next.js build (hard gates) → security patterns → design system compliance → i18n completeness → accessibility spot-check.
 
 **When to use:** After any frontend code changes, before committing.
 **Hard gates:** TypeScript, lint, build, security. Soft gates: design system, i18n, a11y.
 **Produces:** Pass/fail scorecard.
+
+#### `/be-ship`
+Full backend quality pipeline in 4 phases: **validate** (10-level pyramid) → **review** (8 standards) → **fix** (critical findings only) → **validate** (final gate). Max 3 retry rounds. Does not commit — user runs `/commit` separately.
+
+**When to use:** After `/be-execute`, before `/commit`. The thorough pre-commit gate.
+**Produces:** Ship report with phase-by-phase results.
+**Chains with:** `/be-execute` → `/be-ship` → `/commit`
+
+#### `/fe-ship`
+Full frontend quality pipeline in 4 phases: **validate** (7 checks) → **review** (8 frontend standards) → **fix** (critical findings only) → **validate** (final gate). Max 3 retry rounds. Does not commit — user runs `/commit` separately.
+
+**When to use:** After `/fe-execute`, before `/commit`. The thorough pre-commit gate.
+**Produces:** Ship report with phase-by-phase results.
+**Chains with:** `/fe-execute` → `/fe-ship` → `/commit`
 
 #### `/review {path}`
 Deep architectural code review against 8 VTV quality standards (type safety, schemas, logging, DB patterns, architecture, docstrings, testing, security). Uses Claude's reasoning — catches design issues that linters miss.
@@ -183,7 +236,7 @@ Frontend-specific review against 8 standards (TypeScript quality, design system,
 
 **Example:** `/fe-review cms/apps/web/src/app/[locale]/(dashboard)/routes/`
 **Produces:** `.agents/code-reviews/fe-{target}-review.md`.
-**Chains with:** Review feeds into `/code-review-fix`.
+**Chains with:** Review feeds into `/fe-code-review-fix` or `/code-review-fix`.
 
 #### `/code-review-fix {report} [scope]`
 Takes a review report and fixes all findings in priority order (Critical → High → Medium → Low). Optional scope: `all` (default), `critical`, `high`.
@@ -191,6 +244,22 @@ Takes a review report and fixes all findings in priority order (Critical → Hig
 **Example:** `/code-review-fix .agents/code-reviews/core-review.md` or `/code-review-fix .agents/code-reviews/core-review.md critical`
 **When to use:** After `/review` or `/fe-review` produces a report.
 **Produces:** Fixed code, validation results.
+
+#### `/be-code-review-fix {description}`
+Diagnoses and fixes any backend issue — bug reports, failing tests, type errors, lint violations, security findings. Unlike `/code-review-fix` which takes a review file, this accepts any issue description and diagnoses from scratch via jCodeMunch.
+
+**Example:** `/be-code-review-fix pyright error in app/fleet/service.py` or `/be-code-review-fix failing test_security auth check`
+**When to use:** Backend bugs, test failures, type errors, security findings.
+**Produces:** Root cause analysis, fix, verification results.
+**Chains with:** `/be-code-review-fix` → `/be-validate` → `/commit`
+
+#### `/fe-code-review-fix {description}`
+Diagnoses and fixes any frontend issue — TypeScript errors, design system violations, i18n gaps, a11y issues. Accepts any issue description and diagnoses from scratch.
+
+**Example:** `/fe-code-review-fix TypeScript error in fleet map component` or `/fe-code-review-fix design system violation in geofences page`
+**When to use:** Frontend bugs, TypeScript errors, design violations, i18n gaps.
+**Produces:** Root cause analysis, fix, verification results.
+**Chains with:** `/fe-code-review-fix` → `/fe-validate` → `/commit`
 
 ---
 
@@ -267,7 +336,7 @@ Full frontend lifecycle in 6 phases: prime → plan → execute → validate →
 ### New Backend Feature (standard — 5 steps)
 
 ```
-/be-prime → /be-planning → /be-execute → /be-validate → /commit
+/be-prime → /be-planning → /be-execute → /be-ship → /commit
 ```
 
 | Step | Command | Input | Output |
@@ -275,10 +344,26 @@ Full frontend lifecycle in 6 phases: prime → plan → execute → validate →
 | 1 | `/be-prime` | — | Session context loaded |
 | 2 | `/be-planning add brute force tracking` | Feature description | `.agents/plans/brute-force.md` |
 | 3 | `/be-execute .agents/plans/brute-force.md` | Plan file | Implemented code |
-| 4 | `/be-validate` | — | Pass/fail scorecard |
+| 4 | `/be-ship` | — | Ship report (validate→review→fix→validate) |
 | 5 | `/commit` | — | Git commit |
 
 **Optional follow-ups:** `/update-docs brute-force` → `/commit` (docs update)
+
+### New Backend Feature (fast path — 5 steps)
+
+```
+/parallel-plan → /preflight-check → /be-execute → /be-ship → /commit
+```
+
+| Step | Command | Input | Output |
+|------|---------|-------|--------|
+| 1 | `/parallel-plan add brute force tracking` | Feature description | `.agents/plans/brute-force.md` (3 parallel agents) |
+| 2 | `/preflight-check .agents/plans/brute-force.md` | Plan file | Preflight report + auto-fixes |
+| 3 | `/be-execute .agents/plans/brute-force.md` | Plan file | Implemented code |
+| 4 | `/be-ship` | — | Ship report (validate→review→fix→validate) |
+| 5 | `/commit` | — | Git commit |
+
+`/parallel-plan` replaces `/be-prime` + `/be-planning` with 3 concurrent agents (researcher, test scout, pyright baseline). `/preflight-check` scans for hardcoded assertions, tuple unpacking, and fragile patterns before execution.
 
 ### New Backend Feature (autonomous — 1 step)
 
@@ -286,14 +371,30 @@ Full frontend lifecycle in 6 phases: prime → plan → execute → validate →
 /be-end-to-end-feature add brute force tracking
 ```
 
-Equivalent to the 5-step chain above plus `/execution-report`, all in one command.
+Equivalent to the standard chain above plus `/execution-report`, all in one command.
 
 ---
 
-### New Frontend Page (standard — 6 steps)
+### Backend Bug Fix / Code Review Fix
 
 ```
-/fe-prime → /fe-planning → /fe-execute → /fe-validate → /e2e → /commit
+/be-code-review-fix → /be-validate → /commit
+```
+
+| Step | Command | What happens |
+|------|---------|-------------|
+| 1 | `/be-code-review-fix pyright error in app/fleet/service.py` | Diagnoses and fixes the issue |
+| 2 | `/be-validate` | All checks pass |
+| 3 | `/commit` | Git commit |
+
+Skip prime/planning — go straight to diagnosis and fix. Use `/be-prime` first only if you need full context for a complex bug.
+
+---
+
+### New Frontend Page (standard — 5 steps)
+
+```
+/fe-prime → /fe-planning → /fe-execute → /fe-ship → /commit
 ```
 
 | Step | Command | Input | Output |
@@ -301,9 +402,24 @@ Equivalent to the 5-step chain above plus `/execution-report`, all in one comman
 | 1 | `/fe-prime` | — | Frontend context loaded |
 | 2 | `/fe-planning add vehicle management page` | Page description | `.agents/plans/fe-vehicles.md` |
 | 3 | `/fe-execute .agents/plans/fe-vehicles.md` | Plan file | Implemented page |
-| 4 | `/fe-validate` | — | Pass/fail scorecard |
-| 5 | `/e2e vehicles` | — | Playwright results |
-| 6 | `/commit` | — | Git commit |
+| 4 | `/fe-ship` | — | Ship report (validate→review→fix→validate) |
+| 5 | `/commit` | — | Git commit |
+
+### New Frontend Page (fast path — 5 steps)
+
+```
+/fe-parallel-plan → /fe-preflight-check → /fe-execute → /fe-ship → /commit
+```
+
+| Step | Command | Input | Output |
+|------|---------|-------|--------|
+| 1 | `/fe-parallel-plan add vehicle management page` | Page description | `.agents/plans/fe-vehicles.md` (3 parallel agents) |
+| 2 | `/fe-preflight-check .agents/plans/fe-vehicles.md` | Plan file | Preflight report + auto-fixes |
+| 3 | `/fe-execute .agents/plans/fe-vehicles.md` | Plan file | Implemented page |
+| 4 | `/fe-ship` | — | Ship report (validate→review→fix→validate) |
+| 5 | `/commit` | — | Git commit |
+
+`/fe-parallel-plan` replaces `/fe-prime` + `/fe-planning` with 3 concurrent agents (researcher, test scout, TypeScript baseline). `/fe-preflight-check` scans for hardcoded assertions, snapshot tests, stale mocks, `as any` casts, and i18n flags.
 
 ### New Frontend Page (autonomous — 1 step)
 
@@ -313,14 +429,35 @@ Equivalent to the 5-step chain above plus `/execution-report`, all in one comman
 
 ---
 
+### Frontend Bug Fix / Code Review Fix
+
+```
+/fe-code-review-fix → /fe-validate → /commit
+```
+
+| Step | Command | What happens |
+|------|---------|-------------|
+| 1 | `/fe-code-review-fix design system violation in geofences page` | Diagnoses and fixes the issue |
+| 2 | `/fe-validate` | All checks pass |
+| 3 | `/commit` | Git commit |
+
+---
+
 ### Full-Stack Feature (backend API + frontend UI)
 
 Build the backend first (API endpoints), then the frontend (UI consuming those endpoints):
 
 | Phase | Chain | Commit |
 |-------|-------|--------|
-| 1. Backend | `/be-prime` → `/be-planning` → `/be-execute` → `/be-validate` → `/commit` | `feat(drivers): add availability endpoint` |
-| 2. Frontend | `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` → `/e2e` → `/commit` | `feat(cms): add driver availability page` |
+| 1. Backend | `/parallel-plan` → `/preflight-check` → `/be-execute` → `/be-ship` → `/commit` | `feat(drivers): add availability endpoint` |
+| 2. Frontend | `/fe-parallel-plan` → `/fe-preflight-check` → `/fe-execute` → `/fe-ship` → `/commit` | `feat(cms): add driver availability page` |
+
+Or standard path:
+
+| Phase | Chain | Commit |
+|-------|-------|--------|
+| 1. Backend | `/be-prime` → `/be-planning` → `/be-execute` → `/be-ship` → `/commit` | `feat(drivers): add availability endpoint` |
+| 2. Frontend | `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-ship` → `/commit` | `feat(cms): add driver availability page` |
 
 ---
 
@@ -369,7 +506,7 @@ Edit directly → /be-validate → /commit
 | 3 | `/be-validate` | Confirms no regressions |
 | 4 | `/commit` | `refactor(events): address code review findings` |
 
-Frontend variant: `/fe-review` → `/code-review-fix` → `/fe-validate` → `/commit`
+Frontend variant: `/fe-review` → `/code-review-fix` (or `/fe-code-review-fix`) → `/fe-validate` → `/commit`
 
 ---
 
@@ -390,15 +527,20 @@ Frontend variant: `/fe-review` → `/code-review-fix` → `/fe-validate` → `/c
 
 | Situation | Commands |
 |-----------|----------|
-| **New backend feature** | `/be-prime` → `/be-planning` → `/be-execute` → `/be-validate` → `/commit` |
-| **New frontend page** | `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` → `/e2e` → `/commit` |
+| **New backend feature (standard)** | `/be-prime` → `/be-planning` → `/be-execute` → `/be-ship` → `/commit` |
+| **New backend feature (fast path)** | `/parallel-plan` → `/preflight-check` → `/be-execute` → `/be-ship` → `/commit` |
+| **New frontend page (standard)** | `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-ship` → `/commit` |
+| **New frontend page (fast path)** | `/fe-parallel-plan` → `/fe-preflight-check` → `/fe-execute` → `/fe-ship` → `/commit` |
 | **Full-stack feature** | Backend chain → Frontend chain (2 commits) |
 | **Full auto (BE)** | `/be-end-to-end-feature {description}` |
 | **Full auto (FE)** | `/fe-end-to-end-page {description}` |
+| **Backend bug fix (direct)** | `/be-code-review-fix {description}` → `/be-validate` → `/commit` |
+| **Frontend bug fix (direct)** | `/fe-code-review-fix {description}` → `/fe-validate` → `/commit` |
 | **Bug with investigation** | `/rca` → `/implement-fix` → `/be-validate` → `/commit` |
 | **Quick error fix** | `/fix-error {description}` → `/commit` |
 | **Trivial fix** | Edit directly → `/be-validate` → `/commit` |
-| **Code review** | `/review` → `/code-review-fix` → `/be-validate` → `/commit` |
+| **Code review (BE)** | `/review` → `/code-review-fix` → `/be-validate` → `/commit` |
+| **Code review (FE)** | `/fe-review` → `/fe-code-review-fix` → `/fe-validate` → `/commit` |
 | **Just validate** | `/be-validate` (backend) or `/fe-validate` (frontend) |
 | **Just test e2e** | `/e2e` or `make e2e` |
 | **Scaffold feature** | `/be-create-feature {name}` (backend) or `/fe-create-page {name}` (frontend) |
@@ -411,15 +553,70 @@ Frontend variant: `/fe-review` → `/code-review-fix` → `/fe-validate` → `/c
 
 | Command | What it runs |
 |---------|-------------|
-| `make test` | 693 unit tests, ~18s |
+| `make test` | Unit tests, ~20s |
 | `make check` | lint + types + tests (full backend) |
 | `make e2e` | Auto-detect changed features, Playwright |
 | `make e2e-all` | All 81 e2e tests |
 | `make e2e-ui` | Interactive Playwright UI mode |
 | `make e2e-headed` | Run with visible browser |
-| `/be-validate` | ruff format + check + mypy + pyright + pytest |
-| `/fe-validate` | TypeScript + ESLint + build + design system + i18n + a11y |
+| `/be-validate` | ruff format + check + mypy + pyright + pytest + security lint + conventions |
+| `/fe-validate` | TypeScript + ESLint + build + security + design system + i18n + a11y |
+| `/be-ship` | validate → review → fix → validate (4-phase gate) |
+| `/fe-ship` | validate → review → fix → validate (4-phase gate) |
 | `/e2e [feature]` | Playwright via CLI with auto-detection |
+
+---
+
+## Command Summary Table
+
+### Backend (10)
+| Command | Purpose | When to Use |
+|---------|---------|-------------|
+| `/be-init-project` | Bootstrap dev environment | Session start, Docker restart |
+| `/be-prime` | Load full backend context | Start of backend work |
+| `/be-prime-tools` | Load agent tool context | Before tool development |
+| `/be-planning` | Create implementation plan | New features, multi-file changes |
+| `/be-create-feature` | Scaffold VSA feature | New feature from scratch |
+| `/be-execute` | Execute plan step by step | After planning approval |
+| `/be-validate` | Run all quality checks | After any code changes |
+| `/be-ship` | Full quality pipeline (validate→review→fix→validate) | Before committing a feature |
+| `/be-code-review-fix` | Diagnose and fix any backend issue | Bugs, test failures, type errors |
+| `/be-end-to-end-feature` | Autonomous full lifecycle | After trusting each command individually |
+
+### Frontend (9)
+| Command | Purpose | When to Use |
+|---------|---------|-------------|
+| `/fe-prime` | Load full frontend context | Start of frontend work |
+| `/fe-planning` | Create frontend plan | New features, multi-file changes |
+| `/fe-create-page` | Scaffold Next.js page | Quick page creation |
+| `/fe-execute` | Execute frontend plan | After planning approval |
+| `/fe-validate` | Run frontend quality checks | After any frontend changes |
+| `/fe-ship` | Full quality pipeline (validate→review→fix→validate) | Before committing a feature |
+| `/fe-review` | Deep frontend code review | Quality assessment |
+| `/fe-code-review-fix` | Diagnose and fix any frontend issue | Bugs, TypeScript errors, design violations |
+| `/fe-end-to-end-page` | Autonomous full lifecycle | After trusting each command individually |
+
+### Accelerators (4)
+| Command | Purpose | When to Use |
+|---------|---------|-------------|
+| `/parallel-plan` | Parallel research + test scout + pyright baseline | Replaces `/be-prime` → `/be-planning` |
+| `/preflight-check` | Scan plan for fragile patterns (backend) | Before `/be-execute` to prevent fix cycles |
+| `/fe-parallel-plan` | Parallel research + test scout + tsc baseline | Replaces `/fe-prime` → `/fe-planning` |
+| `/fe-preflight-check` | Scan plan for fragile patterns (frontend) | Before `/fe-execute` to prevent fix cycles |
+
+### Cross-Cutting (10)
+| Command | Purpose | When to Use |
+|---------|---------|-------------|
+| `/review` | Backend code review (8 standards) | Quality assessment |
+| `/code-review-fix` | Fix review findings by priority | After `/review` produces report |
+| `/rca` | Root cause analysis | Bug investigation |
+| `/implement-fix` | Execute RCA fix | After `/rca` documents root cause |
+| `/fix-error` | One-pass error resolution | Quick bug fix without separate RCA |
+| `/commit` | Conventional commit with safety checks | Final step in every workflow |
+| `/update-docs` | Sync documentation | After committing features |
+| `/execution-report` | Plan vs reality comparison | After feature implementation |
+| `/system-review` | Process improvement | After execution report |
+| `/e2e` | Playwright end-to-end tests | Before committing frontend changes |
 
 ---
 
@@ -427,7 +624,7 @@ Frontend variant: `/fe-review` → `/code-review-fix` → `/fe-validate` → `/c
 
 | Directory | Created by | Contains |
 |-----------|-----------|----------|
-| `.agents/plans/` | `/be-planning`, `/fe-planning` | Active implementation plans |
+| `.agents/plans/` | `/be-planning`, `/fe-planning`, `/parallel-plan`, `/fe-parallel-plan` | Active implementation plans |
 | `.agents/plans/archive/` | Manual move | Completed/old plans |
 | `.agents/code-reviews/` | `/review`, `/fe-review` | Code review reports |
 | `.agents/execution-reports/` | `/execution-report` | Plan vs reality comparisons |
@@ -442,4 +639,6 @@ Follow this progression before using autonomous commands:
 
 1. **Manual prompts** — Learn what instructions work with Claude for your project
 2. **Individual commands** — Run `/be-prime`, `/be-planning`, `/be-execute`, `/be-validate`, `/commit` separately and verify each
-3. **Chained commands** — Use `/be-end-to-end-feature` or `/fe-end-to-end-page` only after trusting each individual command
+3. **Fast path commands** — Use `/parallel-plan` + `/preflight-check` after trusting the standard path
+4. **Ship pipeline** — Use `/be-ship` and `/fe-ship` after trusting validate + review individually
+5. **Chained commands** — Use `/be-end-to-end-feature` or `/fe-end-to-end-page` only after trusting each individual command

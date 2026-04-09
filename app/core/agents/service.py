@@ -20,6 +20,7 @@ from pydantic_ai.messages import (
 from app.core.agents.agent import agent, build_instructions_with_skills
 from app.core.agents.config import resolve_tier_model
 from app.core.agents.exceptions import AgentExecutionError
+from app.core.agents.pipeline import get_complex_pipeline
 from app.core.agents.routing import classify_prompt
 from app.core.agents.schemas import (
     ChatCompletionChoice,
@@ -29,6 +30,7 @@ from app.core.agents.schemas import (
     UsageInfo,
 )
 from app.core.agents.tools.transit.deps import UnifiedDeps, create_unified_deps
+from app.core.agents.validation import validate_transit_response
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger
@@ -141,13 +143,34 @@ class AgentService:
         instructions = build_instructions_with_skills(skills_instructions) or None
 
         try:
-            result = await agent.run(
-                current_prompt,
-                deps=self._deps,
-                message_history=message_history,
-                instructions=instructions,
-                model=tier_model,
-            )
+            if tier == "complex":
+                pipeline = get_complex_pipeline(agent, self._deps)
+                pipeline_result = await pipeline.run(
+                    current_prompt,
+                    message_history=message_history,
+                    instructions=instructions,
+                    model=tier_model,
+                )
+                response_content = pipeline_result.output
+
+                logger.info(
+                    "agent.pipeline.summary",
+                    phases_completed=pipeline_result.phases_completed,
+                    total_duration_ms=pipeline_result.total_duration_ms,
+                    phase_details=[
+                        {"name": pd.name, "duration_ms": pd.duration_ms, "status": pd.status}
+                        for pd in pipeline_result.phase_details
+                    ],
+                )
+            else:
+                result = await agent.run(
+                    current_prompt,
+                    deps=self._deps,
+                    message_history=message_history,
+                    instructions=instructions,
+                    model=tier_model,
+                )
+                response_content = result.output
         except Exception as e:
             logger.error(
                 "agent.chat_failed",
@@ -156,6 +179,17 @@ class AgentService:
                 error_type=type(e).__name__,
             )
             raise AgentExecutionError(f"Agent execution failed: {e}") from e
+
+        # Validate the agent response for plausibility issues
+        validation = validate_transit_response(response_content)
+        if validation.warnings:
+            for warning in validation.warnings:
+                logger.warning(
+                    "agent.response_validation_warning",
+                    warning=warning,
+                )
+            footnotes = "\n".join(f"\u26a0\ufe0f {w}" for w in validation.warnings)
+            response_content = f"{response_content}\n\n---\n{footnotes}"
 
         response_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
         settings = get_settings()
@@ -172,7 +206,7 @@ class AgentService:
             choices=[
                 ChatCompletionChoice(
                     index=0,
-                    message=ChatMessage(role="assistant", content=result.output),
+                    message=ChatMessage(role="assistant", content=response_content),
                     finish_reason="stop",
                 )
             ],
@@ -182,7 +216,7 @@ class AgentService:
         logger.info(
             "agent.chat_completed",
             response_id=response_id,
-            output_length=len(result.output),
+            output_length=len(response_content),
         )
 
         return response

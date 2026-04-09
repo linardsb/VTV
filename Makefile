@@ -119,6 +119,17 @@ dep-audit: ## Scan dependencies for known vulnerabilities
 PROD_HOST ?= root@204.168.156.137
 PROD_DIR ?= ~/VTV
 
+ship: ## Commit all changes, push, and deploy to production
+	@echo "==> Staging all changes..."
+	git add -A
+	@echo "==> Committing..."
+	git commit -m "$$(git diff --cached --stat | tail -1 | sed 's/^ /chore: /')" || echo "Nothing to commit"
+	@echo "==> Pushing to origin..."
+	git push origin main
+	@echo "==> Deploying on $(PROD_HOST)..."
+	ssh $(PROD_HOST) 'cd $(PROD_DIR) && git pull origin main && docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up -d --build'
+	@echo "==> Ship complete! Site: http://204.168.156.137"
+
 deploy: ## Deploy to production (git push + rebuild containers on server)
 	@echo "==> Pushing to origin..."
 	git push origin main

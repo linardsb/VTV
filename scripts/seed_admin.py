@@ -14,8 +14,8 @@ async def go() -> None:
     Session = sessionmaker(engine, class_=AsyncSession)
     pw = bcrypt.hashpw(b"admin", bcrypt.gensalt()).decode()
     sql = (
-        "INSERT INTO users (email, hashed_password, full_name, role, is_active)"
-        " VALUES (:e, :p, :n, :r, true)"
+        "INSERT INTO users (email, hashed_password, name, role, is_active, failed_attempts, created_at, updated_at)"
+        " VALUES (:e, :p, :n, :r, true, 0, now(), now())"
         " ON CONFLICT (email) DO NOTHING"
     )
     async with Session() as s:

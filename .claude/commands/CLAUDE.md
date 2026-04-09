@@ -1,6 +1,6 @@
 # VTV Commands
 
-25 slash commands for AI-assisted development workflows (8 backend + 7 frontend + 9 cross-cutting + 1 testing). Run any command by typing `/command-name` in Claude Code.
+33 slash commands for AI-assisted development workflows (10 backend + 9 frontend + 4 accelerators + 9 cross-cutting + 1 testing). Run any command by typing `/command-name` in Claude Code.
 
 Every command is designed to produce artifacts that other commands consume. This creates composable pipelines where each step's output feeds the next. Commands work standalone but are most powerful when chained.
 

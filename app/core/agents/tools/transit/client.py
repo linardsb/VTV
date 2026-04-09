@@ -15,11 +15,17 @@ from dataclasses import dataclass, field
 import httpx
 from google.transit import gtfs_realtime_pb2
 
+import app.core.agents.validation as agent_validation
 from app.core.agents.exceptions import TransitDataError
 from app.core.config import Settings
 from app.core.logging import get_logger
+from app.core.resilience import CircuitBreaker, CircuitOpenError
 
 logger = get_logger(__name__)
+
+# Module-level circuit breaker for all GTFS-RT feed requests.
+# Opens after 3 consecutive failures, tests recovery after 60 seconds.
+_feed_breaker = CircuitBreaker(name="gtfs-rt-feed", failure_threshold=3, reset_timeout=60.0)
 
 
 # --- Internal data classes (typed wrappers around protobuf) ---
@@ -153,6 +159,9 @@ class GTFSRealtimeClient:
     async def _fetch_feed(self, url: str) -> bytes:
         """Fetch raw protobuf bytes from a GTFS-RT endpoint.
 
+        Uses a circuit breaker to fail fast when the feed is unhealthy,
+        preventing cascading timeouts.
+
         Args:
             url: Feed endpoint URL.
 
@@ -161,19 +170,26 @@ class GTFSRealtimeClient:
 
         Raises:
             TransitDataError: If the HTTP request fails.
+            CircuitOpenError: If the circuit breaker is open.
         """
         try:
-            response = await self._http_client.get(url)
-            response.raise_for_status()
-        except httpx.TimeoutException as e:
-            msg = (
-                f"Transit feed timed out at {url}. "
-                "The Rigas Satiksme data service may be temporarily unavailable."
-            )
-            raise TransitDataError(msg) from e
-        except httpx.HTTPError as e:
-            msg = f"Transit feed request failed for {url}: {e}"
-            raise TransitDataError(msg) from e
+            async with _feed_breaker:
+                try:
+                    response = await self._http_client.get(url)
+                    response.raise_for_status()
+                except httpx.TimeoutException as e:
+                    msg = (
+                        f"Transit feed timed out at {url}. "
+                        "The Rigas Satiksme data service may be temporarily unavailable."
+                    )
+                    raise TransitDataError(msg) from e
+                except httpx.HTTPError as e:
+                    msg = f"Transit feed request failed for {url}: {e}"
+                    raise TransitDataError(msg) from e
+        except CircuitOpenError:
+            raise
+        except TransitDataError:
+            raise
         return response.content
 
     def _parse_feed(self, raw: bytes) -> gtfs_realtime_pb2.FeedMessage:
@@ -207,7 +223,22 @@ class GTFSRealtimeClient:
         if self._is_cache_fresh(self._vehicle_cache) and self._vehicle_cache is not None:
             return self._vehicle_cache.data  # type: ignore[return-value]
 
-        raw = await self._fetch_feed(self._settings.gtfs_rt_vehicle_positions_url)
+        try:
+            raw = await self._fetch_feed(self._settings.gtfs_rt_vehicle_positions_url)
+        except (CircuitOpenError, TransitDataError) as e:
+            if self._vehicle_cache is not None:
+                logger.warning(
+                    "transit.vehicle_positions.serving_stale_cache",
+                    breaker_state=_feed_breaker.state.value,
+                    error=str(e),
+                )
+                agent_validation.last_stale_data_timestamp = time.monotonic()
+                return self._vehicle_cache.data  # type: ignore[return-value]
+            msg = (
+                "Transit vehicle positions feed is unavailable and no cached data exists. "
+                "Please try again shortly."
+            )
+            raise TransitDataError(msg) from e
         feed = self._parse_feed(raw)
 
         vehicles: list[VehiclePositionData] = []
@@ -259,7 +290,22 @@ class GTFSRealtimeClient:
         if self._is_cache_fresh(self._trip_update_cache) and self._trip_update_cache is not None:
             return self._trip_update_cache.data  # type: ignore[return-value]
 
-        raw = await self._fetch_feed(self._settings.gtfs_rt_trip_updates_url)
+        try:
+            raw = await self._fetch_feed(self._settings.gtfs_rt_trip_updates_url)
+        except (CircuitOpenError, TransitDataError) as e:
+            if self._trip_update_cache is not None:
+                logger.warning(
+                    "transit.trip_updates.serving_stale_cache",
+                    breaker_state=_feed_breaker.state.value,
+                    error=str(e),
+                )
+                agent_validation.last_stale_data_timestamp = time.monotonic()
+                return self._trip_update_cache.data  # type: ignore[return-value]
+            msg = (
+                "Transit trip updates feed is unavailable and no cached data exists. "
+                "Please try again shortly."
+            )
+            raise TransitDataError(msg) from e
         feed = self._parse_feed(raw)
 
         updates: list[TripUpdateData] = []
@@ -324,7 +370,22 @@ class GTFSRealtimeClient:
         if self._is_cache_fresh(self._alerts_cache) and self._alerts_cache is not None:
             return self._alerts_cache.data  # type: ignore[return-value]
 
-        raw = await self._fetch_feed(self._settings.gtfs_rt_alerts_url)
+        try:
+            raw = await self._fetch_feed(self._settings.gtfs_rt_alerts_url)
+        except (CircuitOpenError, TransitDataError) as e:
+            if self._alerts_cache is not None:
+                logger.warning(
+                    "transit.alerts.serving_stale_cache",
+                    breaker_state=_feed_breaker.state.value,
+                    error=str(e),
+                )
+                agent_validation.last_stale_data_timestamp = time.monotonic()
+                return self._alerts_cache.data  # type: ignore[return-value]
+            msg = (
+                "Transit alerts feed is unavailable and no cached data exists. "
+                "Please try again shortly."
+            )
+            raise TransitDataError(msg) from e
         feed = self._parse_feed(raw)
 
         alerts: list[AlertData] = []

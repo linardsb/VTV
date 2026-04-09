@@ -22,9 +22,7 @@ depends_on: str | Sequence[str] | None = None
 def _table_exists(name: str) -> bool:
     conn = op.get_bind()
     result = conn.execute(
-        sa.text(
-            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = :name)"
-        ),
+        sa.text("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = :name)"),
         {"name": name},
     ).scalar()
     return bool(result)
