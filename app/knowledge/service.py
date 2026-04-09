@@ -54,10 +54,20 @@ _reranker_provider: RerankerProvider | None = None
 
 
 def _get_embedding() -> EmbeddingProvider:
-    """Get or create the embedding provider singleton."""
+    """Get or create the embedding provider singleton (with optional cache)."""
     global _embedding_provider
     if _embedding_provider is None:
-        _embedding_provider = get_embedding_provider(get_settings())
+        settings = get_settings()
+        provider = get_embedding_provider(settings)
+        if settings.embedding_cache_enabled:
+            from app.knowledge.embedding import CachedEmbeddingProvider
+
+            provider = CachedEmbeddingProvider(
+                provider=provider,
+                provider_name=settings.embedding_provider,
+                ttl=settings.embedding_cache_ttl,
+            )
+        _embedding_provider = provider
     return _embedding_provider
 
 

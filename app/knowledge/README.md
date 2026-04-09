@@ -29,9 +29,20 @@ RAG-powered document knowledge base with full document management capabilities. 
 7. Output truncated to `knowledge_hyde_max_tokens * 4` chars as safety bound
 8. Configurable via `knowledge_hyde_enabled`, `knowledge_hyde_model`, `knowledge_hyde_max_tokens`
 
+### Embedding Cache (Redis-backed)
+
+1. When `embedding_cache_enabled=True`, `_get_embedding()` wraps the provider with `CachedEmbeddingProvider`
+2. For each text in a batch, compute cache key: `emb:{provider}:{blake2b(normalized_text)[:16]}`
+3. Normalization: lowercase, strip whitespace, sort words (so "route 3 status" == "status route 3")
+4. Batch lookup via Redis `mget`; cache hits skip the embedding API entirely
+5. Cache misses are batch-embedded via the wrapped provider, then stored via Redis pipeline `setex`
+6. Graceful fallback: any Redis error (unavailable, read failure, write failure) falls back to the wrapped provider
+7. TTL configurable via `embedding_cache_ttl` (default 1 hour)
+8. Logging events: `knowledge.embedding_cache.hit`, `.miss`, `.redis_unavailable`, `.read_failed`, `.write_failed`
+
 ### Hybrid Search
 
-1. Embed query text (or HyDE-expanded text if enabled) using the configured embedding provider
+1. Embed query text (or HyDE-expanded text if enabled) using the configured embedding provider (with optional cache)
 2. Run vector similarity search (pgvector cosine distance)
 3. Run fulltext search (PostgreSQL `to_tsvector('simple')` with `ts_rank`)
 4. Classify query type: keyword (route numbers, stop codes), semantic (questions, procedural phrases in EN/LV), or mixed
@@ -170,7 +181,7 @@ Table: `document_chunks`
 ## Integration Points
 
 - **Agent Module**: `search_knowledge_base` tool registered in `app/core/agents/agent.py`, uses `AsyncSessionLocal` for direct DB access. Agent system prompt includes CITATION RULES for `[title](/{locale}/documents/{id})` links.
-- **Core Config**: 25 settings in `app/core/config.py` (embedding, reranker, chunking, document_storage_path, auto_tag, hyde, temporal_boost, rrf_weights)
+- **Core Config**: 27 settings in `app/core/config.py` (embedding, embedding_cache, reranker, chunking, document_storage_path, auto_tag, hyde, temporal_boost, rrf_weights)
 - **Shared Utilities**: Uses `PaginationParams`, `PaginatedResponse`, `TimestampMixin`, `get_db()`, `get_logger()`
 - **Frontend**: Documents management page at `/[locale]/documents` with upload, list, detail, download, delete
 - **Pydantic AI**: Auto-tagging and HyDE query expansion use `pydantic-ai` Agent for LLM calls (lazy-imported, provider configured via existing settings)

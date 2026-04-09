@@ -168,6 +168,10 @@ class Settings(BaseSettings):
     embedding_api_key: str | None = None
     embedding_base_url: str | None = None  # Custom endpoint for local/Jina
 
+    # Embedding cache (Redis-backed, avoids redundant API calls)
+    embedding_cache_enabled: bool = True
+    embedding_cache_ttl: int = 3600  # seconds (1 hour)
+
     # Reranker
     reranker_provider: str = "local"  # local, none
     reranker_model: str = "BAAI/bge-reranker-v2-m3"

@@ -13,10 +13,10 @@ Planned features and improvements. Each item links to its detailed planning docu
 ```
 Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
 CMS Frontend      ███████████████████████░  99%  (17 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences)
-Testing           ████████████████████░░░░  90%  (974 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
+Testing           ████████████████████░░░░  90%  (1049 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence █████░░░░░░░░░░░░░░░░░░  20%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. 6 remaining phases: memory+bridge, chunking, self-correction, multi-agent+harness+L3 skills, eval)
+Agent Intelligence ██████░░░░░░░░░░░░░░░░░  25%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. 5 remaining phases: memory+bridge, chunking, self-correction, multi-agent+harness+L3 skills, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -78,15 +78,18 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 **Verify:** Compare retrieval quality for "Ko darīt, ja autobuss sabojājas maršrutā?" with HyDE on vs off. HyDE should surface SOP documents in top 3 that were previously at position 5+. Measure latency overhead — should be <500ms with fast model.
 
 #### AI-2.3 Embedding Cache
+**Status:** Implemented. Plan: `.agents/plans/ai-2.3-embedding-cache.md`
 **What:** Cache query embeddings in Redis with TTL to avoid redundant embedding API calls for repeated queries. Use normalized query text as cache key (lowercase, stripped whitespace, sorted words).
 **Why:** Dispatchers ask the same questions repeatedly ("route 3 status", "which routes delayed"). Caching embeddings for these saves API costs and reduces latency from ~200ms to <5ms for cached queries.
 **Implementation:**
-- `app/knowledge/embedding.py` — wrap `embed()` with Redis cache layer:
+- `app/knowledge/embedding.py` — `CachedEmbeddingProvider` wrapper class with `_normalize_query()`. Decorates any `EmbeddingProvider` with Redis-backed per-text caching. Batch `mget` for cache lookup, pipeline `setex` for writes. Graceful fallback on any Redis error.
   - Key: `emb:{provider}:{blake2b(normalized_query)[:16]}`
   - Value: JSON-serialized float list
-  - TTL: 1 hour (configurable via `KNOWLEDGE__EMBEDDING_CACHE_TTL`)
-- `app/core/config.py` — add `KNOWLEDGE__EMBEDDING_CACHE_ENABLED: bool = True`, `KNOWLEDGE__EMBEDDING_CACHE_TTL: int = 3600`
-- Add cache hit/miss logging: `knowledge.embedding_cache.hit` / `knowledge.embedding_cache.miss`
+  - TTL: 1 hour (configurable via `EMBEDDING_CACHE_TTL`)
+- `app/knowledge/service.py` — `_get_embedding()` singleton wraps provider with `CachedEmbeddingProvider` when `embedding_cache_enabled=True`
+- `app/core/config.py` — `embedding_cache_enabled: bool = True`, `embedding_cache_ttl: int = 3600`
+- Cache hit/miss logging: `knowledge.embedding_cache.hit` / `knowledge.embedding_cache.miss` / `knowledge.embedding_cache.redis_unavailable` / `knowledge.embedding_cache.read_failed` / `knowledge.embedding_cache.write_failed`
+- 14 unit tests: normalization (3), cache keys (3), hit/miss (3), Redis fallback (3), service integration (2)
 **Verify:** Send same query twice. First call hits embedding API (check logs). Second call hits cache (check logs, latency <5ms). Wait past TTL — next call hits API again.
 
 ---

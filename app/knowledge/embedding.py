@@ -8,6 +8,8 @@ sentence-transformers models. Provider selected via EMBEDDING_PROVIDER setting.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import time
 from typing import Any, Protocol
 
@@ -156,6 +158,123 @@ class LocalEmbeddingProvider:
     def dimension(self) -> int:
         """Return the embedding dimension."""
         return self._dimension
+
+
+def _normalize_query(text: str) -> str:
+    """Normalize text for cache key consistency.
+
+    Lowercases, strips whitespace, sorts words so
+    'route 3 status' and 'status route 3' produce the same key.
+
+    Args:
+        text: Raw query text.
+
+    Returns:
+        Normalized text for hashing.
+    """
+    return " ".join(sorted(text.lower().split()))
+
+
+class CachedEmbeddingProvider:
+    """Decorator that adds Redis caching to any EmbeddingProvider.
+
+    Cache key: emb:{provider}:{blake2b(normalized_text)[:16]}
+    Value: JSON-serialized float list
+    TTL: Configurable via settings.embedding_cache_ttl
+
+    Falls back to the wrapped provider on any Redis error.
+    """
+
+    def __init__(
+        self,
+        provider: EmbeddingProvider,
+        provider_name: str,
+        ttl: int,
+    ) -> None:
+        self._provider = provider
+        self._provider_name = provider_name
+        self._ttl = ttl
+
+    def _cache_key(self, text: str) -> str:
+        normalized = _normalize_query(text)
+        digest = hashlib.blake2b(normalized.encode(), digest_size=8).hexdigest()
+        return f"emb:{self._provider_name}:{digest}"
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        """Embed texts with per-text Redis cache lookup.
+
+        For each text: check cache -> on hit, use cached vector;
+        on miss, batch-embed all misses via the wrapped provider,
+        then store results in Redis.
+
+        Args:
+            texts: Texts to embed.
+
+        Returns:
+            List of embedding vectors (same order as input).
+        """
+        try:
+            from app.core.redis import get_redis
+
+            redis_client = await get_redis()
+        except Exception:
+            logger.warning("knowledge.embedding_cache.redis_unavailable")
+            return await self._provider.embed(texts)
+
+        keys = [self._cache_key(t) for t in texts]
+        results: list[list[float] | None] = [None] * len(texts)
+        miss_indices: list[int] = []
+
+        # Batch cache lookup
+        try:
+            cached_values = await redis_client.mget(keys)
+            for i, val in enumerate(cached_values):
+                if val is not None:
+                    results[i] = json.loads(val)
+            miss_indices = [i for i, r in enumerate(results) if r is None]
+        except Exception:
+            logger.warning("knowledge.embedding_cache.read_failed")
+            miss_indices = list(range(len(texts)))
+
+        cache_hits = len(texts) - len(miss_indices)
+        if cache_hits > 0:
+            logger.info(
+                "knowledge.embedding_cache.hit",
+                hits=cache_hits,
+                total=len(texts),
+            )
+
+        if not miss_indices:
+            return [r for r in results if r is not None]
+
+        # Embed cache misses
+        miss_texts = [texts[i] for i in miss_indices]
+        logger.info(
+            "knowledge.embedding_cache.miss",
+            misses=len(miss_indices),
+            total=len(texts),
+        )
+        fresh_embeddings = await self._provider.embed(miss_texts)
+
+        # Store in cache (fire-and-forget, don't block on write errors)
+        try:
+            pipe = redis_client.pipeline()
+            for idx, embedding in zip(miss_indices, fresh_embeddings, strict=True):
+                pipe.setex(keys[idx], self._ttl, json.dumps(embedding))
+            await pipe.execute()
+        except Exception:
+            logger.warning("knowledge.embedding_cache.write_failed")
+
+        # Merge cached + fresh
+        for idx, embedding in zip(miss_indices, fresh_embeddings, strict=True):
+            results[idx] = embedding
+
+        return [r for r in results if r is not None]
+
+    @property
+    def dimension(self) -> int:
+        """Return the embedding dimension."""
+        return self._provider.dimension
 
 
 def get_embedding_provider(settings: Settings) -> EmbeddingProvider:

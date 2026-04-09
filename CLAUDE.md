@@ -39,7 +39,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (1027 tests, ~30s)
+make test            # Unit tests (1049 tests, ~30s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -80,7 +80,7 @@ VTV/
 │   ├── analytics/      # Dashboard analytics (4 endpoints, read-only aggregation over vehicles/drivers/transit)
 │   ├── auth/           # JWT auth + RBAC + user management (10 endpoints)
 │   ├── compliance/     # NeTEx/SIRI EU compliance exports (4 endpoints, XML generation, no DB tables)
-│   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion)
+│   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion, Redis embedding cache)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)
 │   ├── fleet/          # Fleet device management (6 endpoints, Traccar GPS bridge, OBD-II telemetry)
