@@ -109,6 +109,13 @@ async def search_knowledge_base(
                 )
             )
 
+        if not response.results:
+            return (
+                f"No relevant documents found for query: '{query}'. "
+                "The knowledge base does not contain information "
+                "matching this query with sufficient confidence."
+            )
+
         # Map to agent-optimized schema (truncate content for token efficiency)
         results = [
             KnowledgeSearchResult(

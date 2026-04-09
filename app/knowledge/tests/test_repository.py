@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from app.core.config import get_settings
 from app.knowledge.models import Document, DocumentChunk
 from app.knowledge.repository import KnowledgeRepository
 from app.shared.models import utcnow
@@ -28,6 +29,7 @@ def make_document(**overrides: object) -> Document:
         "error_message": None,
         "chunk_count": 3,
         "metadata_json": None,
+        "evergreen": False,
         "created_at": now,
         "updated_at": now,
     }
@@ -478,3 +480,118 @@ async def test_search_vector_with_date_range(repo: KnowledgeRepository, mock_db:
 
     assert len(results) == 1
     mock_db.execute.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# Query type detection
+# ---------------------------------------------------------------------------
+
+
+class TestQueryTypeDetection:
+    """Tests for _detect_query_type() heuristic."""
+
+    def test_keyword_query_route_number(self) -> None:
+        """Route numbers should classify as keyword."""
+        from app.knowledge.service import _detect_query_type
+
+        assert _detect_query_type("route 22 schedule") == "keyword"
+
+    def test_keyword_query_stop_code(self) -> None:
+        """Stop codes should classify as keyword."""
+        from app.knowledge.service import _detect_query_type
+
+        assert _detect_query_type("stop 1456") == "keyword"
+
+    def test_semantic_query_how_question(self) -> None:
+        """How-questions should classify as semantic."""
+        from app.knowledge.service import _detect_query_type
+
+        assert _detect_query_type("how do I handle a breakdown") == "semantic"
+
+    def test_semantic_query_procedure(self) -> None:
+        """Procedural queries should classify as semantic."""
+        from app.knowledge.service import _detect_query_type
+
+        assert _detect_query_type("explain the refueling procedure") == "semantic"
+
+    def test_mixed_query(self) -> None:
+        """Queries with both semantic and keyword signals should be mixed."""
+        from app.knowledge.service import _detect_query_type
+
+        assert _detect_query_type("how does route 22 work") == "mixed"
+
+    def test_plain_text_query_is_mixed(self) -> None:
+        """Plain text without clear signals should default to mixed."""
+        from app.knowledge.service import _detect_query_type
+
+        assert _detect_query_type("shift handover notes") == "mixed"
+
+    def test_latvian_semantic_query(self) -> None:
+        """Latvian question words should classify as semantic."""
+        from app.knowledge.service import _detect_query_type
+
+        assert _detect_query_type("ka rikoties avarijas gadijuma") == "semantic"
+
+
+# ---------------------------------------------------------------------------
+# Temporal boost
+# ---------------------------------------------------------------------------
+
+
+class TestTemporalBoost:
+    """Tests for _temporal_boost() multiplier."""
+
+    def test_today_document_gets_boost(self) -> None:
+        """Documents created today get maximum boost."""
+        from app.knowledge.service import _temporal_boost
+
+        now = utcnow()
+        result = _temporal_boost(now, now, evergreen=False, settings=get_settings())
+        assert result == 1.5
+
+    def test_week_old_document(self) -> None:
+        """Documents 1-7 days old get moderate boost."""
+        from app.knowledge.service import _temporal_boost
+
+        now = utcnow()
+        three_days_ago = now - timedelta(days=3)
+        result = _temporal_boost(three_days_ago, now, evergreen=False, settings=get_settings())
+        assert result == 1.2
+
+    def test_month_old_document(self) -> None:
+        """Documents 7-30 days old get neutral score."""
+        from app.knowledge.service import _temporal_boost
+
+        now = utcnow()
+        two_weeks_ago = now - timedelta(days=15)
+        result = _temporal_boost(two_weeks_ago, now, evergreen=False, settings=get_settings())
+        assert result == 1.0
+
+    def test_old_document_penalized(self) -> None:
+        """Documents older than 30 days get penalized."""
+        from app.knowledge.service import _temporal_boost
+
+        now = utcnow()
+        old = now - timedelta(days=90)
+        result = _temporal_boost(old, now, evergreen=False, settings=get_settings())
+        assert result == 0.8
+
+    def test_evergreen_skips_decay(self) -> None:
+        """Evergreen documents always return neutral 1.0."""
+        from app.knowledge.service import _temporal_boost
+
+        now = utcnow()
+        old = now - timedelta(days=365)
+        result = _temporal_boost(old, now, evergreen=True, settings=get_settings())
+        assert result == 1.0
+
+    def test_disabled_returns_neutral(self) -> None:
+        """Disabled temporal boost returns 1.0 for all ages."""
+        from app.knowledge.service import _temporal_boost
+
+        settings = get_settings()
+        settings.temporal_boost_enabled = False
+        now = utcnow()
+        old = now - timedelta(days=90)
+        result = _temporal_boost(old, now, evergreen=False, settings=settings)
+        assert result == 1.0

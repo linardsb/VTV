@@ -31,8 +31,8 @@ app/core/agents/
 │   │   ├── bulk_operations.py       # Tool 9: batch ops with dry_run preview
 │   │   └── tests/                   # 68 tests
 │   ├── knowledge/     # 1 read-only RAG search tool
-│   │   ├── search_knowledge.py      # Tool 10: hybrid vector+fulltext, citations
-│   │   └── tests/                   # 7 tests
+│   │   ├── search_knowledge.py      # Tool 10: hybrid vector+fulltext, citations, confidence threshold
+│   │   └── tests/                   # 9 tests
 │   └── skills/        # 1 skills management tool
 │       └── manage_skills.py         # Tool 11: list/create operational skills
 └── tests/             # 66 agent-level tests (incl. routing + config tier tests)
@@ -43,7 +43,7 @@ app/core/agents/
 See `docs/TODO.md` → "Agent Architecture Improvements" for the full roadmap. Key priorities:
 
 1. **Multi-tier model routing** - Heuristic prompt classifier in `routing.py`, tier model resolution via `resolve_tier_model()` in `config.py`, integrated into `AgentService.chat()`. Configure via `LLM_FAST_*`/`LLM_STANDARD_*`/`LLM_COMPLEX_*` env vars.
-2. **RAG retrieval** — ✅ Chunk overlap 50→100, ✅ result truncation 500→1500 chars, ✅ always-on reranking (AI-1.1), ✅ created_at date filtering (AI-1.2). Remaining: query routing (skip RAG for transit queries), HyDE query expansion for Latvian
+2. **RAG retrieval** — ✅ Chunk overlap 50→100, ✅ result truncation 500→1500 chars, ✅ always-on reranking (AI-1.1), ✅ created_at date filtering (AI-1.2), ✅ temporal boost + query-adaptive RRF weights + evergreen flag (AI-1.3), ✅ confidence threshold 0.3 + "no results" response + anti-hallucination prompt (AI-1.4). Remaining: query routing (skip RAG for transit queries), HyDE query expansion for Latvian
 3. **Server-side memory** — pgvector-backed semantic memory with temporal decay (procedural/episodic/semantic types)
 4. **Multi-agent splitting** — Separate transit/vault/knowledge agents with router for better tool selection
 5. **Bounded self-correction** — QA validation + recovery routing (max 2 rounds)

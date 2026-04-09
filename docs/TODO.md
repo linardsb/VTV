@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (974 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence ███░░░░░░░░░░░░░░░░░░░░  12%  (Multi-tier routing done. AI-1.1 reranking always-on done. 7 phases: RAG, HyDE, memory+bridge, chunking, self-correction, multi-agent+harness+L3 skills, eval)
+Agent Intelligence ████░░░░░░░░░░░░░░░░░░░  16%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. 7 phases: RAG, HyDE, memory+bridge, chunking, self-correction, multi-agent+harness+L3 skills, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -42,23 +42,11 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 #### AI-1.2 Chunk Overlap + Result Truncation Expansion ✅
 **Status:** Done — chunk overlap 50→100 (`chunking.py` + `config.py`), truncation 500→1500 (`search_knowledge.py`), `created_after`/`created_before` date filtering added to `SearchRequest` schema, repository (`search_vector` + `search_fulltext`), service layer, and agent tool (ISO string params). 4 new tests + 2 updated tests. Plan: `.agents/plans/ai-1.2-chunk-overlap-truncation.md`.
 
-#### AI-1.3 Temporal Boost + RRF Weight Tuning
-**What:** Add temporal relevance boost to hybrid search scoring — recent documents score higher. Tune RRF fusion weights based on query type: keyword-heavy queries weight fulltext higher, semantic queries weight vector higher.
-**Why:** Transit documents have dramatically different relevance lifecycles. Shift handover notes from today matter 10x more than last month's. RRF equal-weighting hurts when query type strongly favors one retrieval method.
-**Implementation:**
-- `app/knowledge/repository.py` — add `_temporal_boost(doc_created_at, query_time) -> float` (today: 1.5×, this week: 1.2×, this month: 1.0×, older: 0.8×). Apply as multiplier after RRF fusion.
-- `app/knowledge/repository.py` — add `_detect_query_type(query) -> Literal["keyword", "semantic", "mixed"]` heuristic (route numbers, stop names → keyword; "how do I", "what's the procedure" → semantic). Adjust RRF weights: keyword → fulltext 0.7/vector 0.3, semantic → vector 0.7/fulltext 0.3, mixed → 0.5/0.5.
-- Add `evergreen: bool = False` column to `Document` model — evergreen docs skip temporal decay (regulations, SOPs)
-**Verify:** Upload two versions of a shift note (one from today, one from 2 months ago). Search — today's version should rank first. Mark a regulation doc as evergreen — confirm it's not penalized by age.
+#### AI-1.3 Temporal Boost + RRF Weight Tuning ✅
+**Status:** Done — `_detect_query_type()` classifies queries as keyword/semantic/mixed (EN + LV patterns), `_temporal_boost()` multiplies RRF scores by age (today: 1.5x, week: 1.2x, month: 1.0x, older: 0.8x), `evergreen` bool column on Document model skips decay. Both functions in `service.py` (not repository — deviation from plan, cleaner placement). 8 config settings for weights/multipliers. 13 new tests. Migration `f3a4b5c6d7e8`. Plan: `.agents/plans/ai-1.3-temporal-boost-rrf-tuning.md`.
 
-#### AI-1.4 Confidence Threshold + "No Results" Response
-**What:** Add a confidence threshold (default 0.3) below which the knowledge search tool returns "No relevant documents found" instead of low-quality matches. Prevents hallucination when the knowledge base doesn't contain relevant information.
-**Why:** Currently the agent receives low-relevance chunks and hallucinates answers grounded in irrelevant content. Dispatchers need to know when the system genuinely doesn't have the information.
-**Implementation:**
-- `app/core/agents/tools/knowledge/search_knowledge.py` — after retrieval, check `if not results or results[0].score < 0.3: return "No relevant documents found for this query."` 
-- `app/core/config.py` — add `KNOWLEDGE__CONFIDENCE_THRESHOLD: float = 0.3` to `KnowledgeConfig`
-- Agent system prompt in `agent.py` — add instruction: "When the knowledge base returns 'No relevant documents found', say so honestly. Do not fabricate answers."
-**Verify:** Search for "company policy on employee pets" (not in KB). Confirm agent responds with "I don't have information about this" rather than hallucinating a policy.
+#### AI-1.4 Confidence Threshold + "No Results" Response ✅
+**Status:** Done — `knowledge_confidence_threshold: float = 0.3` in `config.py`, service filters reranked results below threshold with structured logging (`knowledge.search.confidence_filtered`), tool returns "No relevant documents found" plain string when empty, `KNOWLEDGE BASE BEHAVIOR` section added to agent system prompt preventing hallucination. 2 new tests (9 total in knowledge tool tests). Plan: `.agents/plans/ai-1.4-confidence-threshold.md`.
 
 ---
 

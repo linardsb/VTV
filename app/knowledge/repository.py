@@ -34,6 +34,7 @@ class KnowledgeRepository:
         description: str | None = None,
         status: str = "pending",
         ocr_applied: bool = False,
+        evergreen: bool = False,
     ) -> Document:
         """Create a new document record.
 
@@ -63,6 +64,7 @@ class KnowledgeRepository:
             description=description,
             status=status,
             ocr_applied=ocr_applied,
+            evergreen=evergreen,
         )
         self.db.add(doc)
         await self.db.commit()
@@ -186,7 +188,7 @@ class KnowledgeRepository:
     async def update_document(
         self,
         document_id: int,
-        **kwargs: str | None,
+        **kwargs: str | bool | None,
     ) -> Document | None:
         """Update document metadata fields.
 

@@ -86,6 +86,10 @@ SYSTEM_PROMPT: str = (
     #
     # --- Citation rules ---
     #
+    "KNOWLEDGE BASE BEHAVIOR:\n"
+    "- When knowledge search returns 'No relevant documents found', tell the user honestly.\n"
+    "- Do NOT fabricate or guess information when the knowledge base has no results.\n"
+    "- Suggest the user rephrase, try related topics, or upload the relevant document.\n\n"
     "CITATION RULES:\n"
     "- When citing knowledge base search results, ALWAYS include a clickable link.\n"
     "- Format: [document title or filename](/lv/documents/{document_id}) for Latvian responses.\n"

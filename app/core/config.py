@@ -173,6 +173,9 @@ class Settings(BaseSettings):
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_top_k: int = 10
 
+    # Confidence threshold (filter reranked results below this score)
+    knowledge_confidence_threshold: float = 0.3
+
     # GlitchTip error tracking (Sentry-compatible)
     sentry_dsn: str | None = None
     sentry_traces_sample_rate: float = 0.1
@@ -184,6 +187,21 @@ class Settings(BaseSettings):
     knowledge_chunk_size: int = 512
     knowledge_chunk_overlap: int = 100
     knowledge_search_limit: int = 50  # Candidates before reranking
+
+    # Temporal boost (recent documents score higher in search)
+    temporal_boost_enabled: bool = True
+    temporal_boost_today: float = 1.5
+    temporal_boost_this_week: float = 1.2
+    temporal_boost_this_month: float = 1.0
+    temporal_boost_older: float = 0.8
+
+    # RRF weight tuning (query-type-adaptive)
+    rrf_keyword_vector_weight: float = 0.3
+    rrf_keyword_text_weight: float = 0.7
+    rrf_semantic_vector_weight: float = 0.7
+    rrf_semantic_text_weight: float = 0.3
+    rrf_mixed_vector_weight: float = 0.5
+    rrf_mixed_text_weight: float = 0.5
 
     # Auto-tagging (LLM classification on document upload)
     auto_tag_enabled: bool = False

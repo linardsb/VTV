@@ -15,6 +15,7 @@ class DocumentUpload(BaseModel):
     metadata_json: str | None = Field(None, description="Optional JSON metadata string")
     title: str | None = Field(None, max_length=200, description="Human-readable document title")
     description: str | None = Field(None, description="Optional document description")
+    evergreen: bool = Field(default=False, description="Mark as evergreen to skip temporal decay")
 
     @field_validator("metadata_json")
     @classmethod
@@ -38,6 +39,7 @@ class DocumentUpdate(BaseModel):
     description: str | None = None
     domain: str | None = Field(None, min_length=1, max_length=50)
     language: str | None = Field(None, pattern="^(lv|en)$")
+    evergreen: bool | None = None
 
     @model_validator(mode="after")
     def check_at_least_one_field(self) -> Self:
@@ -98,6 +100,7 @@ class DocumentResponse(BaseModel):
     chunk_count: int
     metadata_json: str | None
     ocr_applied: bool
+    evergreen: bool
     tags: list[TagResponse] = []
     created_at: datetime
     updated_at: datetime
@@ -163,6 +166,7 @@ class SearchResult(BaseModel):
     chunk_index: int
     score: float
     metadata_json: str | None
+    document_created_at: datetime
 
 
 class SearchResponse(BaseModel):

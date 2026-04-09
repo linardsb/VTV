@@ -6,13 +6,16 @@ and hybrid search (vector + fulltext + RRF fusion + reranking).
 
 from __future__ import annotations
 
+import re
 import shutil
 import time
+from datetime import datetime
 from pathlib import Path
+from typing import Literal, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
 from app.knowledge import chunking, processing
 from app.knowledge.embedding import EmbeddingProvider, get_embedding_provider
@@ -22,7 +25,7 @@ from app.knowledge.exceptions import (
     ProcessingError,
     TagNotFoundError,
 )
-from app.knowledge.models import DocumentChunk
+from app.knowledge.models import Document, DocumentChunk
 from app.knowledge.repository import KnowledgeRepository
 from app.knowledge.reranker import RerankerProvider, get_reranker_provider
 from app.knowledge.schemas import (
@@ -40,6 +43,7 @@ from app.knowledge.schemas import (
     TagListResponse,
     TagResponse,
 )
+from app.shared.models import utcnow
 from app.shared.schemas import PaginatedResponse, PaginationParams
 
 logger = get_logger(__name__)
@@ -69,6 +73,86 @@ async def warm_up_reranker() -> None:
     """Pre-load reranker model for startup."""
     provider = _get_reranker()
     await provider.warm_up()
+
+
+# Semantic patterns: questions, procedural queries (EN + LV)
+_SEMANTIC_PATTERNS = [
+    "how ",
+    "what ",
+    "why ",
+    "when ",
+    "where ",
+    "which ",
+    "explain",
+    "describe",
+    "procedure",
+    "process",
+    "ka ",
+    "kas ",
+    "kapec ",
+    "kur ",
+    "kad ",
+    "kada ",
+]
+# Keyword patterns: numeric tokens like route numbers, stop codes
+_KEYWORD_RE = re.compile(r"\b\d{1,4}\b")
+
+
+def _detect_query_type(query: str) -> Literal["keyword", "semantic", "mixed"]:
+    """Classify query to tune RRF weights.
+
+    Keyword indicators: route numbers, stop codes, short numeric tokens.
+    Semantic indicators: question words, procedural phrases (EN + LV).
+
+    Args:
+        query: The user's search query.
+
+    Returns:
+        Query classification: keyword, semantic, or mixed.
+    """
+    query_lower = query.lower()
+    has_semantic = any(p in query_lower for p in _SEMANTIC_PATTERNS)
+    has_keyword = bool(_KEYWORD_RE.search(query))
+
+    if has_semantic and not has_keyword:
+        return "semantic"
+    if has_keyword and not has_semantic:
+        return "keyword"
+    return "mixed"
+
+
+def _temporal_boost(
+    doc_created_at: datetime,
+    query_time: datetime,
+    *,
+    evergreen: bool,
+    settings: Settings,
+) -> float:
+    """Compute temporal relevance multiplier.
+
+    Evergreen documents (regulations, SOPs) always return 1.0.
+    Recent documents get boosted, older documents get penalized.
+
+    Args:
+        doc_created_at: When the source document was created.
+        query_time: Current time for age calculation.
+        evergreen: Whether the document is marked evergreen.
+        settings: App settings with temporal boost multipliers.
+
+    Returns:
+        Multiplier to apply to the RRF score.
+    """
+    if not settings.temporal_boost_enabled or evergreen:
+        return 1.0
+
+    age = query_time - doc_created_at
+    if age.days < 1:
+        return settings.temporal_boost_today
+    if age.days < 7:
+        return settings.temporal_boost_this_week
+    if age.days < 30:
+        return settings.temporal_boost_this_month
+    return settings.temporal_boost_older
 
 
 class KnowledgeService:
@@ -129,6 +213,7 @@ class KnowledgeService:
             description=upload.description,
             status="processing",
             ocr_applied=False,  # Updated after extraction if OCR is applied
+            evergreen=upload.evergreen,
         )
 
         try:
@@ -352,20 +437,50 @@ class KnowledgeService:
             request.created_before,
         )
 
-        # RRF fusion
+        # Detect query type and select RRF weights
+        query_type = _detect_query_type(request.query)
+        logger.info(
+            "knowledge.search.query_type_detected",
+            query_type=query_type,
+            query_length=len(request.query),
+        )
+
+        if query_type == "keyword":
+            vector_weight = settings.rrf_keyword_vector_weight
+            text_weight = settings.rrf_keyword_text_weight
+        elif query_type == "semantic":
+            vector_weight = settings.rrf_semantic_vector_weight
+            text_weight = settings.rrf_semantic_text_weight
+        else:
+            vector_weight = settings.rrf_mixed_vector_weight
+            text_weight = settings.rrf_mixed_text_weight
+
+        # RRF fusion with adaptive weights
         rrf_k = 60
         chunk_scores: dict[int, float] = {}
-        chunk_data: dict[int, tuple[DocumentChunk, str, str, str]] = {}
+        chunk_data: dict[int, tuple[DocumentChunk, Document]] = {}
 
         for rank, (chunk, doc, _dist) in enumerate(vector_results):
-            chunk_scores[chunk.id] = chunk_scores.get(chunk.id, 0.0) + 1.0 / (rrf_k + rank)
-            chunk_data[chunk.id] = (chunk, doc.filename, doc.domain, doc.language)
+            chunk_scores[chunk.id] = chunk_scores.get(chunk.id, 0.0) + vector_weight / (
+                rrf_k + rank
+            )
+            chunk_data[chunk.id] = (chunk, doc)
 
         for rank, (chunk, doc, _rank_score) in enumerate(text_results):
-            chunk_scores[chunk.id] = chunk_scores.get(chunk.id, 0.0) + 1.0 / (rrf_k + rank)
-            chunk_data[chunk.id] = (chunk, doc.filename, doc.domain, doc.language)
+            chunk_scores[chunk.id] = chunk_scores.get(chunk.id, 0.0) + text_weight / (rrf_k + rank)
+            chunk_data[chunk.id] = (chunk, doc)
 
-        # Sort by RRF score
+        # Apply temporal boost
+        query_time = utcnow()
+        for chunk_id in chunk_scores:
+            _, d = chunk_data[chunk_id]
+            doc_created = cast(datetime, d.created_at)
+            boost = _temporal_boost(
+                doc_created, query_time, evergreen=d.evergreen, settings=settings
+            )
+            chunk_scores[chunk_id] *= boost
+
+        # Sort by boosted RRF score
         sorted_ids = sorted(chunk_scores.keys(), key=lambda cid: chunk_scores[cid], reverse=True)
         total_candidates = len(sorted_ids)
 
@@ -382,19 +497,34 @@ class KnowledgeService:
         results: list[SearchResult] = []
         for rr in reranked:
             cid = top_ids[rr.index]
-            chunk, doc_filename, doc_domain, doc_language = chunk_data[cid]
+            chunk, d = chunk_data[cid]
+            d_created = cast(datetime, d.created_at)
             results.append(
                 SearchResult(
                     chunk_content=chunk.content,
                     document_id=chunk.document_id,
-                    document_filename=doc_filename,
-                    domain=doc_domain,
-                    language=doc_language,
+                    document_filename=d.filename,
+                    domain=d.domain,
+                    language=d.language,
                     chunk_index=chunk.chunk_index,
                     score=rr.score,
                     metadata_json=chunk.metadata_json,
+                    document_created_at=d_created,
                 )
             )
+
+        # Filter by confidence threshold
+        threshold = settings.knowledge_confidence_threshold
+        pre_filter_count = len(results)
+        results = [r for r in results if r.score >= threshold]
+
+        logger.info(
+            "knowledge.search.confidence_filtered",
+            threshold=threshold,
+            pre_filter_count=pre_filter_count,
+            post_filter_count=len(results),
+            query=request.query[:80],
+        )
 
         duration_ms = int((time.monotonic() - start) * 1000)
         logger.info(

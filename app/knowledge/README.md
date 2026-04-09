@@ -23,9 +23,11 @@ RAG-powered document knowledge base with full document management capabilities. 
 1. Embed query text using the configured embedding provider
 2. Run vector similarity search (pgvector cosine distance)
 3. Run fulltext search (PostgreSQL `to_tsvector('simple')` with `ts_rank`)
-4. Combine results via Reciprocal Rank Fusion (RRF, k=60)
-5. Rerank top candidates via cross-encoder (configurable: local or noop)
-6. Return ranked results with scores and document metadata
+4. Classify query type: keyword (route numbers, stop codes), semantic (questions, procedural phrases in EN/LV), or mixed
+5. Combine results via Reciprocal Rank Fusion (RRF, k=60) with query-adaptive weights (keyword: fulltext 0.7/vector 0.3, semantic: vector 0.7/fulltext 0.3, mixed: 0.5/0.5)
+6. Apply temporal boost multiplier based on document age (today: 1.5x, this week: 1.2x, this month: 1.0x, older: 0.8x). Evergreen documents skip temporal decay
+7. Rerank top candidates via cross-encoder (configurable: local or noop)
+8. Return ranked results with scores, document metadata, and `document_created_at`
 
 ### Tag Management
 
@@ -48,7 +50,7 @@ RAG-powered document knowledge base with full document management capabilities. 
 ### Document Update (PATCH)
 
 1. Accept partial update with PATCH semantics (only non-None fields applied)
-2. Updatable fields: title, description, domain, language
+2. Updatable fields: title, description, domain, language, evergreen
 3. Return updated document response with enriched tags
 
 ### Document Content Preview
@@ -72,7 +74,7 @@ RAG-powered document knowledge base with full document management capabilities. 
 1. Agent calls `search_knowledge_base` tool with natural language query
 2. Tool creates `AsyncSessionLocal` session (outside FastAPI request lifecycle)
 3. Delegates to `KnowledgeService.search()` for hybrid search
-4. Truncates results to 500 chars per chunk for token efficiency
+4. Truncates results to 1500 chars per chunk for token efficiency
 5. Returns JSON string (never raises, returns error message on failure)
 
 ## Database Schema
@@ -95,6 +97,7 @@ Table: `documents`
 | `chunk_count` | Integer | Not null, default 0 | Number of chunks generated |
 | `metadata_json` | Text | Nullable | Optional JSON metadata string |
 | `ocr_applied` | Boolean | Not null, default false | Whether OCR was applied during text extraction |
+| `evergreen` | Boolean | Not null, default false | Skip temporal decay in search scoring (for regulations, SOPs) |
 | `created_at` | DateTime | Not null | Auto-set on create |
 | `updated_at` | DateTime | Not null | Auto-set on update |
 
@@ -134,8 +137,9 @@ Table: `document_chunks`
 2. Deleting a document cascades to all its chunks and tag associations (ON DELETE CASCADE) and removes stored files
 3. Empty documents (no extractable text) get status "completed" with chunk_count=0
 4. Search uses 'simple' PostgreSQL text search config (no language-specific stemming) to support Latvian + English
-5. RRF fusion combines vector and fulltext results; a chunk appearing in both gets boosted
-6. Agent tool truncates chunk content to 500 characters for token efficiency
+5. RRF fusion combines vector and fulltext results with query-adaptive weights; a chunk appearing in both gets boosted
+6. Temporal boost multiplies RRF scores by document age (configurable: today/week/month/older multipliers). Evergreen documents always get 1.0x (no decay)
+7. Agent tool truncates chunk content to 1500 characters for token efficiency
 7. Embedding dimension is configurable (default 1024) and must match the pgvector column
 8. File persistence stores originals at `{DOCUMENT_STORAGE_PATH}/{document_id}/{filename}`
 9. Legacy documents (uploaded before DMS) have no stored file; download raises ProcessingError
@@ -155,7 +159,7 @@ Table: `document_chunks`
 ## Integration Points
 
 - **Agent Module**: `search_knowledge_base` tool registered in `app/core/agents/agent.py`, uses `AsyncSessionLocal` for direct DB access. Agent system prompt includes CITATION RULES for `[title](/{locale}/documents/{id})` links.
-- **Core Config**: 14 settings in `app/core/config.py` (embedding, reranker, chunking, document_storage_path, auto_tag_enabled, auto_tag_max_chars)
+- **Core Config**: 22 settings in `app/core/config.py` (embedding, reranker, chunking, document_storage_path, auto_tag, temporal_boost, rrf_weights)
 - **Shared Utilities**: Uses `PaginationParams`, `PaginatedResponse`, `TimestampMixin`, `get_db()`, `get_logger()`
 - **Frontend**: Documents management page at `/[locale]/documents` with upload, list, detail, download, delete
 - **Pydantic AI**: Auto-tagging uses `pydantic-ai` Agent for LLM classification (lazy-imported, provider configured via existing settings)

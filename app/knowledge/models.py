@@ -50,6 +50,9 @@ class Document(Base, TimestampMixin):
     chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     ocr_applied: Mapped[bool] = mapped_column(Boolean, default=False)
+    evergreen: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
 
 
 class Tag(Base, TimestampMixin):

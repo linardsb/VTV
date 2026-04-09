@@ -194,6 +194,46 @@ async def test_search_truncates_content_to_1500_chars() -> None:
     assert len(result["results"][0]["content"]) == 1500
 
 
+@pytest.mark.asyncio
+async def test_search_no_results_returns_no_documents_message() -> None:
+    """Verify empty results after confidence filtering return clear message."""
+    ctx = MagicMock()
+    ctx.deps.settings = MagicMock()
+    ctx.deps.settings.embedding_provider = "jina"
+
+    mock_response = MagicMock()
+    mock_response.results = []
+    mock_response.total_candidates = 0
+
+    with patch(
+        "app.core.agents.tools.knowledge.search_knowledge.AsyncSessionLocal"
+    ) as mock_session_cls:
+        mock_session = AsyncMock()
+        mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "app.core.agents.tools.knowledge.search_knowledge.KnowledgeService"
+        ) as mock_svc_cls:
+            mock_svc = AsyncMock()
+            mock_svc.search.return_value = mock_response
+            mock_svc_cls.return_value = mock_svc
+
+            result = await search_knowledge_base(ctx, query="nonexistent topic")
+
+    assert "No relevant documents found" in result
+    assert "nonexistent topic" in result
+
+
+def test_system_prompt_contains_knowledge_base_behavior() -> None:
+    """Verify SYSTEM_PROMPT contains knowledge base behavior guidance."""
+    from app.core.agents.agent import SYSTEM_PROMPT
+
+    assert "KNOWLEDGE BASE BEHAVIOR" in SYSTEM_PROMPT
+    assert "No relevant documents found" in SYSTEM_PROMPT
+    assert "Do NOT fabricate" in SYSTEM_PROMPT
+
+
 def test_system_prompt_contains_citation_rules() -> None:
     """Verify SYSTEM_PROMPT instructs agent to format citation links."""
     from app.core.agents.agent import SYSTEM_PROMPT

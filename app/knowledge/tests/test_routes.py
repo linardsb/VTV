@@ -76,6 +76,7 @@ def _make_doc_response(**overrides: object) -> DocumentResponse:
         "chunk_count": 5,
         "metadata_json": None,
         "ocr_applied": False,
+        "evergreen": False,
         "tags": [],
         "created_at": _NOW,
         "updated_at": _NOW,
@@ -353,6 +354,7 @@ def test_search_documents():
         chunk_index=0,
         score=0.95,
         metadata_json=None,
+        document_created_at=_NOW,
     )
     mock_svc.search = AsyncMock(
         return_value=SearchResponse(
