@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence █████████░░░░░░░░░░░░░░  42%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. 2 remaining phases: chunking, self-correction, multi-agent+harness+L3 skills, eval)
+Agent Intelligence ██████████░░░░░░░░░░░░░  46%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. Remaining: parent-child retrieval, re-chunk migration, self-correction, multi-agent+harness+L3 skills, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -151,19 +151,20 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 
 > **Sprint deliverable:** Documents chunked by meaning boundaries, not character count. Matched chunks return full parent section for context. Re-chunk existing documents via migration script.
 
-#### AI-4.1 Heading-Aware Semantic Chunker
+#### AI-4.1 Heading-Aware Semantic Chunker ✅
 **What:** Replace the fixed 512-char recursive splitter in `chunking.py` with a heading-aware chunker that respects document structure. Creates chunks at heading/section boundaries with adaptive sizing.
 **Why:** Fixed-size splitting breaks mid-sentence, mid-paragraph, and mid-SOP-step. A "What to do when bus breaks down" SOP gets split into fragments that individually make no sense. Heading-aware chunking keeps each section coherent.
+**Status:** Implemented 2026-04-09. Plan: `.agents/plans/ai-4.1-semantic-chunker.md`.
 **Implementation:**
-- `app/knowledge/chunking.py` — add `SemanticChunker` class:
-  - Detect headings: markdown `#`, PDF section headers (bold + larger font), DOCX heading styles
-  - Split at heading boundaries first, then at paragraph boundaries within sections
-  - Adaptive sizing: min 256 chars, max 1500 chars, target 800 chars
-  - If a section exceeds max, split at paragraph boundaries within it
-  - Preserve heading text as `heading_path` metadata on each chunk
-- Keep `RecursiveChunker` as fallback for unstructured documents
-- `app/core/config.py` — `KNOWLEDGE__SEMANTIC_CHUNKING_ENABLED: bool = True`, `KNOWLEDGE__CHUNK_TARGET_SIZE: int = 800`
-**Verify:** Upload a multi-section SOP PDF. Inspect chunks — each should align with a section, not split mid-sentence. Compare retrieval quality vs old chunking on 5 test queries.
+- `app/knowledge/chunking.py` — added `chunk_text_semantic()` function with `_extract_sections()`, `_merge_small_sections()`, `_split_large_sections()` helpers and `_Section` dataclass
+  - Parses markdown `#` headings (already produced by PDF/DOCX extractors) via regex
+  - Builds heading hierarchy as a stack, producing `heading_path` metadata (e.g. "Safety > Emergency Procedures")
+  - Adaptive sizing: min 256 chars, target 800, max 1500 (configurable)
+  - Falls back to recursive `chunk_text()` when no headings detected (< 2 sections)
+- `app/knowledge/service.py` — `ingest_document()` uses semantic chunker when enabled, stores heading metadata as JSON in `DocumentChunk.metadata_json`
+- `app/core/config.py` — 4 new settings: `knowledge_semantic_chunking_enabled` (True), `knowledge_chunk_target_size` (800), `knowledge_chunk_min_size` (256), `knowledge_chunk_max_size` (1500)
+- No schema/model/migration changes — metadata stored in existing `metadata_json` column
+- 11 new tests in `app/knowledge/tests/test_chunking.py` (18 total chunking tests)
 
 #### AI-4.2 Parent-Child Chunk Model
 **What:** Extend `DocumentChunk` model with `parent_chunk_id`, `heading_path`, and `section_type` fields. Create parent chunks (full sections) with child chunks (paragraphs) linked via foreign key.

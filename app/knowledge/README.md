@@ -11,12 +11,26 @@ RAG-powered document knowledge base with full document management capabilities. 
 3. Save to temp file, extract text (PyMuPDF, python-docx, openpyxl, csv, pytesseract, stdlib)
 4. For PDFs: detect scanned pages (< 50 chars extracted) and fall back to OCR via pytesseract (300 DPI, max 50 pages, `lav+eng` language packs)
 5. Copy original file to persistent storage at `{DOCUMENT_STORAGE_PATH}/{doc_id}/{filename}`
-6. Chunk text recursively (paragraphs -> lines -> sentences -> words)
-7. Generate embeddings via configurable provider (OpenAI/Jina/local)
+6. Chunk text using heading-aware semantic chunker (splits at markdown heading boundaries with adaptive sizing) when `knowledge_semantic_chunking_enabled=True`; falls back to recursive fixed-size chunker for unstructured text or when disabled
+7. Store heading path metadata (`heading_path`, `heading_level`) in chunk `metadata_json` as JSON
+8. Generate embeddings via configurable provider (OpenAI/Jina/local)
 8. Store document metadata + chunks with vector embeddings in PostgreSQL
 9. Update document status to "completed" or "failed"; set `ocr_applied` flag if OCR was used
 10. Auto-tag document via LLM classification (best-effort, non-blocking)
 11. Title defaults to filename stem if not provided
+
+### Semantic Chunking (Heading-Aware)
+
+1. When `knowledge_semantic_chunking_enabled=True` (default), `chunk_text_semantic()` is used instead of the fixed-size recursive splitter
+2. Parses markdown `#` headings (already produced by PDF/DOCX/Excel extractors) using regex `^(#{1,6})\s+(.+)$`
+3. Builds heading hierarchy as a stack: `# Safety > ## Emergency Procedures > ### Step 1`
+4. Splits text into sections at heading boundaries, preserving heading path for each section
+5. Merges small sections (< `knowledge_chunk_min_size` chars) with adjacent neighbours up to `knowledge_chunk_target_size`
+6. Splits large sections (> `knowledge_chunk_max_size` chars) at paragraph then sentence boundaries, each sub-chunk inheriting the parent heading path
+7. Falls back to recursive `chunk_text()` when no headings are detected (< 2 sections)
+8. Each chunk's `metadata` includes `heading_path` (e.g. "Safety > Emergency Procedures"), `heading_level`, `char_start`, `char_end`
+9. Metadata stored as JSON in `DocumentChunk.metadata_json` column
+10. Configurable via `knowledge_semantic_chunking_enabled`, `knowledge_chunk_target_size` (800), `knowledge_chunk_min_size` (256), `knowledge_chunk_max_size` (1500)
 
 ### HyDE Query Expansion (Optional)
 
@@ -181,7 +195,7 @@ Table: `document_chunks`
 ## Integration Points
 
 - **Agent Module**: `search_knowledge_base` tool registered in `app/core/agents/agent.py`, uses `AsyncSessionLocal` for direct DB access. Agent system prompt includes CITATION RULES for `[title](/{locale}/documents/{id})` links.
-- **Core Config**: 27 settings in `app/core/config.py` (embedding, embedding_cache, reranker, chunking, document_storage_path, auto_tag, hyde, temporal_boost, rrf_weights)
+- **Core Config**: 31 settings in `app/core/config.py` (embedding, embedding_cache, reranker, chunking, semantic_chunking, document_storage_path, auto_tag, hyde, temporal_boost, rrf_weights)
 - **Shared Utilities**: Uses `PaginationParams`, `PaginatedResponse`, `TimestampMixin`, `get_db()`, `get_logger()`
 - **Frontend**: Documents management page at `/[locale]/documents` with upload, list, detail, download, delete
 - **Pydantic AI**: Auto-tagging and HyDE query expansion use `pydantic-ai` Agent for LLM calls (lazy-imported, provider configured via existing settings)

@@ -219,6 +219,12 @@ class Settings(BaseSettings):
     knowledge_hyde_model: str | None = None  # None = use llm_fast or primary model
     knowledge_hyde_max_tokens: int = 200
 
+    # Semantic chunking (heading-aware, replaces fixed-size for structured docs)
+    knowledge_semantic_chunking_enabled: bool = True
+    knowledge_chunk_target_size: int = 800
+    knowledge_chunk_min_size: int = 256
+    knowledge_chunk_max_size: int = 1500
+
     # NeTEx/SIRI compliance exports
     netex_codespace: str = "VTV"
     netex_participant_ref: str = "VTV"

@@ -6,6 +6,7 @@ and hybrid search (vector + fulltext + RRF fusion + reranking).
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import time
@@ -247,11 +248,20 @@ class KnowledgeService:
             )
 
             # Chunk
-            chunks = chunking.chunk_text(
-                text,
-                chunk_size=settings.knowledge_chunk_size,
-                chunk_overlap=settings.knowledge_chunk_overlap,
-            )
+            if settings.knowledge_semantic_chunking_enabled:
+                chunks = chunking.chunk_text_semantic(
+                    text,
+                    target_size=settings.knowledge_chunk_target_size,
+                    min_size=settings.knowledge_chunk_min_size,
+                    max_size=settings.knowledge_chunk_max_size,
+                    chunk_overlap=settings.knowledge_chunk_overlap,
+                )
+            else:
+                chunks = chunking.chunk_text(
+                    text,
+                    chunk_size=settings.knowledge_chunk_size,
+                    chunk_overlap=settings.knowledge_chunk_overlap,
+                )
 
             if not chunks:
                 await self.repository.update_document_status(doc.id, "completed", None, 0)
@@ -268,7 +278,7 @@ class KnowledgeService:
                     content=chunks[i].content,
                     chunk_index=chunks[i].chunk_index,
                     embedding=embeddings[i],
-                    metadata_json=None,
+                    metadata_json=json.dumps(chunks[i].metadata) if chunks[i].metadata else None,
                 )
                 for i in range(len(chunks))
             ]
