@@ -13,10 +13,10 @@ Planned features and improvements. Each item links to its detailed planning docu
 ```
 Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
 CMS Frontend      ███████████████████████░  99%  (17 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences)
-Testing           ████████████████████░░░░  90%  (1049 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
+Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence ██████░░░░░░░░░░░░░░░░░  25%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. 5 remaining phases: memory+bridge, chunking, self-correction, multi-agent+harness+L3 skills, eval)
+Agent Intelligence █████████░░░░░░░░░░░░░░  42%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. 2 remaining phases: chunking, self-correction, multi-agent+harness+L3 skills, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -77,7 +77,7 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 - 8 tests: model resolution (3), success path, LLM failure fallback, output truncation, search integration enabled/disabled
 **Verify:** Compare retrieval quality for "Ko darīt, ja autobuss sabojājas maršrutā?" with HyDE on vs off. HyDE should surface SOP documents in top 3 that were previously at position 5+. Measure latency overhead — should be <500ms with fast model.
 
-#### AI-2.3 Embedding Cache
+#### AI-2.3 Embedding Cache ✅
 **Status:** Implemented. Plan: `.agents/plans/ai-2.3-embedding-cache.md`
 **What:** Cache query embeddings in Redis with TTL to avoid redundant embedding API calls for repeated queries. Use normalized query text as cache key (lowercase, stripped whitespace, sorted words).
 **Why:** Dispatchers ask the same questions repeatedly ("route 3 status", "which routes delayed"). Caching embeddings for these saves API costs and reduces latency from ~200ms to <5ms for cached queries.
@@ -98,77 +98,52 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 
 > **Sprint deliverable:** Agent learns from usage. Stores successful tool sequences, dispatcher patterns, and transit domain knowledge. Memory bridge auto-persists from agent results (fire-and-forget). Recalled before each agent run and injected as context. LLM-based intent merging during compaction.
 
-#### AI-3.1 Memory Vertical Slice — Models + Repository
-**What:** Create `app/memory/` vertical slice with `MemoryEntry` SQLAlchemy model backed by pgvector. 4 memory types: procedural (learned patterns), episodic (session logs), semantic (durable facts), query_pattern (frequent queries).
-**Why:** The agent is currently stateless — it can't learn from repeated usage. The same dispatcher asking the same question gets no benefit from prior interactions. Email-hub's `app/memory/` proves this pattern works at scale with pgvector + temporal decay.
+#### AI-3.1 Memory Vertical Slice — Models + Repository + Service + Routes ✅
+**What:** Create `app/memory/` vertical slice with `MemoryEntry` SQLAlchemy model backed by pgvector. 4 memory types: procedural (learned patterns), episodic (session logs), semantic (durable facts), query_pattern (frequent queries). Includes full service layer, 5 REST endpoints with RBAC, and 29 unit tests.
+**Status:** Implemented 2026-04-09. Plan: `.agents/plans/ai-3.1-memory-vertical-slice.md`. 13 files created, 29 tests passing. Merged AI-3.1 + AI-3.2 schemas/routes/service into a single slice.
 **Implementation:**
-- Create `app/memory/models.py`:
-  - `MemoryEntry(Base, TimestampMixin)`: id, agent_type (str), memory_type (str enum), content (str), embedding (Vector(1024)), metadata_json (JSONB), decay_weight (float, default 1.0), is_evergreen (bool, default False), source (str: "agent"|"dispatcher"|"compaction"), recalled_count (int, default 0)
-- Create `app/memory/repository.py`:
-  - `store(entry: MemoryEntry) -> MemoryEntry`
-  - `recall(embedding: list[float], agent_type: str | None, limit: int, min_score: float) -> list[MemoryEntry]` — pgvector cosine similarity + metadata filtering
-  - `get_by_type(memory_type: str, limit: int) -> list[MemoryEntry]`
-  - `increment_recalled_count(entry_id: int) -> None`
-  - `delete_decayed(threshold: float) -> int`
-- Alembic migration: `memory_entries` table with `ivfflat` index on embedding column
-**Verify:** `make db-migrate` succeeds. Unit tests: store a memory, recall by similarity, verify cosine ordering. 15+ tests.
+- `app/memory/models.py` — `MemoryEntry(Base, TimestampMixin)` with pgvector `Vector(1024)`, JSONB metadata, decay weight, evergreen flag
+- `app/memory/repository.py` — store, get, recall (cosine similarity), get_by_type, increment_recalled_count, delete_decayed
+- `app/memory/service.py` — business logic orchestration with structured logging
+- `app/memory/routes.py` — 5 endpoints: POST store, GET by ID, POST recall, GET by type, DELETE decayed
+- `app/memory/schemas.py` — `MemoryEntryCreate`, `MemoryRecallRequest`, `MemoryEntryResponse`, `MemoryRecallResponse` with `Literal[...]` types
+- `alembic/versions/a1b2c3d4e5f6_create_memory_entries.py` — table + ivfflat index
+**Verify:** 29 unit tests (14 repository + 8 service + 7 route). All type checkers pass (0 new mypy/pyright errors). 106 security tests pass.
 
-#### AI-3.2 Memory Service — Store, Recall, Compact
-**What:** Create `app/memory/service.py` with memory lifecycle management: store (with embedding), recall (similarity search), compact (merge similar, apply decay), and promote (episodic → procedural after 3+ recalls).
-**Why:** Raw storage isn't enough — memories need lifecycle management. Transit operations knowledge has seasonal patterns (90-day procedural decay, 30-day episodic decay). Auto-promotion captures recurring patterns without manual intervention.
+#### AI-3.2 Memory Service — Store, Recall, Compact ✅
+**Status:** Implemented 2026-04-09. Plan: `.agents/plans/ai-3.2-memory-service-lifecycle.md`.
+**What:** Full memory lifecycle management added to existing `app/memory/` vertical slice: embed-on-store (auto-generates embeddings via `EmbeddingProvider` singleton), duplicate detection (cosine > 0.95 = skip), text-based recall (`POST /recall/query`), time-based decay, compaction (merge similar entries with cosine > 0.92), and episodic-to-procedural auto-promotion after 3+ recalls.
 **Implementation:**
-- Create `app/memory/service.py`:
-  ```python
-  class MemoryService:
-      async def store(content, memory_type, agent_type, metadata) -> MemoryEntry
-          # Embed content, check for duplicates (cosine > 0.95 = skip), store
-      async def recall(query, agent_type=None, limit=5) -> list[MemoryEntry]
-          # Embed query, similarity search, increment recalled_count
-      async def compact() -> CompactionResult
-          # Apply decay: procedural 90d, episodic 30d, semantic evergreen, query_pattern 60d
-          # Merge entries with cosine > 0.92 (keep higher recalled_count)
-          # Delete entries with decay_weight < 0.1
-      async def promote_episodes() -> int
-          # Find episodic entries with recalled_count >= 3, clone as procedural
-  ```
-- Create `app/memory/schemas.py` — Pydantic request/response schemas
-- Create `app/memory/routes.py` — admin-only: `GET /api/v1/memory` (list), `GET /api/v1/memory/{id}`, `DELETE /api/v1/memory/{id}`, `POST /api/v1/memory/compact` (trigger manual compaction)
-- `app/core/config.py` — `MemoryConfig`: enabled (bool), procedural_decay_days (90), episodic_decay_days (30), query_pattern_decay_days (60), promotion_threshold (3), max_recall_results (5)
-**Verify:** Store 10 memories. Recall by query — top 5 returned in cosine order. Run compact — decayed entries deleted. Recall an episodic memory 3 times — confirm auto-promoted to procedural. 20+ tests.
+- `app/core/config.py` — 9 `memory_*` config fields: enabled, procedural_decay_days (90), episodic_decay_days (30), query_pattern_decay_days (60), promotion_threshold (3), max_recall_results (5), duplicate_threshold (0.95), merge_threshold (0.92), decay_min_weight (0.1)
+- `app/memory/service.py` — `_get_embedding()` lazy singleton (reuses knowledge module's embedding infra), `store()` with auto-embed + dedup, `recall_by_query()` with server-side embedding, `compact()` (decay per type + delete + merge + promote), `promote_episodes()`
+- `app/memory/repository.py` — 6 new methods: `find_similar()`, `apply_decay()`, `merge_entries()`, `find_similar_pairs()` (raw SQL cosine self-join), `find_promotable()`, `update_memory_type()`
+- `app/memory/schemas.py` — `MemoryRecallByQueryRequest`, `CompactionResult`, `PromotionResult`
+- `app/memory/routes.py` — 2 new endpoints: `POST /compact` (admin-only, 2/min), `POST /recall/query` (admin+agent, 10/min). Route ordering: compact and recall/query placed before `/{entry_id}` to avoid path collision.
+- 55 total tests (up from 29): 24 repository + 19 service + 11 route + 1 conftest. All type checkers pass (0 new errors). 106 security tests pass.
+**Verify:** Store memory without embedding — auto-generated. Store duplicate — skipped. POST `/recall/query` with text — results returned. POST `/compact` — decay applied, entries merged, episodes promoted. 55 tests green.
 
-#### AI-3.3 Memory Bridge — Auto-Persist from Agent Results
-**What:** Create `app/memory/bridge.py` — fire-and-forget callback that auto-persists successful multi-tool agent interactions as episodic memories. Adapted from email-hub's `HandoffMemoryBridge` pattern (`app/ai/blueprints/handoff_memory.py`).
-**Why:** Email-hub wires this as a callback after every agentic node — the bridge captures what the agent learned without any manual intervention. Failure-safe (exceptions caught, logged, never crash pipeline). This is the mechanism that makes memory actually accumulate.
+#### AI-3.3 Memory Bridge — Auto-Persist from Agent Results ✅
+**What:** Create `app/memory/bridge.py` — fire-and-forget callback that auto-persists successful multi-tool agent interactions as episodic memories. Adapted from email-hub's `HandoffMemoryBridge` pattern.
+**Status:** Implemented 2026-04-09. Plan: `.agents/plans/ai-3.3-memory-bridge.md`. 3 files (1 created, 1 modified, 1 test file created), 10 tests passing.
 **Implementation:**
-- Create `app/memory/bridge.py`:
-  - `persist_agent_episode(agent_name, prompt, response, tools_used, confidence)` — fire-and-forget
-  - Only persists when 2+ distinct tools used (multi-tool interactions are more valuable)
-  - Content format: `"[{agent_name}] Dispatcher asked: {prompt[:150]}. Agent used: {tools}. Response: {response[:300]}"`
-  - Metadata: `{source: "agent", agent_name, tools, confidence}`
-  - Opens own DB session via `get_db_context()` (isolated transaction)
-  - All exceptions caught and logged as warnings — never crashes pipeline
-- Wire into `AgentService.chat()` — call after successful `agent.run()` response
-**Verify:** Send multi-tool query ("which stops on route 22 have delays?"). Check DB — episodic memory stored. Send single-tool query — no memory stored (only multi-tool). Force DB error — pipeline continues normally, warning logged. 8+ tests.
+- `app/memory/bridge.py` — `extract_tool_names()` (pure function, deduplicates tool names from message history), `_persist_episode()` (async worker with exception safety, own DB session via `get_db_context()`), `persist_agent_episode()` (sync entry point, spawns background `asyncio.create_task`, gated by `memory_enabled` config and `min_tools=2` threshold)
+- `app/core/agents/service.py` — Wired `persist_agent_episode()` after standard tier `agent.run()` response (line 193-198). Complex tier (pipeline) skipped — `PipelineResult` doesn't expose message history.
+- `app/memory/tests/test_bridge.py` — 10 tests: tool extraction (3), gating logic (3: single tool skip, multi-tool fire, memory disabled), async storage (1), error resilience (1), content format (1), truncation (1)
+- Content format: `"[{agent_name}] Dispatcher asked: {prompt[:150]}. Agent used: {tools}. Response: {response[:300]}"`
+- Metadata: `{source: "agent", agent_name, tools, confidence}`
+**Verify:** 10 unit tests. 65 total memory tests pass (up from 55). 69 agent tests pass. 1114 unit tests pass. 106 security tests pass. All type checkers pass (0 new errors).
 
-#### AI-3.4 Memory Integration into Agent Pipeline
-**What:** Integrate memory recall before `agent.run()` and episodic storage via bridge after responses. Memory context injected as system-level context alongside skills. Add LLM-based intent merging to compaction (from email-hub).
-**Why:** Memory is useless if it's not in the agent's context window. Integration must happen at the service layer to work across all agent types. LLM-based intent merging (email-hub's `judge_functional_equivalence()`) prevents memory bloat better than cosine similarity alone.
+#### AI-3.4 Memory Integration into Agent Pipeline ✅
+**What:** Integrate memory recall before `agent.run()` and inject as context alongside skills. Add LLM-based intent merging to compaction. Daily background compaction and promotion tasks.
+**Status:** Implemented 2026-04-09. Plan: `.agents/plans/ai-3.4-memory-agent-integration.md`. 2 files created, 7 files modified, 14 new tests (5 agent service + 4 memory service + 5 lifecycle).
 **Implementation:**
-- `app/core/agents/service.py` — in `AgentService.chat()`:
-  1. Before `agent.run()`: `memories = await memory_service.recall(prompt, limit=5)`
-  2. Filter: only results with `score > 0.3` (similarity threshold, from email-hub)
-  3. Format as context: `"## Relevant memories\n" + "\n".join(m.content for m in memories)`
-  4. Inject via `instructions=` parameter alongside skills
-  5. After `agent.run()`: call `persist_agent_episode()` from bridge (AI-3.3)
-- `app/memory/service.py` — enhance `compact()` with LLM-based intent merging:
-  - Find memory pairs with cosine > 0.85
-  - Lightweight LLM judge confirms functional equivalence (fast model, <100 tokens)
-  - Keep entry with higher `recalled_count`, delete the other
-- Background task in `app/core/lifespan.py` — run `memory_service.compact()` daily at 03:00 UTC
-- Background task — run `memory_service.promote_episodes()` daily at 03:15 UTC
-- Add `MEMORY__ENABLED: bool = False` config flag (default off for safe rollout)
-- Add `MEMORY__CONTEXT_INJECTION_LIMIT: int = 10` (max memories to inject, recall uses limit=5)
-**Verify:** Enable memory. Ask "Which routes are frequently delayed?" — agent responds. Ask again next session — confirm memory of prior interaction appears in context (check structured logs). Confirm LLM intent merging deduplicates similar memories during compaction. 12+ tests.
+- `app/core/config.py` — 5 new `memory_*` settings: `recall_min_score` (0.3), `context_injection_limit` (10), `llm_merge_enabled` (False), `compaction_cron_hour` (3), `promotion_cron_hour` (3)
+- `app/core/agents/agent.py` — `build_instructions_with_skills()` extended with `memory_context` parameter
+- `app/core/agents/service.py` — Memory recall before `agent.run()`: `MemoryService.recall_by_query(prompt[:2000])`, filtered by `min_score`, formatted as `"- [{score}] {content[:300]}"`, injected via `build_instructions_with_skills(skills, memory_context)`. Graceful degradation on failure.
+- `app/memory/service.py` — `_llm_merge()` method using `resolve_tier_model("fast")` for lightweight LLM-based intent summarization. `compact()` conditionally uses LLM merge when `memory_llm_merge_enabled=True`, falls back to concatenation.
+- `app/memory/lifecycle.py` — `start_memory_tasks()` / `stop_memory_tasks()` with `_run_at_hour()` utility for daily scheduled compaction + promotion. Gated by `memory_enabled`.
+- `app/main.py` — Memory lifecycle tasks registered in lifespan (startup + shutdown)
+**Verify:** 1128 unit tests pass (+14 new). 106 security tests pass. All type checkers pass (0 new errors). Memory recall injected on each chat when `memory_enabled=True`. LLM merge off by default (safe rollout).
 
 ---
 

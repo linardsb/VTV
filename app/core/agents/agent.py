@@ -143,20 +143,27 @@ def create_agent(model: str | Model | None = None) -> Agent[UnifiedDeps, str]:
     )
 
 
-def build_instructions_with_skills(skills_content: str) -> str:
-    """Build additional instructions with active skills for agent.run().
+def build_instructions_with_skills(skills_content: str, memory_context: str = "") -> str:
+    """Build additional instructions with active skills and memory context.
 
     Called by AgentService before each agent.run() to inject active skills
-    as additional instructions on top of the base system prompt.
+    and recalled memory context as additional instructions.
 
     Args:
         skills_content: Formatted skills text from SkillService.get_active_skills_content().
             Empty string if no active skills.
+        memory_context: Formatted memory context from recalled memories.
+            Empty string if no memories recalled or memory disabled.
 
     Returns:
-        Skills content string to pass as instructions parameter, or empty string.
+        Combined instructions string, or empty string if both inputs empty.
     """
-    return skills_content
+    parts: list[str] = []
+    if skills_content:
+        parts.append(skills_content)
+    if memory_context:
+        parts.append(memory_context)
+    return "\n\n".join(parts)
 
 
 # Module-level singleton used by routes and service.

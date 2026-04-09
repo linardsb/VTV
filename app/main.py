@@ -43,6 +43,7 @@ from app.fleet.routes import router as fleet_router
 from app.geofences.evaluator import start_geofence_evaluator, stop_geofence_evaluator
 from app.geofences.routes import router as geofences_router
 from app.knowledge.routes import router as knowledge_router
+from app.memory.routes import router as memory_router
 from app.schedules.routes import router as schedules_router
 from app.skills.routes import router as skills_router
 from app.stops.routes import router as stops_router
@@ -113,6 +114,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Start geofence evaluator background task
     await start_geofence_evaluator(settings)
 
+    # Start memory background tasks (compaction + promotion)
+    from app.memory.lifecycle import start_memory_tasks
+
+    await start_memory_tasks()
+
     # Pre-load reranker model (avoids cold-start on first search)
     try:
         from app.knowledge.service import warm_up_reranker
@@ -130,6 +136,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
     # Shutdown
+    from app.memory.lifecycle import stop_memory_tasks
+
+    await stop_memory_tasks()
     await stop_geofence_evaluator()
     await stop_evaluator()
     await stop_ws_subscriber()
@@ -178,6 +187,7 @@ app.include_router(transit_router)
 app.include_router(ws_router)
 app.include_router(stops_router)
 app.include_router(knowledge_router)
+app.include_router(memory_router)
 app.include_router(schedules_router)
 app.include_router(drivers_router)
 app.include_router(events_router)

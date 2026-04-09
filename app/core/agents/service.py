@@ -35,6 +35,9 @@ from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger
 from app.knowledge.router import needs_rag
+from app.memory.bridge import persist_agent_episode
+from app.memory.schemas import MemoryRecallByQueryRequest
+from app.memory.service import MemoryService
 from app.skills.service import SkillService
 
 logger = get_logger(__name__)
@@ -156,7 +159,37 @@ class AgentService:
         except Exception:
             logger.warning("agent.skills_load_failed", exc_info=True)
 
-        instructions = build_instructions_with_skills(skills_instructions) or None
+        # Recall relevant memories for context injection
+        memory_context = ""
+        if settings.memory_enabled:
+            try:
+                async with AsyncSessionLocal() as memory_db:
+                    memory_service = MemoryService(memory_db)
+                    recall_request = MemoryRecallByQueryRequest(
+                        query=current_prompt[:2000],
+                        limit=settings.memory_max_recall_results,
+                        min_score=settings.memory_recall_min_score,
+                    )
+                    recalled = await memory_service.recall_by_query(recall_request)
+
+                if recalled:
+                    memory_lines = [
+                        f"- [{r.score:.2f}] {r.memory.content[:300]}"
+                        for r in recalled[: settings.memory_context_injection_limit]
+                    ]
+                    memory_context = (
+                        "RELEVANT MEMORIES (from prior interactions - use as context, "
+                        "not as authoritative facts):\n" + "\n".join(memory_lines)
+                    )
+                    logger.info(
+                        "agent.memory.recall_injected",
+                        count=len(recalled),
+                        top_score=recalled[0].score if recalled else 0.0,
+                    )
+            except Exception:
+                logger.warning("agent.memory.recall_failed", exc_info=True)
+
+        instructions = build_instructions_with_skills(skills_instructions, memory_context) or None
 
         try:
             if tier == "complex":
@@ -187,6 +220,14 @@ class AgentService:
                     model=tier_model,
                 )
                 response_content = result.output
+
+                # Fire-and-forget: persist multi-tool episodes as memory
+                persist_agent_episode(
+                    agent_name="transit_agent",
+                    prompt=current_prompt,
+                    response=response_content,
+                    messages=result.all_messages(),
+                )
         except Exception as e:
             logger.error(
                 "agent.chat_failed",

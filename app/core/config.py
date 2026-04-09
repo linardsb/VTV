@@ -246,6 +246,24 @@ class Settings(BaseSettings):
     geofence_evaluator_enabled: bool = True
     geofence_check_interval_seconds: int = 30
 
+    # Memory lifecycle
+    memory_enabled: bool = True
+    memory_procedural_decay_days: int = 90
+    memory_episodic_decay_days: int = 30
+    memory_query_pattern_decay_days: int = 60
+    memory_promotion_threshold: int = 3
+    memory_max_recall_results: int = 5
+    memory_duplicate_threshold: float = 0.95
+    memory_merge_threshold: float = 0.92
+    memory_decay_min_weight: float = 0.1
+
+    # Memory agent integration (AI-3.4)
+    memory_recall_min_score: float = 0.3
+    memory_context_injection_limit: int = 10
+    memory_llm_merge_enabled: bool = False
+    memory_compaction_cron_hour: int = 3
+    memory_promotion_cron_hour: int = 3
+
     @model_validator(mode="after")
     def _reject_default_secrets_in_production(self) -> "Settings":
         """Refuse to start with default JWT secret in non-development environments."""
