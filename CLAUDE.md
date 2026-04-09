@@ -80,7 +80,7 @@ VTV/
 │   ├── analytics/      # Dashboard analytics (4 endpoints, read-only aggregation over vehicles/drivers/transit)
 │   ├── auth/           # JWT auth + RBAC + user management (10 endpoints)
 │   ├── compliance/     # NeTEx/SIRI EU compliance exports (4 endpoints, XML generation, no DB tables)
-│   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction)
+│   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)
 │   ├── fleet/          # Fleet device management (6 endpoints, Traccar GPS bridge, OBD-II telemetry)

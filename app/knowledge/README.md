@@ -18,9 +18,20 @@ RAG-powered document knowledge base with full document management capabilities. 
 10. Auto-tag document via LLM classification (best-effort, non-blocking)
 11. Title defaults to filename stem if not provided
 
+### HyDE Query Expansion (Optional)
+
+1. If `knowledge_hyde_enabled=True`, send query to a fast LLM before embedding
+2. LLM generates a hypothetical document paragraph answering the query
+3. The hypothetical answer is embedded instead of the raw query (embeds closer to actual documents)
+4. Raw query is still used for fulltext search (HyDE only affects vector search)
+5. Model resolution priority: `knowledge_hyde_model` > fast-tier LLM > primary LLM
+6. Graceful degradation: LLM failures fall back to embedding the raw query
+7. Output truncated to `knowledge_hyde_max_tokens * 4` chars as safety bound
+8. Configurable via `knowledge_hyde_enabled`, `knowledge_hyde_model`, `knowledge_hyde_max_tokens`
+
 ### Hybrid Search
 
-1. Embed query text using the configured embedding provider
+1. Embed query text (or HyDE-expanded text if enabled) using the configured embedding provider
 2. Run vector similarity search (pgvector cosine distance)
 3. Run fulltext search (PostgreSQL `to_tsvector('simple')` with `ts_rank`)
 4. Classify query type: keyword (route numbers, stop codes), semantic (questions, procedural phrases in EN/LV), or mixed
@@ -159,10 +170,10 @@ Table: `document_chunks`
 ## Integration Points
 
 - **Agent Module**: `search_knowledge_base` tool registered in `app/core/agents/agent.py`, uses `AsyncSessionLocal` for direct DB access. Agent system prompt includes CITATION RULES for `[title](/{locale}/documents/{id})` links.
-- **Core Config**: 22 settings in `app/core/config.py` (embedding, reranker, chunking, document_storage_path, auto_tag, temporal_boost, rrf_weights)
+- **Core Config**: 25 settings in `app/core/config.py` (embedding, reranker, chunking, document_storage_path, auto_tag, hyde, temporal_boost, rrf_weights)
 - **Shared Utilities**: Uses `PaginationParams`, `PaginatedResponse`, `TimestampMixin`, `get_db()`, `get_logger()`
 - **Frontend**: Documents management page at `/[locale]/documents` with upload, list, detail, download, delete
-- **Pydantic AI**: Auto-tagging uses `pydantic-ai` Agent for LLM classification (lazy-imported, provider configured via existing settings)
+- **Pydantic AI**: Auto-tagging and HyDE query expansion use `pydantic-ai` Agent for LLM calls (lazy-imported, provider configured via existing settings)
 
 ## API Endpoints
 

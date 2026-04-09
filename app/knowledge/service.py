@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
-from app.knowledge import chunking, processing
+from app.knowledge import chunking, hyde, processing
 from app.knowledge.embedding import EmbeddingProvider, get_embedding_provider
 from app.knowledge.exceptions import (
     DocumentNotFoundError,
@@ -415,8 +415,13 @@ class KnowledgeService:
             language=request.language,
         )
 
-        # Get query embedding
-        query_embedding = (await _get_embedding().embed([request.query]))[0]
+        # HyDE: optionally expand query before embedding
+        embed_text = request.query
+        if settings.knowledge_hyde_enabled:
+            embed_text = await hyde.expand_query(request.query, settings)
+
+        # Get query embedding (use expanded text for vector, raw query for fulltext)
+        query_embedding = (await _get_embedding().embed([embed_text]))[0]
 
         # Run both searches
         search_limit = settings.knowledge_search_limit

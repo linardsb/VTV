@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (974 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence ████░░░░░░░░░░░░░░░░░░░  16%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. 7 phases: RAG, HyDE, memory+bridge, chunking, self-correction, multi-agent+harness+L3 skills, eval)
+Agent Intelligence █████░░░░░░░░░░░░░░░░░░  20%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. 6 remaining phases: memory+bridge, chunking, self-correction, multi-agent+harness+L3 skills, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -50,7 +50,7 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 
 ---
 
-### Phase AI-2: Query Router + HyDE (4 days)
+### Phase AI-2: Query Router + HyDE (4 days) ✅
 
 > **Sprint deliverable:** Skip RAG for transit queries (60% of volume), fix Latvian embedding weakness via HyDE. Net result: faster responses + better retrieval quality.
 
@@ -66,25 +66,15 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 - 28 router tests + 3 service integration tests + 6 processing tests + 2 DMS test updates = 39 new/updated tests
 **Verify:** "Kuri marsruti kavejas?" → RAG skipped. "Kada ir procedura par virsstundam?" → RAG invoked.
 
-#### AI-2.2 HyDE (Hypothetical Document Embeddings)
-**What:** Create `app/knowledge/hyde.py` — before embedding a query for vector search, generate a hypothetical answer using a fast/cheap LLM, then embed that instead of the raw query.
-**Why:** Latvian is a low-resource language for embedding models. Even Jina v3 (best multilingual option) has weaker coverage for Latvian. HyDE sidesteps this: the hypothetical answer is in document-like language, so it embeds closer to actual documents. Expected 15-20% retrieval quality improvement for Latvian queries at ~$0.001/query cost.
+#### AI-2.2 HyDE (Hypothetical Document Embeddings) ✅
+**Status:** Implemented. Plan: `.agents/plans/ai-2.2-hyde.md`
+**What:** `app/knowledge/hyde.py` — before embedding a query for vector search, generate a hypothetical answer using a fast/cheap LLM, then embed that instead of the raw query. Improves retrieval quality for low-resource languages like Latvian (~15-20% expected improvement at ~$0.001/query).
 **Implementation:**
-- Create `app/knowledge/hyde.py`:
-  ```python
-  class HyDEExpander:
-      HYDE_PROMPT = "Given this question about transit operations, write a short paragraph
-          that would appear in an internal document answering it. Write in the same language
-          as the question. Be specific and factual.\n\nQuestion: {query}"
-
-      async def expand(self, query: str) -> str:
-          response = await self.llm.complete(self.HYDE_PROMPT.format(query=query),
-              model=self.fast_model, max_tokens=200)
-          return response.text
-  ```
-- `app/knowledge/service.py` — in `search()`, if `KNOWLEDGE__HYDE_ENABLED`, call `hyde.expand(query)` and embed the result instead of the raw query. Keep original query for fulltext search.
-- `app/core/config.py` — add `KNOWLEDGE__HYDE_ENABLED: bool = True`, `KNOWLEDGE__HYDE_MODEL: str = ""` (defaults to fast tier)
-- Use fast-tier model (cheapest available) — 200 token output max
+- `app/knowledge/hyde.py` — `expand_query()` function with `_resolve_model()` helper. Model priority: `knowledge_hyde_model` > fast-tier LLM > primary LLM. Graceful degradation on LLM failure (falls back to raw query). Output truncated to `max_tokens * 4` chars.
+- `app/knowledge/service.py` — in `search()`, if `knowledge_hyde_enabled`, call `hyde.expand_query()` and embed the result instead of the raw query. Raw query still used for fulltext search.
+- `app/core/config.py` — `knowledge_hyde_enabled: bool = False`, `knowledge_hyde_model: str | None = None`, `knowledge_hyde_max_tokens: int = 200`
+- Uses `pydantic_ai.Agent` (lazy-imported, same pattern as auto-tagging)
+- 8 tests: model resolution (3), success path, LLM failure fallback, output truncation, search integration enabled/disabled
 **Verify:** Compare retrieval quality for "Ko darīt, ja autobuss sabojājas maršrutā?" with HyDE on vs off. HyDE should surface SOP documents in top 3 that were previously at position 5+. Measure latency overhead — should be <500ms with fast model.
 
 #### AI-2.3 Embedding Cache

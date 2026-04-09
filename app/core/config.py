@@ -210,6 +210,11 @@ class Settings(BaseSettings):
     auto_tag_enabled: bool = False
     auto_tag_max_chars: int = 500
 
+    # HyDE query expansion (generate hypothetical answer before embedding)
+    knowledge_hyde_enabled: bool = False
+    knowledge_hyde_model: str | None = None  # None = use llm_fast or primary model
+    knowledge_hyde_max_tokens: int = 200
+
     # NeTEx/SIRI compliance exports
     netex_codespace: str = "VTV"
     netex_participant_ref: str = "VTV"
