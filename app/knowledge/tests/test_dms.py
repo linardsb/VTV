@@ -21,7 +21,7 @@ from app.knowledge.service import KnowledgeService
 
 
 def test_extract_excel_text() -> None:
-    """Excel extraction should produce tab-separated text with sheet headers."""
+    """Excel extraction should produce markdown tables with sheet headings."""
     mock_cell_a = MagicMock()
     mock_cell_a.value = "Name"
     mock_cell_b = MagicMock()
@@ -44,9 +44,9 @@ def test_extract_excel_text() -> None:
     with patch("openpyxl.load_workbook", return_value=mock_wb):
         result = _extract_excel_sync("/tmp/test.xlsx")  # noqa: S108
 
-    assert "Sheet1" in result
-    assert "Name\tAge" in result
-    assert "Alice\t30" in result
+    assert "## Sheet1" in result
+    assert "| Name | Age |" in result
+    assert "| Alice | 30 |" in result
     mock_wb.close.assert_called_once()
 
 
@@ -54,7 +54,7 @@ def test_extract_excel_text() -> None:
 
 
 def test_extract_csv_text(tmp_path: Path) -> None:
-    """CSV extraction should return tab-separated text from all rows."""
+    """CSV extraction should return markdown table."""
     csv_file = tmp_path / "test.csv"
     with csv_file.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -64,9 +64,9 @@ def test_extract_csv_text(tmp_path: Path) -> None:
 
     result = _extract_csv_sync(str(csv_file))
 
-    assert "Name\tRole" in result
-    assert "Bob\tDriver" in result
-    assert "Eve\tDispatcher" in result
+    assert "| Name | Role |" in result
+    assert "| Bob | Driver |" in result
+    assert "| Eve | Dispatcher |" in result
 
 
 # --- Test 3: Document update service ---

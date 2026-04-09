@@ -35,6 +35,7 @@ class UnifiedDeps:
     db_session_factory: Callable[[], AbstractAsyncContextManager[AsyncSession]] | None = field(
         default=None
     )
+    rag_enabled: bool = True
 
 
 # Keep TransitDeps as an alias for backwards compatibility during migration

@@ -1,4 +1,4 @@
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportOptionalMemberAccess=false
 """Document text extraction for PDFs, Word, email, images, plain text.
 
 All extraction functions are synchronous and called via asyncio.to_thread()
@@ -11,6 +11,7 @@ import asyncio
 import email as email_lib
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from app.core.logging import get_logger
 from app.knowledge.exceptions import UnsupportedDocumentTypeError
@@ -72,26 +73,47 @@ async def extract_text(file_path: str, source_type: str) -> tuple[str, bool]:
 
 
 def _extract_pdf_sync(file_path: str) -> tuple[str, bool]:
-    """Extract text from a PDF file using PyMuPDF, with OCR fallback.
+    """Extract text from a PDF file with markdown structure preservation.
 
-    If PyMuPDF extracts little or no text (< 50 chars total), assumes the PDF
-    contains scanned images and falls back to pytesseract OCR.
+    Uses PyMuPDF dict mode to detect headings (by font size/bold) and
+    format output with markdown headers. Falls back to OCR for scanned PDFs.
 
     Args:
         file_path: Path to the PDF file.
 
     Returns:
-        Tuple of (concatenated text from all pages, whether OCR was applied).
+        Tuple of (markdown-formatted text from all pages, whether OCR was applied).
     """
     import fitz
 
     doc = fitz.open(file_path)
     pages: list[str] = []
-    for page in doc:
-        raw = page.get_text()
-        page_text = str(raw) if raw else ""
-        if page_text.strip():
-            pages.append(page_text)
+    for page_idx in range(len(doc)):
+        page = doc[page_idx]
+        page_num = page_idx + 1
+        page_dict: dict[str, Any] = page.get_text("dict")  # pyright: ignore[reportUnknownMemberType, reportAssignmentType]
+        blocks: list[dict[str, Any]] = page_dict["blocks"]
+        page_lines: list[str] = []
+        for block in blocks:
+            if block["type"] != 0:  # skip non-text blocks
+                continue
+            for line in block["lines"]:
+                spans: list[dict[str, Any]] = line["spans"]
+                text = "".join(str(span["text"]) for span in spans)
+                if not text.strip():
+                    continue
+                max_size: float = max(float(span["size"]) for span in spans)
+                is_bold = any("bold" in str(span.get("font", "")).lower() for span in spans)
+                if max_size >= 16 and is_bold:
+                    page_lines.append(f"## {text.strip()}")
+                elif max_size >= 14 and is_bold:
+                    page_lines.append(f"### {text.strip()}")
+                elif is_bold and len(text.strip()) < 100:
+                    page_lines.append(f"**{text.strip()}**")
+                else:
+                    page_lines.append(text.strip())
+        if page_lines:
+            pages.append(f"# Page {page_num}\n\n" + "\n\n".join(page_lines))
 
     total_text = "\n\n".join(pages)
 
@@ -147,39 +169,73 @@ def _extract_pdf_sync(file_path: str) -> tuple[str, bool]:
 
 
 def _extract_docx_sync(file_path: str) -> str:
-    """Extract text from a Word document using python-docx.
+    """Extract text from a Word document with markdown structure.
+
+    Maps Word heading styles to markdown headers, list styles to bullets,
+    and extracts tables as markdown tables.
 
     Args:
         file_path: Path to the .docx file.
 
     Returns:
-        Concatenated paragraph text.
+        Markdown-formatted document text.
     """
     from docx import Document as DocxDocument
 
     doc = DocxDocument(file_path)
-    return "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
+    lines: list[str] = []
+    for para in doc.paragraphs:
+        if not para.text.strip():
+            continue
+        style = para.style.name if para.style else ""
+        if style.startswith("Heading 1"):
+            lines.append(f"# {para.text}")
+        elif style.startswith("Heading 2"):
+            lines.append(f"## {para.text}")
+        elif style.startswith("Heading 3"):
+            lines.append(f"### {para.text}")
+        elif style.startswith("Heading"):
+            parts = style.split()
+            level = min(int(parts[-1]) if parts[-1].isdigit() else 4, 6)
+            lines.append(f"{'#' * level} {para.text}")
+        elif style.startswith("List"):
+            lines.append(f"- {para.text}")
+        else:
+            lines.append(para.text)
+    # Extract tables as markdown
+    for table in doc.tables:
+        if not table.rows:
+            continue
+        headers = [cell.text.strip().replace("|", "\\|") for cell in table.rows[0].cells]
+        lines.append("| " + " | ".join(headers) + " |")
+        lines.append("| " + " | ".join("---" for _ in headers) + " |")
+        for row in table.rows[1:]:
+            cells = [cell.text.strip().replace("|", "\\|") for cell in row.cells]
+            lines.append("| " + " | ".join(cells) + " |")
+    return "\n\n".join(lines)
 
 
 def _extract_email_sync(file_path: str) -> str:
-    """Extract text from an email file (.eml).
+    """Extract text from an email file (.eml) with markdown formatting.
+
+    Headers are formatted as bold markdown, body text follows.
 
     Args:
         file_path: Path to the email file.
 
     Returns:
-        Email headers and body text.
+        Markdown-formatted email headers and body text.
     """
     with Path(file_path).open() as f:
         msg = email_lib.message_from_file(f)
 
     parts: list[str] = []
 
-    # Extract headers
+    # Extract headers as bold markdown
     for header in ("From", "To", "Date", "Subject"):
         value = msg.get(header)
         if value:
-            parts.append(f"{header}: {value}")
+            parts.append(f"**{header}:** {value}")
 
     # Extract body
     if msg.is_multipart():
@@ -197,7 +253,7 @@ def _extract_email_sync(file_path: str) -> str:
 
 
 def _extract_image_sync(file_path: str) -> str:
-    """Extract text from an image using OCR (Tesseract).
+    """Extract text from an image via OCR, wrapped in markdown blockquote.
 
     Uses Latvian + English language packs for multilingual support.
 
@@ -205,14 +261,15 @@ def _extract_image_sync(file_path: str) -> str:
         file_path: Path to the image file.
 
     Returns:
-        OCR-extracted text.
+        OCR-extracted text with markdown blockquote context.
     """
     import pytesseract
     from PIL import Image
 
     image = Image.open(file_path)
-    raw = pytesseract.image_to_string(image, lang="lav+eng")
-    return str(raw)
+    raw = str(pytesseract.image_to_string(image, lang="lav+eng"))
+    filename = Path(file_path).name
+    return f"> OCR extracted from: {filename}\n\n{raw}"
 
 
 def _extract_text_sync(file_path: str) -> str:
@@ -228,13 +285,15 @@ def _extract_text_sync(file_path: str) -> str:
 
 
 def _extract_excel_sync(file_path: str) -> str:
-    """Extract text from an Excel (.xlsx) file using openpyxl.
+    """Extract Excel data as markdown tables.
+
+    Each sheet becomes a section with a heading and a markdown table.
 
     Args:
         file_path: Path to the .xlsx file.
 
     Returns:
-        Tab-separated text from all sheets.
+        Markdown-formatted tables from all sheets.
     """
     import openpyxl
 
@@ -242,36 +301,50 @@ def _extract_excel_sync(file_path: str) -> str:
     sheets: list[str] = []
     for sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
-        rows: list[str] = []
-        for row in ws.iter_rows():
-            cells: list[str] = []
-            for cell in row:
-                cells.append(str(cell.value) if cell.value is not None else "")
-            rows.append("\t".join(cells))
-        sheet_text = f"--- Sheet: {sheet_name} ---\n" + "\n".join(rows)
-        sheets.append(sheet_text)
+        all_rows = list(ws.iter_rows())
+        if not all_rows:
+            continue
+        headers = [
+            str(c.value).replace("|", "\\|") if c.value is not None else "" for c in all_rows[0]
+        ]
+        section_lines: list[str] = [f"## {sheet_name}", ""]
+        section_lines.append("| " + " | ".join(headers) + " |")
+        section_lines.append("| " + " | ".join("---" for _ in headers) + " |")
+        for row in all_rows[1:]:
+            cells = [str(c.value).replace("|", "\\|") if c.value is not None else "" for c in row]
+            section_lines.append("| " + " | ".join(cells) + " |")
+        sheets.append("\n".join(section_lines))
     wb.close()
     return "\n\n".join(sheets)
 
 
 def _extract_csv_sync(file_path: str) -> str:
-    """Extract text from a CSV file.
+    """Extract CSV data as a markdown table.
+
+    First row is treated as headers. Pipe characters in cells are escaped.
 
     Args:
         file_path: Path to the CSV file.
 
     Returns:
-        Tab-separated text from all rows.
+        Markdown-formatted table.
     """
     import csv
 
     try:
         with Path(file_path).open(encoding="utf-8") as f:
             reader = csv.reader(f)
-            rows: list[str] = []
-            for row in reader:
-                rows.append("\t".join(row))
-            return "\n".join(rows)
+            all_rows = list(reader)
+            if not all_rows:
+                return ""
+            headers = [c.replace("|", "\\|") for c in all_rows[0]]
+            lines: list[str] = []
+            lines.append("| " + " | ".join(headers) + " |")
+            lines.append("| " + " | ".join("---" for _ in headers) + " |")
+            for row in all_rows[1:]:
+                cells = [c.replace("|", "\\|") for c in row]
+                lines.append("| " + " | ".join(cells) + " |")
+            return "\n".join(lines)
     except csv.Error:
         logger.warning("knowledge.extraction.csv_fallback", file_path=file_path)
         return Path(file_path).read_text(encoding="utf-8")

@@ -34,6 +34,7 @@ from app.core.agents.validation import validate_transit_response
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger
+from app.knowledge.router import needs_rag
 from app.skills.service import SkillService
 
 logger = get_logger(__name__)
@@ -130,6 +131,21 @@ class AgentService:
             model_tier=tier,
             tier_override=tier_model is not None,
         )
+
+        # RAG query router - skip knowledge search for transit/schedule/vault queries
+        settings = get_settings()
+        if settings.knowledge_router_enabled:
+            rag_decision = needs_rag(current_prompt)
+            self._deps.rag_enabled = rag_decision.needs_rag
+            logger.info(
+                "agent.rag_routing",
+                needs_rag=rag_decision.needs_rag,
+                rag_score=rag_decision.rag_score,
+                skip_score=rag_decision.skip_score,
+                tier=tier,
+            )
+        else:
+            self._deps.rag_enabled = True
 
         # Load active skills for dynamic instructions
         skills_instructions = ""

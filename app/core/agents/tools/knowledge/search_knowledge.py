@@ -73,6 +73,14 @@ async def search_knowledge_base(
         Each result has document_id - use it to link: [title](/{locale}/documents/{id}).
     """
     _settings = ctx.deps.settings
+
+    if not ctx.deps.rag_enabled:
+        logger.info("agent.knowledge.search_skipped", reason="rag_router_skip")
+        return (
+            "Knowledge base search was skipped by the query router. "
+            "This query is better answered using transit or vault tools."
+        )
+
     start_time = time.monotonic()
 
     logger.info(

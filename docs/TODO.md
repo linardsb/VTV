@@ -54,18 +54,17 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 
 > **Sprint deliverable:** Skip RAG for transit queries (60% of volume), fix Latvian embedding weakness via HyDE. Net result: faster responses + better retrieval quality.
 
-#### AI-2.1 RAG Query Router
-**What:** Create `app/knowledge/router.py` — a lightweight classifier that determines if a query needs RAG retrieval at all. Transit status, schedule, and vault queries skip RAG entirely. Knowledge, policy, and SOP queries use RAG.
-**Why:** ~60% of VTV queries are transit operations ("which routes are delayed?", "schedule for route 3") that never need document retrieval. Skipping RAG for these saves embedding API calls ($0.50/mo) and reduces latency by 200-400ms per query.
+#### AI-2.1 RAG Query Router ✅
+**Status:** Implemented. Plan: `.agents/plans/ai-2.1-rag-query-router.md`
+**What:** `app/knowledge/router.py` — signal-based classifier (9 RAG + 8 skip regex patterns, LV+EN). Determines if a query needs RAG retrieval. Transit/schedule/vault queries skip RAG; knowledge/policy/SOP queries trigger RAG. Also includes markdown-aware document extraction — PDF/DOCX/XLSX/CSV/email/image extractors now produce structured markdown (headings, tables, bold, blockquotes) instead of flat text. Zero runtime cost (conversion at upload time).
 **Implementation:**
-- Create `app/knowledge/router.py` — `QueryRouter` class with signal-based scoring:
-  - `RAG_SIGNALS`: {"SOP", "procedure", "protocol", "regulation", "policy", "dokument", "noteikum", "kārtīb", "instrukcij"}
-  - `SKIP_SIGNALS`: {"route", "maršrut", "delay", "kavē", "schedule", "grafik", "stop", "pietura", "bus", "autobus", "vault", "note"}
-  - `needs_rag(query: str) -> bool` — RAG score > skip score
-- `app/core/agents/service.py` — integrate router before tool execution. If `not needs_rag(prompt)`, set `search_knowledge_base` tool to no-op mode or remove from available tools for this run.
-- Add `KNOWLEDGE__ROUTER_ENABLED: bool = True` config flag
-- Add structured logging: `knowledge.router.decision` with `{query_hash, needs_rag, rag_score, skip_score}`
-**Verify:** Send "Kuri maršruti kavējas?" — confirm RAG is skipped (check logs). Send "Kāda ir procedūra, ja autobuss sabojājas?" — confirm RAG is invoked. Track metrics over 50 test queries — expect ~60% skip rate.
+- `app/knowledge/router.py` — `needs_rag()` function with `RoutingDecision` NamedTuple (needs_rag, rag_score, skip_score)
+- `app/core/agents/service.py` — router integrated between `classify_prompt()` and skills loading. Sets `UnifiedDeps.rag_enabled` flag.
+- `app/core/agents/tools/knowledge/search_knowledge.py` — short-circuits with guidance message when `rag_enabled=False`
+- `app/core/config.py` — `knowledge_router_enabled: bool = True` config flag
+- `app/knowledge/processing.py` — markdown-aware extractors: PDF (font size/bold heading detection), DOCX (heading/list/table mapping), XLSX/CSV (markdown tables), image (blockquote wrapper), email (bold headers)
+- 28 router tests + 3 service integration tests + 6 processing tests + 2 DMS test updates = 39 new/updated tests
+**Verify:** "Kuri marsruti kavejas?" → RAG skipped. "Kada ir procedura par virsstundam?" → RAG invoked.
 
 #### AI-2.2 HyDE (Hypothetical Document Embeddings)
 **What:** Create `app/knowledge/hyde.py` — before embedding a query for vector search, generate a hypothetical answer using a fast/cheap LLM, then embed that instead of the raw query.

@@ -203,6 +203,9 @@ class Settings(BaseSettings):
     rrf_mixed_vector_weight: float = 0.5
     rrf_mixed_text_weight: float = 0.5
 
+    # RAG query router (skip knowledge search for transit/schedule queries)
+    knowledge_router_enabled: bool = True
+
     # Auto-tagging (LLM classification on document upload)
     auto_tag_enabled: bool = False
     auto_tag_max_chars: int = 500
