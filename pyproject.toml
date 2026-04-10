@@ -34,6 +34,7 @@ dependencies = [
     "uvicorn[standard]>=0.38.0",
     "geoalchemy2>=0.18.3",
     "lxml>=5.0.0",
+    "pdfplumber>=0.11.9",
 ]
 
 [dependency-groups]
@@ -155,6 +156,11 @@ ignore_missing_imports = true
 # pymupdf lacks py.typed marker
 [[tool.mypy.overrides]]
 module = "fitz.*"
+ignore_missing_imports = true
+
+# pdfplumber lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "pdfplumber.*"
 ignore_missing_imports = true
 
 # geoalchemy2 lacks py.typed marker

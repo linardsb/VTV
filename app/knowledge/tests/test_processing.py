@@ -235,3 +235,270 @@ async def test_email_markdown_headers():
 
     assert "**From:**" in text
     assert "**Subject:**" in text
+
+
+# ---------------------------------------------------------------------------
+# PDF table extraction tests (pdfplumber-based)
+# ---------------------------------------------------------------------------
+
+
+def test_pdf_table_to_markdown_basic():
+    """Basic 2-column table with header and one data row."""
+    from app.knowledge.processing import _pdf_table_to_markdown
+
+    rows: list[list[str | None]] = [
+        ["Route", "Fare"],
+        ["22", "1.50"],
+    ]
+    result = _pdf_table_to_markdown(rows)
+
+    assert "| Route | Fare |" in result
+    assert "| --- | --- |" in result
+    assert "| 22 | 1.50 |" in result
+
+
+def test_pdf_table_to_markdown_handles_none_cells():
+    """None cells should become empty strings in markdown output."""
+    from app.knowledge.processing import _pdf_table_to_markdown
+
+    rows: list[list[str | None]] = [
+        ["A", "B", "C"],
+        ["x", None, "z"],
+    ]
+    result = _pdf_table_to_markdown(rows)
+
+    assert "| x |  | z |" in result
+
+
+def test_pdf_table_to_markdown_escapes_pipes():
+    """Pipe characters in cells should be escaped so they don't break the table."""
+    from app.knowledge.processing import _pdf_table_to_markdown
+
+    rows: list[list[str | None]] = [
+        ["Header"],
+        ["a | b"],
+    ]
+    result = _pdf_table_to_markdown(rows)
+
+    assert "| a \\| b |" in result
+
+
+def test_pdf_table_to_markdown_strips_embedded_newlines():
+    """Newlines inside a cell should be replaced with spaces."""
+    from app.knowledge.processing import _pdf_table_to_markdown
+
+    rows: list[list[str | None]] = [
+        ["Name"],
+        ["Line one\nLine two"],
+    ]
+    result = _pdf_table_to_markdown(rows)
+
+    assert "| Line one Line two |" in result
+
+
+def test_pdf_table_to_markdown_pads_short_rows():
+    """Rows with fewer cells than the header should be padded with empty strings."""
+    from app.knowledge.processing import _pdf_table_to_markdown
+
+    rows: list[list[str | None]] = [
+        ["A", "B", "C"],
+        ["x"],
+    ]
+    result = _pdf_table_to_markdown(rows)
+
+    # Short row padded to 3 columns
+    assert "| x |  |  |" in result
+
+
+def test_pdf_table_to_markdown_truncates_long_rows():
+    """Rows with more cells than the header should be truncated to header length."""
+    from app.knowledge.processing import _pdf_table_to_markdown
+
+    rows: list[list[str | None]] = [
+        ["A", "B"],
+        ["x", "y", "extra"],
+    ]
+    result = _pdf_table_to_markdown(rows)
+
+    assert "| x | y |" in result
+    assert "extra" not in result
+
+
+def test_pdf_table_to_markdown_empty_returns_empty():
+    """Empty rows list should return empty string."""
+    from app.knowledge.processing import _pdf_table_to_markdown
+
+    assert _pdf_table_to_markdown([]) == ""
+
+
+def test_extract_pdf_page_content_tables_interleaved_with_prose():
+    """Page content should emit prose before a table, then the table as markdown."""
+    from app.knowledge.processing import _extract_pdf_page_content
+
+    # Mock pdfplumber Table: bbox=(x0, top, x1, bottom), extract() returns rows
+    mock_table = MagicMock()
+    mock_table.bbox = (0.0, 100.0, 500.0, 200.0)
+    mock_table.extract.return_value = [["Header"], ["Cell"]]
+
+    # Mock cropped page regions
+    mock_crop_top = MagicMock()
+    mock_crop_top.extract_text.return_value = "Prose above table"
+    mock_crop_bottom = MagicMock()
+    mock_crop_bottom.extract_text.return_value = "Prose below table"
+
+    # Mock page with find_tables + crop + size
+    mock_page = MagicMock()
+    mock_page.width = 500.0
+    mock_page.height = 800.0
+    mock_page.find_tables.return_value = [mock_table]
+
+    def crop_side_effect(bbox: tuple[float, float, float, float]) -> MagicMock:
+        # bbox: (x0, top, x1, bottom)
+        if bbox[1] < 100.0:
+            return mock_crop_top
+        return mock_crop_bottom
+
+    mock_page.crop.side_effect = crop_side_effect
+
+    result = _extract_pdf_page_content(mock_page)
+
+    assert "Prose above table" in result
+    assert "| Header |" in result
+    assert "| Cell |" in result
+    assert "Prose below table" in result
+    # Ordering: prose-above comes before the table which comes before prose-below
+    assert result.index("Prose above table") < result.index("| Header |")
+    assert result.index("| Header |") < result.index("Prose below table")
+
+
+def test_extract_pdf_page_content_no_tables_extracts_whole_page():
+    """When no tables are found, extract text from the full page."""
+    from app.knowledge.processing import _extract_pdf_page_content
+
+    mock_crop = MagicMock()
+    mock_crop.extract_text.return_value = "Full page prose content"
+
+    mock_page = MagicMock()
+    mock_page.width = 500.0
+    mock_page.height = 800.0
+    mock_page.find_tables.return_value = []
+    mock_page.crop.return_value = mock_crop
+
+    result = _extract_pdf_page_content(mock_page)
+
+    assert "Full page prose content" in result
+
+
+def test_extract_pdf_page_content_handles_find_tables_error():
+    """If find_tables() raises, the page should still extract text via crop."""
+    from app.knowledge.processing import _extract_pdf_page_content
+
+    mock_crop = MagicMock()
+    mock_crop.extract_text.return_value = "Recovered prose"
+
+    mock_page = MagicMock()
+    mock_page.width = 500.0
+    mock_page.height = 800.0
+    mock_page.find_tables.side_effect = RuntimeError("pdfplumber table error")
+    mock_page.crop.return_value = mock_crop
+
+    result = _extract_pdf_page_content(mock_page)
+
+    assert "Recovered prose" in result
+
+
+def test_extract_pdf_sync_uses_pdfplumber_and_emits_tables():
+    """End-to-end: _extract_pdf_sync should call pdfplumber and emit a markdown table."""
+    from app.knowledge.processing import _extract_pdf_sync
+
+    # Build a mock Table
+    mock_table = MagicMock()
+    mock_table.bbox = (0.0, 100.0, 500.0, 200.0)
+    mock_table.extract.return_value = [
+        ["Route", "Fare"],
+        ["22", "1.50"],
+    ]
+
+    mock_crop = MagicMock()
+    mock_crop.extract_text.return_value = "Fare schedule below."
+
+    mock_page = MagicMock()
+    mock_page.width = 500.0
+    mock_page.height = 800.0
+    mock_page.find_tables.return_value = [mock_table]
+    mock_page.crop.return_value = mock_crop
+
+    mock_pdf = MagicMock()
+    mock_pdf.pages = [mock_page]
+    # Context manager protocol
+    mock_pdf.__enter__ = MagicMock(return_value=mock_pdf)
+    mock_pdf.__exit__ = MagicMock(return_value=False)
+
+    with patch("pdfplumber.open", return_value=mock_pdf):
+        text, ocr_applied = _extract_pdf_sync("/tmp/fake.pdf")  # noqa: S108
+
+    assert "# Page 1" in text
+    assert "| Route | Fare |" in text
+    assert "| 22 | 1.50 |" in text
+    assert ocr_applied is False
+
+
+def test_extract_pdf_sync_ocr_fallback_on_empty_pdfplumber_result():
+    """If pdfplumber extracts too little text, OCR fallback should trigger."""
+    from app.knowledge.processing import _extract_pdf_sync
+
+    # pdfplumber returns a page with no tables and no text
+    mock_crop = MagicMock()
+    mock_crop.extract_text.return_value = ""
+
+    mock_page = MagicMock()
+    mock_page.width = 500.0
+    mock_page.height = 800.0
+    mock_page.find_tables.return_value = []
+    mock_page.crop.return_value = mock_crop
+
+    mock_pdf = MagicMock()
+    mock_pdf.pages = [mock_page]
+    mock_pdf.__enter__ = MagicMock(return_value=mock_pdf)
+    mock_pdf.__exit__ = MagicMock(return_value=False)
+
+    # Mock fitz (PyMuPDF) for OCR rasterization
+    mock_fitz_page = MagicMock()
+    mock_pixmap = MagicMock()
+    mock_pixmap.width = 100
+    mock_pixmap.height = 100
+    mock_pixmap.samples = b"\x00" * (100 * 100 * 3)
+    mock_fitz_page.get_pixmap.return_value = mock_pixmap
+
+    mock_fitz_doc = MagicMock()
+    mock_fitz_doc.__len__ = MagicMock(return_value=1)
+    mock_fitz_doc.__getitem__ = MagicMock(return_value=mock_fitz_page)
+
+    mock_fitz = MagicMock()
+    mock_fitz.open.return_value = mock_fitz_doc
+
+    mock_pytesseract = MagicMock()
+    mock_pytesseract.image_to_string.return_value = (
+        "OCR extracted scanned content with enough characters to be meaningful."
+    )
+
+    mock_pil_image_cls = MagicMock()
+    mock_pil_image_cls.frombytes.return_value = MagicMock()
+    mock_pil_module = MagicMock()
+    mock_pil_module.Image = mock_pil_image_cls
+
+    with (
+        patch("pdfplumber.open", return_value=mock_pdf),
+        patch.dict(
+            "sys.modules",
+            {
+                "fitz": mock_fitz,
+                "pytesseract": mock_pytesseract,
+                "PIL": mock_pil_module,
+            },
+        ),
+    ):
+        text, ocr_applied = _extract_pdf_sync("/tmp/scanned.pdf")  # noqa: S108
+
+    assert ocr_applied is True
+    assert "OCR extracted scanned content" in text

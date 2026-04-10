@@ -73,10 +73,18 @@ async def extract_text(file_path: str, source_type: str) -> tuple[str, bool]:
 
 
 def _extract_pdf_sync(file_path: str) -> tuple[str, bool]:
-    """Extract text from a PDF file with markdown structure preservation.
+    """Extract text from a PDF with table and multi-column layout preservation.
 
-    Uses PyMuPDF dict mode to detect headings (by font size/bold) and
-    format output with markdown headers. Falls back to OCR for scanned PDFs.
+    Uses pdfplumber for primary extraction:
+    - Tables are detected via ``page.find_tables()`` and emitted as markdown
+      tables so the downstream semantic chunker classifies them correctly.
+    - Prose is extracted via ``page.crop().extract_text()`` on regions between
+      tables, which handles multi-column layouts better than raw block order.
+    - Tables and prose are interleaved by y-coordinate to preserve document
+      reading order.
+
+    Falls back to tesseract OCR (lav+eng) via PyMuPDF rasterization when
+    pdfplumber extracts less than 50 characters (scanned PDF detection).
 
     Args:
         file_path: Path to the PDF file.
@@ -84,45 +92,35 @@ def _extract_pdf_sync(file_path: str) -> tuple[str, bool]:
     Returns:
         Tuple of (markdown-formatted text from all pages, whether OCR was applied).
     """
-    import fitz
+    import pdfplumber
 
-    doc = fitz.open(file_path)
     pages: list[str] = []
-    for page_idx in range(len(doc)):
-        page = doc[page_idx]
-        page_num = page_idx + 1
-        page_dict: dict[str, Any] = page.get_text("dict")  # pyright: ignore[reportUnknownMemberType, reportAssignmentType]
-        blocks: list[dict[str, Any]] = page_dict["blocks"]
-        page_lines: list[str] = []
-        for block in blocks:
-            if block["type"] != 0:  # skip non-text blocks
-                continue
-            for line in block["lines"]:
-                spans: list[dict[str, Any]] = line["spans"]
-                text = "".join(str(span["text"]) for span in spans)
-                if not text.strip():
-                    continue
-                max_size: float = max(float(span["size"]) for span in spans)
-                is_bold = any("bold" in str(span.get("font", "")).lower() for span in spans)
-                if max_size >= 16 and is_bold:
-                    page_lines.append(f"## {text.strip()}")
-                elif max_size >= 14 and is_bold:
-                    page_lines.append(f"### {text.strip()}")
-                elif is_bold and len(text.strip()) < 100:
-                    page_lines.append(f"**{text.strip()}**")
-                else:
-                    page_lines.append(text.strip())
-        if page_lines:
-            pages.append(f"# Page {page_num}\n\n" + "\n\n".join(page_lines))
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            for page_idx, page in enumerate(pdf.pages):
+                page_num = page_idx + 1
+                content = _extract_pdf_page_content(page)
+                if content.strip():
+                    pages.append(f"# Page {page_num}\n\n{content}")
+    except Exception as e:
+        logger.warning(
+            "knowledge.extraction.pdfplumber_failed",
+            file_path=file_path,
+            error=str(e),
+            error_type=type(e).__name__,
+            exc_info=True,
+        )
 
     total_text = "\n\n".join(pages)
 
     # If sufficient text was extracted, return without OCR
     if len(total_text.strip()) >= 50:
-        doc.close()
         return total_text, False
 
-    # Scanned PDF detected — fall back to OCR
+    # Scanned PDF detected — fall back to OCR via PyMuPDF rasterization
+    import fitz
+
+    doc = fitz.open(file_path)
     page_count = len(doc)
     logger.info(
         "knowledge.extraction.ocr_fallback",
@@ -166,6 +164,121 @@ def _extract_pdf_sync(file_path: str) -> tuple[str, bool]:
         )
         # Return whatever text we got (possibly empty)
         return total_text, False
+
+
+def _extract_pdf_page_content(page: Any) -> str:  # noqa: ANN401 — pdfplumber lacks py.typed
+    """Extract a pdfplumber page's content as markdown.
+
+    Detects tables, extracts them as markdown, and extracts prose from
+    the vertical gaps between (and around) tables in top-to-bottom order.
+
+    Args:
+        page: A pdfplumber ``Page`` object.
+
+    Returns:
+        Markdown-formatted page content with tables interleaved between prose.
+    """
+    parts: list[str] = []
+
+    try:
+        tables = list(page.find_tables())
+    except Exception:
+        tables = []
+
+    tables_sorted = sorted(tables, key=lambda t: float(t.bbox[1]))
+
+    page_width = float(page.width)
+    page_height = float(page.height)
+    prev_bottom = 0.0
+
+    for table in tables_sorted:
+        t_top = float(table.bbox[1])
+        t_bottom = float(table.bbox[3])
+
+        # Extract prose above this table (between the previous table and this one)
+        if t_top > prev_bottom + 1:
+            region_top = max(0.0, prev_bottom)
+            region_bottom = min(page_height, t_top)
+            prose = _safe_extract_text(page, 0.0, region_top, page_width, region_bottom)
+            if prose:
+                parts.append(prose)
+
+        # Extract the table as markdown
+        try:
+            rows = table.extract()
+        except Exception:
+            rows = []
+        md = _pdf_table_to_markdown(rows)
+        if md:
+            parts.append(md)
+
+        prev_bottom = max(prev_bottom, t_bottom)
+
+    # Extract prose after the last table (or full page if no tables were found)
+    if prev_bottom < page_height - 1:
+        prose = _safe_extract_text(page, 0.0, prev_bottom, page_width, page_height)
+        if prose:
+            parts.append(prose)
+
+    return "\n\n".join(parts)
+
+
+def _safe_extract_text(
+    page: Any,  # noqa: ANN401 — pdfplumber lacks py.typed
+    x0: float,
+    top: float,
+    x1: float,
+    bottom: float,
+) -> str:
+    """Crop a pdfplumber page to a bbox and extract text, empty on any error."""
+    try:
+        crop = page.crop((x0, top, x1, bottom))
+        text = crop.extract_text() or ""
+        return str(text).strip()
+    except Exception:
+        return ""
+
+
+def _pdf_table_to_markdown(rows: list[list[str | None]]) -> str:
+    """Convert a pdfplumber table (rows of cells) to a markdown table.
+
+    The first row is treated as the header. ``None`` cells become empty
+    strings, pipe characters are escaped, and embedded newlines are replaced
+    with spaces to keep the markdown on clean lines. Rows shorter or longer
+    than the header are padded or truncated to match.
+
+    Args:
+        rows: Table rows as returned by ``pdfplumber.Table.extract()``.
+
+    Returns:
+        Markdown table string, or empty string if ``rows`` is empty.
+    """
+    if not rows:
+        return ""
+
+    header = [_clean_pdf_cell(c) for c in rows[0]]
+    if not header:
+        return ""
+
+    lines = [
+        "| " + " | ".join(header) + " |",
+        "| " + " | ".join("---" for _ in header) + " |",
+    ]
+    for row in rows[1:]:
+        cells = [_clean_pdf_cell(c) for c in row]
+        if len(cells) < len(header):
+            cells = cells + [""] * (len(header) - len(cells))
+        elif len(cells) > len(header):
+            cells = cells[: len(header)]
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
+def _clean_pdf_cell(cell: str | None) -> str:
+    """Clean a PDF table cell for inclusion in a markdown table."""
+    if cell is None:
+        return ""
+    return str(cell).strip().replace("|", "\\|").replace("\n", " ")
 
 
 def _extract_docx_sync(file_path: str) -> str:
