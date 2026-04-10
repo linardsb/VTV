@@ -11,11 +11,13 @@ from pydantic_ai.models.test import TestModel
 from app.auth.dependencies import get_current_user
 from app.auth.models import User
 from app.core.agents.agent import agent
+from app.core.agents.base import BaseAgentService
 from app.core.agents.schemas import (
     ChatCompletionChoice,
     ChatCompletionResponse,
     ChatMessage,
 )
+from app.core.config import get_settings
 from app.core.rate_limit import limiter
 from app.main import app
 
@@ -182,3 +184,93 @@ def test_chat_completions_routes_to_transit_agent() -> None:
     assert response.status_code == 200
     mock_resolver.assert_called_once_with("transit")
     fake_service.chat.assert_awaited_once()
+
+
+# --- AI-6.3: server-side AgentRouter auto-routing -------------------------
+
+
+class TestChatCompletionsAutoRouting:
+    """AI-6.3: server-side AgentRouter wires into chat_completions."""
+
+    def test_flag_disabled_no_auto_routing(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """When AGENT_MULTI_AGENT_ENABLED is False, body.agent is honored verbatim."""
+        monkeypatch.setenv("AGENT_MULTI_AGENT_ENABLED", "false")
+        get_settings.cache_clear()
+        try:
+            fake_service = MagicMock(spec=BaseAgentService)
+            fake_service.chat = AsyncMock(return_value=_fake_chat_response())
+            with patch(
+                "app.core.agents.routes.get_agent_by_name",
+                return_value=fake_service,
+            ) as resolver:
+                with TestClient(app) as client:
+                    response = client.post(
+                        "/v1/chat/completions",
+                        json={"messages": [{"role": "user", "content": "Kuri maršruti kavējas?"}]},
+                    )
+            assert response.status_code == 200
+            resolver.assert_called_once_with("unified")
+        finally:
+            get_settings.cache_clear()
+
+    def test_flag_enabled_routes_transit_prompt(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """When flag is on and prompt is transit-y, request reaches transit agent."""
+        monkeypatch.setenv("AGENT_MULTI_AGENT_ENABLED", "true")
+        get_settings.cache_clear()
+        try:
+            fake_service = MagicMock(spec=BaseAgentService)
+            fake_service.chat = AsyncMock(return_value=_fake_chat_response())
+            with patch(
+                "app.core.agents.routes.get_agent_by_name",
+                return_value=fake_service,
+            ) as resolver:
+                with TestClient(app) as client:
+                    response = client.post(
+                        "/v1/chat/completions",
+                        json={
+                            "messages": [{"role": "user", "content": "Which routes are delayed?"}]
+                        },
+                    )
+            assert response.status_code == 200
+            resolver.assert_called_once_with("transit")
+        finally:
+            get_settings.cache_clear()
+
+    def test_flag_enabled_cross_domain_falls_back_to_unified(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Tied scores -> unified."""
+        monkeypatch.setenv("AGENT_MULTI_AGENT_ENABLED", "true")
+        get_settings.cache_clear()
+        try:
+            fake_service = MagicMock(spec=BaseAgentService)
+            fake_service.chat = AsyncMock(return_value=_fake_chat_response())
+            with patch(
+                "app.core.agents.routes.get_agent_by_name",
+                return_value=fake_service,
+            ) as resolver:
+                with TestClient(app) as client:
+                    response = client.post(
+                        "/v1/chat/completions",
+                        json={
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": (
+                                        "What routes serve the hospitals mentioned in the SOP?"
+                                    ),
+                                }
+                            ]
+                        },
+                    )
+            assert response.status_code == 200
+            resolver.assert_called_once_with("unified")
+        finally:
+            get_settings.cache_clear()

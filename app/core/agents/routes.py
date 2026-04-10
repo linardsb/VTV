@@ -16,7 +16,9 @@ from app.auth.models import User
 from app.core.agents.agents.registry import get_agent_by_name
 from app.core.agents.metrics import get_metrics_tracker
 from app.core.agents.quota import get_quota_tracker
+from app.core.agents.router import get_agent_router
 from app.core.agents.schemas import (
+    AgentName,
     ChatCompletionRequest,
     ChatCompletionResponse,
     CorrectionCheckSnapshot,
@@ -63,8 +65,21 @@ async def chat_completions(
             detail=f"Daily query quota exceeded. Remaining: {remaining}. Resets in 24 hours.",
         )
 
-    service = get_agent_by_name(body.agent)
-    logger.info("agent.chat.selected", agent=body.agent)
+    selected_agent: AgentName = body.agent
+    if body.agent == "unified" and get_settings().agent_multi_agent_enabled:
+        last_user_message = next(
+            (msg.content for msg in reversed(body.messages) if msg.role == "user"),
+            "",
+        )
+        selected_agent = get_agent_router().route(last_user_message)
+
+    service = get_agent_by_name(selected_agent)
+    logger.info(
+        "agent.chat.selected",
+        agent=selected_agent,
+        requested_agent=body.agent,
+        auto_routed=selected_agent != body.agent,
+    )
     return await service.chat(body)
 
 

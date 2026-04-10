@@ -278,6 +278,9 @@ class Settings(BaseSettings):
     agent_self_correction_enabled: bool = True
     agent_max_correction_rounds: int = 1  # Transit needs fast responses; 1 retry only
 
+    # Multi-agent auto-routing (AI-6.3)
+    agent_multi_agent_enabled: bool = False
+
     @model_validator(mode="after")
     def _reject_default_secrets_in_production(self) -> "Settings":
         """Refuse to start with default JWT secret in non-development environments."""
