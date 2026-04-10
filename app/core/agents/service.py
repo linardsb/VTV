@@ -24,6 +24,7 @@ from pydantic_ai.messages import ModelMessage
 from app.core.agents.agent import agent, build_instructions_with_skills
 from app.core.agents.base import BaseAgentService, _PipelineOutcome
 from app.core.agents.config import resolve_tier_model
+from app.core.agents.context_budget import AGENT_BUDGETS, ContextBudget, agent_budget_for
 from app.core.agents.correction import CorrectedResult, SelfCorrectionLoop
 from app.core.agents.pipeline import get_complex_pipeline
 from app.core.agents.routing import (
@@ -36,6 +37,7 @@ from app.core.agents.schemas import (
     ChatMessage,
     UsageInfo,
 )
+from app.core.agents.skill_loader import load_skills_within_budget
 from app.core.agents.tools.transit.deps import UnifiedDeps, create_unified_deps
 from app.core.agents.tools.transit.static_store import GTFSStaticStore, get_static_store
 from app.core.agents.validation import (
@@ -125,18 +127,51 @@ class AgentService(BaseAgentService):
             self._deps.rag_enabled = True
 
     # ------------------------------------------------------------------
-    # Hook: skill detection
+    # Hook: skill detection (flat DB skills + AI-6.4 L3 progressive packs)
     # ------------------------------------------------------------------
     async def detect_relevant_skills(self, prompt: str) -> str:
-        """Load all active skills from the DB (fail-open to '')."""
-        _ = prompt  # skills loader returns all active skills regardless of prompt
+        """Load flat DB skills + union of all three L3 skill packs."""
+        parts: list[str] = []
+
+        # Existing behavior: flat DB skill load.
         try:
             async with AsyncSessionLocal() as db:
                 skill_service = SkillService(db)
-                return await skill_service.get_active_skills_content()
+                flat = await skill_service.get_active_skills_content()
+                if flat:
+                    parts.append(flat)
         except Exception:
             logger.warning("agent.skills_load_failed", exc_info=True)
-            return ""
+
+        # AI-6.4: union L3 packs across transit, knowledge, and vault — each
+        # subcap is 1/3 of the unified agent's total skill budget.
+        if get_settings().agent_progressive_skills_enabled:
+            unified_budget = AGENT_BUDGETS.get("unified", agent_budget_for("unified"))
+            per_domain_cap = max(1, unified_budget.skill_docs_max // 3)
+            sub_budget = ContextBudget(
+                system_prompt_max=unified_budget.system_prompt_max,
+                skill_docs_max=per_domain_cap,
+                memory_max=unified_budget.memory_max,
+                user_message_max=unified_budget.user_message_max,
+                total_max=unified_budget.total_max,
+            )
+            for domain in ("transit", "knowledge", "vault"):
+                try:
+                    pack = load_skills_within_budget(
+                        domain=domain,
+                        prompt=prompt,
+                        budget=sub_budget,
+                    )
+                    if pack:
+                        parts.append(pack)
+                except Exception:
+                    logger.warning(
+                        "agent.l3_skills_load_failed",
+                        domain=domain,
+                        exc_info=True,
+                    )
+
+        return "\n\n".join(parts)
 
     # ------------------------------------------------------------------
     # Hook: memory recall block
@@ -250,6 +285,8 @@ class AgentService(BaseAgentService):
                 response_text=pipeline_result.output,
                 warnings=[],
                 messages=[],
+                confidence=0.9,
+                tools_used=(),
             )
 
         if self._correction_loop is not None:
@@ -269,10 +306,16 @@ class AgentService(BaseAgentService):
                 response=corrected.output,
                 messages=corrected.all_messages,
             )
+            corrected_confidence = 1.0 if not corrected.warnings else 0.6
+            corrected_tools = tuple(
+                rec.tool_name for rec in extract_tool_returns(corrected.all_messages)
+            )
             return _PipelineOutcome(
                 response_text=corrected.output,
                 warnings=corrected.warnings,
                 messages=corrected.all_messages,
+                confidence=corrected_confidence,
+                tools_used=corrected_tools,
             )
 
         result = await agent.run(
@@ -291,10 +334,13 @@ class AgentService(BaseAgentService):
             response=result.output,
             messages=fallback_messages,
         )
+        fallback_tools = tuple(rec.tool_name for rec in extract_tool_returns(fallback_messages))
         return _PipelineOutcome(
             response_text=result.output,
             warnings=None,  # signal _post_process to run QA itself
             messages=fallback_messages,
+            confidence=None,  # QA hasn't run yet; leave re-route gate disabled
+            tools_used=fallback_tools,
         )
 
     # ------------------------------------------------------------------

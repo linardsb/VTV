@@ -281,6 +281,13 @@ class Settings(BaseSettings):
     # Multi-agent auto-routing (AI-6.3)
     agent_multi_agent_enabled: bool = False
 
+    # AI-6.4 Progressive L3 skills
+    agent_progressive_skills_enabled: bool = True
+
+    # AI-6.5 Confidence-based re-routing
+    agent_confidence_reroute_enabled: bool = True
+    agent_confidence_reroute_threshold: float = 0.3
+
     @model_validator(mode="after")
     def _reject_default_secrets_in_production(self) -> "Settings":
         """Refuse to start with default JWT secret in non-development environments."""

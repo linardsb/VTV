@@ -40,6 +40,7 @@ from pydantic_ai.messages import (
 )
 
 from app.core.agents.agent import build_instructions_with_skills
+from app.core.agents.agent_result import VALID_DOMAINS, AgentResult
 from app.core.agents.config import resolve_tier_model
 from app.core.agents.exceptions import AgentExecutionError
 from app.core.agents.routing import ModelTier, classify_prompt
@@ -123,11 +124,17 @@ class _PipelineOutcome:
             the self-correction loop did not execute).
         messages: Full ``all_messages()`` slice from the final agent attempt,
             used by ``_run_qa`` to extract tool-return grounding.
+        confidence: Optional per-domain confidence in ``[0.0, 1.0]``. When
+            ``None`` the AI-6.5 re-route gate in ``chat()`` is skipped.
+        tools_used: Tool names invoked during the execute call, for
+            observability and forming ``AgentResult.tools_used``.
     """
 
     response_text: str
     warnings: list[str] | None
     messages: list[ModelMessage] = field(default_factory=lambda: list[ModelMessage]())
+    confidence: float | None = None
+    tools_used: tuple[str, ...] = ()
 
 
 # --- Base service -----------------------------------------------------------
@@ -228,13 +235,81 @@ class BaseAgentService:
             static_cache=static_cache,
         )
 
+        # Phase 11b: build AgentResult wrapper (AI-6.5 — metadata only).
+        result_domain = self.agent_name if self.agent_name in VALID_DOMAINS else "unified"
+        result = AgentResult(
+            content=final_text,
+            confidence=outcome.confidence,
+            warnings=tuple(outcome.warnings or ()),
+            tools_used=outcome.tools_used,
+            domain=result_domain,
+        )
+
+        # Phase 11c: AI-6.5 confidence re-route gate (single retry, hard cap).
+        settings = get_settings()
+        reroute_enabled = bool(getattr(settings, "agent_confidence_reroute_enabled", False))
+        reroute_threshold = float(
+            getattr(settings, "agent_confidence_reroute_threshold", 0.3),
+        )
+        if (
+            reroute_enabled
+            and result.confidence is not None
+            and result.confidence < reroute_threshold
+            and tier != "complex"
+        ):
+            complex_model = resolve_tier_model("complex")
+            if complex_model is not None:
+                logger.info(
+                    "agent.chat.confidence_reroute",
+                    domain=result.domain,
+                    confidence=result.confidence,
+                    threshold=reroute_threshold,
+                    original_tier=tier,
+                )
+                try:
+                    retry_outcome = await self._execute(
+                        user_message=user_message,
+                        current_prompt=current_prompt,
+                        message_history=message_history,
+                        instructions=instructions,
+                        tier="complex",
+                        tier_model=complex_model,
+                        static_cache=static_cache,
+                    )
+                except Exception as e:
+                    logger.error(
+                        "agent.chat.confidence_reroute_failed",
+                        exc_info=True,
+                        error=str(e),
+                        error_type=type(e).__name__,
+                    )
+                    raise AgentExecutionError(f"Agent execution failed: {e}") from e
+
+                retry_final_text = self._post_process(
+                    response=retry_outcome.response_text,
+                    current_prompt=current_prompt,
+                    warnings=retry_outcome.warnings,
+                    messages=retry_outcome.messages,
+                    static_cache=static_cache,
+                )
+                result = AgentResult(
+                    content=retry_final_text,
+                    confidence=retry_outcome.confidence,
+                    warnings=tuple(retry_outcome.warnings or ()),
+                    tools_used=retry_outcome.tools_used,
+                    domain=result_domain,
+                )
+                tier_model = complex_model
+
         # Phase 12: build OpenAI-compatible response envelope.
-        response = self._build_response(content=final_text, tier_model=tier_model)
+        response = self._build_response(content=result.content, tier_model=tier_model)
 
         logger.info(
             "agent.chat_completed",
             response_id=response.id,
-            output_length=len(final_text),
+            output_length=len(result.content),
+            confidence=result.confidence,
+            tools_used=list(result.tools_used),
         )
 
         return response
@@ -269,8 +344,10 @@ class BaseAgentService:
     async def detect_relevant_skills(self, prompt: str) -> str:
         """Return active-skills text to inject into the system prompt.
 
-        Default: empty string. Subclasses override to load skills from the
-        domain's skills store and must fail-open on error (return '').
+        Default: empty string. Domain subclasses (AI-6.4) typically delegate
+        to ``app.core.agents.skill_loader.load_skills_within_budget`` —
+        gated by the ``agent_progressive_skills_enabled`` setting — and
+        must fail-open on error (return '').
         """
         _ = prompt  # hook signature preserved for subclass overrides
         return ""

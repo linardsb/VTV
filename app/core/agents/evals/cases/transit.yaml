@@ -1,0 +1,292 @@
+# AI-7.1 transit eval cases (15 cases).
+# Schema enforced by app/core/agents/evals/schemas.py::EvalCase.
+# Every case must have exactly 5 quality_criteria.
+
+cases:
+  - id: transit_001
+    prompt: "Kuri maršruti šobrīd kavējas?"
+    language: lv
+    expected_domain: transit
+    expected_tools:
+      - query_bus_status
+    quality_criteria:
+      - name: factual_accuracy
+        description: All delay claims trace to query_bus_status output, no fabricated routes.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics (kavējas, maršruti).
+      - name: actionability
+        description: Lists specific routes plus delay magnitudes a dispatcher can act on.
+      - name: data_freshness
+        description: Notes timestamp; flags if data is older than 5 minutes.
+      - name: completeness
+        description: All currently delayed routes mentioned, not a sample.
+    notes: Baseline LV delay query - most common dispatcher request.
+
+  - id: transit_002
+    prompt: "Which routes are currently delayed?"
+    language: en
+    expected_domain: transit
+    expected_tools:
+      - query_bus_status
+    quality_criteria:
+      - name: factual_accuracy
+        description: All delay claims trace to query_bus_status output, no fabricated routes.
+      - name: language_correctness
+        description: Response is in English (matches user language).
+      - name: actionability
+        description: Lists specific routes plus delay magnitudes a dispatcher can act on.
+      - name: data_freshness
+        description: Notes timestamp; flags if data is older than 5 minutes.
+      - name: completeness
+        description: All currently delayed routes mentioned, not a sample.
+    notes: EN mirror of transit_001 - language match check.
+
+  - id: transit_003
+    prompt: "Kuri marsruti kavejas pasreiz?"
+    language: lv_diacriticless
+    expected_domain: transit
+    expected_tools:
+      - query_bus_status
+    quality_criteria:
+      - name: factual_accuracy
+        description: Diacriticless input correctly interpreted as Latvian; results trace to query_bus_status.
+      - name: language_correctness
+        description: Response uses correct Latvian diacritics even though input lacked them.
+      - name: actionability
+        description: Lists specific routes plus delay magnitudes a dispatcher can act on.
+      - name: data_freshness
+        description: Notes timestamp; flags if data is older than 5 minutes.
+      - name: completeness
+        description: All currently delayed routes mentioned, not a sample.
+    notes: Diacriticless LV input - exercises the marsruti=maršruti, kavejas=kavējas mapping.
+
+  - id: transit_004
+    prompt: "Kāds ir maršruta 22 statuss tieši tagad?"
+    language: lv
+    expected_domain: transit
+    expected_tools:
+      - query_bus_status
+    quality_criteria:
+      - name: factual_accuracy
+        description: Reports actual route 22 vehicles; no fabricated data; existing route ID.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics.
+      - name: actionability
+        description: Per-vehicle status with positions or next stops where available.
+      - name: data_freshness
+        description: Notes data timestamp; flags stale GTFS-RT.
+      - name: completeness
+        description: All active vehicles on route 22 covered, not a single sample.
+    notes: Specific-route status query.
+
+  - id: transit_005
+    prompt: "Kur atrodas pietura Centrāltirgus?"
+    language: lv
+    expected_domain: transit
+    expected_tools:
+      - search_stops
+    quality_criteria:
+      - name: factual_accuracy
+        description: Returned stop matches name from GTFS static data; coordinates valid.
+      - name: language_correctness
+        description: Response in Latvian, preserves Centrāltirgus diacritics.
+      - name: actionability
+        description: Includes coordinates or address useful to dispatcher or passenger.
+      - name: data_freshness
+        description: GTFS static feed currency noted if relevant.
+      - name: completeness
+        description: All matching stops listed when name is ambiguous.
+    notes: Stop search by name in Latvian.
+
+  - id: transit_006
+    prompt: "Find stops within 300 metres of latitude 56.9496 and longitude 24.1052."
+    language: en
+    expected_domain: transit
+    expected_tools:
+      - search_stops
+    quality_criteria:
+      - name: factual_accuracy
+        description: All returned stops fall within the 300m radius; haversine math correct.
+      - name: language_correctness
+        description: Response in English (matches user language).
+      - name: actionability
+        description: Each stop has name plus distance from query point.
+      - name: data_freshness
+        description: Notes static feed currency where relevant.
+      - name: completeness
+        description: All stops within the radius are listed, not just the nearest.
+    notes: Proximity search via lat/lon - exercises haversine path.
+
+  - id: transit_007
+    prompt: "Atrodi pieturu Stacijas laukums un parādi nākamās atiešanas no tās."
+    language: lv
+    expected_domain: transit
+    expected_tools:
+      - search_stops
+      - query_bus_status
+    quality_criteria:
+      - name: factual_accuracy
+        description: Stop ID resolved correctly; departures match query_bus_status output for that stop.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics.
+      - name: actionability
+        description: Departure list includes route, direction, and time per departure.
+      - name: data_freshness
+        description: Real-time vs scheduled departures distinguished.
+      - name: completeness
+        description: Both tools invoked - search_stops then query_bus_status (stop_departures mode).
+    notes: Cross-tool composition - stop search feeds departure query.
+
+  - id: transit_008
+    prompt: "Parādi maršruta 22 grafiku 2026. gada 15. aprīlim."
+    language: lv
+    expected_domain: transit
+    expected_tools:
+      - get_route_schedule
+    quality_criteria:
+      - name: factual_accuracy
+        description: Schedule matches GTFS static data for the requested date and route.
+      - name: language_correctness
+        description: Response in Latvian, dates and times formatted per LV convention.
+      - name: actionability
+        description: Times shown in HH:MM format; overnight (e.g. 24:30) handled correctly.
+      - name: data_freshness
+        description: Static feed effective dates noted if relevant.
+      - name: completeness
+        description: Both directions reported when caller does not narrow direction.
+    notes: Timetable lookup by route plus date.
+
+  - id: transit_009
+    prompt: "Show the schedule for route 22 in the inbound direction tomorrow."
+    language: en
+    expected_domain: transit
+    expected_tools:
+      - get_route_schedule
+    quality_criteria:
+      - name: factual_accuracy
+        description: Schedule matches GTFS static data for tomorrow, inbound direction only.
+      - name: language_correctness
+        description: Response in English; times in HH:MM format.
+      - name: actionability
+        description: Trips listed in chronological order with departure stop.
+      - name: data_freshness
+        description: Notes effective service date.
+      - name: completeness
+        description: All inbound trips for the day are listed, no sampling.
+    notes: Schedule query with explicit direction filter.
+
+  - id: transit_010
+    prompt: "Kāda ir maršruta 22 punktualitāte šodien?"
+    language: lv
+    expected_domain: transit
+    expected_tools:
+      - get_adherence_report
+    quality_criteria:
+      - name: factual_accuracy
+        description: Adherence percentages match get_adherence_report output for route 22 today.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics.
+      - name: actionability
+        description: Includes early/on-time/late breakdowns dispatcher can act on.
+      - name: data_freshness
+        description: Window covered by the report explicitly stated.
+      - name: completeness
+        description: All key adherence metrics surfaced, not a partial slice.
+    notes: Single-route adherence report interpretation.
+
+  - id: transit_011
+    prompt: "Salīdzini maršrutu 22 un 25 punktualitāti par šo nedēļu."
+    language: lv
+    expected_domain: transit
+    expected_tools:
+      - get_adherence_report
+    quality_criteria:
+      - name: factual_accuracy
+        description: Both routes pulled from get_adherence_report; numbers not fabricated.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics (nedēļu, salīdzina).
+      - name: actionability
+        description: Side-by-side comparison highlights which route performs worse.
+      - name: data_freshness
+        description: Reporting window stated explicitly.
+      - name: completeness
+        description: Both routes covered with same metrics; no missing dimension.
+    notes: Multi-route adherence comparison.
+
+  - id: transit_012
+    prompt: "Cik vadītāju ir pieejami rītdienas rīta maiņai?"
+    language: lv
+    expected_domain: transit
+    expected_tools:
+      - check_driver_availability
+    quality_criteria:
+      - name: factual_accuracy
+        description: Headcount matches check_driver_availability output for tomorrow morning.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics (vadītāju, rītdienas).
+      - name: actionability
+        description: Total plus available count shown so dispatcher can plan.
+      - name: data_freshness
+        description: Shift window explicitly named.
+      - name: completeness
+        description: All relevant drivers covered, not a sample.
+    notes: Driver headcount query for shift planning.
+
+  - id: transit_013
+    prompt: "Cik vadītāju ir pieejami rīt rīta maiņai un cik reisu ir paredzēts maršrutā 22 tajā pašā maiņā?"
+    language: lv
+    expected_domain: transit
+    expected_tools:
+      - check_driver_availability
+      - get_route_schedule
+    quality_criteria:
+      - name: factual_accuracy
+        description: Driver count and trip count both trace to their respective tools.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics.
+      - name: actionability
+        description: Cross-references staffing vs trip count so dispatcher sees the gap.
+      - name: data_freshness
+        description: Both windows (shift, schedule date) explicitly stated.
+      - name: completeness
+        description: Both tools invoked - check_driver_availability and get_route_schedule.
+    notes: Cross-tool composition - driver availability cross-referenced with route schedule.
+
+  - id: transit_014
+    prompt: "Kā ir ar maršrutu 999?"
+    language: lv
+    expected_domain: transit
+    expected_tools:
+      - query_bus_status
+    quality_criteria:
+      - name: factual_accuracy
+        description: Recognises that route 999 does not exist in GTFS static data.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics.
+      - name: actionability
+        description: Suggests verifying route ID or lists nearby valid routes.
+      - name: data_freshness
+        description: References current static feed when reporting "no such route".
+      - name: completeness
+        description: Does not fabricate vehicles for the non-existent route.
+    notes: Non-existent route handling - tests honest "no such route" behaviour.
+
+  - id: transit_015
+    prompt: "Show me the schedule grafiks for maršruts 22 un kuri reisi šobrīd kavējas."
+    language: mixed
+    expected_domain: transit
+    expected_tools:
+      - query_bus_status
+      - get_route_schedule
+    quality_criteria:
+      - name: factual_accuracy
+        description: Both delay info and schedule data trace to their respective tools.
+      - name: language_correctness
+        description: Handles code-switched LV/EN input gracefully; responds in user-preferred language.
+      - name: actionability
+        description: Schedule plus current delays shown side-by-side.
+      - name: data_freshness
+        description: Real-time delays distinguished from static schedule.
+      - name: completeness
+        description: Both tools invoked - query_bus_status and get_route_schedule.
+    notes: Mixed LV/EN code-switching dispatcher prompt.

@@ -20,9 +20,12 @@ from pydantic_ai.messages import ModelMessage
 from app.core.agents.agent import build_instructions_with_skills
 from app.core.agents.base import BaseAgentService, _PipelineOutcome
 from app.core.agents.config import get_agent_model
+from app.core.agents.context_budget import agent_budget_for
 from app.core.agents.routing import ModelTier
+from app.core.agents.skill_loader import load_skills_within_budget
 from app.core.agents.tools.knowledge.search_knowledge import search_knowledge_base
 from app.core.agents.tools.transit.deps import UnifiedDeps, create_unified_deps
+from app.core.agents.validation import extract_tool_returns
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger
@@ -140,6 +143,23 @@ class KnowledgeAgent(BaseAgentService):
         self._deps.rag_enabled = True
 
     # ------------------------------------------------------------------
+    # Hook: skill detection (AI-6.4 L3 progressive pack only)
+    # ------------------------------------------------------------------
+    async def detect_relevant_skills(self, prompt: str) -> str:
+        """Load the L3 progressive skill pack for the knowledge domain."""
+        if not get_settings().agent_progressive_skills_enabled:
+            return ""
+        try:
+            return load_skills_within_budget(
+                domain="knowledge",
+                prompt=prompt,
+                budget=agent_budget_for("knowledge"),
+            )
+        except Exception:
+            logger.warning("agent.l3_skills_load_failed", exc_info=True)
+            return ""
+
+    # ------------------------------------------------------------------
     # Hook: memory recall block
     # NOTE: duplicated from AgentService; extract on AI-6.2.1
     # ------------------------------------------------------------------
@@ -217,10 +237,19 @@ class KnowledgeAgent(BaseAgentService):
             response=result.output,
             messages=fallback_messages,
         )
+
+        tool_records = extract_tool_returns(fallback_messages)
+        tools_used = tuple(rec.tool_name for rec in tool_records)
+        # Confidence: None when no tool ran; 0.7 when the tool ran (no reranker
+        # score surfaced through ``ToolReturnRecord`` yet — tune in follow-up).
+        confidence: float | None = 0.7 if tool_records else None
+
         return _PipelineOutcome(
             response_text=result.output,
             warnings=[],  # signal _post_process: no QA, no footnotes
             messages=fallback_messages,
+            confidence=confidence,
+            tools_used=tools_used,
         )
 
     # ------------------------------------------------------------------

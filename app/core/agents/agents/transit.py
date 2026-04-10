@@ -19,9 +19,11 @@ from pydantic_ai.messages import ModelMessage
 from app.core.agents.agent import build_instructions_with_skills
 from app.core.agents.base import BaseAgentService, _PipelineOutcome
 from app.core.agents.config import get_agent_model
+from app.core.agents.context_budget import agent_budget_for
 from app.core.agents.correction import CorrectedResult, SelfCorrectionLoop
 from app.core.agents.pipeline import get_complex_pipeline
 from app.core.agents.routing import ModelTier
+from app.core.agents.skill_loader import load_skills_within_budget
 from app.core.agents.tools.transit.check_driver_availability import check_driver_availability
 from app.core.agents.tools.transit.deps import UnifiedDeps, create_unified_deps
 from app.core.agents.tools.transit.get_adherence_report import get_adherence_report
@@ -47,6 +49,19 @@ if TYPE_CHECKING:
     from pydantic_ai.models import Model
 
 logger = get_logger(__name__)
+
+
+def _transit_confidence_from_warnings(warnings: list[str]) -> float:
+    """Heuristic AI-6.5 confidence signal for transit responses.
+
+    Returns 1.0 when the self-correction loop finished cleanly, 0.6 when
+    warnings remain as footnotes, 0.3 when any warning contains an error-
+    severity marker. Intentionally coarse — tuned once telemetry is live.
+    """
+    if not warnings:
+        return 1.0
+    has_error_marker = any("error" in w.lower() or "failed" in w.lower() for w in warnings)
+    return 0.3 if has_error_marker else 0.6
 
 
 TRANSIT_SYSTEM_PROMPT: str = (
@@ -180,19 +195,37 @@ class TransitAgent(BaseAgentService):
         self._deps.rag_enabled = False
 
     # ------------------------------------------------------------------
-    # Hook: skill detection
+    # Hook: skill detection (flat DB skills + AI-6.4 L3 progressive pack)
     # NOTE: duplicated from AgentService; extract on AI-6.2.1
     # ------------------------------------------------------------------
     async def detect_relevant_skills(self, prompt: str) -> str:
-        """Load all active skills from the DB (fail-open to '')."""
-        _ = prompt
+        """Load flat DB skills + L3 progressive skills (both fail-open to '')."""
+        parts: list[str] = []
+
+        # Existing behavior: flat DB skill load.
         try:
             async with AsyncSessionLocal() as db:
                 skill_service = SkillService(db)
-                return await skill_service.get_active_skills_content()
+                flat = await skill_service.get_active_skills_content()
+                if flat:
+                    parts.append(flat)
         except Exception:
             logger.warning("agent.skills_load_failed", exc_info=True)
-            return ""
+
+        # AI-6.4: L3 progressive skill pack, gated by flag.
+        if get_settings().agent_progressive_skills_enabled:
+            try:
+                l3 = load_skills_within_budget(
+                    domain="transit",
+                    prompt=prompt,
+                    budget=agent_budget_for("transit"),
+                )
+                if l3:
+                    parts.append(l3)
+            except Exception:
+                logger.warning("agent.l3_skills_load_failed", exc_info=True)
+
+        return "\n\n".join(parts)
 
     # ------------------------------------------------------------------
     # Hook: memory recall block
@@ -291,6 +324,8 @@ class TransitAgent(BaseAgentService):
                 response_text=pipeline_result.output,
                 warnings=[],
                 messages=[],
+                confidence=0.9,
+                tools_used=(),
             )
 
         if self._correction_loop is not None:
@@ -309,10 +344,16 @@ class TransitAgent(BaseAgentService):
                 response=corrected.output,
                 messages=corrected.all_messages,
             )
+            corrected_confidence = _transit_confidence_from_warnings(corrected.warnings)
+            corrected_tools = tuple(
+                rec.tool_name for rec in extract_tool_returns(corrected.all_messages)
+            )
             return _PipelineOutcome(
                 response_text=corrected.output,
                 warnings=corrected.warnings,
                 messages=corrected.all_messages,
+                confidence=corrected_confidence,
+                tools_used=corrected_tools,
             )
 
         result = await transit_agent.run(
@@ -330,10 +371,13 @@ class TransitAgent(BaseAgentService):
             response=result.output,
             messages=fallback_messages,
         )
+        fallback_tools = tuple(rec.tool_name for rec in extract_tool_returns(fallback_messages))
         return _PipelineOutcome(
             response_text=result.output,
             warnings=None,  # signal _post_process to run QA itself
             messages=fallback_messages,
+            confidence=None,  # QA hasn't run yet; leave re-route gate disabled
+            tools_used=fallback_tools,
         )
 
     # ------------------------------------------------------------------

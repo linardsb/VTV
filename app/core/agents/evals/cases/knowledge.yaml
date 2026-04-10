@@ -1,0 +1,194 @@
+# AI-7.1 knowledge eval cases (10 cases).
+# Schema enforced by app/core/agents/evals/schemas.py::EvalCase.
+# Knowledge agent has only one tool: search_knowledge_base.
+
+cases:
+  - id: knowledge_001
+    prompt: "Kāda ir procedūra, ja autobuss salūst maršrutā?"
+    language: lv
+    expected_domain: knowledge
+    expected_tools:
+      - search_knowledge_base
+    quality_criteria:
+      - name: factual_accuracy
+        description: Procedure steps trace to a real SOP retrieved from the knowledge base.
+      - name: citation_quality
+        description: Cites SOP using [title](/lv/documents/{id}) format.
+      - name: grounding
+        description: Every concrete step grounded in retrieved chunks; no improvisation.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics.
+      - name: honesty
+        description: Flags any uncertainty when retrieved chunks are partial.
+    notes: SOP retrieval with citation - common dispatcher question.
+
+  - id: knowledge_002
+    prompt: "Kādi ir EU 561/2006 noteikumi par maksimālo nepārtraukto braukšanas laiku?"
+    language: lv
+    expected_domain: knowledge
+    expected_tools:
+      - search_knowledge_base
+    quality_criteria:
+      - name: factual_accuracy
+        description: Cites the actual EU 561/2006 clauses, not hallucinated regulation text.
+      - name: citation_quality
+        description: Each clause cited with [title](/lv/documents/{id}) format.
+      - name: grounding
+        description: Multi-clause regulation answered from retrieved passages, not training data.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics.
+      - name: honesty
+        description: If only partial regulation text retrieved, says so.
+    notes: Multi-clause regulation interpretation.
+
+  - id: knowledge_003
+    prompt: "Kādi ir mūsu noteikumi par lidaparātu remontu?"
+    language: lv
+    expected_domain: knowledge
+    expected_tools:
+      - search_knowledge_base
+    quality_criteria:
+      - name: factual_accuracy
+        description: Refuses to fabricate aircraft maintenance content - VTV is a transit operator.
+      - name: citation_quality
+        description: No spurious citations to non-existent documents.
+      - name: grounding
+        description: Empty result set surfaces honestly, not papered over.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics.
+      - name: honesty
+        description: Explicit "neatradu attiecīgus dokumentus" or equivalent.
+    notes: Out-of-domain prompt - tests honesty when corpus has no answer.
+
+  - id: knowledge_004
+    prompt: "Kāda ir kavēto reisu kompensāciju politika?"
+    language: lv
+    expected_domain: knowledge
+    expected_tools:
+      - search_knowledge_base
+    quality_criteria:
+      - name: factual_accuracy
+        description: Policy details match retrieved EN-language source document.
+      - name: citation_quality
+        description: Citation links to /lv/documents/{id} even when source doc is EN.
+      - name: grounding
+        description: LV translation of EN source is grounded in retrieved chunks, not invented.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics.
+      - name: honesty
+        description: Notes that source document is in another language if relevant.
+    notes: Cross-lingual retrieval - LV question, possibly EN source document.
+
+  - id: knowledge_005
+    prompt: "What is our policy for handling lost-and-found items left on buses?"
+    language: en
+    expected_domain: knowledge
+    expected_tools:
+      - search_knowledge_base
+    quality_criteria:
+      - name: factual_accuracy
+        description: Policy details match retrieved (possibly LV) source document.
+      - name: citation_quality
+        description: Citation links to /en/documents/{id} format even when source doc is LV.
+      - name: grounding
+        description: EN translation of LV source is grounded in retrieved chunks, not invented.
+      - name: language_correctness
+        description: Response in English; matches user language.
+      - name: honesty
+        description: Notes that source document is in another language if relevant.
+    notes: Cross-lingual mirror - EN question, possibly LV source document.
+
+  - id: knowledge_006
+    prompt: "Kāda ir aktuālā SOP par sniega dienām un autobusu maršrutu pielāgošanu?"
+    language: lv
+    expected_domain: knowledge
+    expected_tools:
+      - search_knowledge_base
+    quality_criteria:
+      - name: factual_accuracy
+        description: Returns the current SOP version, not a superseded one.
+      - name: citation_quality
+        description: Citation includes document title and ID.
+      - name: grounding
+        description: Picks the most recent SOP when multiple versions exist on the same topic.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics.
+      - name: honesty
+        description: Notes the document date and flags if newer guidance may exist.
+    notes: Temporal relevance - prefers recent SOP over old when both retrievable.
+
+  - id: knowledge_007
+    prompt: "Kā mūsu iekšējais negadījumu protokols saskan ar EU regulām par autobusu pasažieru drošību?"
+    language: lv
+    expected_domain: knowledge
+    expected_tools:
+      - search_knowledge_base
+    quality_criteria:
+      - name: factual_accuracy
+        description: Synthesises both internal SOP and EU regulation faithfully.
+      - name: citation_quality
+        description: Both source documents cited with [title](/lv/documents/{id}) format.
+      - name: grounding
+        description: Synthesis grounded in retrieved chunks from both documents.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics.
+      - name: honesty
+        description: Flags any gaps between internal SOP and EU regulation.
+    notes: Multi-doc synthesis - internal SOP plus external regulation.
+
+  - id: knowledge_008
+    prompt: "Kadi ir vaditaja darba laika noteikumi?"
+    language: lv_diacriticless
+    expected_domain: knowledge
+    expected_tools:
+      - search_knowledge_base
+    quality_criteria:
+      - name: factual_accuracy
+        description: Diacriticless input correctly mapped; returns driver work-time policy.
+      - name: citation_quality
+        description: Citation in [title](/lv/documents/{id}) format.
+      - name: grounding
+        description: Answer grounded in retrieved policy chunks.
+      - name: language_correctness
+        description: Response uses correct Latvian diacritics even though input lacked them.
+      - name: honesty
+        description: Flags any uncertainty when retrieved chunks are partial.
+    notes: Diacriticless LV knowledge query.
+
+  - id: knowledge_009
+    prompt: "What is the company policy on personal mobile phone use while driving?"
+    language: en
+    expected_domain: knowledge
+    expected_tools:
+      - search_knowledge_base
+    quality_criteria:
+      - name: factual_accuracy
+        description: Policy text matches retrieved company HR or driver policy document.
+      - name: citation_quality
+        description: Citation in [title](/en/documents/{id}) format.
+      - name: grounding
+        description: Answer grounded in retrieved document chunks.
+      - name: language_correctness
+        description: Response in English; matches user language.
+      - name: honesty
+        description: Flags uncertainty when retrieved chunks are partial.
+    notes: Direct EN policy lookup.
+
+  - id: knowledge_010
+    prompt: "Kā jārīkojas, ja pasažieris ziņo par drošības incidentu?"
+    language: lv
+    expected_domain: knowledge
+    expected_tools:
+      - search_knowledge_base
+    quality_criteria:
+      - name: factual_accuracy
+        description: Steps trace to retrieved incident-response SOP.
+      - name: citation_quality
+        description: Strict [title](/lv/documents/{id}) format - no bare URLs, no missing brackets.
+      - name: grounding
+        description: Each step grounded in retrieved chunks.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics.
+      - name: honesty
+        description: Flags uncertainty when retrieved chunks are partial.
+    notes: Citation format compliance check.

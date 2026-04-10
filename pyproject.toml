@@ -26,6 +26,7 @@ dependencies = [
     "python-docx>=1.2.0",
     "python-dotenv>=1.2.1",
     "python-jose[cryptography]>=3.3.0",
+    "pyyaml>=6.0",
     "redis[hiredis]>=5.2.0",
     "sentry-sdk[fastapi]>=2.0.0",
     "slowapi>=0.1.9",
@@ -171,6 +172,11 @@ ignore_missing_imports = true
 # pgvector lacks py.typed marker
 [[tool.mypy.overrides]]
 module = "pgvector.*"
+ignore_missing_imports = true
+
+# PyYAML ships stubs in a separate package (types-PyYAML) — treat as untyped here
+[[tool.mypy.overrides]]
+module = "yaml"
 ignore_missing_imports = true
 
 # openpyxl lacks py.typed marker

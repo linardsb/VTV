@@ -20,12 +20,15 @@ from pydantic_ai.messages import ModelMessage
 from app.core.agents.agent import build_instructions_with_skills
 from app.core.agents.base import BaseAgentService, _PipelineOutcome
 from app.core.agents.config import get_agent_model
+from app.core.agents.context_budget import agent_budget_for
 from app.core.agents.routing import ModelTier
+from app.core.agents.skill_loader import load_skills_within_budget
 from app.core.agents.tools.obsidian.bulk_operations import obsidian_bulk_operations
 from app.core.agents.tools.obsidian.manage_folders import obsidian_manage_folders
 from app.core.agents.tools.obsidian.manage_notes import obsidian_manage_notes
 from app.core.agents.tools.obsidian.query_vault import obsidian_query_vault
 from app.core.agents.tools.transit.deps import UnifiedDeps, create_unified_deps
+from app.core.agents.validation import extract_tool_returns
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger
@@ -149,6 +152,23 @@ class VaultAgent(BaseAgentService):
         self._deps.rag_enabled = False
 
     # ------------------------------------------------------------------
+    # Hook: skill detection (AI-6.4 L3 progressive pack only)
+    # ------------------------------------------------------------------
+    async def detect_relevant_skills(self, prompt: str) -> str:
+        """Load the L3 progressive skill pack for the vault domain."""
+        if not get_settings().agent_progressive_skills_enabled:
+            return ""
+        try:
+            return load_skills_within_budget(
+                domain="vault",
+                prompt=prompt,
+                budget=agent_budget_for("vault"),
+            )
+        except Exception:
+            logger.warning("agent.l3_skills_load_failed", exc_info=True)
+            return ""
+
+    # ------------------------------------------------------------------
     # Hook: memory recall block
     # NOTE: duplicated from AgentService; extract on AI-6.2.1
     # ------------------------------------------------------------------
@@ -226,10 +246,16 @@ class VaultAgent(BaseAgentService):
             response=result.output,
             messages=fallback_messages,
         )
+        tools_used = tuple(rec.tool_name for rec in extract_tool_returns(fallback_messages))
+        # Vault tools are deterministic file ops — the only confidence signal
+        # is whether the response carries QA warnings. Empty list here means
+        # "no warnings", so fall back to 1.0; AI-6.5 never re-routes on 1.0.
         return _PipelineOutcome(
             response_text=result.output,
             warnings=[],  # signal _post_process: no QA, no footnotes
             messages=fallback_messages,
+            confidence=1.0,
+            tools_used=tools_used,
         )
 
     # ------------------------------------------------------------------
