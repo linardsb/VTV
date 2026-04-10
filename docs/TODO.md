@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence ████████████░░░░░░░░░░░  53%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. AI-4.3 parent-child retrieval + context expansion done. Remaining: re-chunk migration, self-correction, multi-agent+harness+L3 skills, eval)
+Agent Intelligence ████████████░░░░░░░░░░░  56%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. AI-4.3 parent-child retrieval + context expansion done. AI-4.4 re-chunk migration done. Remaining: self-correction, multi-agent+harness+L3 skills, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -206,18 +206,17 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 
 **Verify:** Upload multi-section SOP. Search for specific step mentioned in section 3. Result should include full section 3 as context, not just the matched paragraph. Toggle `KNOWLEDGE_PARENT_CONTEXT_ENABLED=false` to revert to pre-AI-4.3 behavior.
 
-#### AI-4.4 Re-Chunk Existing Documents
+#### AI-4.4 Re-Chunk Existing Documents ✅
 **What:** Migration script to re-chunk all existing documents using the new semantic chunker. Preserves document metadata, regenerates chunks and embeddings.
 **Why:** Existing documents were chunked with the old 512-char recursive splitter. They need to be re-chunked to benefit from semantic boundaries and parent-child structure.
+**Status:** Implemented 2026-04-10. Plan: `.agents/plans/ai-4.4-rechunk-existing-documents.md`. 5 files touched (`app/knowledge/repository.py`, `app/knowledge/service.py`, `scripts/rechunk_documents.py`, `app/knowledge/tests/test_rechunk.py`, `Makefile`), 0 migrations, 6 new tests. Pyright 0 errors, mypy 0 errors in `app/knowledge/`. 167/167 knowledge tests pass.
 **Implementation:**
-- Create `scripts/rechunk_documents.py`:
-  1. Fetch all documents from DB
-  2. For each: delete old chunks, re-chunk with `SemanticChunker`, re-embed, store new chunks
-  3. Progress bar, batch processing (10 docs at a time to avoid memory issues)
-  4. Dry-run mode: show what would change without modifying DB
-- Add `make rechunk` Makefile target
-- Handle edge case: documents with no raw text stored (re-extract from file)
-**Verify:** Run `make rechunk --dry-run` — shows expected changes. Run `make rechunk` — all documents re-chunked. Search quality on 5 test queries should improve vs old chunking.
+- `app/knowledge/repository.py` — added `delete_chunks_by_document(document_id) -> int` (bulk DELETE on chunks only, keeps the Document row).
+- `app/knowledge/service.py` — extracted the two-phase parent/child store algorithm out of `ingest_document` into a private `_chunk_embed_store(document_id, text)` helper. Added public `rechunk_document(document_id) -> int` that resolves the document, re-extracts text from `file_path` via `processing.extract_text`, deletes old chunks, re-runs the helper, and updates `chunk_count` + `ocr_applied`. On any error the document is marked `failed` with the error message and the exception re-raises so the script's outer loop can record + skip. **Does NOT** call `_auto_tag_document` (would clobber human-curated tags).
+- `scripts/rechunk_documents.py` — argparse CLI with `--dry-run`, `--batch-size` (default 10, min 1), `--document-id`, `--limit`. Pages through `list_documents` in 500-row chunks, processes per-`batch_size` group sequentially, per-doc `try/except` records failed ids, exits 1 on any failure. Logs prefixed `[rechunk]`. Reads DB via `get_db_context()` (no env-var leak; CTX-INFRA clean).
+- `Makefile` — added `rechunk` and `rechunk-dry-run` targets, registered in `.PHONY`, both visible via `make help`.
+- `app/knowledge/tests/test_rechunk.py` — 6 unit tests (happy path, OCR flag propagation, missing file_path raises, document not found raises, failure marks status & re-raises, metadata-preservation regression guard). All mock the embedding singleton via `monkeypatch.setattr` to avoid singleton leakage.
+**Verify:** `make rechunk-dry-run` against a dev DB prints a per-document preview, exits 0, and does not mutate `document_chunks`. `make rechunk` re-chunks all documents using the current semantic chunker config; existing chunks are deleted before re-creation. Search quality spot-check: pick 5 production queries, run `make rechunk` on a staging copy, confirm parent-context expansion now activates for the migrated documents.
 
 ---
 

@@ -2,6 +2,7 @@
 """Data access layer for knowledge base with pgvector hybrid search."""
 
 from datetime import datetime
+from typing import cast
 
 from sqlalchemy import delete, distinct, func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -184,6 +185,25 @@ class KnowledgeRepository:
         if doc:
             await self.db.delete(doc)
             await self.db.commit()
+
+    async def delete_chunks_by_document(self, document_id: int) -> int:
+        """Delete all chunks for a document, keeping the Document row.
+
+        Used by the AI-4.4 re-chunk migration to wipe stale chunks before
+        re-running the ingestion pipeline against the existing file.
+
+        Args:
+            document_id: The document's database ID.
+
+        Returns:
+            Number of chunk rows deleted.
+        """
+        result = await self.db.execute(
+            delete(DocumentChunk).where(DocumentChunk.document_id == document_id)
+        )
+        await self.db.commit()
+        rowcount = cast(int, result.rowcount)  # type: ignore[attr-defined]
+        return rowcount if rowcount else 0
 
     async def update_document(
         self,

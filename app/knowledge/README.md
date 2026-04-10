@@ -52,6 +52,17 @@ RAG-powered document knowledge base with full document management capabilities. 
 6. Logging: emits `knowledge.search.parent_context_attached` with `result_count`, `parent_count`, `unique_parents` so dedupe behavior is observable
 7. Disabling the flag (`KNOWLEDGE_PARENT_CONTEXT_ENABLED=false`) reverts to pre-AI-4.3 behavior at runtime — useful as a kill switch if response sizes balloon
 
+### Re-Chunk Migration (AI-4.4)
+
+1. One-shot operations script `scripts/rechunk_documents.py` walks every `Document` row, deletes its existing chunks, and re-runs the ingestion pipeline (extract → semantic chunk → embed → two-phase parent/child store) against the file already on disk
+2. `KnowledgeService.rechunk_document(document_id)` is the in-process entry point: resolves the doc, re-extracts text via `processing.extract_text(file_path, source_type)`, calls `repository.delete_chunks_by_document(document_id)` to wipe stale rows (keeps the `Document` itself), re-runs `_chunk_embed_store()` (the same two-phase helper used by fresh ingestion), and updates `chunk_count` + `ocr_applied`
+3. Failures mark the document `status="failed"` with the error message via `update_document_status`, then re-raise so the script's outer loop records the doc id and skips to the next
+4. **Does NOT** auto-tag — re-running auto-tagging would clobber human-curated tags. **Does NOT** mutate `Document.metadata_json`, `evergreen`, `domain`, `language`, `title`, or `file_path`. Only chunks change.
+5. CLI flags: `--dry-run` (preview without DB writes), `--batch-size N` (default 10, min 1, sequential per batch — embedding provider is rate-limited), `--document-id N` (target a single doc for testing), `--limit N` (cap total processed)
+6. Documents whose `file_path is None` (legacy uploads or initial-ingest failures) are skipped with `skipped_no_file` counter
+7. Reads `DATABASE_URL` via `app.core.config.get_settings()` + `get_db_context()` — never parses or logs the URL directly
+8. Run via `make rechunk-dry-run` first, then `make rechunk` to apply. Exit code 1 if any document failed; the summary lists the first 5 failed ids.
+
 ### HyDE Query Expansion (Optional)
 
 1. If `knowledge_hyde_enabled=True`, send query to a fast LLM before embedding
@@ -218,7 +229,8 @@ Table: `document_chunks`
 21. Batch tag loading for document lists eliminates N+1 queries
 22. **Parent-child chunk hierarchy (AI-4.2):** Multi-paragraph sections produce one parent chunk (full section) + N child chunks (one per paragraph) linked via `parent_chunk_id`. Single-paragraph sections stay as standalone leaf chunks. Both parents and children are embedded and individually searchable. Deleting a parent CASCADE-deletes its children.
 23. **Two-phase chunk insert:** Parents are flushed first (`bulk_create_chunks(..., flush_only=True)`) to obtain DB ids before children are constructed with resolved `parent_chunk_id`. Both phases share one `AsyncSession` so parent + child writes commit atomically.
-24. **Search-time parent context expansion (AI-4.3):** After confidence filtering, `KnowledgeService.search()` collects unique `parent_chunk_id`s from surviving results and batch-fetches them via `repository.get_chunks_by_ids()` in a single round-trip. Multiple matched children of the same parent dedupe to one fetch. Each result is enriched with `parent_chunk_id`, `parent_content` (truncated to `knowledge_parent_context_max_chars`, default 3000), and `heading_path`. Leaf chunks (no parent) are unaffected. Feature-gated on `knowledge_parent_context_enabled` (default True) — disabling reverts to pre-AI-4.3 behavior. The agent tool formatter renders `[Section: {heading_path}]\n{parent_content}\n\n[Matched passage:]\n{child_content}` so the LLM sees the full surrounding section, not just the matched paragraph.
+24. **Re-chunk migration (AI-4.4):** `KnowledgeService.rechunk_document()` and `scripts/rechunk_documents.py` allow re-chunking previously-ingested documents under the current chunking config without re-uploading. Existing chunks are deleted via `repository.delete_chunks_by_document()` (keeps the `Document` row), then the same two-phase parent/child store used by fresh ingestion runs against the on-disk file. Document metadata, tags, `evergreen`, language, and domain are preserved. Auto-tagging is intentionally NOT re-run. Failures mark `status="failed"` and re-raise so the script's outer loop can record + skip. Exposed via `make rechunk` and `make rechunk-dry-run`.
+25. **Search-time parent context expansion (AI-4.3):** After confidence filtering, `KnowledgeService.search()` collects unique `parent_chunk_id`s from surviving results and batch-fetches them via `repository.get_chunks_by_ids()` in a single round-trip. Multiple matched children of the same parent dedupe to one fetch. Each result is enriched with `parent_chunk_id`, `parent_content` (truncated to `knowledge_parent_context_max_chars`, default 3000), and `heading_path`. Leaf chunks (no parent) are unaffected. Feature-gated on `knowledge_parent_context_enabled` (default True) — disabling reverts to pre-AI-4.3 behavior. The agent tool formatter renders `[Section: {heading_path}]\n{parent_content}\n\n[Matched passage:]\n{child_content}` so the LLM sees the full surrounding section, not just the matched paragraph.
 
 ## Integration Points
 
@@ -227,6 +239,7 @@ Table: `document_chunks`
 - **Shared Utilities**: Uses `PaginationParams`, `PaginatedResponse`, `TimestampMixin`, `get_db()`, `get_logger()`
 - **Frontend**: Documents management page at `/[locale]/documents` with upload, list, detail, download, delete
 - **Pydantic AI**: Auto-tagging and HyDE query expansion use `pydantic-ai` Agent for LLM calls (lazy-imported, provider configured via existing settings)
+- **Operations Tooling**: `scripts/rechunk_documents.py` provides a one-shot CLI to re-chunk all existing documents under the current chunking config (AI-4.4). Exposed via `make rechunk` and `make rechunk-dry-run`. Reads DB via `get_db_context()` — no env-var leak.
 
 ## API Endpoints
 

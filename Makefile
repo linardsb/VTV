@@ -1,4 +1,4 @@
-.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick
+.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run
 
 # === Local Development (terminals) ===
 
@@ -91,6 +91,12 @@ db-restore: ## Restore from backup (usage: make db-restore f=backups/file.sql.gz
 	@test -n "$(f)" || (echo "Usage: make db-restore f=backups/file.sql.gz" && exit 1)
 	@test -f "$(f)" || (echo "ERROR: File $(f) not found" && exit 1)
 	gunzip -c "$(f)" | docker exec -i vtv-db-1 psql -U postgres vtv_db
+
+rechunk: ## Re-chunk all documents with the new SemanticChunker (one-shot AI-4.4 migration)
+	uv run python scripts/rechunk_documents.py
+
+rechunk-dry-run: ## Preview re-chunking without modifying the database
+	uv run python scripts/rechunk_documents.py --dry-run
 
 # === Security ===
 
