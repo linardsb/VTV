@@ -1,4 +1,4 @@
-"""Unit tests for the AI-5.1 self-correction loop."""
+"""Unit tests for the AI-5.1/AI-5.2 self-correction loop."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ import pytest
 from app.core.agents.correction import (
     CorrectedResult,
     SelfCorrectionLoop,
-    _retryable_warnings,
+    _retryable_issues,
 )
-from app.core.agents.validation import ValidationResult
+from app.core.agents.validation import Issue, ValidationResult
 
 
 def _fake_run_result(output: str) -> MagicMock:
@@ -34,11 +34,11 @@ def _fake_agent(*outputs: str) -> MagicMock:
 async def test_clean_first_attempt_no_retry() -> None:
     """A response with zero warnings should not trigger a retry."""
     loop = SelfCorrectionLoop(max_rounds=1)
-    fake_agent = _fake_agent("Take route 5 from Brīvības iela.")
+    fake_agent = _fake_agent("Take route 5 to the central station.")
 
     result = await loop.run_with_correction(
         fake_agent,
-        "Where is bus 5?",
+        "Where is the bus to the airport?",
         deps=MagicMock(),
         message_history=None,
         instructions=None,
@@ -182,13 +182,19 @@ async def test_stale_data_warning_does_not_trigger_retry() -> None:
     loop = SelfCorrectionLoop(max_rounds=1)
     fake_agent = _fake_agent("All buses on time.")
 
+    stale_issue = Issue(
+        check_name="stale_data",
+        description=(
+            "This response may be based on cached data. Live feed was temporarily unavailable."
+        ),
+        severity="warning",
+    )
     with patch(
         "app.core.agents.correction.validate_transit_response",
         return_value=ValidationResult(
             is_valid=False,
-            warnings=[
-                "This response may be based on cached data. Live feed was temporarily unavailable."
-            ],
+            issues=[stale_issue],
+            warnings=[stale_issue.description],
             sanitized_response="All buses on time.",
         ),
     ):
@@ -272,21 +278,37 @@ async def test_logs_correction_exhausted_when_retry_fails() -> None:
     assert "agent.correction.exhausted" in warning_event_names
 
 
-def test_retryable_warnings_filters_stale_data() -> None:
-    """Stale-data warnings should be filtered out from retryable set."""
-    warnings = [
-        "Route number 9999 seems implausible (expected 1-999).",
-        "This response may be based on cached data. Live feed was temporarily unavailable.",
+def test_retryable_issues_filters_warning_severity() -> None:
+    """Warning-severity issues should be filtered out from retryable set."""
+    issues = [
+        Issue(
+            check_name="route_plausibility",
+            description="Route number 9999 seems implausible (expected 1-999).",
+            severity="error",
+        ),
+        Issue(
+            check_name="stale_data",
+            description=(
+                "This response may be based on cached data. Live feed was temporarily unavailable."
+            ),
+            severity="warning",
+        ),
     ]
-    filtered = _retryable_warnings(warnings)
+    filtered = _retryable_issues(issues)
     assert len(filtered) == 1
-    assert "9999" in filtered[0]
+    assert filtered[0].check_name == "route_plausibility"
 
 
-def test_retryable_warnings_empty_when_only_non_retryable() -> None:
-    """When only non-retryable warnings are present, retryable set is empty."""
-    warnings = ["This response may be based on cached data. Live feed was temporarily unavailable."]
-    assert _retryable_warnings(warnings) == []
+def test_retryable_issues_empty_when_only_warnings() -> None:
+    """When only warning-severity issues are present, retryable set is empty."""
+    issues = [
+        Issue(
+            check_name="stale_data",
+            description="Stale data.",
+            severity="warning",
+        )
+    ]
+    assert _retryable_issues(issues) == []
 
 
 def test_corrected_result_dataclass_defaults() -> None:
@@ -294,6 +316,121 @@ def test_corrected_result_dataclass_defaults() -> None:
     r = CorrectedResult(output="hi")
     assert r.output == "hi"
     assert r.warnings == []
+    assert r.issues == []
     assert r.rounds_used == 1
     assert r.corrected is False
     assert r.all_messages == []
+
+
+# --- AI-5.2: severity-based retry semantics ---
+
+
+def _validation_result(*issues: Issue) -> ValidationResult:
+    """Build a ValidationResult mirroring validate_transit_response output."""
+    return ValidationResult(
+        is_valid=not issues,
+        issues=list(issues),
+        warnings=[i.description for i in issues],
+        sanitized_response="",
+    )
+
+
+@pytest.mark.asyncio
+async def test_error_severity_issue_triggers_retry() -> None:
+    """An error-severity issue on first attempt should trigger one retry."""
+    loop = SelfCorrectionLoop(max_rounds=1)
+    fake_agent = _fake_agent("first answer", "clean answer")
+
+    error_issue = Issue(
+        check_name="route_existence",
+        description="Route 999 not found in GTFS data.",
+        severity="error",
+    )
+    with patch(
+        "app.core.agents.correction.validate_transit_response",
+        side_effect=[
+            _validation_result(error_issue),
+            _validation_result(),
+        ],
+    ):
+        result = await loop.run_with_correction(
+            fake_agent,
+            "Where?",
+            deps=MagicMock(),
+            message_history=None,
+            instructions=None,
+            model=None,
+        )
+
+    assert result.rounds_used == 2
+    assert result.corrected is True
+    assert result.warnings == []
+    assert fake_agent.run.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_warning_severity_issue_does_not_retry() -> None:
+    """A warning-only issue should not consume a retry round."""
+    loop = SelfCorrectionLoop(max_rounds=1)
+    fake_agent = _fake_agent("All buses on time.")
+
+    warn_issue = Issue(
+        check_name="stale_data",
+        description="GTFS-RT data is 600s old.",
+        severity="warning",
+    )
+    with patch(
+        "app.core.agents.correction.validate_transit_response",
+        return_value=_validation_result(warn_issue),
+    ):
+        result = await loop.run_with_correction(
+            fake_agent,
+            "Status?",
+            deps=MagicMock(),
+            message_history=None,
+            instructions=None,
+            model=None,
+        )
+
+    assert result.rounds_used == 1
+    assert result.corrected is False
+    assert len(result.warnings) == 1
+    assert "600s" in result.warnings[0]
+    assert fake_agent.run.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_mixed_severity_only_errors_block_first_attempt() -> None:
+    """Mixed error+warning on first attempt retries; clean second attempt resolves."""
+    loop = SelfCorrectionLoop(max_rounds=1)
+    fake_agent = _fake_agent("first", "second")
+
+    error_issue = Issue(
+        check_name="route_plausibility",
+        description="Route 9999 implausible.",
+        severity="error",
+    )
+    warn_issue = Issue(
+        check_name="stale_data",
+        description="Stale data.",
+        severity="warning",
+    )
+    with patch(
+        "app.core.agents.correction.validate_transit_response",
+        side_effect=[
+            _validation_result(error_issue, warn_issue),
+            _validation_result(),
+        ],
+    ):
+        result = await loop.run_with_correction(
+            fake_agent,
+            "Where?",
+            deps=MagicMock(),
+            message_history=None,
+            instructions=None,
+            model=None,
+        )
+
+    assert result.rounds_used == 2
+    assert result.corrected is True
+    assert fake_agent.run.await_count == 2

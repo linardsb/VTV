@@ -31,7 +31,15 @@ from app.core.agents.schemas import (
     UsageInfo,
 )
 from app.core.agents.tools.transit.deps import UnifiedDeps, create_unified_deps
-from app.core.agents.validation import validate_transit_response
+from app.core.agents.tools.transit.static_store import (
+    GTFSStaticStore,
+    get_static_store,
+)
+from app.core.agents.validation import (
+    ValidationContext,
+    extract_tool_returns,
+    validate_transit_response,
+)
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger
@@ -198,7 +206,20 @@ class AgentService:
 
         instructions = build_instructions_with_skills(skills_instructions, memory_context) or None
 
+        # Pre-load GTFS static cache once for validation existence checks.
+        # Fail-open: validators gracefully degrade when cache is None.
+        static_cache: GTFSStaticStore | None = None
+        if self._deps.db_session_factory is not None:
+            try:
+                static_cache = await get_static_store(
+                    self._deps.db_session_factory,
+                    settings,
+                )
+            except Exception:
+                logger.warning("agent.validation.static_cache_unavailable", exc_info=True)
+
         correction_warnings: list[str] | None = None
+        fallback_messages: list[ModelMessage] = []
         try:
             if tier == "complex":
                 pipeline = get_complex_pipeline(agent, self._deps)
@@ -227,6 +248,7 @@ class AgentService:
                     message_history=message_history,
                     instructions=instructions,
                     model=tier_model,
+                    static_cache=static_cache,
                 )
                 response_content = corrected.output
                 # Memory persistence uses the FINAL attempt's messages.
@@ -246,13 +268,14 @@ class AgentService:
                     model=tier_model,
                 )
                 response_content = result.output
+                fallback_messages = list(result.all_messages())
 
                 # Fire-and-forget: persist multi-tool episodes as memory
                 persist_agent_episode(
                     agent_name="transit_agent",
                     prompt=current_prompt,
                     response=response_content,
-                    messages=result.all_messages(),
+                    messages=fallback_messages,
                 )
         except Exception as e:
             logger.error(
@@ -265,7 +288,12 @@ class AgentService:
 
         # Reuse correction loop's validation when available; otherwise validate now.
         if correction_warnings is None:
-            validation = validate_transit_response(response_content)
+            fallback_ctx = ValidationContext(
+                user_message=current_prompt,
+                static_cache=static_cache,
+                tool_returns=extract_tool_returns(fallback_messages),
+            )
+            validation = validate_transit_response(response_content, fallback_ctx)
             warnings_to_render = list(validation.warnings)
         else:
             warnings_to_render = correction_warnings
