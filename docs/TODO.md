@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence ████████████░░░░░░░░░░░  60%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. AI-4.3 parent-child retrieval + context expansion done. AI-4.4 re-chunk migration done. AI-5.1 bounded self-correction loop done (standard tier). Remaining: AI-5.2 extended QA checks, AI-5.3 correction metrics, multi-agent+harness+L3 skills, eval)
+Agent Intelligence █████████████░░░░░░░░░░  65%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. AI-4.3 parent-child retrieval + context expansion done. AI-4.4 re-chunk migration done. AI-5.1 bounded self-correction loop done (standard tier). AI-5.2 extended QA checks with severity tiers done. AI-5.3 correction metrics + admin endpoint done. Remaining: multi-agent+harness+L3 skills, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -267,16 +267,8 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 - Each check returns `Issue(check_name, description, severity)` — severity: error (triggers retry) vs warning (footnote only)
 **Verify:** Test each check with a crafted response that should trigger it. Confirm error-severity issues trigger self-correction. Confirm warning-severity issues only add footnotes. 12+ tests.
 
-#### AI-5.3 Correction Metrics + Dashboard
-**What:** Track self-correction metrics: correction rate, retry success rate, common failure types. Expose via admin endpoint for monitoring.
-**Why:** Need to know if self-correction is actually improving response quality or just adding latency. High correction rates on specific checks indicate prompt engineering opportunities.
-**Implementation:**
-- `app/core/agents/correction.py` — add in-memory metrics counter:
-  - `corrections_triggered`, `corrections_resolved`, `corrections_exhausted` (per check type)
-  - Reset daily at 00:00 UTC
-- `app/core/agents/routes.py` — add `GET /v1/chat/metrics` (admin-only) returning correction stats
-- Structured logging on each correction: `agent.correction.metric {check_name, resolved, latency_ms}`
-**Verify:** Trigger 10 corrections via test queries. Hit metrics endpoint — confirm counts match. Confirm resolved vs exhausted ratio. 5+ tests.
+#### AI-5.3 Correction Metrics + Dashboard ✅
+**Status:** Done — `app/core/agents/metrics.py` created with `CorrectionMetricsTracker` singleton + `CheckMetrics` dataclass. Per-check counters (`triggered`, `resolved`, `exhausted`, `total_latency_ms`) with lazy 00:00 UTC daily reset (no background task). `correction.py` instrumented at three points: `triggering_check_names` captured on first error-severity hit, `record_resolved` called on the corrected branch with monotonic loop latency, `record_exhausted` called after the for-loop break. New admin-only `GET /v1/chat/metrics` endpoint in `routes.py` (`require_role("admin")` + `30/minute` rate limit) returns `CorrectionMetricsResponse` with per-check breakdown + aggregate totals (success_rate, avg_latency_ms). Per-correction `agent.correction.metric` log line emitted on every resolved/exhausted event. In-process only (no Redis) — per-worker drift acceptable for observability dashboard. Tracker stores only `check_name` strings + integer counters (no PII, no prompts). 10 unit tests in `app/core/agents/tests/test_metrics.py` (5 tracker, 2 loop integration, 3 endpoint). Plan: `.agents/plans/ai-5-3-correction-metrics.md`.
 
 ---
 

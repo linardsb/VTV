@@ -19,6 +19,7 @@ AI-5.2 changes:
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -30,6 +31,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
+from app.core.agents.metrics import get_metrics_tracker
 from app.core.agents.validation import (
     Issue,
     ValidationContext,
@@ -158,6 +160,8 @@ class SelfCorrectionLoop:
         last_issues: list[Issue] = []
         last_output = ""
         last_messages: list[ModelMessage] = []
+        triggering_check_names: set[str] = set()
+        loop_start_monotonic = time.monotonic()
 
         for attempt in range(self._max_rounds + 1):
             result = await agent_instance.run(
@@ -183,6 +187,8 @@ class SelfCorrectionLoop:
             if not retryable:
                 # Either fully clean OR only warning-severity issues.
                 if attempt > 0:
+                    latency_ms = int((time.monotonic() - loop_start_monotonic) * 1000)
+                    get_metrics_tracker().record_resolved(triggering_check_names, latency_ms)
                     logger.info(
                         "agent.correction.resolved",
                         round=attempt,
@@ -201,6 +207,11 @@ class SelfCorrectionLoop:
                 # Out of retries. Fall through to exhausted branch.
                 break
 
+            if not triggering_check_names:
+                triggering_check_names = {
+                    issue.check_name for issue in retryable if issue.check_name
+                }
+                get_metrics_tracker().record_triggered(triggering_check_names)
             logger.info(
                 "agent.correction.triggered",
                 round=attempt + 1,
@@ -219,6 +230,8 @@ class SelfCorrectionLoop:
             ]
             current_prompt = self._build_correction_prompt_text(last_output, retryable)
 
+        latency_ms = int((time.monotonic() - loop_start_monotonic) * 1000)
+        get_metrics_tracker().record_exhausted(triggering_check_names, latency_ms)
         logger.warning(
             "agent.correction.exhausted",
             rounds=self._max_rounds + 1,

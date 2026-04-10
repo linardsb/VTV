@@ -6,14 +6,22 @@ Endpoints:
 - GET /v1/models — List available models
 """
 
+import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, require_role
 from app.auth.models import User
+from app.core.agents.metrics import get_metrics_tracker
 from app.core.agents.quota import get_quota_tracker
-from app.core.agents.schemas import ChatCompletionRequest, ChatCompletionResponse
+from app.core.agents.schemas import (
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    CorrectionCheckSnapshot,
+    CorrectionMetricsResponse,
+    CorrectionTotals,
+)
 from app.core.agents.service import AgentService, get_agent_service
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -84,3 +92,68 @@ async def list_models(
             }
         ],
     }
+
+
+@router.get("/chat/metrics", response_model=CorrectionMetricsResponse)
+@limiter.limit("30/minute")
+async def get_correction_metrics(
+    request: Request,
+    _admin: User = Depends(require_role("admin")),
+) -> CorrectionMetricsResponse:
+    """Return self-correction metrics for the current UTC day.
+
+    Admin-only. Counters reset at 00:00 UTC. Use this to monitor whether
+    the bounded self-correction loop in ``correction.py`` is improving
+    response quality (high resolved/triggered ratio) or just adding
+    latency (high exhausted/triggered ratio).
+
+    Args:
+        request: The incoming HTTP request (used for rate limiting).
+        _admin: Injected admin user (RBAC enforcement only).
+
+    Returns:
+        Per-check counters plus aggregate totals.
+    """
+    tracker = get_metrics_tracker()
+    snapshot = tracker.snapshot()
+
+    checks: list[CorrectionCheckSnapshot] = []
+    total_triggered = 0
+    total_resolved = 0
+    total_exhausted = 0
+    total_latency_ms = 0
+
+    for check_name, metrics in sorted(snapshot.items()):
+        completed = metrics.resolved + metrics.exhausted
+        success_rate = metrics.resolved / completed if completed else 0.0
+        avg_latency = metrics.total_latency_ms / completed if completed else 0.0
+        checks.append(
+            CorrectionCheckSnapshot(
+                check_name=check_name,
+                triggered=metrics.triggered,
+                resolved=metrics.resolved,
+                exhausted=metrics.exhausted,
+                success_rate=success_rate,
+                avg_latency_ms=avg_latency,
+            )
+        )
+        total_triggered += metrics.triggered
+        total_resolved += metrics.resolved
+        total_exhausted += metrics.exhausted
+        total_latency_ms += metrics.total_latency_ms
+
+    completed_total = total_resolved + total_exhausted
+    totals = CorrectionTotals(
+        triggered=total_triggered,
+        resolved=total_resolved,
+        exhausted=total_exhausted,
+        success_rate=(total_resolved / completed_total) if completed_total else 0.0,
+        avg_latency_ms=(total_latency_ms / completed_total) if completed_total else 0.0,
+    )
+
+    return CorrectionMetricsResponse(
+        period_start=tracker.period_start(),
+        generated_at=datetime.datetime.now(datetime.UTC),
+        checks=checks,
+        totals=totals,
+    )

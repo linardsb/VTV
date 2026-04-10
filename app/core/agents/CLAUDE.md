@@ -7,15 +7,16 @@ Pydantic AI agent (`Agent[UnifiedDeps, str]`) with 11 tools across 4 domains. Fo
 ```
 app/core/agents/
 ├── agent.py           # Agent creation, 11 tool registrations + build_instructions_with_skills()
-├── routes.py          # /v1/chat/completions, /v1/models (rate limited + quota)
+├── routes.py          # /v1/chat/completions, /v1/models, /v1/chat/metrics (admin-only correction metrics, AI-5.3) — rate limited + quota
 ├── service.py         # Orchestration, deps injection, model building (singleton), skills injection via instructions param
 ├── schemas.py         # OpenAI-compatible request/response schemas
 ├── config.py          # LLM provider settings (model names, tokens, timeouts)
 ├── routing.py         # Multi-tier model routing (fast/standard/complex classification)
 ├── quota.py           # Daily per-IP quota tracker (50/day, auto-reset)
 ├── exceptions.py      # TransitDataError, ObsidianError → HTTP 503
-├── validation.py      # Deterministic QA: route plausibility, delays, stale data, Latvian diacritics
-├── correction.py      # AI-5.1 self-correction loop — bounded retry on validation failures (standard tier)
+├── validation.py      # Deterministic QA with severity-tagged Issues: route/stop plausibility + existence, delays, stale data, Latvian diacritics, time consistency, citation grounding, language match (AI-5.2)
+├── correction.py      # AI-5.1/5.2 self-correction loop — bounded retry on error-severity validation failures (standard tier), instrumented with per-check metrics (AI-5.3)
+├── metrics.py         # AI-5.3 in-process self-correction metrics tracker — per-check counters with lazy daily UTC reset
 ├── pipeline.py        # Multi-phase orchestrator for complex tier (own retry layer)
 ├── tools/
 │   ├── transit/       # 5 read-only tools (GTFS-RT + static data, DB-backed)
@@ -38,7 +39,7 @@ app/core/agents/
 │   │   └── tests/                   # 9 tests
 │   └── skills/        # 1 skills management tool
 │       └── manage_skills.py         # Tool 11: list/create operational skills
-└── tests/             # 89 agent-level tests (incl. routing, config tier, self-correction loop)
+└── tests/             # 122 agent-level tests (incl. routing, config tier, self-correction loop, severity-tier QA, correction metrics + admin endpoint)
 ```
 
 ## Planned Improvements
@@ -49,7 +50,7 @@ See `docs/TODO.md` → "Agent Architecture Improvements" for the full roadmap. K
 2. **RAG retrieval** — ✅ Chunk overlap 50→100, ✅ result truncation 500→1500 chars, ✅ always-on reranking (AI-1.1), ✅ created_at date filtering (AI-1.2), ✅ temporal boost + query-adaptive RRF weights + evergreen flag (AI-1.3), ✅ confidence threshold 0.3 + "no results" response + anti-hallucination prompt (AI-1.4), ✅ query routing - signal-based RAG router skips knowledge search for transit/schedule/vault queries (AI-2.1), ✅ markdown-aware document extraction - PDF/DOCX/XLSX/CSV/email/image produce structured markdown chunks (AI-2.1), ✅ HyDE query expansion (AI-2.2), ✅ Redis embedding cache (AI-2.3), ✅ heading-aware semantic chunker (AI-4.1), ✅ parent-child chunk model (AI-4.2), ✅ parent-child retrieval + context expansion - search-time parent fetch with `[Section: ...]`/`[Matched passage:]` markers, batch-deduped, feature-gated (AI-4.3)
 3. **Server-side memory** — pgvector-backed semantic memory with temporal decay (procedural/episodic/semantic types). Fire-and-forget bridge (`app/memory/bridge.py`) auto-persists multi-tool episodes after standard tier `agent.run()` (AI-3.3). Memory recall injected as context before each `agent.run()` via `build_instructions_with_skills()` (AI-3.4). LLM-based intent merging during compaction (configurable, off by default). Daily background compaction + promotion tasks via `app/memory/lifecycle.py`
 4. **Multi-agent splitting** — Separate transit/vault/knowledge agents with router for better tool selection
-5. **Bounded self-correction** — ✅ AI-5.1: `correction.py` wraps standard-tier `agent.run()` with deterministic QA + 1 retry. Stale-data warnings filtered as non-retryable. Validator exceptions fail-open. Logs `agent.correction.triggered/resolved/exhausted/failed`. Configurable via `agent_self_correction_enabled`/`agent_max_correction_rounds` (clamped ≤3). Complex-tier pipeline retry pending AI-5.2. Extended QA checks (route/stop existence, citation grounding, language match) and metrics dashboard pending AI-5.2/AI-5.3.
+5. **Bounded self-correction** — ✅ AI-5.1: `correction.py` wraps standard-tier `agent.run()` with deterministic QA + 1 retry. Stale-data warnings filtered as non-retryable. Validator exceptions fail-open. Logs `agent.correction.triggered/resolved/exhausted/failed`. Configurable via `agent_self_correction_enabled`/`agent_max_correction_rounds` (clamped ≤3). ✅ AI-5.2: severity-tagged `Issue` objects + 6 extended checks (route existence, stop existence, time consistency, citation grounding, language match, stale data). Error severity triggers retry; warning severity is footnote-only. ✅ AI-5.3: in-process per-check metrics tracker (`metrics.py`) with lazy 00:00 UTC daily reset; admin-only `GET /v1/chat/metrics` endpoint exposes triggered/resolved/exhausted counts + success rate + avg latency per check_name. Per-correction `agent.correction.metric` log line emitted on every resolved/exhausted event. Complex-tier pipeline retry still pending AI-6.x.
 6. **Eval framework** — Synthetic test cases, binary LLM judges, TPR/TNR calibration, regression baselines
 
 Techniques derived from merkle-email-hub's blueprint engine architecture (state machine orchestration, `AgentHandoff` protocol, circuit breakers, comprehensive eval pipeline).

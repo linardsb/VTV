@@ -4,6 +4,7 @@ These schemas follow the OpenAI Chat Completions API format, making
 the VTV agent compatible with any OpenAI client library.
 """
 
+import datetime
 import time
 import uuid
 from typing import Literal
@@ -101,3 +102,61 @@ class ChatCompletionResponse(BaseModel):
     model: str
     choices: list[ChatCompletionChoice]
     usage: UsageInfo = Field(default_factory=UsageInfo)
+
+
+# --- AI-5.3: Self-correction metrics ---
+
+
+class CorrectionCheckSnapshot(BaseModel):
+    """Per-check correction counters for the current UTC day.
+
+    Attributes:
+        check_name: Validator check identifier (e.g. ``route_existence``).
+        triggered: Correction events whose initial failure set included
+            this check.
+        resolved: Of the triggered set, how many ended cleanly.
+        exhausted: Of the triggered set, how many ran out of retries.
+        success_rate: ``resolved / (resolved + exhausted)`` or 0.0 if
+            no completed events yet.
+        avg_latency_ms: Mean wall-clock latency for completed events
+            involving this check, or 0.0 if none.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    check_name: str
+    triggered: int
+    resolved: int
+    exhausted: int
+    success_rate: float
+    avg_latency_ms: float
+
+
+class CorrectionTotals(BaseModel):
+    """Aggregate counters across all check names."""
+
+    model_config = ConfigDict(strict=True)
+
+    triggered: int
+    resolved: int
+    exhausted: int
+    success_rate: float
+    avg_latency_ms: float
+
+
+class CorrectionMetricsResponse(BaseModel):
+    """Response for ``GET /v1/chat/metrics``.
+
+    Attributes:
+        period_start: UTC midnight at which the current daily window began.
+        generated_at: When this snapshot was rendered.
+        checks: Per-check breakdown.
+        totals: Aggregate across all checks.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    period_start: datetime.datetime
+    generated_at: datetime.datetime
+    checks: list[CorrectionCheckSnapshot]
+    totals: CorrectionTotals
