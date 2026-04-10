@@ -24,6 +24,8 @@ async def test_search_returns_document_id() -> None:
     mock_search_result.chunk_index = 3
     mock_search_result.score = 0.8765
     mock_search_result.metadata_json = None
+    mock_search_result.parent_content = None
+    mock_search_result.heading_path = None
 
     mock_response = MagicMock()
     mock_response.results = [mock_search_result]
@@ -95,6 +97,8 @@ async def test_search_multiple_results_have_document_ids() -> None:
         r.chunk_index = 0
         r.score = 0.9 - (i * 0.1)
         r.metadata_json = None
+        r.parent_content = None
+        r.heading_path = None
         mock_results.append(r)
 
     mock_response = MagicMock()
@@ -169,6 +173,8 @@ async def test_search_truncates_content_to_1500_chars() -> None:
     mock_result.chunk_index = 0
     mock_result.score = 0.95
     mock_result.metadata_json = None
+    mock_result.parent_content = None
+    mock_result.heading_path = None
 
     mock_response = MagicMock()
     mock_response.results = [mock_result]
@@ -223,6 +229,152 @@ async def test_search_no_results_returns_no_documents_message() -> None:
 
     assert "No relevant documents found" in result
     assert "nonexistent topic" in result
+
+
+@pytest.mark.asyncio
+async def test_search_includes_parent_context_in_content() -> None:
+    """Parent_content + heading_path should produce [Section:] + [Matched passage:] markers."""
+    ctx = MagicMock()
+    ctx.deps.settings = MagicMock()
+    ctx.deps.settings.embedding_provider = "jina"
+
+    mock_result = MagicMock()
+    mock_result.chunk_content = "step 1: call depot X"
+    mock_result.document_id = 42
+    mock_result.document_filename = "sop.pdf"
+    mock_result.domain = "ops"
+    mock_result.language = "en"
+    mock_result.chunk_index = 3
+    mock_result.score = 0.85
+    mock_result.metadata_json = None
+    mock_result.parent_content = "When bus breaks down on route 22, follow these steps..."
+    mock_result.heading_path = "Operations > Breakdown Procedures"
+
+    mock_response = MagicMock()
+    mock_response.results = [mock_result]
+    mock_response.total_candidates = 1
+
+    with patch(
+        "app.core.agents.tools.knowledge.search_knowledge.AsyncSessionLocal"
+    ) as mock_session_cls:
+        mock_session = AsyncMock()
+        mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "app.core.agents.tools.knowledge.search_knowledge.KnowledgeService"
+        ) as mock_svc_cls:
+            mock_svc = AsyncMock()
+            mock_svc.search.return_value = mock_response
+            mock_svc_cls.return_value = mock_svc
+
+            result_json = await search_knowledge_base(ctx, query="breakdown procedure")
+
+    parsed = json.loads(result_json)
+    assert len(parsed["results"]) == 1
+    content = parsed["results"][0]["content"]
+    assert "[Section: Operations > Breakdown Procedures]" in content
+    assert "When bus breaks down on route 22" in content
+    assert "[Matched passage:]" in content
+    assert "step 1: call depot X" in content
+    assert parsed["results"][0]["parent_content"] is not None
+    assert parsed["results"][0]["heading_path"] == "Operations > Breakdown Procedures"
+
+
+@pytest.mark.asyncio
+async def test_search_omits_parent_markers_when_no_parent() -> None:
+    """Leaf chunk results (parent_content=None) format as raw child content."""
+    ctx = MagicMock()
+    ctx.deps.settings = MagicMock()
+    ctx.deps.settings.embedding_provider = "jina"
+
+    mock_result = MagicMock()
+    mock_result.chunk_content = "standalone fact"
+    mock_result.document_id = 42
+    mock_result.document_filename = "sop.pdf"
+    mock_result.domain = "ops"
+    mock_result.language = "en"
+    mock_result.chunk_index = 5
+    mock_result.score = 0.7
+    mock_result.metadata_json = None
+    mock_result.parent_content = None
+    mock_result.heading_path = None
+
+    mock_response = MagicMock()
+    mock_response.results = [mock_result]
+    mock_response.total_candidates = 1
+
+    with patch(
+        "app.core.agents.tools.knowledge.search_knowledge.AsyncSessionLocal"
+    ) as mock_session_cls:
+        mock_session = AsyncMock()
+        mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "app.core.agents.tools.knowledge.search_knowledge.KnowledgeService"
+        ) as mock_svc_cls:
+            mock_svc = AsyncMock()
+            mock_svc.search.return_value = mock_response
+            mock_svc_cls.return_value = mock_svc
+
+            result_json = await search_knowledge_base(ctx, query="standalone")
+
+    parsed = json.loads(result_json)
+    content = parsed["results"][0]["content"]
+    assert "[Section:" not in content
+    assert "[Matched passage:]" not in content
+    assert content == "standalone fact"
+    assert parsed["results"][0]["parent_content"] is None
+    assert parsed["results"][0]["heading_path"] is None
+
+
+@pytest.mark.asyncio
+async def test_search_truncates_parent_content_to_3000_chars() -> None:
+    """Parent content exceeding _MAX_PARENT_CHARS should be truncated."""
+    ctx = MagicMock()
+    ctx.deps.settings = MagicMock()
+    ctx.deps.settings.embedding_provider = "jina"
+
+    long_parent = "P" * 5000
+
+    mock_result = MagicMock()
+    mock_result.chunk_content = "child"
+    mock_result.document_id = 1
+    mock_result.document_filename = "doc.pdf"
+    mock_result.domain = "ops"
+    mock_result.language = "en"
+    mock_result.chunk_index = 0
+    mock_result.score = 0.9
+    mock_result.metadata_json = None
+    mock_result.parent_content = long_parent
+    mock_result.heading_path = "Section A"
+
+    mock_response = MagicMock()
+    mock_response.results = [mock_result]
+    mock_response.total_candidates = 1
+
+    with patch(
+        "app.core.agents.tools.knowledge.search_knowledge.AsyncSessionLocal"
+    ) as mock_session_cls:
+        mock_session = AsyncMock()
+        mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "app.core.agents.tools.knowledge.search_knowledge.KnowledgeService"
+        ) as mock_svc_cls:
+            mock_svc = AsyncMock()
+            mock_svc.search.return_value = mock_response
+            mock_svc_cls.return_value = mock_svc
+
+            result_json = await search_knowledge_base(ctx, query="long parent")
+
+    parsed = json.loads(result_json)
+    content = parsed["results"][0]["content"]
+    # 3000 'P' chars truncated, then framing markers
+    assert "P" * 3000 in content
+    assert "P" * 3001 not in content
 
 
 def test_system_prompt_contains_knowledge_base_behavior() -> None:

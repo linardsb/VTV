@@ -606,6 +606,47 @@ class KnowledgeService:
             query=request.query[:80],
         )
 
+        # Parent-child context expansion (AI-4.3)
+        parent_count = 0
+        unique_parents = 0
+        if settings.knowledge_parent_context_enabled and results:
+            # Collect unique parent_chunk_ids from surviving results.
+            # chunk_data still holds the ORM instances by chunk.id; locate the
+            # source chunk for each SearchResult via (document_id, chunk_index).
+            parent_ids: set[int] = set()
+            result_to_chunk: dict[int, DocumentChunk] = {}
+            for r in results:
+                for _cid, (chunk, _doc) in chunk_data.items():
+                    if chunk.document_id == r.document_id and chunk.chunk_index == r.chunk_index:
+                        result_to_chunk[id(r)] = chunk
+                        if chunk.parent_chunk_id is not None:
+                            parent_ids.add(chunk.parent_chunk_id)
+                        break
+
+            unique_parents = len(parent_ids)
+            if parent_ids:
+                parent_chunks = await self.repository.get_chunks_by_ids(list(parent_ids))
+                parents_by_id: dict[int, DocumentChunk] = {p.id: p for p in parent_chunks}
+                max_chars = settings.knowledge_parent_context_max_chars
+                for r in results:
+                    source_chunk = result_to_chunk.get(id(r))
+                    if source_chunk is None or source_chunk.parent_chunk_id is None:
+                        continue
+                    parent = parents_by_id.get(source_chunk.parent_chunk_id)
+                    if parent is None:
+                        continue
+                    r.parent_chunk_id = parent.id
+                    r.parent_content = parent.content[:max_chars]
+                    r.heading_path = parent.heading_path
+                    parent_count += 1
+
+            logger.info(
+                "knowledge.search.parent_context_attached",
+                result_count=len(results),
+                parent_count=parent_count,
+                unique_parents=unique_parents,
+            )
+
         duration_ms = int((time.monotonic() - start) * 1000)
         logger.info(
             "knowledge.search.completed",

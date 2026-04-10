@@ -12,6 +12,8 @@ class KnowledgeSearchResult(BaseModel):
     domain: str
     relevance_score: float
     page_or_section: str | None = None
+    parent_content: str | None = None
+    heading_path: str | None = None
 
 
 class KnowledgeSearchResponse(BaseModel):

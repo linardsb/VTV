@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence ███████████░░░░░░░░░░░░  50%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. Remaining: parent-child retrieval, re-chunk migration, self-correction, multi-agent+harness+L3 skills, eval)
+Agent Intelligence ████████████░░░░░░░░░░░  53%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. AI-4.3 parent-child retrieval + context expansion done. Remaining: re-chunk migration, self-correction, multi-agent+harness+L3 skills, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -182,17 +182,29 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 - 10 new tests: 9 chunker tests (leaf path, parent+child emission, parent content, heading_path field, list/table/body classification, fallback path, child_count metadata) + 1 repository test for `flush_only` semantics. 27 total chunking tests (18 existing + 9 new). 175/175 knowledge tests pass. Pyright 0 errors, mypy 0 errors in `app/knowledge/`.
 **Verify:** Apply migration via `make db && make db-migrate`. Upload a multi-section SOP, then `SELECT id, parent_chunk_id, heading_path, section_type FROM document_chunks WHERE document_id = (SELECT max(id) FROM documents) ORDER BY chunk_index;` — expect parent rows with `parent_chunk_id IS NULL` followed by child rows pointing to that parent.
 
-#### AI-4.3 Parent-Child Retrieval + Context Expansion
+#### AI-4.3 Parent-Child Retrieval + Context Expansion ✅
+
+**Status:** Implemented 2026-04-10. Plan: `.agents/plans/ai-4.3-parent-child-retrieval.md`. 8 files modified, 0 migrations (AI-4.2 columns reused), 5 new tests (2 repository + 3 agent tool). Pyright 0 errors, mypy 0 new errors in `app/knowledge/` and `app/core/agents/tools/knowledge/`. 189/189 knowledge tests pass.
+
 **What:** When hybrid search returns a child chunk match, automatically fetch and include the parent chunk content in the agent's context. Deduplicate when multiple children from the same parent match.
+
 **Why:** A child chunk matching "call depot X" is useless without the parent context "When bus breaks down on route 22, follow these steps: 1. call depot X, 2. reroute via Y, 3. notify dispatcher Z."
-**Implementation:**
-- `app/knowledge/repository.py` — in `hybrid_search()`, after retrieval:
-  1. For each result with `parent_chunk_id`, fetch parent chunk
-  2. Deduplicate parents (same parent from multiple children = one parent)
-  3. Return `SearchResult` with `chunks` (original matches) + `parent_contexts` (expanded sections)
-- `app/core/agents/tools/knowledge/search_knowledge.py` — format results with parent context: `"[Section: {heading_path}]\n{parent_content}\n\n[Matched passage:]\n{child_content}"`
-- `app/core/config.py` — `KNOWLEDGE__PARENT_CONTEXT_ENABLED: bool = True`
-**Verify:** Upload multi-section SOP. Search for specific step mentioned in section 3. Result should include full section 3 as context, not just the matched paragraph.
+
+**Files modified:**
+- `app/core/config.py` — added `knowledge_parent_context_enabled: bool = True` and `knowledge_parent_context_max_chars: int = 3000`
+- `app/knowledge/repository.py` — added `get_chunks_by_ids(chunk_ids)` batch fetch helper with empty-list short-circuit
+- `app/knowledge/schemas.py` — added 3 optional fields to `SearchResult`: `parent_chunk_id`, `parent_content`, `heading_path` (all `None`-default, non-breaking)
+- `app/knowledge/service.py` — inserted parent expansion block in `KnowledgeService.search()` after confidence filter: collect unique `parent_chunk_id`s, batch-fetch via `get_chunks_by_ids()`, attach parent fields to each `SearchResult`. Emits `knowledge.search.parent_context_attached` log event with `result_count`/`parent_count`/`unique_parents`
+- `app/core/agents/tools/knowledge/schemas.py` — added `parent_content`, `heading_path` to `KnowledgeSearchResult`
+- `app/core/agents/tools/knowledge/search_knowledge.py` — added `_MAX_PARENT_CHARS = 3000`; rewrote formatter loop to render `[Section: {heading_path}]\n{parent_content}\n\n[Matched passage:]\n{child_content}` markers when parent is present; agent completion log includes `parent_contexts_count`
+- `app/knowledge/tests/test_repository.py` — 2 new tests for `get_chunks_by_ids` (returns matched chunks; empty input short-circuits)
+- `app/core/agents/tools/knowledge/tests/test_search_knowledge.py` — 3 new tests for the formatter (parent + heading markers, no-parent leaf back-compat, parent truncation to 3000 chars)
+
+**Architecture:** Parent expansion lives in `KnowledgeService.search()` (not the repository) so it runs after RRF/rerank/confidence filtering — only surviving results trigger parent fetches. Single batch SELECT with deduplication keeps the round-trip count at 1 regardless of how many children match the same parent.
+
+**Security (CTX-AGENT):** Token budget enforced via `_MAX_PARENT_CHARS=3000` (agent tool) + `knowledge_parent_context_max_chars=3000` (service truncation). Feature gate `knowledge_parent_context_enabled` (default `True`, can disable via env var `KNOWLEDGE_PARENT_CONTEXT_ENABLED=false`). Parent content originates from the same trusted server-side chunker output already in the DB — no new untrusted input surface.
+
+**Verify:** Upload multi-section SOP. Search for specific step mentioned in section 3. Result should include full section 3 as context, not just the matched paragraph. Toggle `KNOWLEDGE_PARENT_CONTEXT_ENABLED=false` to revert to pre-AI-4.3 behavior.
 
 #### AI-4.4 Re-Chunk Existing Documents
 **What:** Migration script to re-chunk all existing documents using the new semantic chunker. Preserves document metadata, regenerates chunks and embeddings.

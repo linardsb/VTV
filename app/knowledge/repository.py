@@ -239,6 +239,25 @@ class KnowledgeRepository:
         )
         return list(result.scalars().all())
 
+    async def get_chunks_by_ids(self, chunk_ids: list[int]) -> list[DocumentChunk]:
+        """Fetch multiple chunks by primary key in a single query.
+
+        Used by parent-context expansion: collects all unique parent_chunk_ids
+        from search results and loads them in one round-trip.
+
+        Args:
+            chunk_ids: List of DocumentChunk IDs to fetch. Empty list returns
+                an empty result without issuing a query.
+
+        Returns:
+            List of DocumentChunk instances. Order is not guaranteed; callers
+            that need ordering should index by ``chunk.id``.
+        """
+        if not chunk_ids:
+            return []
+        result = await self.db.execute(select(DocumentChunk).where(DocumentChunk.id.in_(chunk_ids)))
+        return list(result.scalars().all())
+
     async def list_domains(self) -> list[str]:
         """List all unique document domains.
 

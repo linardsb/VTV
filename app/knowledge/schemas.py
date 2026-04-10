@@ -168,6 +168,12 @@ class SearchResult(BaseModel):
     metadata_json: str | None
     document_created_at: datetime
 
+    # Parent-child retrieval (AI-4.3) — populated when the matched chunk
+    # has a parent section and parent context expansion is enabled.
+    parent_chunk_id: int | None = None
+    parent_content: str | None = None
+    heading_path: str | None = None
+
 
 class SearchResponse(BaseModel):
     """Search response with results and metadata."""

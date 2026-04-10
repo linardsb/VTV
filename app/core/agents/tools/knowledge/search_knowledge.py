@@ -25,6 +25,7 @@ from app.knowledge.service import KnowledgeService
 logger = get_logger(__name__)
 
 _MAX_CONTENT_CHARS = 1500
+_MAX_PARENT_CHARS = 3000
 
 
 async def search_knowledge_base(
@@ -124,18 +125,37 @@ async def search_knowledge_base(
                 "matching this query with sufficient confidence."
             )
 
-        # Map to agent-optimized schema (truncate content for token efficiency)
-        results = [
-            KnowledgeSearchResult(
-                document_id=r.document_id,
-                content=r.chunk_content[:_MAX_CONTENT_CHARS],
-                source=r.document_filename,
-                domain=r.domain,
-                relevance_score=round(r.score, 4),
-                page_or_section=f"chunk {r.chunk_index}",
+        # Map to agent-optimized schema (truncate content for token efficiency).
+        # When the matched chunk has a parent section, prepend it as context using
+        # heading_path + parent_content markers so the agent can reason about the
+        # full section, not just the matched paragraph (AI-4.3).
+        results: list[KnowledgeSearchResult] = []
+        for r in response.results:
+            child_content = r.chunk_content[:_MAX_CONTENT_CHARS]
+            if r.parent_content and r.heading_path:
+                formatted_content = (
+                    f"[Section: {r.heading_path}]\n"
+                    f"{r.parent_content[:_MAX_PARENT_CHARS]}\n\n"
+                    f"[Matched passage:]\n{child_content}"
+                )
+            elif r.parent_content:
+                formatted_content = (
+                    f"{r.parent_content[:_MAX_PARENT_CHARS]}\n\n[Matched passage:]\n{child_content}"
+                )
+            else:
+                formatted_content = child_content
+            results.append(
+                KnowledgeSearchResult(
+                    document_id=r.document_id,
+                    content=formatted_content,
+                    source=r.document_filename,
+                    domain=r.domain,
+                    relevance_score=round(r.score, 4),
+                    page_or_section=f"chunk {r.chunk_index}",
+                    parent_content=r.parent_content,
+                    heading_path=r.heading_path,
+                )
             )
-            for r in response.results
-        ]
 
         result = KnowledgeSearchResponse(
             results=results,
@@ -148,6 +168,7 @@ async def search_knowledge_base(
             "agent.knowledge.search_completed",
             result_count=len(results),
             total_found=response.total_candidates,
+            parent_contexts_count=sum(1 for r in response.results if r.parent_content),
             duration_ms=duration_ms,
         )
 

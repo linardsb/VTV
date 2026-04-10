@@ -40,7 +40,17 @@ RAG-powered document knowledge base with full document management capabilities. 
 2. **Phase 1:** parent `DocumentChunk` objects are inserted via `repository.bulk_create_chunks(parents, flush_only=True)`. Flush (not commit) assigns DB ids to parent ORM instances without ending the transaction.
 3. **Phase 2:** child + leaf objects are constructed with `parent_chunk_id` resolved from the in-memory parent map (positional `parent_index` → flushed parent's `.id`)
 4. **Phase 3:** `repository.bulk_create_chunks(children + leaves)` commits the full transaction (parents + children atomically). Failure in phase 3 rolls back parents too.
-5. Both parents and children are embedded and individually searchable. Parent expansion at query time is deferred to AI-4.3.
+5. Both parents and children are embedded and individually searchable. Search-time parent expansion is implemented in AI-4.3 (see below).
+
+### Parent Context Expansion at Query Time (AI-4.3)
+
+1. After RRF fusion, temporal boost, reranking, and confidence filtering produce the final `SearchResult` list, `KnowledgeService.search()` enters the parent-expansion block (gated on `knowledge_parent_context_enabled`, default True)
+2. Walk surviving results and locate their source `DocumentChunk` ORM instances in `chunk_data` via `(document_id, chunk_index)`. Collect every distinct `parent_chunk_id` into a `set[int]` so multiple matched children of the same parent only trigger one fetch
+3. Single batch round-trip: `repository.get_chunks_by_ids(list(parent_ids))` issues one `SELECT ... WHERE id IN (...)`. Empty parent set short-circuits without SQL
+4. For each result whose source chunk has a parent, populate `SearchResult.parent_chunk_id`, `parent_content` (truncated to `knowledge_parent_context_max_chars`, default 3000), and `heading_path` from the fetched parent
+5. Leaf chunks (`parent_chunk_id is None`) are left untouched — `parent_content`/`heading_path` stay `None`
+6. Logging: emits `knowledge.search.parent_context_attached` with `result_count`, `parent_count`, `unique_parents` so dedupe behavior is observable
+7. Disabling the flag (`KNOWLEDGE_PARENT_CONTEXT_ENABLED=false`) reverts to pre-AI-4.3 behavior at runtime — useful as a kill switch if response sizes balloon
 
 ### HyDE Query Expansion (Optional)
 
@@ -120,8 +130,10 @@ RAG-powered document knowledge base with full document management capabilities. 
 1. Agent calls `search_knowledge_base` tool with natural language query
 2. Tool creates `AsyncSessionLocal` session (outside FastAPI request lifecycle)
 3. Delegates to `KnowledgeService.search()` for hybrid search
-4. Truncates results to 1500 chars per chunk for token efficiency
-5. Returns JSON string (never raises, returns error message on failure)
+4. Truncates child chunk content to 1500 chars (`_MAX_CONTENT_CHARS`) for token efficiency
+5. **Parent context formatting (AI-4.3):** when a result carries `parent_content` + `heading_path`, the agent-facing `content` field is rebuilt as `"[Section: {heading_path}]\n{parent_content[:3000]}\n\n[Matched passage:]\n{child_content[:1500]}"`. If only `parent_content` is present (no heading), the `[Section: ...]` line is omitted. Leaf results (no parent) format as raw child content for back-compat. Raw `parent_content`/`heading_path` are also exposed on `KnowledgeSearchResult` so downstream consumers (memory, logs) can access them without re-parsing the merged string.
+6. Logs `agent.knowledge.search_completed` with `parent_contexts_count` so the share of expanded results is observable
+7. Returns JSON string (never raises, returns error message on failure)
 
 ## Database Schema
 
@@ -204,13 +216,14 @@ Table: `document_chunks`
 19. Auto-tagging is best-effort: LLM failures are logged but never block document ingestion
 20. Auto-tagging creates/links tags via race-safe `get_or_create_tag` (IntegrityError catch + rollback + retry)
 21. Batch tag loading for document lists eliminates N+1 queries
-22. **Parent-child chunk hierarchy (AI-4.2):** Multi-paragraph sections produce one parent chunk (full section) + N child chunks (one per paragraph) linked via `parent_chunk_id`. Single-paragraph sections stay as standalone leaf chunks. Both parents and children are embedded and individually searchable. Deleting a parent CASCADE-deletes its children. Search-time parent expansion (`SearchResult.parent_content`) is deferred to AI-4.3.
+22. **Parent-child chunk hierarchy (AI-4.2):** Multi-paragraph sections produce one parent chunk (full section) + N child chunks (one per paragraph) linked via `parent_chunk_id`. Single-paragraph sections stay as standalone leaf chunks. Both parents and children are embedded and individually searchable. Deleting a parent CASCADE-deletes its children.
 23. **Two-phase chunk insert:** Parents are flushed first (`bulk_create_chunks(..., flush_only=True)`) to obtain DB ids before children are constructed with resolved `parent_chunk_id`. Both phases share one `AsyncSession` so parent + child writes commit atomically.
+24. **Search-time parent context expansion (AI-4.3):** After confidence filtering, `KnowledgeService.search()` collects unique `parent_chunk_id`s from surviving results and batch-fetches them via `repository.get_chunks_by_ids()` in a single round-trip. Multiple matched children of the same parent dedupe to one fetch. Each result is enriched with `parent_chunk_id`, `parent_content` (truncated to `knowledge_parent_context_max_chars`, default 3000), and `heading_path`. Leaf chunks (no parent) are unaffected. Feature-gated on `knowledge_parent_context_enabled` (default True) — disabling reverts to pre-AI-4.3 behavior. The agent tool formatter renders `[Section: {heading_path}]\n{parent_content}\n\n[Matched passage:]\n{child_content}` so the LLM sees the full surrounding section, not just the matched paragraph.
 
 ## Integration Points
 
 - **Agent Module**: `search_knowledge_base` tool registered in `app/core/agents/agent.py`, uses `AsyncSessionLocal` for direct DB access. Agent system prompt includes CITATION RULES for `[title](/{locale}/documents/{id})` links.
-- **Core Config**: 31 settings in `app/core/config.py` (embedding, embedding_cache, reranker, chunking, semantic_chunking, document_storage_path, auto_tag, hyde, temporal_boost, rrf_weights)
+- **Core Config**: 33 settings in `app/core/config.py` (embedding, embedding_cache, reranker, chunking, semantic_chunking, parent_context, document_storage_path, auto_tag, hyde, temporal_boost, rrf_weights). New in AI-4.3: `knowledge_parent_context_enabled` (default `True`), `knowledge_parent_context_max_chars` (default `3000`).
 - **Shared Utilities**: Uses `PaginationParams`, `PaginatedResponse`, `TimestampMixin`, `get_db()`, `get_logger()`
 - **Frontend**: Documents management page at `/[locale]/documents` with upload, list, detail, download, delete
 - **Pydantic AI**: Auto-tagging and HyDE query expansion use `pydantic-ai` Agent for LLM calls (lazy-imported, provider configured via existing settings)

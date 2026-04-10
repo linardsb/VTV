@@ -225,6 +225,10 @@ class Settings(BaseSettings):
     knowledge_chunk_min_size: int = 256
     knowledge_chunk_max_size: int = 1500
 
+    # Parent-child retrieval (attach parent section as context for matched child chunks)
+    knowledge_parent_context_enabled: bool = True
+    knowledge_parent_context_max_chars: int = 3000
+
     # NeTEx/SIRI compliance exports
     netex_codespace: str = "VTV"
     netex_participant_ref: str = "VTV"

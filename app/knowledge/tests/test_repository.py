@@ -614,3 +614,38 @@ class TestTemporalBoost:
         old = now - timedelta(days=90)
         result = _temporal_boost(old, now, evergreen=False, settings=settings)
         assert result == 1.0
+
+
+# --- Parent-child retrieval (AI-4.3) ---
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_get_chunks_by_ids_returns_matching_chunks(
+    repo: KnowledgeRepository, mock_db: AsyncMock
+) -> None:
+    """get_chunks_by_ids should issue one SELECT and return matched chunks."""
+    chunks = [make_chunk(id=10), make_chunk(id=11)]
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = chunks
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    result = await repo.get_chunks_by_ids([10, 11])
+
+    assert len(result) == 2
+    assert {c.id for c in result} == {10, 11}
+    mock_db.execute.assert_called_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_get_chunks_by_ids_empty_list_no_query(
+    repo: KnowledgeRepository, mock_db: AsyncMock
+) -> None:
+    """Empty input should short-circuit without issuing SQL."""
+    mock_db.execute = AsyncMock()
+
+    result = await repo.get_chunks_by_ids([])
+
+    assert result == []
+    mock_db.execute.assert_not_called()
