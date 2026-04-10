@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence ████████████░░░░░░░░░░░  56%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. AI-4.3 parent-child retrieval + context expansion done. AI-4.4 re-chunk migration done. Remaining: self-correction, multi-agent+harness+L3 skills, eval)
+Agent Intelligence ████████████░░░░░░░░░░░  60%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. AI-4.3 parent-child retrieval + context expansion done. AI-4.4 re-chunk migration done. AI-5.1 bounded self-correction loop done (standard tier). Remaining: AI-5.2 extended QA checks, AI-5.3 correction metrics, multi-agent+harness+L3 skills, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -224,7 +224,10 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 
 > **Sprint deliverable:** Agent validates its own responses before returning to dispatchers. Factual errors (wrong route numbers, impossible times) caught and corrected via 1 retry round.
 
-#### AI-5.1 Self-Correction Loop
+#### AI-5.1 Self-Correction Loop ✅
+**Status:** Done — `app/core/agents/correction.py` created with `SelfCorrectionLoop` + `CorrectedResult` dataclass. Wraps standard-tier `agent.run()` only (complex-tier pipeline has its own retry layer, deferred to AI-5.2). Stale-data warnings filtered as non-retryable. Validator exceptions handled fail-open. Logs `agent.correction.triggered/resolved/exhausted/failed`. `max_rounds` clamped to ≤3 to bound token cost. Configurable via `agent_self_correction_enabled: bool = True` and `agent_max_correction_rounds: int = 1` in `app/core/config.py`. Single-validation pass — `service.py` reuses correction-loop validation result rather than re-running. 15 unit tests in `app/core/agents/tests/test_correction.py`. Plan: `.agents/plans/ai-5-1-self-correction-loop.md`.
+
+**Original spec:**
 **What:** Create `app/core/agents/correction.py` — after `agent.run()`, run deterministic QA checks. If checks fail, retry once with failure context injected. If still failing, return response with warnings (current behavior).
 **Why:** Currently, validation issues are appended as footnote warnings but the incorrect content is still shown. One retry with explicit failure context lets the agent correct simple factual errors (wrong route number, impossible departure time) before dispatchers see them.
 **Implementation:**

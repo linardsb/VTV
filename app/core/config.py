@@ -274,6 +274,10 @@ class Settings(BaseSettings):
     memory_compaction_cron_hour: int = 3
     memory_promotion_cron_hour: int = 3
 
+    # Self-correction loop (AI-5.1)
+    agent_self_correction_enabled: bool = True
+    agent_max_correction_rounds: int = 1  # Transit needs fast responses; 1 retry only
+
     @model_validator(mode="after")
     def _reject_default_secrets_in_production(self) -> "Settings":
         """Refuse to start with default JWT secret in non-development environments."""

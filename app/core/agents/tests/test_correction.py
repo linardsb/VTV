@@ -1,0 +1,299 @@
+"""Unit tests for the AI-5.1 self-correction loop."""
+
+from __future__ import annotations
+
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from app.core.agents.correction import (
+    CorrectedResult,
+    SelfCorrectionLoop,
+    _retryable_warnings,
+)
+from app.core.agents.validation import ValidationResult
+
+
+def _fake_run_result(output: str) -> MagicMock:
+    """Build a MagicMock matching pydantic_ai.RunResult shape."""
+    mock = MagicMock()
+    mock.output = output
+    mock.all_messages = lambda: []
+    return mock
+
+
+def _fake_agent(*outputs: str) -> MagicMock:
+    """Build a MagicMock agent whose `run` returns the given outputs in order."""
+    agent_mock = MagicMock()
+    agent_mock.run = AsyncMock(side_effect=[_fake_run_result(o) for o in outputs])
+    return agent_mock
+
+
+@pytest.mark.asyncio
+async def test_clean_first_attempt_no_retry() -> None:
+    """A response with zero warnings should not trigger a retry."""
+    loop = SelfCorrectionLoop(max_rounds=1)
+    fake_agent = _fake_agent("Take route 5 from Brīvības iela.")
+
+    result = await loop.run_with_correction(
+        fake_agent,
+        "Where is bus 5?",
+        deps=MagicMock(),
+        message_history=None,
+        instructions=None,
+        model=None,
+    )
+
+    assert result.rounds_used == 1
+    assert result.corrected is False
+    assert result.warnings == []
+    assert fake_agent.run.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_invalid_route_triggers_one_retry_and_succeeds() -> None:
+    """First answer mentions implausible route 9999; retry produces a clean answer."""
+    loop = SelfCorrectionLoop(max_rounds=1)
+    fake_agent = _fake_agent(
+        "Take route 9999 from the central station.",
+        "Take route 5 from the central station.",
+    )
+
+    result = await loop.run_with_correction(
+        fake_agent,
+        "Best route to airport?",
+        deps=MagicMock(),
+        message_history=None,
+        instructions=None,
+        model=None,
+    )
+
+    assert result.rounds_used == 2
+    assert result.corrected is True
+    assert result.warnings == []
+    assert "9999" not in result.output
+    assert fake_agent.run.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_retry_exhausted_returns_final_with_warnings() -> None:
+    """Both attempts fail validation; loop returns last response + warnings."""
+    loop = SelfCorrectionLoop(max_rounds=1)
+    fake_agent = _fake_agent(
+        "Take route 9999.",
+        "Take route 8888.",
+    )
+
+    result = await loop.run_with_correction(
+        fake_agent,
+        "Best route?",
+        deps=MagicMock(),
+        message_history=None,
+        instructions=None,
+        model=None,
+    )
+
+    assert result.rounds_used == 2
+    assert result.corrected is False
+    assert any("8888" in w for w in result.warnings)
+    assert fake_agent.run.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_disabled_loop_zero_rounds_runs_once() -> None:
+    """max_rounds=0 means one attempt and no retry, regardless of validation."""
+    loop = SelfCorrectionLoop(max_rounds=0)
+    fake_agent = _fake_agent("Take route 9999.")
+
+    result = await loop.run_with_correction(
+        fake_agent,
+        "Test",
+        deps=MagicMock(),
+        message_history=None,
+        instructions=None,
+        model=None,
+    )
+
+    assert result.rounds_used == 1
+    assert result.corrected is False
+    assert fake_agent.run.await_count == 1
+
+
+def test_max_rounds_clamped_to_three() -> None:
+    """Constructor clamps max_rounds to 3 to bound token cost."""
+    loop = SelfCorrectionLoop(max_rounds=99)
+    assert loop._max_rounds == 3
+
+
+def test_negative_max_rounds_clamped_to_zero() -> None:
+    """Constructor clamps negative max_rounds to 0."""
+    loop = SelfCorrectionLoop(max_rounds=-5)
+    assert loop._max_rounds == 0
+
+
+@pytest.mark.asyncio
+async def test_correction_prompt_includes_failed_response_and_warnings() -> None:
+    """The retry prompt must contain the failed response and the warning text."""
+    loop = SelfCorrectionLoop(max_rounds=1)
+    fake_agent = _fake_agent(
+        "Take route 9999 from Centrs.",
+        "Take route 5 from Centrs.",
+    )
+
+    await loop.run_with_correction(
+        fake_agent,
+        "Best route?",
+        deps=MagicMock(),
+        message_history=None,
+        instructions=None,
+        model=None,
+    )
+
+    # Second call's prompt should mention the failed route + a warning.
+    second_call_prompt = fake_agent.run.await_args_list[1].args[0]
+    assert "9999" in second_call_prompt
+    assert "implausible" in second_call_prompt.lower()
+
+
+@pytest.mark.asyncio
+async def test_message_history_preserved_across_retry() -> None:
+    """Original message_history is included on the retry call's history."""
+    loop = SelfCorrectionLoop(max_rounds=1)
+    fake_agent = _fake_agent("Take route 9999.", "Take route 5.")
+    sentinel_history: list[Any] = [MagicMock(name="prior_message")]
+
+    await loop.run_with_correction(
+        fake_agent,
+        "Where?",
+        deps=MagicMock(),
+        message_history=sentinel_history,
+        instructions=None,
+        model=None,
+    )
+
+    second_call_history = fake_agent.run.await_args_list[1].kwargs["message_history"]
+    assert sentinel_history[0] in second_call_history
+
+
+@pytest.mark.asyncio
+async def test_stale_data_warning_does_not_trigger_retry() -> None:
+    """Non-retryable warnings (stale cache) should not consume a retry round."""
+    loop = SelfCorrectionLoop(max_rounds=1)
+    fake_agent = _fake_agent("All buses on time.")
+
+    with patch(
+        "app.core.agents.correction.validate_transit_response",
+        return_value=ValidationResult(
+            is_valid=False,
+            warnings=[
+                "This response may be based on cached data. Live feed was temporarily unavailable."
+            ],
+            sanitized_response="All buses on time.",
+        ),
+    ):
+        result = await loop.run_with_correction(
+            fake_agent,
+            "Status?",
+            deps=MagicMock(),
+            message_history=None,
+            instructions=None,
+            model=None,
+        )
+
+    assert result.rounds_used == 1
+    assert result.corrected is False
+    assert len(result.warnings) == 1
+    assert fake_agent.run.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_validator_exception_returns_unvalidated_response() -> None:
+    """If the validator itself crashes, return the original response cleanly."""
+    loop = SelfCorrectionLoop(max_rounds=1)
+    fake_agent = _fake_agent("Take route 5.")
+
+    with patch(
+        "app.core.agents.correction.validate_transit_response",
+        side_effect=RuntimeError("validator boom"),
+    ):
+        result = await loop.run_with_correction(
+            fake_agent,
+            "Test",
+            deps=MagicMock(),
+            message_history=None,
+            instructions=None,
+            model=None,
+        )
+
+    assert result.output == "Take route 5."
+    assert result.warnings == []
+    assert result.rounds_used == 1
+
+
+@pytest.mark.asyncio
+async def test_logs_correction_triggered_and_resolved() -> None:
+    """Verify structured log events fire on retry + success."""
+    loop = SelfCorrectionLoop(max_rounds=1)
+    fake_agent = _fake_agent("Take route 9999.", "Take route 5.")
+
+    with patch("app.core.agents.correction.logger") as mock_logger:
+        await loop.run_with_correction(
+            fake_agent,
+            "Where?",
+            deps=MagicMock(),
+            message_history=None,
+            instructions=None,
+            model=None,
+        )
+
+    event_names = [call.args[0] for call in mock_logger.info.call_args_list]
+    assert "agent.correction.triggered" in event_names
+    assert "agent.correction.resolved" in event_names
+
+
+@pytest.mark.asyncio
+async def test_logs_correction_exhausted_when_retry_fails() -> None:
+    """Verify exhaustion warning fires when retry also fails."""
+    loop = SelfCorrectionLoop(max_rounds=1)
+    fake_agent = _fake_agent("Take route 9999.", "Take route 8888.")
+
+    with patch("app.core.agents.correction.logger") as mock_logger:
+        await loop.run_with_correction(
+            fake_agent,
+            "Where?",
+            deps=MagicMock(),
+            message_history=None,
+            instructions=None,
+            model=None,
+        )
+
+    warning_event_names = [call.args[0] for call in mock_logger.warning.call_args_list]
+    assert "agent.correction.exhausted" in warning_event_names
+
+
+def test_retryable_warnings_filters_stale_data() -> None:
+    """Stale-data warnings should be filtered out from retryable set."""
+    warnings = [
+        "Route number 9999 seems implausible (expected 1-999).",
+        "This response may be based on cached data. Live feed was temporarily unavailable.",
+    ]
+    filtered = _retryable_warnings(warnings)
+    assert len(filtered) == 1
+    assert "9999" in filtered[0]
+
+
+def test_retryable_warnings_empty_when_only_non_retryable() -> None:
+    """When only non-retryable warnings are present, retryable set is empty."""
+    warnings = ["This response may be based on cached data. Live feed was temporarily unavailable."]
+    assert _retryable_warnings(warnings) == []
+
+
+def test_corrected_result_dataclass_defaults() -> None:
+    """CorrectedResult should have sensible defaults."""
+    r = CorrectedResult(output="hi")
+    assert r.output == "hi"
+    assert r.warnings == []
+    assert r.rounds_used == 1
+    assert r.corrected is False
+    assert r.all_messages == []

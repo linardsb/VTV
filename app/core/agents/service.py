@@ -19,6 +19,7 @@ from pydantic_ai.messages import (
 
 from app.core.agents.agent import agent, build_instructions_with_skills
 from app.core.agents.config import resolve_tier_model
+from app.core.agents.correction import CorrectedResult, SelfCorrectionLoop
 from app.core.agents.exceptions import AgentExecutionError
 from app.core.agents.pipeline import get_complex_pipeline
 from app.core.agents.routing import classify_prompt
@@ -98,6 +99,12 @@ class AgentService:
     def __init__(self) -> None:
         """Initialize with unified dependencies for agent tool execution."""
         self._deps: UnifiedDeps = create_unified_deps()
+        init_settings = get_settings()
+        self._correction_loop: SelfCorrectionLoop | None = (
+            SelfCorrectionLoop(max_rounds=init_settings.agent_max_correction_rounds)
+            if init_settings.agent_self_correction_enabled
+            else None
+        )
 
     async def chat(self, request: ChatCompletionRequest) -> ChatCompletionResponse:
         """Process a chat completion request.
@@ -191,6 +198,7 @@ class AgentService:
 
         instructions = build_instructions_with_skills(skills_instructions, memory_context) or None
 
+        correction_warnings: list[str] | None = None
         try:
             if tier == "complex":
                 pipeline = get_complex_pipeline(agent, self._deps)
@@ -211,6 +219,24 @@ class AgentService:
                         for pd in pipeline_result.phase_details
                     ],
                 )
+            elif self._correction_loop is not None:
+                corrected: CorrectedResult = await self._correction_loop.run_with_correction(
+                    agent,
+                    current_prompt,
+                    deps=self._deps,
+                    message_history=message_history,
+                    instructions=instructions,
+                    model=tier_model,
+                )
+                response_content = corrected.output
+                # Memory persistence uses the FINAL attempt's messages.
+                persist_agent_episode(
+                    agent_name="transit_agent",
+                    prompt=current_prompt,
+                    response=response_content,
+                    messages=corrected.all_messages,
+                )
+                correction_warnings = corrected.warnings
             else:
                 result = await agent.run(
                     current_prompt,
@@ -237,15 +263,20 @@ class AgentService:
             )
             raise AgentExecutionError(f"Agent execution failed: {e}") from e
 
-        # Validate the agent response for plausibility issues
-        validation = validate_transit_response(response_content)
-        if validation.warnings:
-            for warning in validation.warnings:
+        # Reuse correction loop's validation when available; otherwise validate now.
+        if correction_warnings is None:
+            validation = validate_transit_response(response_content)
+            warnings_to_render = list(validation.warnings)
+        else:
+            warnings_to_render = correction_warnings
+
+        if warnings_to_render:
+            for warning in warnings_to_render:
                 logger.warning(
                     "agent.response_validation_warning",
                     warning=warning,
                 )
-            footnotes = "\n".join(f"\u26a0\ufe0f {w}" for w in validation.warnings)
+            footnotes = "\n".join(f"\u26a0\ufe0f {w}" for w in warnings_to_render)
             response_content = f"{response_content}\n\n---\n{footnotes}"
 
         response_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
