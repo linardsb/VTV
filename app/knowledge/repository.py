@@ -248,14 +248,30 @@ class KnowledgeRepository:
         result = await self.db.execute(select(distinct(Document.domain)).order_by(Document.domain))
         return list(result.scalars().all())
 
-    async def bulk_create_chunks(self, chunks: list[DocumentChunk]) -> None:
-        """Bulk insert document chunks.
+    async def bulk_create_chunks(
+        self,
+        chunks: list[DocumentChunk],
+        *,
+        flush_only: bool = False,
+    ) -> None:
+        """Insert chunks in bulk.
+
+        When ``flush_only=True`` the session is flushed instead of committed,
+        which assigns primary-key ids on each ORM instance without ending the
+        transaction. The caller is then responsible for issuing a final commit
+        (typically via a second call with ``flush_only=False``). This enables
+        two-phase parent/child inserts where children must reference
+        parent ids that don't yet exist at construction time.
 
         Args:
             chunks: List of DocumentChunk instances to insert.
+            flush_only: When True, flush the session instead of committing.
         """
         self.db.add_all(chunks)
-        await self.db.commit()
+        if flush_only:
+            await self.db.flush()
+        else:
+            await self.db.commit()
 
     async def search_vector(
         self,

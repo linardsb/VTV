@@ -19,7 +19,7 @@ RAG-powered document knowledge base with full document management capabilities. 
 10. Auto-tag document via LLM classification (best-effort, non-blocking)
 11. Title defaults to filename stem if not provided
 
-### Semantic Chunking (Heading-Aware)
+### Semantic Chunking (Heading-Aware + Parent-Child)
 
 1. When `knowledge_semantic_chunking_enabled=True` (default), `chunk_text_semantic()` is used instead of the fixed-size recursive splitter
 2. Parses markdown `#` headings (already produced by PDF/DOCX/Excel extractors) using regex `^(#{1,6})\s+(.+)$`
@@ -28,9 +28,19 @@ RAG-powered document knowledge base with full document management capabilities. 
 5. Merges small sections (< `knowledge_chunk_min_size` chars) with adjacent neighbours up to `knowledge_chunk_target_size`
 6. Splits large sections (> `knowledge_chunk_max_size` chars) at paragraph then sentence boundaries, each sub-chunk inheriting the parent heading path
 7. Falls back to recursive `chunk_text()` when no headings are detected (< 2 sections)
-8. Each chunk's `metadata` includes `heading_path` (e.g. "Safety > Emergency Procedures"), `heading_level`, `char_start`, `char_end`
-9. Metadata stored as JSON in `DocumentChunk.metadata_json` column
-10. Configurable via `knowledge_semantic_chunking_enabled`, `knowledge_chunk_target_size` (800), `knowledge_chunk_min_size` (256), `knowledge_chunk_max_size` (1500)
+8. **Parent-child emission (AI-4.2):** Multi-paragraph sections emit one **parent** chunk (full section content) plus N **child** chunks (one per paragraph). Single-paragraph sections stay as leaf chunks (no parent, no children). Each result carries `is_parent: bool` and `parent_index: int | None` (positional index of the parent in the result list, NOT a DB id).
+9. **Section type classification:** Each chunk is classified as `"heading" | "body" | "list" | "table"` via `_classify_section_type()` (markdown table detection, bulleted/numbered list detection ≥60% of lines, short single-line headings).
+10. Each chunk's `metadata` includes `heading_path`, `heading_level`, `char_start`, `char_end`. Parent chunks additionally carry `child_count`. `heading_path` and `section_type` are also promoted to first-class `ChunkResult` fields so the service can pass them to model columns without re-parsing JSON.
+11. Metadata stored as JSON in `DocumentChunk.metadata_json` column; `heading_path`/`section_type` also stored in dedicated columns.
+12. Configurable via `knowledge_semantic_chunking_enabled`, `knowledge_chunk_target_size` (800), `knowledge_chunk_min_size` (256), `knowledge_chunk_max_size` (1500)
+
+### Two-Phase Parent-Child Insert (AI-4.2)
+
+1. After chunking + embedding, the service partitions results into parent / child / leaf groups
+2. **Phase 1:** parent `DocumentChunk` objects are inserted via `repository.bulk_create_chunks(parents, flush_only=True)`. Flush (not commit) assigns DB ids to parent ORM instances without ending the transaction.
+3. **Phase 2:** child + leaf objects are constructed with `parent_chunk_id` resolved from the in-memory parent map (positional `parent_index` → flushed parent's `.id`)
+4. **Phase 3:** `repository.bulk_create_chunks(children + leaves)` commits the full transaction (parents + children atomically). Failure in phase 3 rolls back parents too.
+5. Both parents and children are embedded and individually searchable. Parent expansion at query time is deferred to AI-4.3.
 
 ### HyDE Query Expansion (Optional)
 
@@ -163,7 +173,10 @@ Table: `document_chunks`
 | `content` | Text | Not null | Extracted text chunk |
 | `chunk_index` | Integer | Not null | Position in document |
 | `embedding` | Vector(1024) | pgvector | Vector embedding for similarity search |
-| `metadata_json` | Text | Nullable | Chunk-level metadata |
+| `metadata_json` | Text | Nullable | Chunk-level metadata (JSON) |
+| `parent_chunk_id` | Integer | FK -> document_chunks.id, CASCADE, nullable, indexed | Self-referential link from child paragraph chunks to their parent section chunk (AI-4.2). NULL for parents and standalone leaf chunks. |
+| `heading_path` | String(500) | Nullable | Heading hierarchy path (e.g. "Safety > Emergency Procedures > Route Deviation"). Promoted from `metadata_json` for direct column access. |
+| `section_type` | String(20) | Nullable | Structural classification: `"heading" \| "body" \| "list" \| "table"`. Used for retrieval boosting/filtering by structural role. |
 | `created_at` | DateTime | Not null | Auto-set on create |
 | `updated_at` | DateTime | Not null | Auto-set on update |
 
@@ -191,6 +204,8 @@ Table: `document_chunks`
 19. Auto-tagging is best-effort: LLM failures are logged but never block document ingestion
 20. Auto-tagging creates/links tags via race-safe `get_or_create_tag` (IntegrityError catch + rollback + retry)
 21. Batch tag loading for document lists eliminates N+1 queries
+22. **Parent-child chunk hierarchy (AI-4.2):** Multi-paragraph sections produce one parent chunk (full section) + N child chunks (one per paragraph) linked via `parent_chunk_id`. Single-paragraph sections stay as standalone leaf chunks. Both parents and children are embedded and individually searchable. Deleting a parent CASCADE-deletes its children. Search-time parent expansion (`SearchResult.parent_content`) is deferred to AI-4.3.
+23. **Two-phase chunk insert:** Parents are flushed first (`bulk_create_chunks(..., flush_only=True)`) to obtain DB ids before children are constructed with resolved `parent_chunk_id`. Both phases share one `AsyncSession` so parent + child writes commit atomically.
 
 ## Integration Points
 

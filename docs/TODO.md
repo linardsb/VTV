@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence ██████████░░░░░░░░░░░░░  46%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. Remaining: parent-child retrieval, re-chunk migration, self-correction, multi-agent+harness+L3 skills, eval)
+Agent Intelligence ███████████░░░░░░░░░░░░  50%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. Remaining: parent-child retrieval, re-chunk migration, self-correction, multi-agent+harness+L3 skills, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -166,17 +166,21 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 - No schema/model/migration changes — metadata stored in existing `metadata_json` column
 - 11 new tests in `app/knowledge/tests/test_chunking.py` (18 total chunking tests)
 
-#### AI-4.2 Parent-Child Chunk Model
-**What:** Extend `DocumentChunk` model with `parent_chunk_id`, `heading_path`, and `section_type` fields. Create parent chunks (full sections) with child chunks (paragraphs) linked via foreign key.
+#### AI-4.2 Parent-Child Chunk Model ✅
+**What:** Extend `DocumentChunk` model with `parent_chunk_id`, `heading_path`, and `section_type` fields. Multi-paragraph sections emit one parent (full section) + N child paragraphs linked via self-referential foreign key.
 **Why:** When a paragraph chunk matches, the dispatcher often needs the surrounding section context. Parent-child enables "return the full section when a paragraph matches" retrieval, critical for SOPs where steps reference earlier context.
+**Status:** Implemented 2026-04-10. Plan: `.agents/plans/ai-4.2-parent-child-chunks.md`. 6 files modified, 1 migration created, 10 new tests (9 chunker + 1 repository). Search-time parent expansion deferred to AI-4.3.
 **Implementation:**
-- `app/knowledge/models.py` — add to `DocumentChunk`:
-  - `parent_chunk_id: Mapped[int | None] = mapped_column(ForeignKey("document_chunks.id"))`
-  - `heading_path: Mapped[str | None]` — e.g., "Emergency Procedures > Route Deviation"
-  - `section_type: Mapped[str | None]` — "heading" | "body" | "list" | "table"
-- Alembic migration for new columns + self-referential FK
-- `app/knowledge/chunking.py` — `SemanticChunker` creates parent chunks (embedded, searchable) and child chunks (linked to parent)
-**Verify:** `make db-migrate` succeeds. Upload SOP — inspect DB: child chunks have `parent_chunk_id` set. Query returns both child match and parent context. 10+ tests.
+- `app/knowledge/models.py` — added to `DocumentChunk`:
+  - `parent_chunk_id: Mapped[int | None]` — `ForeignKey("document_chunks.id", ondelete="CASCADE")`, indexed
+  - `heading_path: Mapped[str | None]` — `String(500)`, e.g., "Emergency Procedures > Route Deviation"
+  - `section_type: Mapped[str | None]` — `String(20)`, `"heading" | "body" | "list" | "table"`
+- `alembic/versions/g5h6i7j8k9l0_add_parent_child_to_chunks.py` — adds 3 columns + self-referential FK + index on `parent_chunk_id`
+- `app/knowledge/chunking.py` — `ChunkResult` extended with `heading_path`, `section_type`, `is_parent`, `parent_index` fields. New `_classify_section_type()` helper detects markdown tables, bulleted/numbered lists (≥60% of lines), and short single-line headings. `chunk_text_semantic()` emission loop rewritten: multi-paragraph sections emit one parent + N children; single-paragraph sections stay as leaf chunks.
+- `app/knowledge/repository.py` — `bulk_create_chunks(chunks, *, flush_only: bool = False)` — when `flush_only=True`, calls `db.flush()` instead of `db.commit()` so caller can read newly assigned parent ids before constructing children.
+- `app/knowledge/service.py` — two-phase insert in `ingest_document()`: partition results into parent/child/leaf groups, flush parents to obtain ids, build children with resolved `parent_chunk_id`, commit children + leaves (parents commit with same transaction).
+- 10 new tests: 9 chunker tests (leaf path, parent+child emission, parent content, heading_path field, list/table/body classification, fallback path, child_count metadata) + 1 repository test for `flush_only` semantics. 27 total chunking tests (18 existing + 9 new). 175/175 knowledge tests pass. Pyright 0 errors, mypy 0 errors in `app/knowledge/`.
+**Verify:** Apply migration via `make db && make db-migrate`. Upload a multi-section SOP, then `SELECT id, parent_chunk_id, heading_path, section_type FROM document_chunks WHERE document_id = (SELECT max(id) FROM documents) ORDER BY chunk_index;` — expect parent rows with `parent_chunk_id IS NULL` followed by child rows pointing to that parent.
 
 #### AI-4.3 Parent-Child Retrieval + Context Expansion
 **What:** When hybrid search returns a child chunk match, automatically fetch and include the parent chunk content in the agent's context. Deduplicate when multiple children from the same parent match.

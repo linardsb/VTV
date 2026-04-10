@@ -18,6 +18,10 @@ class ChunkResult:
     metadata: dict[str, str | int | None] = field(
         default_factory=lambda: dict[str, str | int | None]()
     )
+    heading_path: str | None = None
+    section_type: str | None = None
+    is_parent: bool = False
+    parent_index: int | None = None  # positional index in result list, NOT a DB id
 
 
 def chunk_text(
@@ -320,6 +324,43 @@ def _split_large_sections(
     return result
 
 
+_LIST_LINE_RE = re.compile(r"^\s*([-*+]|\d+[.)])\s+")
+_TABLE_SEP_RE = re.compile(r"\|.*\|")
+
+
+def _classify_section_type(content: str) -> str:
+    """Heuristically classify a section's content type.
+
+    Returns one of: "heading", "body", "list", "table".
+    Used to populate ``DocumentChunk.section_type`` so retrieval can
+    boost or filter by structural role (e.g. lists for step procedures).
+    """
+    stripped = content.strip()
+    if not stripped:
+        return "body"
+
+    lines = [line for line in stripped.split("\n") if line.strip()]
+    if not lines:
+        return "body"
+
+    # Markdown table: at least 2 pipe lines and a separator row of dashes
+    if sum(1 for line in lines if _TABLE_SEP_RE.search(line)) >= 2 and any(
+        re.match(r"^\s*\|?[\s:|-]+\|[\s:|-]+\|?\s*$", line) for line in lines
+    ):
+        return "table"
+
+    # List: 60%+ of non-empty lines look like list items, with a min of 2
+    list_lines = sum(1 for line in lines if _LIST_LINE_RE.match(line))
+    if list_lines >= 2 and list_lines >= len(lines) * 0.6:
+        return "list"
+
+    # Heading-only: a single short line that looks like a header (no body)
+    if len(lines) == 1 and len(stripped) <= 80:
+        return "heading"
+
+    return "body"
+
+
 def chunk_text_semantic(
     text: str,
     target_size: int = 800,
@@ -361,7 +402,9 @@ def chunk_text_semantic(
     sections = _split_large_sections(sections, max_size, chunk_overlap)
 
     results: list[ChunkResult] = []
-    for idx, section in enumerate(sections):
+    next_index = 0
+
+    for section in sections:
         content = section.content
         if not content.strip():
             continue
@@ -372,13 +415,80 @@ def chunk_text_semantic(
             char_start = 0
         char_end = char_start + len(content)
 
-        metadata: dict[str, str | int | None] = {
-            "heading_path": section.heading_path if section.heading_path else None,
+        heading_path = section.heading_path or None
+        section_type = _classify_section_type(content)
+
+        # Split into paragraph children. Empty results = single paragraph.
+        paragraphs = [p.strip() for p in re.split(r"\n{2,}", content) if p.strip()]
+
+        # Single paragraph (or empty after split) → leaf chunk, no parent/child
+        if len(paragraphs) <= 1:
+            metadata: dict[str, str | int | None] = {
+                "heading_path": heading_path,
+                "heading_level": section.heading_level if section.heading_level > 0 else None,
+                "char_start": char_start,
+                "char_end": char_end,
+            }
+            results.append(
+                ChunkResult(
+                    content=content,
+                    chunk_index=next_index,
+                    metadata=metadata,
+                    heading_path=heading_path,
+                    section_type=section_type,
+                    is_parent=False,
+                    parent_index=None,
+                )
+            )
+            next_index += 1
+            continue
+
+        # Multi-paragraph → emit one parent + N children
+        parent_metadata: dict[str, str | int | None] = {
+            "heading_path": heading_path,
             "heading_level": section.heading_level if section.heading_level > 0 else None,
             "char_start": char_start,
             "char_end": char_end,
+            "child_count": len(paragraphs),
         }
+        parent_position = next_index
+        results.append(
+            ChunkResult(
+                content=content,
+                chunk_index=next_index,
+                metadata=parent_metadata,
+                heading_path=heading_path,
+                section_type=section_type,
+                is_parent=True,
+                parent_index=None,
+            )
+        )
+        next_index += 1
 
-        results.append(ChunkResult(content=content, chunk_index=idx, metadata=metadata))
+        cursor = char_start
+        for para in paragraphs:
+            para_start = text.find(para, cursor) if para else cursor
+            if para_start == -1:
+                para_start = cursor
+            para_end = para_start + len(para)
+            cursor = para_end
+            child_metadata: dict[str, str | int | None] = {
+                "heading_path": heading_path,
+                "heading_level": section.heading_level if section.heading_level > 0 else None,
+                "char_start": para_start,
+                "char_end": para_end,
+            }
+            results.append(
+                ChunkResult(
+                    content=para,
+                    chunk_index=next_index,
+                    metadata=child_metadata,
+                    heading_path=heading_path,
+                    section_type=_classify_section_type(para),
+                    is_parent=False,
+                    parent_index=parent_position,
+                )
+            )
+            next_index += 1
 
     return results

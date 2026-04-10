@@ -271,20 +271,75 @@ class KnowledgeService:
             texts = [c.content for c in chunks]
             embeddings = await _get_embedding().embed(texts)
 
-            # Build chunk objects
-            chunk_objects = [
-                DocumentChunk(
-                    document_id=doc.id,
-                    content=chunks[i].content,
-                    chunk_index=chunks[i].chunk_index,
-                    embedding=embeddings[i],
-                    metadata_json=json.dumps(chunks[i].metadata) if chunks[i].metadata else None,
-                )
-                for i in range(len(chunks))
-            ]
+            # Build parent and child chunk objects.
+            # Parents must flush first so children can reference parent ids.
+            parent_objects: list[DocumentChunk] = []
+            parent_position_to_obj: dict[int, DocumentChunk] = {}
+            child_specs: list[tuple[chunking.ChunkResult, list[float], int]] = []
+            leaf_specs: list[tuple[chunking.ChunkResult, list[float]]] = []
 
-            # Store
-            await self.repository.bulk_create_chunks(chunk_objects)
+            for chunk_result, embedding in zip(chunks, embeddings, strict=True):
+                if chunk_result.is_parent:
+                    obj = DocumentChunk(
+                        document_id=doc.id,
+                        content=chunk_result.content,
+                        chunk_index=chunk_result.chunk_index,
+                        embedding=embedding,
+                        metadata_json=(
+                            json.dumps(chunk_result.metadata) if chunk_result.metadata else None
+                        ),
+                        parent_chunk_id=None,
+                        heading_path=chunk_result.heading_path,
+                        section_type=chunk_result.section_type,
+                    )
+                    parent_objects.append(obj)
+                    parent_position_to_obj[chunk_result.chunk_index] = obj
+                elif chunk_result.parent_index is not None:
+                    child_specs.append((chunk_result, embedding, chunk_result.parent_index))
+                else:
+                    leaf_specs.append((chunk_result, embedding))
+
+            # Phase 1: flush parents to obtain ids
+            if parent_objects:
+                await self.repository.bulk_create_chunks(parent_objects, flush_only=True)
+
+            # Phase 2: build children + leaves with resolved parent ids
+            child_and_leaf_objects: list[DocumentChunk] = []
+            for child_result, child_embedding, parent_position in child_specs:
+                parent_obj = parent_position_to_obj.get(parent_position)
+                parent_id = parent_obj.id if parent_obj is not None else None
+                child_and_leaf_objects.append(
+                    DocumentChunk(
+                        document_id=doc.id,
+                        content=child_result.content,
+                        chunk_index=child_result.chunk_index,
+                        embedding=child_embedding,
+                        metadata_json=(
+                            json.dumps(child_result.metadata) if child_result.metadata else None
+                        ),
+                        parent_chunk_id=parent_id,
+                        heading_path=child_result.heading_path,
+                        section_type=child_result.section_type,
+                    )
+                )
+            for leaf_result, leaf_embedding in leaf_specs:
+                child_and_leaf_objects.append(
+                    DocumentChunk(
+                        document_id=doc.id,
+                        content=leaf_result.content,
+                        chunk_index=leaf_result.chunk_index,
+                        embedding=leaf_embedding,
+                        metadata_json=(
+                            json.dumps(leaf_result.metadata) if leaf_result.metadata else None
+                        ),
+                        parent_chunk_id=None,
+                        heading_path=leaf_result.heading_path,
+                        section_type=leaf_result.section_type,
+                    )
+                )
+
+            # Phase 3: commit children + leaves (parents commit with this transaction)
+            await self.repository.bulk_create_chunks(child_and_leaf_objects)
             await self.repository.update_document_status(doc.id, "completed", None, len(chunks))
 
             # Update OCR status if OCR was applied

@@ -40,13 +40,16 @@ def make_document(**overrides: object) -> Document:
 def make_chunk(**overrides: object) -> DocumentChunk:
     """Factory for DocumentChunk instances with sensible defaults."""
     now = utcnow()
-    defaults = {
+    defaults: dict[str, object] = {
         "id": 1,
         "document_id": 1,
         "content": "Sample chunk text",
         "chunk_index": 0,
         "embedding": None,
         "metadata_json": None,
+        "parent_chunk_id": None,
+        "heading_path": None,
+        "section_type": None,
         "created_at": now,
         "updated_at": now,
     }
@@ -227,6 +230,22 @@ async def test_bulk_create_chunks(repo: KnowledgeRepository, mock_db: AsyncMock)
     mock_db.add_all.assert_called_once_with(chunks)
     mock_db.commit.assert_awaited_once()
     assert len(chunks) == 5
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_bulk_create_chunks_flush_only(repo: KnowledgeRepository, mock_db: AsyncMock) -> None:
+    """flush_only=True should flush instead of commit so caller can read ids."""
+    chunks = [make_chunk(id=i, document_id=1, chunk_index=i) for i in range(3)]
+    mock_db.add_all = MagicMock()
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+
+    await repo.bulk_create_chunks(chunks, flush_only=True)
+
+    mock_db.add_all.assert_called_once_with(chunks)
+    mock_db.flush.assert_awaited_once()
+    mock_db.commit.assert_not_called()
 
 
 # --- Test 6: Vector search with ordered results ---

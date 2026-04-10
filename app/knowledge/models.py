@@ -73,6 +73,11 @@ class DocumentChunk(Base, TimestampMixin):
 
     Each chunk stores extracted text and its vector embedding.
     The embedding column uses pgvector's Vector type for cosine similarity search.
+
+    Parent-child relationships (AI-4.2): a multi-paragraph section is stored
+    as one ``parent`` chunk plus one ``child`` chunk per paragraph. Children
+    reference their parent via ``parent_chunk_id`` so retrieval can return
+    the surrounding section context when a paragraph matches.
     """
 
     __tablename__ = "document_chunks"
@@ -85,3 +90,11 @@ class DocumentChunk(Base, TimestampMixin):
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     embedding = mapped_column(Vector(1024))
     metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    parent_chunk_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("document_chunks.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    heading_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    section_type: Mapped[str | None] = mapped_column(String(20), nullable=True)

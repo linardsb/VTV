@@ -142,8 +142,10 @@ def test_semantic_small_sections_merged():
     sections = "\n\n".join(f"## S{i}\n\nTiny body {i}." for i in range(10))
     text = f"# Doc\n\n{sections}"
     result = chunk_text_semantic(text, target_size=800, min_size=256)
-    # 10 tiny sections should merge into fewer chunks
-    assert len(result) < 10
+    # 10 tiny sections should merge into fewer logical groups. Under the
+    # parent-child model (AI-4.2), the merged group emits 1 parent + N child
+    # paragraphs, so total chunk count grows but stays well below 10 * 2.
+    assert len(result) < 25
 
 
 def test_semantic_latvian_headings():
@@ -182,3 +184,97 @@ def test_semantic_adaptive_sizing():
     for chunk in result:
         # Allow small tolerance for overlap
         assert len(chunk.content) <= 1500 + 100
+
+
+# ---------------------------------------------------------------------------
+# Parent-child chunk emission (AI-4.2)
+# ---------------------------------------------------------------------------
+
+
+def test_semantic_single_paragraph_section_is_leaf() -> None:
+    """A section with one paragraph stays a leaf chunk (no parent/child)."""
+    text = "# Title\n\nFirst section body. Just one paragraph here."
+    result = chunk_text_semantic(text, target_size=2000, min_size=10)
+    assert all(not c.is_parent for c in result)
+    assert all(c.parent_index is None for c in result)
+
+
+def test_semantic_multi_paragraph_section_emits_parent_and_children() -> None:
+    """A multi-paragraph section becomes one parent + N child paragraphs."""
+    text = (
+        "# Procedure\n\n"
+        "First paragraph of the procedure section.\n\n"
+        "Second paragraph with additional steps.\n\n"
+        "Third and final paragraph wraps it up."
+    )
+    result = chunk_text_semantic(text, target_size=5000, min_size=1, max_size=5000)
+    parents = [c for c in result if c.is_parent]
+    children = [c for c in result if c.parent_index is not None]
+    assert len(parents) == 1
+    assert len(children) == 3
+    # All children point to the parent's positional index
+    assert all(c.parent_index == parents[0].chunk_index for c in children)
+
+
+def test_semantic_parent_carries_full_section_content() -> None:
+    """The parent chunk's content equals the joined section body."""
+    text = "## Safety\n\nStay alert at all times.\n\nReport incidents immediately."
+    result = chunk_text_semantic(text, target_size=5000, min_size=1, max_size=5000)
+    parents = [c for c in result if c.is_parent]
+    assert len(parents) == 1
+    assert "Stay alert" in parents[0].content
+    assert "Report incidents" in parents[0].content
+
+
+def test_semantic_chunks_carry_heading_path_field() -> None:
+    """heading_path is promoted to a first-class ChunkResult field."""
+    text = "# A\n\n## B\n\nFirst para.\n\nSecond para."
+    result = chunk_text_semantic(text, target_size=5000, min_size=1, max_size=5000)
+    chunks_with_path = [c for c in result if c.heading_path]
+    assert chunks_with_path
+    assert any("B" in (c.heading_path or "") for c in chunks_with_path)
+
+
+def test_semantic_section_type_classification_list() -> None:
+    """Sections that are mostly bulleted lines are classified as 'list'."""
+    text = "## Steps\n\n- First step\n- Second step\n- Third step\n- Fourth step"
+    result = chunk_text_semantic(text, target_size=5000, min_size=1, max_size=5000)
+    list_chunks = [c for c in result if c.section_type == "list"]
+    assert list_chunks
+
+
+def test_semantic_section_type_classification_table() -> None:
+    """Markdown tables classify as 'table'."""
+    text = "## Routes\n\n| Route | Stops |\n|-------|-------|\n| 1     | 12    |\n| 2     | 18    |"
+    result = chunk_text_semantic(text, target_size=5000, min_size=1, max_size=5000)
+    assert any(c.section_type == "table" for c in result)
+
+
+def test_semantic_section_type_classification_body_default() -> None:
+    """Plain prose sections classify as 'body'."""
+    text = (
+        "## Overview\n\n"
+        "This is a paragraph of plain prose describing the system.\n\n"
+        "Another paragraph continues the description in the same body."
+    )
+    result = chunk_text_semantic(text, target_size=5000, min_size=1, max_size=5000)
+    body_chunks = [c for c in result if c.section_type == "body"]
+    assert body_chunks
+
+
+def test_semantic_no_headings_fallback_has_no_parents() -> None:
+    """Fallback path (no headings) produces only leaf chunks."""
+    text = "Just plain text with no structure. " * 30
+    result = chunk_text_semantic(text, target_size=200, min_size=10)
+    assert all(not c.is_parent for c in result)
+    assert all(c.parent_index is None for c in result)
+    assert all(c.heading_path is None for c in result)
+
+
+def test_semantic_child_chunk_count_metadata() -> None:
+    """Parent chunks record child_count in metadata."""
+    text = "# Doc\n\n## Section\n\nPara one.\n\nPara two.\n\nPara three."
+    result = chunk_text_semantic(text, target_size=5000, min_size=1, max_size=5000)
+    parents = [c for c in result if c.is_parent]
+    assert parents
+    assert parents[0].metadata.get("child_count") == 3
