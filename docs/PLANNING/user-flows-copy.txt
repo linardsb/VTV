@@ -1,0 +1,674 @@
+VTP Platforma — Biznesa Piedavajums
+
+17 Parvaldibas lapas
+11 MI riki
+1 151 Kvalitates testi
+LV/EN Divvalodu saskarne
+
+---
+
+Rigas Satiksme sogad zaudes vismaz EUR 2,4M, ko si platforma var ietaupit
+
+1 076 transportlidzekli, 3 500 darbinieki, 116 miljoni braucienu — un joprojam Excel grafiki, telefona zvani un papira arhivi. VTP aizstaj so visu ar vienu sistemu un MI asistentu, kas saprot jusu datus latviski. 17 parvaldibas lapas, 4 lomu drosiba, Google Maps un ES standartu integracija — izstradata, testeta un gatava izvietosanai.
+
+---
+
+KA IR TAGAD
+
+- Grafikus plano Excel tabulas un CSV failos
+- Par kavejumiem uzzina no pasazieru sudzibam
+- Soferu mainas koordine pa telefonu
+- Proceduras mekle papira arhivos un e-pastos
+- Nav reallaika parskata par transporta stavokli
+- Katrs datu avots sava sistema
+
+KA VAR BUT AR VTP
+
+- Grafikus parvalda viena sistema ar validaciju
+- Kavejumus atklaj automatiski, sekunzu laika
+- Mainas un pieejamību parvalda digitali
+- MI atrod proceduras sekunde ar avota atsauci
+- Viss transporta parks redzams karte reallaika
+- Vienots parskats par visiem datiem
+
+---
+
+1. REALLAIKA TRANSPORTA UZRAUDZIBA
+
+Viss transporta parks viena karte ar automatisku kavejumu atklasanu
+
+Interaktiva karte rada katra transportlidzekla poziciju reallaika ar automatisku atjaunosanu. Sakumlapas panelis apkopo galvenos raditajus — aktivo transportlidzeklu skaitu, punktualitati, aizkavetos marsrutus un operativos notikumus.
+
+Kavejumus redz uzreiz
+Laiks no kavejuma rasanas lidz reagesanai samazinas no stundam lidz minutem. Pasazieru sudzibas vairs nav pirmais signals.
+
+Proaktiva riciba
+Sastregumi un marsrutu partraukumi redzami, pirms tie klust kritiski. Papildu transports vai marsrutu parvirzsana ir iespejama laicigi.
+
+Dispeceru laika ietaupijums
+Viens ekrans aizstaj zvanus katram soferim. Dispecers parvalda visu transporta parku no vienas vietas, ietaupot lidz 2 stundam diena.
+
+---
+
+2. GRAFIKU UN MARSRUTU PARVALDIBA
+
+Sezonas mainas, svetku dienas un jauni marsruti — dazu stundu darba
+
+Pilna grafiku parvaldiba ar kalendariem, reisu planosanu un pieturlaiku definesanu. Importejiet esosos datus no ZIP failiem vai veidojiet jaunus marsrutus ar vizualo karti. Eksportejiet standarta formata integracijai ar Google Maps, Apple Maps un ES sistemam.
+
+Nedelas darbs — dazas stundas
+Sezonas grafiku maina ar pilnu audita pierakstu. Kalendara iznemumu sistema lauj parvaldist simtiem reisu ar daziem klikskem.
+
+Svetki ar 2 darbibam
+Viena svetku diena ietekme simtiem reisu. Ar kalendara iznemumiem — divas darbibas, un viss ir parvaldits. Nav jaredige katrs reiss.
+
+Google Maps integracija
+Standarta eksports nodrosina, ka jusu dati paradas Google Transit, Apple Maps un citas pasazieru lietotnes. Validacija noverss kludas.
+
+---
+
+3. TRANSPORTA PARVALDIBA UN GPS IZSEKOSANA
+
+Iericu uzraudziba, telemetrija un geografiskas zonas
+
+Registrejiet GPS ierices, uzraugiet to atrasanas vietu transporta karte ar automatisku atjaunosanu un analizejiet transportlidzeklu telemetriju (atrums, degviela, dzineja stavoklis). Definejiet geografiskas zonas — depo teritorijas, marsrutu zonas, ierobezotas zonas — un sanemiet automatiskus bridinajumus par iebrauksanu un izbrauksanu.
+
+Transporta atrasanas vieta jebkura bridi
+Katra transportlidzekla pozicija ir pieejama reallaika. Atbalsta gan aparaturas GPS, gan mobilas lietotnes.
+
+Proaktiva apkopes planosana
+Telemetrijas dati (dzineja temperatura, akumulatora spriegums) bridina par potencialiem defektiem, pirms tie rada dikstavi un izmaksas.
+
+Automatiskas zonas un bridinajumi
+Sistema registre transportlidzeklu kustibu starp zonam automatiski. Uzrauga uzturesanas ilgumu un bridina par novizem.
+
+---
+
+4. VIZUALA PIETURU KARTESANA
+
+Interaktiva karte ar 1 600+ pieturu vizualizaciju
+
+Visa pieturu tikla vizualizacija karte ar iespeju novietot jaunas pieturas ar vienu klikski un precizet poziciju, velkot markieri. Divvirzienu sinhronizacija starp karti un datiem. Geotelpiska meklesana atrod tuvakas pieturas noraditaja radiusa.
+
+Vizuala kludu noversana
+Nepareizi novietotas pieturas, parklajuma robi un dublikati ir redzami uzreiz karte. Izklajlapas sis kludas slep.
+
+Jauns marsruts bez arejiem rikiem
+Pilns cikls viena sistema: pieturu novietosana karte, marsruta izveide, grafiku piesaiste un datu eksports.
+
+Tikla parklajuma optimizacija
+Radiusa meklesana palidz identificet neapkalpotos rajonus un planot jaunus marsrutus, balstoties uz realiem datiem.
+
+---
+
+5. SOFERU UN PERSONALA PARVALDIBA
+
+Mainu planosana, licencu uzraudziba, pieejamibas parskats
+
+Centralizeta soferu kartoteka ar mainu grafikiem, statusu izsekosanu (pieejams, darba, atvalinajuma, slimo), vaditaja apliecibu un medicinisko izzinu deriguma terminu uzraudzibu. Kvalificeto marsrutu saraksti un apmacību pieraksti.
+
+Aizstaj Excel un papira grafikus
+Mainu planosana un pieejamibas parskats viena sistema ar strukturetiem datiem, nevis izklajlapas un uz tafeles.
+
+Dokumentu deriguma kontrole
+Licencu un medicinisko izzinu terminu izsekosana noverss situacijas, kad darbinieks strada ar beigusies dokumentiem.
+
+Atra aizvietotaja atrasana
+Filtresana pec statusa, mainas un kvalificetajiem marsrutiem lauj sekunzu laika atrast piemrotu aizstajju.
+
+---
+
+6. DOKUMENTU ZINASANU BAZE
+
+Augsupielade dokumentu — MI to saprot un mekle taja
+
+Augsupieladejiet noteikumus, proceduras vai instrukcijas — sistema automatiski apstrada saturu un padara to meklejamu caur MI asistentu. Jebkurs darbinieks var dabiga valoda jautat par augsupieladetajiem dokumentiem un sanemt atbildi ar precizu atsauci uz avota failu.
+
+Proceduras sekundes laika
+Noteikumi ir pieejami uzreiz caur MI, nevis meklejot e-pastos vai papira arhivos. Jauni darbinieki klust produktivi atrak.
+
+Atbildes ar avota atsaucem
+MI cite konkrtu dokumentu un vietu taja. Darbinieks var parbaudit avotu un lejupieladet originalo failu.
+
+Vienots zinasanu krajums
+Visi noteikumi viena vieta ar kategorijam. Noverss situacijas, kad darbinieki izmanto novecojusas proceduru versijas.
+
+---
+
+7. OPERATIVIE NOTIKUMI UN BRIDINAJUMI
+
+Kalendara panelis, automatiski bridinajumi un komandas informesana
+
+Registrejiet planotos darbus, arkartas situacijas un marsrutu izmainas. Notikumi automatiski paradas sakumlapas kalendara visiem darbiniekiem. Bridinajumu sistema genere pazinojumus, kad konkreti nosacijumi ir izpilditi — piemeram, kavejums virs 10 minutem vai transportlidzeklis arpus zonas.
+
+Nekas nepaliek nepamants
+Visa komanda redz notikumus reallaika kalendara skata, nevis uzzina par tiem no e-pasta vai telefona.
+
+Planosana ar perspektivu
+Kalendara skati (nedela, menesis, gads) lauj redzet gan sodienas remontu, gan nakammenes planoto darbu.
+
+Automatiski bridinajumi
+Definejami nosacijumi, kas automatiski genere pazinojumus. Cilveki vairs neaizmirst pazinot par butiskam situacijam.
+
+---
+
+8. Kā VTP ietaupa laiku un līdzekļus
+
+Konkrēti ikdienas ieguvumi, kas summējas ievērojamos gada ietaupījumos
+
+Transportlīdzekļu kartotēka un apkope
+
+Pilna transportlīdzekļa uzskaite
+Katram autobusam, trolejbusam vai tramvajam — reģistrācijas dati, tips, statuss, nobraukums, piesaistītais šoferis. Viens avots visai informācijai, kas iepriekš bija izkliedēta pa vairākām tabulām un mapēm.
+
+Apkopes žurnāls ar izmaksām
+Eļļas maiņas, riepu nomaiņas, bremžu apkopes, filtru maiņas — katrs ieraksts ar datumu, nobraukumu un izmaksām. Sistēma rēķina vidējās izmaksas uz km un brīdina par nākamo plānoto apkopi.
+
+Transportlīdzekļa-šofera piesaiste
+Zināms, kurš šoferis vada kuru transportlīdzekli katrā maiņā. Incidenta gadījumā — tūlītēja atbildība. Optimizē piesaisti pēc kvalifikācijas un pieredzes.
+
+Tehniskās apskates un apdrošināšana
+TA termiņi, OCTA un KASKO polišu derīgums — viss vienā skatā ar automātiskiem atgādinājumiem. Novērš sodus un apdrošināšanas robus. Salīdziniet polišu izmaksas pa transportlīdzekļiem.
+
+Dzīves cikla izmaksu analīze
+Cik konkrēts autobuss ir izmaksājis kopš iegādes? Degviela + apkope + apdrošināšana + remonti = kopējās izmaksas. Ar vienu klikšķi redzams, vai transportlīdzeklis vēl ir ekonomiski izdevīgs vai laiks to norakstīt.
+
+Degvielas patēriņa kontrole
+Salīdziniet patēriņu pa transportlīdzekļiem un maršrutiem. Anomālijas var norādīt uz tehniskām problēmām, noplūdēm vai neefektīvu braukšanas stilu — katrs procents ir ietaupījums tūkstošos.
+
+Analītika un atskaites
+
+Analītikas panelis ar KPI
+Transporta parka kopsavilkums, šoferu pārklājums, punktualitātes rādītāji un apvienota metrika — vienā skatā. Vadība redz situāciju bez nepieciešamības pieprasīt atskaites no padotajiem.
+
+Punktualitātes analītika
+Cik procenti reisu ir laicīgi, cik kavējas un par cik? Sadalījums pa maršrutiem, dienām un stundām. Identificē sistemātiskas problēmas — piemēram, ka 8:15 reiss vienmēr kavējas Čaka ielā.
+
+Šoferu pārklājuma analīze
+Vai pietiek šoferu katrai maiņai? Kur ir robi? Cik bieži tiek izmantoti aizvietotāji? Dati ļauj plānot personāla vajadzības uz priekšu, nevis reaģēt uz krīzēm.
+
+ES standartu atbilstība un eksporti
+
+NeTEx eksports
+Eiropas standarta XML formāts sabiedriskā transporta datiem. Nepieciešams ES fondu piesaistei, pārrobežu integrācijai un nacionālā līmeņa transporta plānošanai.
+
+SIRI reāllaika datu apmaiņa
+SIRI Vehicle Monitoring un Stop Monitoring standarti — sistēma eksportē reāllaika datus formātā, ko saprot jebkura ES dalībvalsts pasažieru informācijas sistēma.
+
+GTFS standarta pilns atbalsts
+Imports, eksports, validācija un reāllaika datu avotu pārvaldība. Google Maps, Apple Maps, Moovit un citas pasažieru lietotnes automātiski rāda jūsu datus.
+
+Grāmatvedība un finanšu kontrole (2. fāze — izstrāde)
+
+Tieša saistība ar grāmatvedību
+Platforma ir tieši savienota ar grāmatvedības sistēmu. Degvielas čeki, apkopes rēķini, šoferu virsstundas — visi izdevumi automātiski nonāk grāmatvedībā bez manuālas pārrakstīšanas.
+
+Izmaksas uz kilometru
+Ar vienu pogas spiedienu — katra maršruta un transportlīdzekļa izmaksas uz kilometru. Degviela, apkope, šoferu algas, apdrošināšana — viss summēts un salīdzināms.
+
+Vadības atskaites vienā klikšķī
+Mēneša atskaite vadībai ar visiem galvenajiem rādītājiem: izdevumi, punktualitāte, nobraukums, apkopes, incidenti. Nav jāvāc dati no 5 sistēmām — viss ir vienā vietā.
+
+Operatīvā efektivitāte
+
+Šoferu darba stundu uzskaite
+Automātiska darba laika fiksēšana pēc pieteikšanās sistēmā. Virsstundu aprēķins, atvaļinājumu bilance un darba grafiku atbilstība — bez papīra žurnāliem.
+
+Virsstundu izmaksu kontrole
+Redzams reāllaikā, cik virsstundu uzkrājušās katrā maiņā. Ļauj optimizēt grafikus un samazināt virsstundu izmaksas par 15–25%, pārdalot slodzi vienmērīgāk.
+
+Jauno darbinieku ievadīšana
+MI asistents atbild uz jebkuru jautājumu par procedūrām, noteikumiem un maršrutiem. Jauns darbinieks kļūst patstāvīgs ātrāk — apmācības laiks samazinās.
+
+Maršrutu efektivitātes analīze
+Katra maršruta punktualitāte, pasažieru skaits un izmaksas vienā skatā. Identificē nerentablus maršrutus un palīdz optimizēt tīklu uz datu pamata, nevis intuīcijas.
+
+Audita gatavība jebkurā brīdī
+Strukturēti dati ar pilnu audita pierakstu. Licences, apskates, apmācības, apkopes — viss dokumentēts ar datumiem. Auditoru pieprasījumus izpilda minūtēs, ne dienās.
+
+ES standartu un fondu atbilstība
+GTFS standarta eksports, NeTEx/SIRI atbilstība un strukturēti dati ir priekšnosacījums ES transporta fondu piesaistei. Platforma nodrošina šo atbilstību automātiski.
+
+Krāpšanas un zaudējumu novēršana
+
+Degvielas zādzību atklāšana
+GPS nobraukums salīdzināts ar degvielas patēriņu. Ja transportlīdzeklis patērē 40L/100km, bet vidēji tāds pats modelis — 32L/100km, sistēma brīdina automātiski. Nozarē degvielas zudumi vidēji ir 3–8% no kopējā budžeta.
+
+Tukšo reisu (“spoku braucienu”) atklāšana
+GPS dati apstiprina, vai ieplānotais reiss tiešām tika izpildīts. Sistēma salīdzina grafiku ar faktisko transportlīdzekļa kustību un identificē reisus, kas grafikā ir atzīmēti kā izpildīti, bet GPS rāda, ka transportlīdzeklis nekustējās.
+
+Nesankcionēta transportlīdzekļu izmantošana
+Ģeogrāfiskās zonas un darba laika grafiks kopā atklāj, ja transportlīdzeklis tiek izmantots ārpus darba laika vai ārpus atļautajām zonām. Automātiski brīdinājumi nakts laikā vai brīvdienās.
+
+Darba laika krāpšanas novēršana
+GPS aktivitāte salīdzināta ar deklarēto darba laiku. Ja šoferis ir pierakstījis 8 stundas, bet GPS rāda 6.5 stundas kustības — tas ir redzams. Godīgiem darbiniekiem tas ir aizsardzība, ne kontrole.
+
+Ātruma pārsniegšanas monitorings
+Reāllaika ātruma kontrole ar automātiskiem brīdinājumiem. Samazina negadījumu risku, degvielas patēriņu un transportlīdzekļu nolietojumu. Dati izmantojami šoferu vērtēšanā un apmācību plānošanā.
+
+Audita pieraksts katrai darbībai
+Katra sistēmas izmaiņa ir pierakstīta ar lietotāju, laiku un IP adresi. Neiespējami “pazust” datiem vai mainīt vēsturiskos ierakstus bez pēdas. Būtiska priekšrocība publiskā iepirkuma kontekstā.
+
+Apdrošināšana un juridiskā aizsardzība
+
+Zemākas apdrošināšanas prēmijas
+Apdrošinātāji piedāvā 10–15% atlaides transporta parkiem ar GPS izsekošanu un šoferu uzvedības monitoringu. Pie EUR 1M apdrošināšanas budžeta tas ir EUR 100–150K ietaupījums gadā. Vairākas Eiropas apdrošināšanas kompānijas jau piedāvā šādus nosacījumus.
+
+Negadījumu pierādījumu bāze
+GPS dati, ātruma žurnāli un maršruta vēsture ir objektīvi pierādījumi negadījuma lietā. Ja šoferis brauca atļautajā ātrumā un atradās pareizajā maršrutā — tas ir pierādāms. Strīdu risināšanas laiks samazinās no mēnešiem līdz dienām.
+
+Šoferu uzvedības vērtējums
+Automātisks vērtējums pēc ātruma, bremzēšanas un maršruta ievērošanas. Augsta riska šoferi saņem papildu apmācību pirms negadījuma, nevis pēc. Proaktīva riska mazināšana, nevis reaktīva seku novēršana.
+
+Darbinieku piesaiste un noturēšana
+
+Taisnīga maiņu sadale
+Sistēma ļauj optimizēt grafikus tā, lai slodze būtu vienmērīga. Nav “iecienīto” un “sodomaršrutu”. Caurspīdīga pieeja samazina darbinieku neapmierinātību — galveno aiziešanas iemeslu transporta nozarē.
+
+Aizstāšanas izmaksu samazināšana
+Jauna šofera pieņemšana un apmācīšana izmaksā EUR 6–10K (sludinājumi, intervijas, medicīniskie testi, apmācības, sākotnējā zemā produktivitāte). Pie 1 400 šoferiem un 15% mainības — tas ir līdz EUR 1,4M gadā. Katrs procents mainības samazinājumā ir tūkstošu ietaupījums.
+
+Darba apstākļu caurspīdīgums
+Šoferi redz savus grafikus, maiņas un novērtējumus digitāli. Nav “telefona zvana piektdienas vakarā”. Profesionāli darba apstākļi piesaista labākos kandidātus darba tirgū, kur šoferu trūkums ir hronisks.
+
+Vides ilgtspēja un zaļā pāreja
+
+CO2 emisiju uzskaite pa maršrutiem
+Degvielas patēriņa un nobraukuma dati ļauj precīzi aprēķināt CO2 emisijas katram maršrutam un transportlīdzeklim. Nepieciešams ES zaļā kursa atskaitēm un pašvaldību ilgtspējas plāniem. Latvija ir apņēmusies samazināt transporta emisijas par 20% līdz 2030. gadam.
+
+Elektriskā parka pārejas plānošana
+Maršrutu garumi, patēriņa profili un uzlādes punktu izvietojums — dati ļauj precīzi plānot, kurus maršrutus pirmkārt elektrificēt un kur izvietot uzlādes infrastruktūru. Bez datiem elektrifikācija ir dārga un riskanta.
+
+ESG atskaites un zaļie fondi
+Strukturēti vides dati ir priekšnosacījums pašvaldību zaļo obligāciju emisijai un ES Zaļā kursa fondu piesaistei. Platforma automātiski ģenerē datus ESG atskaitēm — ietaupa konsultantu izmaksas un nodrošina datu kvalitāti.
+
+Krīzes vadība un ārkārtas situācijas
+
+Reāllaika maršrutu pārvirzīšana
+Ceļa remonta, plūdu vai sabiedriska pasākuma laikā — dispečers redz visus transportlīdzekļus kartē un var koordinēt pārvirzīšanu reāllaikā. Bez sistēmas — haoss un pasažieru sūdzības. Ar sistēmu — organizēta reaģēšana minūšu laikā.
+
+Evakuācijas un ārkārtas transportēšana
+Dabas katastrofu vai rūpniecisko avāriju gadījumā — tūlītējs pārskats par tuvākajiem brīvajiem transportlīdzekļiem un to kapacitāti. Ārkārtas transportēšanas koordinēšana no vienas vietas, nevis ar telefona zvaniem.
+
+Darbības nepārtrauktība
+Sistēma darbojas 24/7 neatkarīgi no darbinieku pieejamības. MI asistents atbild uz jautājumiem arī naktī un brīvdienās. Ja pieredzējušais dispečers ir slims — aizvietotājs var pārņemt darbu bez zaudētas informācijas.
+
+Drošība un atbilstība
+
+4 lomu piekļuves kontrole
+Administrators, redaktors, dispečers, skatītājs — katra loma redz tikai tai paredzētos datus. Novērš nesankcionētas izmaiņas un nodrošina datu integritāti.
+
+Divvalodu saskarne (LV/EN)
+Pilns latviešu un angļu valodas atbalsts, ietverot MI asistentu. Ideāli uzņēmumiem ar starptautiskiem partneriem vai ES audita komisijām.
+
+Datu drošība bez kompromisiem
+Šifrēta autentifikācija, brutāla spēka aizsardzība, automātiski drošības auditi. 106 drošības testi pārbauda sistēmu ar katru atjauninājumu.
+
+---
+
+9. Finanšu ietekme — konkrēti skaitļi
+
+Aprēķins balstīts uz Rīgas Satiksmes 2024. gada faktiskajiem datiem: 1 076 transportlīdzekļi (478 autobusi, 346 trolejbusi, 252 tramvaji), 35,5M km gadā, 116M braucienu gadā, ~3 500 darbinieki. Ietaupījumu aplēses balstītas uz publicētiem nozares pētījumiem — avoti norādīti katram rādītājam. Visos gadījumos izmantotas konservatīvas aplēses.
+
+Izmaksu ietaupījumi
+
+Virsstundu samazinasana
+Pašreizējais process: Trūkst 140 šoferu (LSM, 2023); esošie strādā virsstundas. Algu fonds ~EUR 55M (10% pielikums = EUR 5,5M)
+VTP ietekme: 15–20% virsstundu samazinājums ar optimizētu grafiku plānošanu
+Gada ietaupijums: EUR 350 000 – EUR 600 000
+
+Degvielas un enerģijas optimizācija
+Pašreizējais process: ~426 dīzeļautobusi, 35,5M km gadā; dīzeļa budžets ~EUR 8,5M
+VTP ietekme: 3–5% ietaupījums (nozarē rāda 15–25%, bet fiksēti maršruti = zemāks)
+Gada ietaupijums: EUR 255 000 – EUR 425 000
+
+Apdrošināšanas prēmiju samazināšana
+Pašreizējais process: 1 076 transportlīdzekļi, KASKO+OCTA budžets ~EUR 2,7M
+VTP ietekme: 10–15% atlaide ar GPS izsekošanu (nozarē rāda 15–30%)
+Gada ietaupijums: EUR 270 000 – EUR 405 000
+
+Šoferu mainības samazināšana
+Pašreizējais process: ~1 400 šoferi, vidējais vecums 55 gadi, hronisks trūkums; aizstāšana EUR 6–10K
+VTP ietekme: 2–3 procentpunktu mainības samazinājums (taisnīgāki grafiki, mazāks stress)
+Gada ietaupijums: EUR 200 000 – EUR 300 000
+
+Tukšo kilometru samazināšana
+Pašreizējais process: 35,5M km gadā, ~10–15% tukšais nobraukums (depo–maršruts)
+VTP ietekme: 7–10% tukšā nobraukuma samazinājums ar GPS optimizāciju
+Gada ietaupijums: EUR 200 000 – EUR 310 000
+
+Preventīva apkope
+Pašreizējais process: 1 076 transportlīdzekļi, reaktīvi remonti, neplānota dīkstāve
+VTP ietekme: ~15–20 novērstas neplānotas avārijas gadā ar telemetrijas brīdinājumiem
+Gada ietaupijums: EUR 80 000 – EUR 120 000
+
+Krāpšanas un zaudējumu novēršana
+Pašreizējais process: NAFA aplēse: ~6% no degvielas budžeta zūd krāpšanā/zaudējumos
+VTP ietekme: Degvielas zādzību, tukšo reisu un darba laika krāpšanas atklāšana
+Gada ietaupijums: EUR 100 000 – EUR 160 000
+
+Dispečeru laika optimizācija
+Pašreizējais process: 79 maršruti, ~15 dispečeri, manuāla zvanu koordinēšana
+VTP ietekme: ~1–2h/dienā ietaupījums katram dispečeram
+Gada ietaupijums: EUR 50 000 – EUR 90 000
+
+Administrācijas efektivitāte
+Pašreizējais process: ~3 500 darbinieki, manuālas atskaites, datu vākšana no 5+ sistēmām
+VTP ietekme: Automatizētas atskaites, vienots datu avots
+Gada ietaupijums: EUR 60 000 – EUR 100 000
+
+Garantijas un rezerves daļu optimizācija
+Pašreizējais process: Defekti atklāti pēc garantijas beigām, lieka detaļu noliktava
+VTP ietekme: Telemetrija atklāj defektus garantijas laikā, precīzāka noliktava
+Gada ietaupijums: EUR 40 000 – EUR 80 000
+
+KOPĀ — Izmaksu ietaupījumi: EUR 1 605 000 – EUR 2 590 000/gadā
+
+Ienākumu palielināšana
+
+Pasažieru skaita pieaugums
+Pašreizējā situācija: 116M braucienu, biļešu ieņēmumi EUR 35,3M (RS 2024. gada pārskats)
+VTP ietekme: +1.7–4% caur reāllaika info un uzlabotu punktualitāti
+Gada ieguvums: EUR 600 000 – EUR 1 410 000
+
+ES fondu atbloķēšana
+Pašreizējā situācija: CEF Baltijas valstīm: EUR 3,8 mljrd. Rail Baltica LV: EUR 153,5M
+VTP ietekme: NeTEx/SIRI/GTFS atbilstība kā priekšnosacījums pieteikumiem
+Gada ieguvums: EUR 500 000 – EUR 2 000 000**
+
+Maršrutu tīkla optimizācija
+Pašreizējā situācija: 79 maršruti, lēmumi balstīti uz intuīciju, ne datiem
+VTP ietekme: Uz datiem balstita nerentablu marsrutu reorganizacija
+Gada ieguvums: EUR 200 000 – EUR 400 000
+
+Kopā — ikgadējie ienākumu ieguvumi: EUR 800 000 – EUR 1 810 000/gadā
+
+Kopējā ikgadējā finanšu ietekme: EUR 2,4M – EUR 4,4M
+Izmaksu ietaupijumi (EUR 1.6M–EUR 2.6M) + ienakumu pieaugums (EUR 0.8M–EUR 1.8M)
+** ES fondu summa ir vienreizēja granta summa, nevis ikgadēja. CEF transporta programma Baltijas valstīm piešķīrusi EUR 3,8 miljardus. Aprēķins balstīts uz Rīgas Satiksmes 2024. gada datiem.
+
+Mazāk nekā 6 mēneši līdz atmaksai
+8–15x ROI pirmajā gadā
+EUR 2,4–4,4M ikgadējā finanšu ietekme
+
+Salīdzinājums ar starptautiskajiem risinājumiem (nozares aplēses)*
+
+Trapeze (Šveice) — grafiku plānošana + izsekošana: EUR 500K – EUR 2M+ ieviešana
+Optibus (Izraēla) — grafiku optimizācija (SaaS): EUR 200K – EUR 800K gadā
+INIT (Vacija) — pilna ITS/ITCS sistema: EUR 1M – EUR 5M+ ieviesana
+IVU Traffic Technologies (Vacija) — planosana + dispeceresana: EUR 300K – EUR 1.5M ieviesana
+VTP — pilna platforma ar MI asistentu: Butiski zemakas izmaksas
+
+Avoti un metodoloģija:
+
+1. Virsstundas: RS algu fonds aprēķināts no publiska datu punkta (10% algu pielikums = EUR 5,5M; LSM.lv, 2023). Šoferu trūkums: 140 vakances (60 trolejbusu + 50 autobusu + 30 tramvaju vadītāji; LSM.lv, 2023).
+2. Degviela: 478 autobusi (no tiem ~52 elektriskie), ~17,4M dīzeļa km x 35L/100km x EUR 1,40/L = ~EUR 8,5M dīzeļa budžets. Frost & Sullivan rāda 15–25% ietaupījumu ar telemetriku komerciālajiem parkiem; sabiedriskajam transportam ar fiksētiem maršrutiem izmantota konservatīva aplēse 3–5%.
+3. Apdrošināšana: 1 076 transportlīdzekļi x ~EUR 2 500 vid. KASKO+OCTA = ~EUR 2,7M. Verizon Connect, Geotab, Cambridge Mobile Telematics: 15–30% prēmiju samazinājums ar GPS. Izmantota konservatīva aplēse 10–15%.
+4. Šoferu mainība: TCRP Report 142 — 30% gada mainība līgumoperatoriem. Aizstāšanas izmaksas adaptētas Latvijas algu līmenim (EUR 6–10K, ieskaitot ~10 nedēļu apmācību). Vidējā šofera alga EUR 1 400/mēn. bruto (LSM.lv).
+5. Tukšie kilometri: 35,5M km gadā (RS 2024); Brisbane TransLink dati — 28% pakalpojumu ir bez pasažieriem. Optimizācijas modeļi rāda 7–10% samazinājumu (ResearchGate).
+6. Krāpšana: NAFA (National Association of Fleet Administrators) aplēse — 6% no degvielas budžeta. Samsara un WEX Inc. dati apstiprina līdzīgu diapazonu.
+7. Dispečeru ietaupījums: operatoru aptauja, nav publicēta recenzēta pētījuma — aplēse. 79 maršruti (RS 2024).
+8. Pasažieru pieaugums: 116M braucienu un EUR 35,3M biļešu ieņēmumu (RS 2024. gada pārskats). Ņujorkas pētījums (Georgia Tech / NCTSPM) — 1.7% mediāna no reāllaika info; augsta apjoma maršrutos 2.3%. Kuveita: 5%.
+9. ES fondi: CEF Transport Baltijas valstīm piešķīris EUR 3,8 mljrd (EK). Rail Baltica Latvijai — EUR 153,5M. Škoda BEMU līgums ar ATD — EUR 89,4M (2025). NeTEx/SIRI atbilstība ir priekšnosacījums pieteikumiem, ne garantija.
+* Konkurentu cenas ir nozares aplēses, jo šie uzņēmumi nepublicē cenrāžus. Precīzas cenas pieejamas caur RFQ pieprasījumiem vai ES publiskā iepirkuma datubāzēm (TED).
+Rīgas Satiksme dati: rigassatiksme.lv 2024. gada pārskats, pasažieru statistika, finanšu informācija.
+
+---
+
+10. Sabiedriskais ieguvums — pasažieru perspektīva
+
+VTP nav tikai operatoru rīks. Platforma tieši uzlabo sabiedriskā transporta kvalitāti, ko izjūt katrs pasažieris un nodokļu maksātājs.
+
+Reāllaika informācija pasažieriem
+Caur GTFS-RT datu eksportu — precīzi ierašanās laiki Google Maps, Apple Maps un Moovit lietotnēs. Pasažieris zina, kad autobuss patiešām pienāks, nevis kad tam vajadzētu pienākt. Latvijā šobrīd nav vienotas reāllaika sistēmas visiem pārvadātājiem.
+
+Uzlabota pakalpojuma uzticamība
+Automātiska kavējumu atklāšana un proaktīva reaģēšana nozīmē mazāk atceltu un kavētu reisu. Katrs procents punktualitātes uzlabojuma tieši ietekmē sabiedrisko domu par transportu un palielina pasažieru skaitu.
+
+Publiska pārredzamība un atskaitīšanās
+Strukturēti dati ļauj publicēt pakalpojuma kvalitātes rādītājus sabiedrībai. Punktualitātes statistika, maršrutu pārklājums, incidentu apkopojumi — pierādāma kvalitāte, nevis solījumi. Eiropas labākā prakse publiskajā transportā.
+
+ES fondu piesaiste un atbilstība
+NeTEx un SIRI standartu atbalsts ir priekšnosacījums ES transporta digitalizācijas fondiem. VTP nodrošina šo atbilstību automātiski — tas var atbloķēt miljonos mērāmu ES finansējumu transporta modernizācijai Latvijā.
+
+116M braucienu gadā (RS 2024)
++1.7–4% Gaidamais pieaugums ar reallaika info*
+79 Marsruti (7 tramv. + 22 trol. + 50 aut.)
+35,5M km nobraukums gadā
+
+* Ņujorkas pētījums (Georgia Tech / NCTSPM): 1,7% mediāna, 2,3% augsta apjoma maršrutos. Kuveita: 5%. RS pasažieru un km dati: rigassatiksme.lv 2024.
+
+---
+
+MI asistents — platformas intelektuālais centrs
+
+VTP ir viena no retajām transporta platformām, kas integrē mākslīgo intelektu kā pilnvērtīgu darba rīku. MI asistents ar 11 specializētiem rīkiem saprot jūsu datus un atbild dabīgā valodā — latviski vai angliski.
+
+Operatīvā analītika
+“Kāds ir 18. trolejbusa statuss?” — MI analizē reāllaika datus un sniedz atbildi ar kavējuma apmēru, pozīciju un nākamo pieturu.
+
+Dokumentu meklēšana
+“Kāda ir procedūra maršruta novirzīšanai?” — MI meklē augšupielādētajos dokumentos un citē konkrētu avotu.
+
+Personāla vaicājumi
+“Cik šoferu ir pieejami rītdienas rīta maiņai?” — MI pārbauda datus un sniedz konkrētu atbildi ar sarakstu.
+
+Notikumu pārskats
+“Kādi darbi plānoti šonedēļ?” — MI apkopo operatīvos notikumus, sakārto pēc prioritātes un ietekmētajiem maršrutiem.
+
+Drošība: MI tikai lasa un analizē — nemaina datus. MI konsultē, cilvēki pieņem lēmumus. LLM izvēle ir konfigurējama: mākoņa risinājums vai lokāls modelis pēc uzņēmuma drošības prasībām.
+
+Kāpēc VTP mākslīgais intelekts ir priekšrocība
+
+Atšķirībā no konkurentiem, kur MI ir atsevišķa papildfunkcija vai vienkāršs čatbots, VTP platformā mākslīgais intelekts ir dziļi integrēts ar visiem sistēmas datiem. MI asistents nav trenēts uz vispārīgiem datiem — tas reāllaikā piekļūst jūsu konkrētajiem maršrutiem, grafikiem, šoferiem, dokumentiem un transportlīdzekļu pozīcijām caur 11 specializētiem rīkiem. Tas nozīmē, ka dispečers var dabīgā valodā jautāt “Cik autobusi šobrīd kavējas 3. maršrutā?” un saņemt precīzu atbildi sekunžu laikā, nevis meklēt datus pa vairākām sistēmām.
+
+Dokumentu zināšanu bāze ar vektoru meklēšanu nodrošina, ka MI atbildes ir balstītas uz jūsu faktiskajiem noteikumiem un procedūrām — nevis ģenerētas no vispārīgiem datiem. Katrai atbildei ir precīza atsauce uz avota dokumentu, ko var pārbaudīt.
+
+Praksē tas nozīmē, ka jauns darbinieks var sākt strādāt produktīvi jau pirmajā dienā, jo MI atbild uz jebkuru jautājumu par procedūrām un maršrutiem. Pieredzējuši darbinieki ietaupa laiku, ko iepriekš pavadīja, meklējot informāciju vai zvanot kolēģiem. Un, kas svarīgi — MI darbojas 24/7, arī naktī un brīvdienās, kad pieredzējušie speciālisti nav sasniedzami.
+
+---
+
+MI aģenti — kā tas strādā praksē
+
+VTP mākslīgais intelekts nav vispārīgs čatbots. Tā ir sistēma ar 11 specializētiem rīkiem, kas reāllaikā piekļūst jūsu datiem un veic konkrētas darbības. Zemāk — reāli scenāriji, kā MI aģenti maina ikdienas darbu.
+
+Traucējumu reaģēšanas aģents (reāllaiks)
+
+Automātiski atklāj kavējumus, maršrutu pārtraukumus un anomālijas. Brīdina dispečeru un piedāvā risinājumu — pirms situācija kļūst kritiska.
+
+Bez VTP:
+Tramvajs #6 kavējas 12 minūtes Čaka ielā. Neviens to nezina, kamēr pasažieris piezvana. Dispečers zvana šoferim, tad meklē aizvietotāju. Pagājušas 35 minūtes.
+
+Ar VTP MI aģentu:
+Pēc 3 minūtēm MI atklāj kavējumu no GPS datiem. Automātiski informē dispečeru ar kontekstu: “Tramvajs #6 kavējas 4 min pie Čaka/Brīvības. Iemesls: sastrēgums. Ieteikums: pagarināt reisu par 8 min, informēt pasažierus.” Laiks: 30 sekundes.
+
+Rīki: GPS pozīcijas, grafiku dati, brīdinājumu sistēma, maršrutu analīze
+
+Vēl viens piemērs:
+
+Bez VTP:
+Svētdienas vakarā ūdensvada avārija Brīvības ielā. Nakts dispečers — jauns darbinieks — nezina, kuri maršruti iet caur šo posmu. Zvana kolēģim, kas neatbild. Pēta papīra kartes. Pirmie 3 autobusi jau iestiguši. Pagājusi stunda.
+
+Ar VTP MI aģentu:
+Dispečers jautā: “Kuri maršruti šķērso Brīvības ielu starp Elizabetes un Čaka?” MI 8 sekundēs: “4 maršruti ietekmēti: 3. autobuss, 7. autobuss, 15. trolejbuss, 22. trolejbuss. Nākamie reisi: 15. trolejbuss pēc 4 min. Alternatīvās pieturas: Tērbatas/Elizabetes (+180m). Ieteikums: novirzīt pa Tērbatas ielu.”
+
+Grafiku plānošanas aģents (analītika)
+
+Analizē šoferu pieejamību, kvalifikācijas, darba stundu limitus un vēsturiskos datus, lai piedāvātu optimālus grafikus ar minimālām virsstundām.
+
+Bez VTP:
+Piektdienas vakarā maiņu plānotājs zvana 8 šoferiem, lai atrastu aizvietotāju pirmdienai. 3 neatbild, 2 nevar, 1 jau pārsniedz virsstundu limitu. Tas aizņem 2 stundas un bieži neizdodas atrast nevienu.
+
+Ar VTP MI aģentu:
+Dispečers jautā: “Kurš var aizvietot Jāni pirmdien uz 3. maršrutu?” MI 5 sekundēs atgriež sarakstu: “4 šoferi pieejami: Andris (0h virsstundas šonedēļ, kvalificēts 3. maršrutam), Marta (2h virsstundas)…” — sakārtoti pēc piemērotības.
+
+Rīki: šoferu datubāze, maiņu grafiki, virsstundu uzskaite, kvalifikāciju reģistrs
+
+Vēl viens piemērs:
+
+Bez VTP:
+Šoferim Kārlim medicīniskā izziņa beidzās pirms 2 mēnešiem. Neviens to nepamanīja — dati bija Excel tabulā, ko pēdējo reizi atjaunoja pirms pusgada. Audita laikā atklāj pārkāpumu. Sods: EUR 2 000+, reputācijas risks.
+
+Ar VTP MI aģentu:
+Dispečers jautā: “Kuriem šoferiem beidzas dokumenti nākamajās 30 dienās?” MI uzreiz: “3 šoferiem: Kārlis Bērziņš — medicīniskā izziņa 15.05., Inga Kalniņa — vadītāja apliecība 22.05., Māris Liepiņš — apmācību sertifikāts 28.05.” Automātiski atgādinājumi arī 14 un 7 dienas pirms.
+
+Zināšanu un atbilstības aģents (dokumenti)
+
+Meklē augšupielādētajos dokumentos ar vektoru meklēšanu (RAG). Atbild dabīgā valodā ar precīzu atsauci uz avota dokumentu — neizdomātas atbildes.
+
+Bez VTP:
+Jauns dispečers nesaprot, kā rīkoties ar traumētu pasažieri. Zvana kolēģim — nav sasniedzams. Meklē e-pastā — atrod 3 gadus vecu instrukciju. Vai tā vēl ir spēkā? Nav skaidrs. Pagājušas 20 minūtes.
+
+Ar VTP MI aģentu:
+Jautā čatā: “Kāda ir procedūra, ja pasažieris gūst traumu?” MI atbild 3 sekundēs ar 5 soļu instrukciju, citējot “Drošības instrukcija v3.2, 14. lpp, apstiprināta 12.01.2025” un piedāvā lejupielādēt oriģinālo failu.
+
+Rīki: vektoru meklēšana, dokumentu bāze, OCR (skenēti dokumenti), avota atsauces
+
+Vēl viens piemērs:
+
+Bez VTP:
+Vadītājs jautā: “Kāds ir mūsu līguma nosacījums par degvielas kompensāciju apakšuzņēmējiem?” Jurists meklē līgumu mapēs, tas aizņem 2 dienas. Atrod, bet nav pārliecināts, vai tā ir jaunākā versija.
+
+Ar VTP MI aģentu:
+Jautā čatā: “Degvielas kompensācijas nosacījumi apakšuzņēmēju līgumos.” MI atrod 4 sekundēs: “Līgums nr. 2024-RS-087, 7.3. punkts: ‘Degvielas cenas pieaugums virs 5% tiek kompensēts 80% apmērā.’ Apstiprināts: 01.03.2024. Fails: RS_apakšuzņēmējs_087.pdf, 12. lpp.”
+
+Transporta parka veselības aģents (telemetrija)
+
+Uzrauga OBD-II telemetriju no katra transportlīdzekļa. Atklāj anomālijas dzinēja temperatūrā, akumulatora spriegumā, degvielas patēriņā — un brīdina pirms avārijas.
+
+Bez VTP:
+Autobuss #347 sabojājas maršrutā. Remontbrigāde ierodas pēc 45 minūtēm. 180 pasažieri kavējas. Remonta izmaksas: EUR 4 200 + dīkstāves izmaksas. Defektu varēja pamanīt 2 nedēļas iepriekš — bet neviens neskatījās telemetriju.
+
+Ar VTP MI aģentu:
+Pirms 10 dienām MI pamanīja: “Autobuss #347: dzinēja temperatūra pieaug +2 grādi C/nedēļā, pašreiz 98 grādi C. Vēsturiski līdzīgs profils noveda pie dzesēšanas sistēmas avārijas. Ieteikums: plānot apkopi šonedēļ.” Apkope izmaksā EUR 380. Avārija novērsta.
+
+Rīki: OBD-II telemetrija, apkopes žurnāls, anomāliju atklāšana, brīdinājumi
+
+Vēl viens piemērs:
+
+Bez VTP:
+Autobuss #218 patērē 42L/100km, bet identisks modelis uz tā paša maršruta — 33L/100km. Starpība: ~EUR 3 200 gadā vienam autobusam. Neviens to nepamana, jo degvielas un GPS dati ir dažādās sistēmās. 20 līdzīgi gadījumi parkā = EUR 64 000 gadā.
+
+Ar VTP MI aģentu:
+MI automātiski salīdzina patēriņu starp identiskiem modeļiem. Brīdinājums: “Autobuss #218: degvielas patēriņš 27% virs normas pēdējās 3 nedēļās. Līdzīgi modeļi: 32–35L/100km. Ieteikums: pārbaudīt degvielas sistēmu vai šofera braukšanas stilu.” Iespējamā ietaupījuma aplēse tiek pievienota automātiski.
+
+Vēl 7 specializēti MI rīki
+
+Katrs rīks piekļūst konkrētai datu sistēmai un veic specifiskas darbības.
+
+Maršrutu analīze
+“Kuri maršruti visvairāk kavējas pēdējā mēnesī?” — MI analizē vēsturiskos GPS datus un atgriež sakārtotu sarakstu ar kavējumu vidējiem rādītājiem pa stundām un dienām.
+
+Pieturu tīkla analīze
+“Kuras pieturas ir 500 m rādiusā no Centrāltirgus?” — MI izmanto ģeotelpisko meklēšanu 1 600+ pieturu datubāzē un atgriež karti ar rezultātiem.
+
+Notikumu koordinācija
+“Kādi plānotie darbi ietekmēs 15. trolejbusa maršrutu nākamnedēļ?” — MI pārbauda notikumu kalendāru un brīdina par plānotajiem pārtraukumiem.
+
+Vadības atskaites
+“Sagatavo šīs nedēļas kopsavilkumu vadībai.” — MI apkopo punktualitāti, incidentus, šoferu pārklājumu un transporta parka stāvokli vienā pārskatā.
+
+Degvielas monitorings
+“Kuri autobusi patērē vairāk degvielas nekā vidēji?” — MI salīdzina faktisko patēriņu ar normu un identificē anomālijas, kas var norādīt uz tehniskām problēmām vai zādzībām.
+
+Dokumentu derīguma kontrole
+“Kuriem šoferiem beidzas medicīniskā izziņa nākamajās 30 dienās?” — MI pārbauda termiņus un ģenerē brīdinājumu sarakstu, novēršot darbinieku nodarbināšanu ar nederīgiem dokumentiem.
+
+Ģeogrāfisko zonu uzraudzība
+“Vai visi autobusi ir atgriezušies depo pēc maiņas beigām?” — MI pārbauda transportlīdzekļu pozīcijas attiecībā pret definētajām zonām un ziņo par novirzēm.
+
+MI darbojas 24/7 — arī tad, kad jūs neesat klāt
+
+Svētdienas naktī plīst ūdensvads Brīvības ielā. Nakts dispečers — jauns darbinieks bez pieredzes — nezina, kurus maršrutus tas ietekmē un kā rīkoties. Ar VTP viņš jautā MI aģentam: “Kuri maršruti šķērso Brīvības ielu starp Elizabetes un Čaka?” un saņem sarakstu ar 4 maršrutiem, to grafikiem un ieteikumu novirzīšanai — 10 sekundes. Tas, kas iepriekš prasīja pieredzējuša kolēģa zvanu un 20 minūtes, tagad ir pieejams jebkuram darbiniekam jebkurā laikā.
+
+---
+
+Pašreizējais izstrādes stāvoklis
+
+85% — Vienas pilsētas platforma — pilnībā gatava
+17 lapas, 120+ galapunkti, 11 MI rīki, 1 151 testi, 4 lomu drošība
+
+Rīgas mērogam platforma ir 100% gatava darbam. Zemāk redzamais progress atspoguļo visas Latvijas mēroga pārklājumu, ieskaitot daudzpilsētu atbalstu un paplašināto MI.
+
+Pārvaldības saskarne (17 lapas): 100%
+MI asistents (11 rīki, dokumentu meklēšana): 100%
+Reāllaika izsekošana un WebSocket: 100%
+Transporta parvaldiba un geografiskas zonas: 100%
+Drosiba, autentifikacija, audits: 100%
+ES standartu eksporti (GTFS, NeTEx, SIRI): 100%
+Gramatvedibas integracija: 15%
+Visa Latvija (daudzpilsetu atbalsts): 35%
+Paplasinta MI inteligence: 8%
+
+---
+
+Attīstības ceļvedis
+
+1. Fāze — izpilde (35%)
+Visa Latvija — daudzpilsetu atbalsts
+Paplašināšana ārpus Rīgas: Daugavpils, Jūrmala, Pierīga, vilcienu līnijas. Kešatmiņas optimizācija lielam transportlīdzekļu skaitam.
+2. Fāze (plānots)
+Paplašināta MI inteliģence un grāmatvedības sasaite
+Uzlabota dokumentu meklēšana un MI sarunu atmiņa. Tieša integrācija ar grāmatvedības sistēmu — degviela, apkope, algas un apdrošināšana sinhronizējas automātiski.
+3. Fāze (plānots)
+Tahografs un ES atbilstiba
+Digitālo tahogrāfu datu lejupielāde, braukšanas stundu uzskaite saskaņā ar ES 561/2006 regulu, atbilstības panelis ar automātiskiem brīdinājumiem. Juridisks pienākums — ES regula nosaka obligātu braukšanas un atpūtas laiku uzskaiti visiem komerciālajiem transportlīdzekļiem virs 3.5t. Neatbilstība rada naudas sodus un licences apturēšanu.
+4. Fāze (ilgtermiņa)
+ML prognozesana un publiskais API
+Ierašanās laiku prognozēšana, balstoties uz vēsturiskajiem datiem, laika apstākļu korekcija, pasažieru noslodzes analīze un publisks izstrādātāju API.
+
+---
+
+Ieviešanas process
+
+No līguma līdz darba sistēmai — strukturēts process ar skaidru laika grafiku un definētiem atskaites punktiem.
+
+1. Sagatavošana
+1–2 nedelas. Infrastrukturas izvietosana, datubazes konfiguresa, drosibas iestatijumi, GTFS datu importesana.
+2. Datu migrācija
+2–3 nedelas. Esoso datu importesana (marsruti, pieturas, soferi, transportlidzekli), validacija un saskanosana.
+3. Pilotēšana
+2–4 nedelas. Pilotprojekts ar 2–3 marsrutiem, darbinieku apmaciba, atgriezeniska saite un pielagojumi.
+4. Pilna izvietošana
+2–3 nedelas. Pakapeniska visa parka piesleegsana, monitorings, SLA aktivizesana.
+
+Kopējais laiks no līguma līdz pilnai darbībai: 8–12 nedēļas
+
+---
+
+Sadarbības modelis
+
+Elastīgs cenu modelis, kas pielāgojas parka apjomam un vajadzībām. Bez lieliem sākotnējiem ieguldījumiem.
+
+SaaS abonements
+Ikmēneša maksa par transportlīdzekli. Ietver hostingu, atjauninājumus, tehnisko atbalstu un MI asistentu.
+Fiksēta maksa/mēn — par transportlīdzekli vai fiksēts operatora līgums
+
+Lokāla izvietošana
+Sistēma darbojas jūsu serverī. Pilna datu kontrole, atbilst stingrām drošības prasībām.
+Licence + atbalsts — vienreizēja licence + gada uzturēšana
+
+Hibrīds
+Dati lokāli, MI mākonī. Optimāls drošības un veiktspējas balanss.
+Pēc pieprasījuma — pielāgots jūsu infrastruktūrai
+
+---
+
+Mērogošana visai Latvijai
+
+Daudzoperatoru arhitektūra ļauj vienā platformā apkalpot vairākus pārvadātājus ar pilnu datu izolāciju.
+
+Datu izolācija
+Katrs operators redz tikai savus datus. Rīgas Satiksme, Liepājas Tramvajs, Daugavpils Satiksme — visi vienā platformā, bet pilnībā nodalīti.
+
+Nacionālais pārskats
+Satiksmes ministrija vai ATD var redzēt apvienotu statistiku par visiem pārvadātājiem, nezaudējot detaļas.
+
+Marginālās izmaksas
+Pievienot jaunu pilsētu maksā daļu no pirmā ieviešanas. Koplietotā infrastruktūra samazina katras nākamās pilsētas izmaksas par 40–60%.
+
+---
+
+VTP
+Vienota Transportlidzeklu Parvalde
+2026 · Atjaunots aprili

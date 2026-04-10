@@ -141,10 +141,11 @@
 
         /* AI Section */
         .ai-section {
-            background: linear-gradient(135deg, var(--navy-900), var(--navy-700));
-            color: white;
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            color: var(--text);
             padding: 48px;
             margin: 48px 0;
+            border: 1px solid #94a3b8;
             position: relative;
             overflow: hidden;
         }
@@ -156,12 +157,12 @@
             right: -20%;
             width: 400px;
             height: 400px;
-            background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(30,64,175,0.06) 0%, transparent 70%);
             border-radius: 50%;
         }
 
-        .ai-section h2 { font-size: 26px; font-weight: 900; margin-bottom: 14px; position: relative; z-index: 1; }
-        .ai-section > p { font-size: 15px; opacity: 0.85; max-width: 680px; line-height: 1.7; margin-bottom: 28px; position: relative; z-index: 1; }
+        .ai-section h2 { font-size: 26px; font-weight: 900; color: #1e293b; margin-bottom: 14px; position: relative; z-index: 1; }
+        .ai-section > p { font-size: 15px; color: #475569; max-width: 680px; line-height: 1.7; margin-bottom: 28px; position: relative; z-index: 1; }
 
         .ai-capabilities {
             display: grid;
@@ -172,27 +173,27 @@
         }
 
         .ai-cap {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: white;
+            border: 1px solid #cbd5e1;
             padding: 22px;
         }
 
-        .ai-cap h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
-        .ai-cap p { font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.6; }
+        .ai-cap h4 { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
+        .ai-cap p { font-size: 13px; color: #475569; line-height: 1.6; }
 
         .ai-note {
             margin-top: 24px;
             padding: 16px 20px;
-            background: rgba(139,92,246,0.1);
-            border: 1px solid rgba(139,92,246,0.2);
+            background: rgba(30,64,175,0.05);
+            border: 1px solid #94a3b8;
             position: relative;
             z-index: 1;
             font-size: 13px;
-            color: rgba(255,255,255,0.8);
+            color: #475569;
             line-height: 1.6;
         }
 
-        .ai-note strong { color: #c4b5fd; }
+        .ai-note strong { color: #1e40af; }
 
         /* Progress */
         .progress-section {
@@ -263,20 +264,20 @@
 
         /* Financial ROI Section */
         .roi-section {
-            background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
-            border: 1px solid #059669;
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            border: 1px solid #94a3b8;
             padding: 48px;
             margin: 48px 0;
         }
 
-        .roi-section h2 { font-size: 26px; font-weight: 900; color: #065f46; margin-bottom: 8px; }
-        .roi-section > p { font-size: 15px; color: #047857; margin-bottom: 32px; line-height: 1.7; }
+        .roi-section h2 { font-size: 26px; font-weight: 900; color: #1e293b; margin-bottom: 8px; }
+        .roi-section > p { font-size: 15px; color: #475569; margin-bottom: 32px; line-height: 1.7; }
 
         .roi-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 28px; }
         .roi-table { width: 100%; border-collapse: collapse; min-width: 700px; }
-        .roi-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #065f46; padding: 10px 14px; border-bottom: 1px solid #059669; font-weight: 700; white-space: nowrap; }
-        .roi-table td { padding: 12px 14px; font-size: 14px; border-bottom: 1px solid #bbf7d0; color: #064e3b; }
-        .roi-table tr:last-child td { border-bottom: 1px solid #059669; font-weight: 800; font-size: 15px; background: rgba(5,150,105,0.08); }
+        .roi-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #1e3a5f; padding: 10px 14px; border-bottom: 1px solid #64748b; font-weight: 700; white-space: nowrap; }
+        .roi-table td { padding: 12px 14px; font-size: 14px; border-bottom: 1px solid #cbd5e1; color: #1e293b; }
+        .roi-table tr:last-child td { border-bottom: 1px solid #64748b; font-weight: 800; font-size: 15px; background: rgba(30,64,175,0.06); }
         .roi-table .amount { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
         .roi-highlight {
@@ -288,22 +289,22 @@
 
         .roi-stat {
             background: white;
-            border: 1px solid #a7f3d0;
+            border: 1px solid #94a3b8;
             padding: 24px;
             text-align: center;
         }
 
-        .roi-stat-value { font-size: 36px; font-weight: 900; color: #059669; line-height: 1; }
-        .roi-stat-label { font-size: 12px; color: #065f46; margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .roi-stat-value { font-size: 36px; font-weight: 900; color: #1e40af; line-height: 1; }
+        .roi-stat-label { font-size: 12px; color: #334155; margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        .roi-note { margin-top: 20px; padding: 14px 18px; background: rgba(5,150,105,0.06); border: 1px solid #a7f3d0; font-size: 12px; color: #047857; line-height: 1.65; }
+        .roi-note { margin-top: 20px; padding: 14px 18px; background: rgba(30,64,175,0.04); border: 1px solid #94a3b8; font-size: 12px; color: #475569; line-height: 1.65; }
 
-        .roi-benchmark { margin-top: 28px; padding: 24px; background: white; border: 1px solid #a7f3d0; }
-        .roi-benchmark h4 { font-size: 14px; font-weight: 700; color: #065f46; margin-bottom: 14px; }
-        .benchmark-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ecfdf5; font-size: 13px; }
+        .roi-benchmark { margin-top: 28px; padding: 24px; background: white; border: 1px solid #94a3b8; }
+        .roi-benchmark h4 { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 14px; }
+        .benchmark-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
         .benchmark-row:last-child { border-bottom: none; }
-        .benchmark-name { color: #064e3b; }
-        .benchmark-price { font-weight: 700; color: #065f46; }
+        .benchmark-name { color: #334155; }
+        .benchmark-price { font-weight: 700; color: #1e3a5f; }
 
         /* Passenger Section */
         .passenger-section {
@@ -334,10 +335,11 @@
 
         /* AI Agents Section */
         .agents-section {
-            background: linear-gradient(135deg, #0f172a, #1e1b4b);
-            color: white;
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            color: var(--text);
             padding: 48px;
             margin: 0 0 48px;
+            border: 1px solid #94a3b8;
             position: relative;
             overflow: hidden;
         }
@@ -349,16 +351,16 @@
             left: -10%;
             width: 500px;
             height: 500px;
-            background: radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(30,64,175,0.05) 0%, transparent 70%);
             border-radius: 50%;
         }
 
-        .agents-section h2 { font-size: 26px; font-weight: 900; margin-bottom: 8px; position: relative; z-index: 1; }
-        .agents-section > p { font-size: 15px; opacity: 0.85; max-width: 720px; line-height: 1.7; margin-bottom: 32px; position: relative; z-index: 1; }
+        .agents-section h2 { font-size: 26px; font-weight: 900; color: #1e293b; margin-bottom: 8px; position: relative; z-index: 1; }
+        .agents-section > p { font-size: 15px; color: #475569; max-width: 720px; line-height: 1.7; margin-bottom: 32px; position: relative; z-index: 1; }
 
         .agent-card {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: white;
+            border: 1px solid #cbd5e1;
             padding: 28px;
             margin-bottom: 16px;
             position: relative;
@@ -366,27 +368,27 @@
         }
 
         .agent-card-header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
-        .agent-icon { width: 44px; height: 44px; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; padding: 6px; }
+        .agent-icon { width: 44px; height: 44px; background: linear-gradient(135deg, #1e40af, #3b82f6); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; padding: 6px; }
         .agent-icon svg { width: 100%; height: 100%; }
-        .agent-card-header h3 { font-size: 17px; font-weight: 800; margin: 0; }
-        .agent-card-header .agent-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 8px; background: rgba(99,102,241,0.3); color: #a5b4fc; margin-left: auto; }
+        .agent-card-header h3 { font-size: 17px; font-weight: 800; color: #1e293b; margin: 0; }
+        .agent-card-header .agent-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 8px; background: rgba(30,64,175,0.1); color: #1e40af; margin-left: auto; }
 
         .agent-scenario { display: grid; grid-template-columns: 1fr 40px 1fr; gap: 0; align-items: start; margin-top: 14px; }
         .agent-before, .agent-after { padding: 16px; font-size: 13px; line-height: 1.65; }
-        .agent-before { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #fca5a5; }
-        .agent-after { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); color: #86efac; }
+        .agent-before { background: #fef2f2; border: 1px solid #fecaca; color: #7f1d1d; }
+        .agent-after { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a5f; }
         .agent-before h4, .agent-after h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .agent-before h4 { color: #f87171; }
-        .agent-after h4 { color: #4ade80; }
-        .agent-arrow { display: flex; align-items: center; justify-content: center; font-size: 22px; color: rgba(255,255,255,0.3); }
+        .agent-before h4 { color: #991b1b; }
+        .agent-after h4 { color: #1e40af; }
+        .agent-arrow { display: flex; align-items: center; justify-content: center; font-size: 22px; color: #94a3b8; }
 
         .agent-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
-        .agent-tool-tag { font-size: 11px; padding: 3px 10px; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.25); color: #c4b5fd; }
+        .agent-tool-tag { font-size: 11px; padding: 3px 10px; background: rgba(30,64,175,0.08); border: 1px solid #bfdbfe; color: #1e40af; }
 
         .agents-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 24px; position: relative; z-index: 1; }
-        .agent-mini { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); padding: 20px; }
-        .agent-mini h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
-        .agent-mini p { font-size: 12.5px; color: rgba(255,255,255,0.65); line-height: 1.6; }
+        .agent-mini { background: white; border: 1px solid #cbd5e1; padding: 20px; }
+        .agent-mini h4 { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
+        .agent-mini p { font-size: 12.5px; color: #475569; line-height: 1.6; }
 
         /* Phase badge */
         .phase-badge { display: inline-block; background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 700; padding: 2px 8px; margin-left: 8px; text-transform: uppercase; letter-spacing: 0.5px; vertical-align: middle; }
@@ -443,7 +445,7 @@
         <p class="hero-subtitle">Latvijas sabiedriskais transports katru gadu zaudē miljonus nepilnīgas uzraudzības, manuālu procesu un datu sadrumstalotības dēļ. VTP to maina &mdash; viena platforma ar mākslīgo intelektu, kas apvieno visu: no reāllaika izsekošanas līdz grafikiem, šoferiem un dokumentiem. Gatava darbam jau šodien.</p>
         <div class="hero-stats">
             <div>
-                <div class="hero-stat-value">17</div>
+                <div class="hero-stat-value">18</div>
                 <div class="hero-stat-label">Pārvaldības lapas</div>
             </div>
             <div>
@@ -451,7 +453,7 @@
                 <div class="hero-stat-label">MI rīki</div>
             </div>
             <div>
-                <div class="hero-stat-value">1 151</div>
+                <div class="hero-stat-value">1 200+</div>
                 <div class="hero-stat-label">Kvalitātes testi</div>
             </div>
             <div>
@@ -464,7 +466,7 @@
 
 <div class="value-card">
     <h2>Rīgas Satiksme šogad zaudēs vismaz €2,4M, ko šī platforma var ietaupīt</h2>
-    <p>1&nbsp;076 transportlīdzekļi, 3&nbsp;500 darbinieki, 116 miljoni braucienu &mdash; un joprojām Excel grafiki, telefona zvani un papīra arhīvi. VTP aizstāj šo visu ar <strong>vienu sistēmu un MI asistentu</strong>, kas saprot jūsu datus latviski. 17 pārvaldības lapas, 4 lomu drošība, Google Maps un ES standartu integrācija &mdash; izstrādāta, testēta un gatava izvietošanai.</p>
+    <p>1&nbsp;076 transportlīdzekļi, 3&nbsp;500 darbinieki, 116 miljoni braucienu &mdash; un joprojām Excel grafiki, telefona zvani un papīra arhīvi. VTP aizstāj šo visu ar <strong>vienu sistēmu un MI asistentu</strong>, kas saprot jūsu datus latviski. 18 pārvaldības lapas, 4 lomu drošība, Google Maps un ES standartu integrācija &mdash; izstrādāta, testēta un gatava izvietošanai.</p>
 </div>
 
 <div class="container">
@@ -476,7 +478,7 @@
             <li>Grafikus plāno Excel tabulās un CSV failos</li>
             <li>Par kavējumiem uzzina no pasažieru sūdzībām</li>
             <li>Šoferu maiņas koordinē pa telefonu</li>
-            <li>Procedūras meklē papīra arhīvos un e-pastos</li>
+            <li>Procedūras meklē mapēs un e-pasta arhīvos</li>
             <li>Nav reāllaika pārskata par transporta stāvokli</li>
             <li>Katrs datu avots savā sistēmā</li>
         </ul>
@@ -487,7 +489,7 @@
             <li>Grafikus pārvalda vienā sistēmā ar validāciju</li>
             <li>Kavējumus atklāj automātiski, sekunžu laikā</li>
             <li>Maiņas un pieejamību pārvalda digitāli</li>
-            <li>MI atrod procedūras sekundē ar avota atsauci</li>
+            <li>MI atrod procedūras sekundēs ar avota atsauci</li>
             <li>Viss transporta parks redzams kartē reāllaikā</li>
             <li>Vienots pārskats par visiem datiem</li>
         </ul>
@@ -752,7 +754,7 @@
         <div class="benefits-grid">
             <div class="benefit-card">
                 <h4>NeTEx eksports</h4>
-                <p>Eiropas standarta XML formāts sabiedriskā transporta datiem. Nepieciešams ES fondu piesaistei, pārrobežu integrācijai un nacionāla līmeņa transporta plānošanai.</p>
+                <p>Eiropas standarta XML formāts sabiedriskā transporta datiem. Nepieciešams ES fondu piesaistei, pārrobežu integrācijai un nacionālā līmeņa transporta plānošanai.</p>
             </div>
             <div class="benefit-card">
                 <h4>SIRI reāllaika datu apmaiņa</h4>
@@ -786,7 +788,7 @@
 
     <!-- Operational Efficiency -->
     <div style="background: var(--card); border: 1px solid var(--border); padding: 28px; margin-bottom: 16px;">
-        <h3 style="margin: 0 0 16px; font-size: 15px; color: var(--primary);">Operatīvā efektivitāte</h3>
+        <h3 style="margin: 0 0 16px; font-size: 15px; color: var(--primary);">Operatīvā efektivitāte <span class="phase-badge">Daļēji &mdash; 2. Fāze</span></h3>
         <div class="benefits-grid">
             <div class="benefit-card">
                 <h4>Šoferu darba stundu uzskaite</h4>
@@ -819,7 +821,7 @@
 
     <!-- Fraud & Waste Prevention -->
     <div style="background: var(--card); border: 1px solid var(--border); padding: 28px; margin-bottom: 16px;">
-        <h3 style="margin: 0 0 16px; font-size: 15px; color: var(--primary);">Krāpšanas un zudumu novēršana</h3>
+        <h3 style="margin: 0 0 16px; font-size: 15px; color: var(--primary);">Krāpšanas un zudumu novēršana <span class="phase-badge">Daļēji &mdash; 2. Fāze</span></h3>
         <div class="benefits-grid">
             <div class="benefit-card">
                 <h4>Degvielas zādzību atklāšana</h4>
@@ -875,11 +877,11 @@
         <div class="benefits-grid">
             <div class="benefit-card">
                 <h4>Taisnīga maiņu sadale</h4>
-                <p>Sistēma ļauj optimizēt grafikus tā, lai slodze būtu vienmērīga. Nav "iecienīto" un "sodomaršrutu". Transparenta pieeja samazina darbinieku neapmierinātību &mdash; galveno aiziešanas iemeslu transporta nozarē.</p>
+                <p>Sistēma ļauj optimizēt grafikus tā, lai slodze būtu vienmērīga. Nav "iecienīto" un "sodomaršrutu". Caurspīdīga pieeja samazina darbinieku neapmierinātību &mdash; galveno aiziešanas iemeslu transporta nozarē.</p>
             </div>
             <div class="benefit-card">
                 <h4>Aizstāšanas izmaksu samazināšana</h4>
-                <p>Jauna šofera pieņemšana un apmācīšana izmaksā €6&ndash;10K (sludinājumi, intervijas, medicīniskie testi, apmācības, sākotnējā zema produktivitāte). Pie 1&nbsp;400 šoferiem un 15% mainības &mdash; tas ir līdz €1,4M gadā. Katrs procents mainības samazinājuma ir tūkstošu ietaupījums.</p>
+                <p>Jauna šofera pieņemšana un apmācīšana izmaksā €6&ndash;10K (sludinājumi, intervijas, medicīniskie testi, apmācības, sākotnējā zemā produktivitāte). Pie 1&nbsp;400 šoferiem un 15% mainības &mdash; tas ir līdz €1,4M gadā. Katrs procents mainības samazinājumā ir tūkstošu ietaupījums.</p>
             </div>
             <div class="benefit-card">
                 <h4>Darba apstākļu caurspīdīgums</h4>
@@ -999,7 +1001,7 @@
                 <td class="amount">€80 000 &ndash; €120 000</td>
             </tr>
             <tr>
-                <td><strong>Krāpšanas un zudumu novēršana</strong></td>
+                <td><strong>Krāpšanas un zaudējumu novēršana</strong></td>
                 <td>NAFA aplēse: ~6% no degvielas budžeta zūd krāpšanā/zudumos &#8310;</td>
                 <td>Degvielas zādzību, tukšo reisu un darba laika krāpšanas atklāšana</td>
                 <td class="amount">€100 000 &ndash; €160 000</td>
@@ -1022,7 +1024,7 @@
                 <td>Telemetrija atklāj defektus garantijas laikā, precīzāka noliktava</td>
                 <td class="amount">€40 000 &ndash; €80 000</td>
             </tr>
-            <tr style="background: rgba(5,150,105,0.04);">
+            <tr style="background: rgba(30,64,175,0.04);">
                 <td><strong>KOPĀ &mdash; Izmaksu ietaupījumi</strong></td>
                 <td></td>
                 <td></td>
@@ -1053,7 +1055,7 @@
                 <td><strong>ES fondu atbloķēšana</strong></td>
                 <td>CEF Baltijas valstīm: €3,8 mljrd. Rail Baltica LV: €153,5M &#8313;</td>
                 <td>NeTEx/SIRI/GTFS atbilstība kā priekšnosacījums pieteikumiem</td>
-                <td class="amount">€500 000 &ndash; €2 000 000**</td>
+                <td class="amount">€500 000 &ndash; €2 000 000** <br><span style="font-size: 11px; font-weight: 400; opacity: 0.7;">(vienreizējs grants)</span></td>
             </tr>
             <tr>
                 <td><strong>Maršrutu tīkla optimizācija</strong></td>
@@ -1071,7 +1073,7 @@
     </table>
     </div>
 
-    <div style="margin-top: 16px; padding: 16px 20px; background: rgba(5,150,105,0.12); border: 1px solid #059669; font-size: 15px; color: #065f46; line-height: 1.6; text-align: center;">
+    <div style="margin-top: 16px; padding: 16px 20px; background: rgba(30,64,175,0.08); border: 1px solid #64748b; font-size: 15px; color: #1e293b; line-height: 1.6; text-align: center;">
         <strong style="font-size: 18px;">Kopējā ikgadējā finanšu ietekme: €2.4M &ndash; €4.4M</strong><br>
         <span style="font-size: 13px;">Izmaksu ietaupījumi (€1.6M&ndash;€2.6M) + ieņēmumu pieaugums (€0.8M&ndash;€1.8M)</span><br>
         <span style="font-size: 12px; opacity: 0.7;">** ES fondu summa ir vienreizēja granta summa, ne ikgadēja. CEF transporta programma Baltijas valstīm piešķīrusi €3,8 mljrd. Aprēķins balstīts uz Rīgas Satiksme 2024.&nbsp;gada datiem.</span>
@@ -1112,7 +1114,7 @@
         </div>
         <div class="benchmark-row">
             <span class="benchmark-name"><strong>VTP</strong> &mdash; pilna platforma ar MI asistentu</span>
-            <span class="benchmark-price" style="color: #059669;"><strong>Būtiski zemākas izmaksas</strong></span>
+            <span class="benchmark-price" style="color: #1e40af;"><strong>Būtiski zemākas izmaksas</strong></span>
         </div>
     </div>
 
@@ -1205,10 +1207,10 @@
         <strong>Drošība:</strong> MI tikai lasa un analizē &mdash; nemaina datus. MI konsultē, cilvēki pieņem lēmumus. LLM izvēle ir konfigurējama: mākoņa risinājums vai lokāls modelis pēc uzņēmuma drošības prasībām.
     </div>
 
-    <div style="margin-top: 28px; padding: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); position: relative; z-index: 1;">
-        <h3 style="margin: 0 0 14px; font-size: 16px; color: #e0e7ff;">Kāpēc VTP mākslīgais intelekts ir priekšrocība</h3>
-        <p style="font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.8; margin: 0;">
-            Atšķirībā no konkurentiem, kur MI ir atsevišķa papildfunkcija vai vienkāršs čatbots, VTP platformā mākslīgais intelekts ir <strong style="color: white;">dziļi integrēts ar visiem sistēmas datiem</strong>. MI asistents nav trenēts uz vispārīgiem datiem &mdash; tas reāllaikā piekļūst jūsu konkrētajiem maršrutiem, grafikiem, šoferiem, dokumentiem un transportlīdzekļu pozīcijām caur 11 specializētiem rīkiem. Tas nozīmē, ka dispečers var dabīgā valodā jautāt <em>"Cik autobusi šobrīd kavējas 3.&nbsp;maršrutā?"</em> un saņemt precīzu atbildi sekunžu laikā, nevis meklēt datus pa vairākām sistēmām.
+    <div style="margin-top: 28px; padding: 24px; background: white; border: 1px solid #cbd5e1; position: relative; z-index: 1;">
+        <h3 style="margin: 0 0 14px; font-size: 16px; color: #1e293b;">Kāpēc VTP mākslīgais intelekts ir priekšrocība</h3>
+        <p style="font-size: 14px; color: #475569; line-height: 1.8; margin: 0;">
+            Atšķirībā no konkurentiem, kur MI ir atsevišķa papildfunkcija vai vienkāršs čatbots, VTP platformā mākslīgais intelekts ir <strong style="color: #1e293b;">dziļi integrēts ar visiem sistēmas datiem</strong>. MI asistents nav trenēts uz vispārīgiem datiem &mdash; tas reāllaikā piekļūst jūsu konkrētajiem maršrutiem, grafikiem, šoferiem, dokumentiem un transportlīdzekļu pozīcijām caur 11 specializētiem rīkiem. Tas nozīmē, ka dispečers var dabīgā valodā jautāt <em>"Cik autobusi šobrīd kavējas 3.&nbsp;maršrutā?"</em> un saņemt precīzu atbildi sekunžu laikā, nevis meklēt datus pa vairākām sistēmām.
             Dokumentu zināšanu bāze ar vektoru meklēšanu nodrošina, ka MI atbildes ir balstītas uz jūsu faktiskajiem noteikumiem un procedūrām &mdash; nevis ģenerētas no vispārīgiem datiem. Katrai atbildei ir precīza atsauce uz avota dokumentu, ko var pārbaudīt.
             Praksē tas nozīmē, ka jauns darbinieks var sākt strādāt produktīvi jau pirmajā dienā, jo MI atbild uz jebkuru jautājumu par procedūrām un maršrutiem. Pieredzējuši darbinieki ietaupa laiku, ko iepriekš pavadīja, meklējot informāciju vai zvanot kolēģiem. Un, kas svarīgi &mdash; MI darbojas 24/7, arī naktī un brīvdienās, kad pieredzējušie speciālisti nav sasniedzami.
         </p>
@@ -1223,11 +1225,11 @@
     <!-- Agent 1: Disruption Response -->
     <div class="agent-card">
         <div class="agent-card-header">
-            <div class="agent-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><style>.di0{fill:#fff}.di1{fill:#c4b5fd}</style></defs><path class="di1" d="M13.1,9.5c0,.3.2.5.5.5h.8l-9.2,9.2c-.2.2-.2.5,0,.7,0,.1.2.1.3.1s.3,0,.3-.1l9.3-9.3v1.1c0,.3.2.5.5.5s.5-.2.5-.5v-2.6h-2.6c-.3,0-.5.2-.5.5h0Z"/><polygon class="di1" points="13.1 20.1 15.6 20.1 15.6 12.9 13.1 15.5 13.1 20.1"/><polygon class="di1" points="17 20.1 19.5 20.1 19.5 9 17 11.5 17 20.1"/><polygon class="di1" points="9.1 20.1 11.6 20.1 11.6 16.8 9.1 19.4 9.1 20.1"/><path class="di0" d="M3.8,24c-1,0-1.9-.7-2.2-1.7h19.3c0-.3,0-.7,0-1H1.6v-11.9c0-1.3,1-2.3,2.3-2.3h22c1.2,0,2.3,1,2.3,2.3v7.9c.4.2.7.5,1,.8v-8.7c0-1.8-1.5-3.3-3.3-3.3H3.8c-1.8,0-3.3,1.5-3.3,3.3v12.3h0c0,.1,0,.1,0,.2,0,1.7,1.5,3.1,3.3,3.1h7.5c-.1,1.8-1.5,3.3-3.3,3.5-.2,0-.4.2-.4.5s.2.5.5.5h13.7c.3,0,.5-.2.5-.5s-.2-.5-.4-.5c-1.8-.2-3.2-1.7-3.4-3.5h3.8c-.3-.3-.5-.6-.7-1H3.8Z"/><path class="di1" d="M31.2,29.3l-1.9-3.7-.4.2-.2-.3c1.8-1.4,2.5-3.9,1.4-6.1-.2-.5-.6-.9-.9-1.2-.3-.3-.6-.6-1-.8-.3-.2-.6-.3-.9-.4-1.2-.4-2.6-.3-3.7.3-1.6.8-2.5,2.4-2.6,4.1,0,.3,0,.7,0,1,0,.5.2,1,.5,1.5,0,0,0,.1.1.2.2.4.5.7.7,1,.9,1,2.2,1.5,3.5,1.5s.9,0,1.3-.2l.2.3-.4.2,1.9,3.7h0c.2.5.7.7,1.2.7s.4,0,.6-.1c.3-.2.6-.4.7-.8s0-.7,0-1h0Z"/></svg></div>
+            <div class="agent-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><style>.di0{fill:#ffffff}.di1{fill:#c4b5fd}</style></defs><path class="di1" d="M13.1,9.5c0,.3.2.5.5.5h.8l-9.2,9.2c-.2.2-.2.5,0,.7,0,.1.2.1.3.1s.3,0,.3-.1l9.3-9.3v1.1c0,.3.2.5.5.5s.5-.2.5-.5v-2.6h-2.6c-.3,0-.5.2-.5.5h0Z"/><polygon class="di1" points="13.1 20.1 15.6 20.1 15.6 12.9 13.1 15.5 13.1 20.1"/><polygon class="di1" points="17 20.1 19.5 20.1 19.5 9 17 11.5 17 20.1"/><polygon class="di1" points="9.1 20.1 11.6 20.1 11.6 16.8 9.1 19.4 9.1 20.1"/><path class="di0" d="M3.8,24c-1,0-1.9-.7-2.2-1.7h19.3c0-.3,0-.7,0-1H1.6v-11.9c0-1.3,1-2.3,2.3-2.3h22c1.2,0,2.3,1,2.3,2.3v7.9c.4.2.7.5,1,.8v-8.7c0-1.8-1.5-3.3-3.3-3.3H3.8c-1.8,0-3.3,1.5-3.3,3.3v12.3h0c0,.1,0,.1,0,.2,0,1.7,1.5,3.1,3.3,3.1h7.5c-.1,1.8-1.5,3.3-3.3,3.5-.2,0-.4.2-.4.5s.2.5.5.5h13.7c.3,0,.5-.2.5-.5s-.2-.5-.4-.5c-1.8-.2-3.2-1.7-3.4-3.5h3.8c-.3-.3-.5-.6-.7-1H3.8Z"/><path class="di1" d="M31.2,29.3l-1.9-3.7-.4.2-.2-.3c1.8-1.4,2.5-3.9,1.4-6.1-.2-.5-.6-.9-.9-1.2-.3-.3-.6-.6-1-.8-.3-.2-.6-.3-.9-.4-1.2-.4-2.6-.3-3.7.3-1.6.8-2.5,2.4-2.6,4.1,0,.3,0,.7,0,1,0,.5.2,1,.5,1.5,0,0,0,.1.1.2.2.4.5.7.7,1,.9,1,2.2,1.5,3.5,1.5s.9,0,1.3-.2l.2.3-.4.2,1.9,3.7h0c.2.5.7.7,1.2.7s.4,0,.6-.1c.3-.2.6-.4.7-.8s0-.7,0-1h0Z"/></svg></div>
             <h3>Traucējumu Reaģēšanas Aģents</h3>
             <span class="agent-tag">Reāllaiks</span>
         </div>
-        <p style="font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.7; margin: 0;">Automātiski atklāj kavējumus, maršrutu pārtraukumus un anomālijas. Brīdina dispečeru un piedāvā risinājumu &mdash; pirms situācija kļūst kritiska.</p>
+        <p style="font-size: 14px; color: #475569; line-height: 1.7; margin: 0;">Automātiski atklāj kavējumus, maršrutu pārtraukumus un anomālijas. Brīdina dispečeru un piedāvā risinājumu &mdash; pirms situācija kļūst kritiska.</p>
         <div class="agent-scenario">
             <div class="agent-before">
                 <h4>Bez VTP</h4>
@@ -1246,8 +1248,8 @@
             <span class="agent-tool-tag">Maršrutu analīze</span>
         </div>
 
-        <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.08);">
-            <p style="font-size: 12px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px; font-weight: 700;">Vēl viens piemērs</p>
+        <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid #e2e8f0;">
+            <p style="font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px; font-weight: 700;">Vēl viens piemērs</p>
             <div class="agent-scenario">
                 <div class="agent-before">
                     <h4>Bez VTP</h4>
@@ -1265,11 +1267,11 @@
     <!-- Agent 2: Shift Optimization -->
     <div class="agent-card">
         <div class="agent-card-header">
-            <div class="agent-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><style>.pl0{fill:#fff}.pl1{fill:#c4b5fd}</style></defs><path class="pl0" d="M41.64,4.97v-2.58h-18.06v2.58h-12.82v56.59h43.7V4.97h-12.82ZM41.64,14.49v-3.19h5.89v43.74h-30.25V11.3h6.3v3.19h18.06ZM26.58,5.39h12.06v6.1h-12.06v-6.1ZM51.46,58.56H13.76V7.97h9.82v2.33h-7.3v45.74h32.25V10.3h-6.89v-2.33h9.82v50.59Z"/><path class="pl0" d="M31.43,21.11h10.28c.28,0,.5-.22.5-.5s-.22-.5-.5-.5h-10.28c-.28,0-.5.22-.5.5s.22.5.5.5Z"/><path class="pl0" d="M31.43,23.76h13.62c.28,0,.5-.22.5-.5s-.22-.5-.5-.5h-13.62c-.28,0-.5.22-.5.5s.22.5.5.5Z"/><path class="pl0" d="M31.43,32.61h10.28c.28,0,.5-.22.5-.5s-.22-.5-.5-.5h-10.28c-.28,0-.5.22-.5.5s.22.5.5.5Z"/><path class="pl0" d="M31.43,35.26h13.62c.28,0,.5-.22.5-.5s-.22-.5-.5-.5h-13.62c-.28,0-.5.22-.5.5s.22.5.5.5Z"/><path class="pl0" d="M31.43,43.61h13.62c.28,0,.5-.22.5-.5s-.22-.5-.5-.5h-13.62c-.28,0-.5.22-.5.5s.22.5.5.5Z"/><path class="pl0" d="M31.43,46.25h8.72c.28,0,.5-.22.5-.5s-.22-.5-.5-.5h-8.72c-.28,0-.5.22-.5.5s.22.5.5.5Z"/><polygon class="pl0" points="20.8 25.73 27.94 25.73 27.94 21.06 26.94 22.06 26.94 24.73 21.8 24.73 21.8 19.58 26.6 19.58 27.6 18.58 20.8 18.58 20.8 25.73"/><polygon class="pl1" points="24.98 21.2 24.01 20.23 22.59 21.65 24.98 24.03 26.94 22.06 27.94 21.06 30.47 18.54 29.05 17.12 27.6 18.58 26.6 19.58 24.98 21.2"/><polygon class="pl0" points="26.94 35.72 21.8 35.72 21.8 30.58 26.6 30.58 27.6 29.58 20.8 29.58 20.8 36.72 27.94 36.72 27.94 32.06 26.94 33.06 26.94 35.72"/><polygon class="pl1" points="27.6 29.58 26.6 30.58 24.98 32.2 24.01 31.23 22.59 32.65 24.98 35.03 26.94 33.06 27.94 32.06 30.47 29.54 29.05 28.12 27.6 29.58"/><polygon class="pl0" points="26.94 46.9 21.8 46.9 21.8 41.75 26.6 41.75 27.6 40.75 20.8 40.75 20.8 47.9 27.94 47.9 27.94 43.23 26.94 44.23 26.94 46.9"/><polygon class="pl1" points="29.05 39.29 27.6 40.75 26.6 41.75 24.98 43.37 24.01 42.4 22.59 43.82 24.98 46.2 26.94 44.23 27.94 43.23 30.47 40.71 29.05 39.29"/></svg></div>
+            <div class="agent-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><style>.pl0{fill:#ffffff}.pl1{fill:#c4b5fd}</style></defs><path class="pl0" d="M41.64,4.97v-2.58h-18.06v2.58h-12.82v56.59h43.7V4.97h-12.82ZM41.64,14.49v-3.19h5.89v43.74h-30.25V11.3h6.3v3.19h18.06ZM26.58,5.39h12.06v6.1h-12.06v-6.1ZM51.46,58.56H13.76V7.97h9.82v2.33h-7.3v45.74h32.25V10.3h-6.89v-2.33h9.82v50.59Z"/><path class="pl0" d="M31.43,21.11h10.28c.28,0,.5-.22.5-.5s-.22-.5-.5-.5h-10.28c-.28,0-.5.22-.5.5s.22.5.5.5Z"/><path class="pl0" d="M31.43,23.76h13.62c.28,0,.5-.22.5-.5s-.22-.5-.5-.5h-13.62c-.28,0-.5.22-.5.5s.22.5.5.5Z"/><path class="pl0" d="M31.43,32.61h10.28c.28,0,.5-.22.5-.5s-.22-.5-.5-.5h-10.28c-.28,0-.5.22-.5.5s.22.5.5.5Z"/><path class="pl0" d="M31.43,35.26h13.62c.28,0,.5-.22.5-.5s-.22-.5-.5-.5h-13.62c-.28,0-.5.22-.5.5s.22.5.5.5Z"/><path class="pl0" d="M31.43,43.61h13.62c.28,0,.5-.22.5-.5s-.22-.5-.5-.5h-13.62c-.28,0-.5.22-.5.5s.22.5.5.5Z"/><path class="pl0" d="M31.43,46.25h8.72c.28,0,.5-.22.5-.5s-.22-.5-.5-.5h-8.72c-.28,0-.5.22-.5.5s.22.5.5.5Z"/><polygon class="pl0" points="20.8 25.73 27.94 25.73 27.94 21.06 26.94 22.06 26.94 24.73 21.8 24.73 21.8 19.58 26.6 19.58 27.6 18.58 20.8 18.58 20.8 25.73"/><polygon class="pl1" points="24.98 21.2 24.01 20.23 22.59 21.65 24.98 24.03 26.94 22.06 27.94 21.06 30.47 18.54 29.05 17.12 27.6 18.58 26.6 19.58 24.98 21.2"/><polygon class="pl0" points="26.94 35.72 21.8 35.72 21.8 30.58 26.6 30.58 27.6 29.58 20.8 29.58 20.8 36.72 27.94 36.72 27.94 32.06 26.94 33.06 26.94 35.72"/><polygon class="pl1" points="27.6 29.58 26.6 30.58 24.98 32.2 24.01 31.23 22.59 32.65 24.98 35.03 26.94 33.06 27.94 32.06 30.47 29.54 29.05 28.12 27.6 29.58"/><polygon class="pl0" points="26.94 46.9 21.8 46.9 21.8 41.75 26.6 41.75 27.6 40.75 20.8 40.75 20.8 47.9 27.94 47.9 27.94 43.23 26.94 44.23 26.94 46.9"/><polygon class="pl1" points="29.05 39.29 27.6 40.75 26.6 41.75 24.98 43.37 24.01 42.4 22.59 43.82 24.98 46.2 26.94 44.23 27.94 43.23 30.47 40.71 29.05 39.29"/></svg></div>
             <h3>Grafiku Plānošanas Aģents</h3>
             <span class="agent-tag">Analītika</span>
         </div>
-        <p style="font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.7; margin: 0;">Analizē šoferu pieejamību, kvalifikācijas, darba stundu limitus un vēsturiskos datus, lai piedāvātu optimālus grafikus ar minimālām virsstundām.</p>
+        <p style="font-size: 14px; color: #475569; line-height: 1.7; margin: 0;">Analizē šoferu pieejamību, kvalifikācijas, darba stundu limitus un vēsturiskos datus, lai piedāvātu optimālus grafikus ar minimālām virsstundām.</p>
         <div class="agent-scenario">
             <div class="agent-before">
                 <h4>Bez VTP</h4>
@@ -1288,8 +1290,8 @@
             <span class="agent-tool-tag">Kvalifikāciju reģistrs</span>
         </div>
 
-        <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.08);">
-            <p style="font-size: 12px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px; font-weight: 700;">Vēl viens piemērs</p>
+        <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid #e2e8f0;">
+            <p style="font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px; font-weight: 700;">Vēl viens piemērs</p>
             <div class="agent-scenario">
                 <div class="agent-before">
                     <h4>Bez VTP</h4>
@@ -1307,11 +1309,11 @@
     <!-- Agent 3: Knowledge & Compliance -->
     <div class="agent-card">
         <div class="agent-card-header">
-            <div class="agent-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><style>.ki0{fill:#fff}.ki1{fill:#c4b5fd}</style></defs><path class="ki1" d="M16.7,1.2c-.2,0-.3,0-.5,0,.3,0,.5,0,.8,0,0,0-.2,0-.2,0Z"/><path class="ki1" d="M17.4,1.3c.2,0,.3,0,.5.1-.2,0-.3,0-.5-.1Z"/><path class="ki1" d="M18.2,1.5c.1,0,.3.1.4.2-.1,0-.3-.1-.4-.2Z"/><path class="ki1" d="M21.1,5.6h0c0-.3,0-.6-.1-.9,0,0,0-.2,0-.3,0-.2-.1-.4-.2-.5,0-.1-.1-.2-.2-.3,0-.2-.2-.3-.3-.5,0,0-.2-.2-.2-.3-.1-.1-.2-.2-.3-.4,0,0-.2-.2-.3-.2-.1,0-.2-.2-.4-.3-.1,0-.2-.1-.4-.2-.1,0-.3-.1-.4-.2-.1,0-.3,0-.4-.1-.2,0-.3,0-.5-.1-.1,0-.3,0-.4,0-.2,0-.5,0-.8,0h0c-.5,0-.9.2-1.4.4,0,0-.1,0-.2.1-.2.1-.4.2-.5.3-.9.7-1.6,1.7-1.7,2.9,0,.2,0,.4,0,.6h0c0,.1,0,.2,0,.3,0,.3,0,.6.1.9.3.9.8,1.7,1.6,2.3.5.4.8,1.1.8,1.8v.5l1.4.3,2.2.5v-1.4c0-.6.3-1.3.8-1.7,1.1-.8,1.8-2.1,1.8-3.5h0Z"/><polygon class="ki1" points="14.8 12.4 14.8 13.2 18.6 14.1 18.6 13.1 18.5 13.1 14.8 12.2 14.8 12.4"/><path class="ki1" d="M16.7,15c-.4,0-.8-.3-.8-.8l-1-.2h0c0,1.2.8,2,1.9,2s1.4-.5,1.7-1.1l-1-.2c-.2.2-.4.4-.7.4Z"/><path class="ki0" d="M26.3,14.4c0-3.4-1.7-6.3-4.3-8,0,.4-.1.7-.2,1.1,2.2,1.6,3.6,4.1,3.6,7v4.5s-2.6,0-2.6,0v5.7h-5.9v3.7h1v-2.7h5.9v-5.7h2.6v-5.5s0,0,0,0Z"/><path class="ki0" d="M7,14.4v13.9h1v-13.9c0-2.9,1.4-5.4,3.6-7-.1-.3-.2-.7-.3-1-2.6,1.7-4.3,4.7-4.3,8.1h0Z"/></svg></div>
+            <div class="agent-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><style>.ki0{fill:#ffffff}.ki1{fill:#c4b5fd}</style></defs><path class="ki1" d="M16.7,1.2c-.2,0-.3,0-.5,0,.3,0,.5,0,.8,0,0,0-.2,0-.2,0Z"/><path class="ki1" d="M17.4,1.3c.2,0,.3,0,.5.1-.2,0-.3,0-.5-.1Z"/><path class="ki1" d="M18.2,1.5c.1,0,.3.1.4.2-.1,0-.3-.1-.4-.2Z"/><path class="ki1" d="M21.1,5.6h0c0-.3,0-.6-.1-.9,0,0,0-.2,0-.3,0-.2-.1-.4-.2-.5,0-.1-.1-.2-.2-.3,0-.2-.2-.3-.3-.5,0,0-.2-.2-.2-.3-.1-.1-.2-.2-.3-.4,0,0-.2-.2-.3-.2-.1,0-.2-.2-.4-.3-.1,0-.2-.1-.4-.2-.1,0-.3-.1-.4-.2-.1,0-.3,0-.4-.1-.2,0-.3,0-.5-.1-.1,0-.3,0-.4,0-.2,0-.5,0-.8,0h0c-.5,0-.9.2-1.4.4,0,0-.1,0-.2.1-.2.1-.4.2-.5.3-.9.7-1.6,1.7-1.7,2.9,0,.2,0,.4,0,.6h0c0,.1,0,.2,0,.3,0,.3,0,.6.1.9.3.9.8,1.7,1.6,2.3.5.4.8,1.1.8,1.8v.5l1.4.3,2.2.5v-1.4c0-.6.3-1.3.8-1.7,1.1-.8,1.8-2.1,1.8-3.5h0Z"/><polygon class="ki1" points="14.8 12.4 14.8 13.2 18.6 14.1 18.6 13.1 18.5 13.1 14.8 12.2 14.8 12.4"/><path class="ki1" d="M16.7,15c-.4,0-.8-.3-.8-.8l-1-.2h0c0,1.2.8,2,1.9,2s1.4-.5,1.7-1.1l-1-.2c-.2.2-.4.4-.7.4Z"/><path class="ki0" d="M26.3,14.4c0-3.4-1.7-6.3-4.3-8,0,.4-.1.7-.2,1.1,2.2,1.6,3.6,4.1,3.6,7v4.5s-2.6,0-2.6,0v5.7h-5.9v3.7h1v-2.7h5.9v-5.7h2.6v-5.5s0,0,0,0Z"/><path class="ki0" d="M7,14.4v13.9h1v-13.9c0-2.9,1.4-5.4,3.6-7-.1-.3-.2-.7-.3-1-2.6,1.7-4.3,4.7-4.3,8.1h0Z"/></svg></div>
             <h3>Zināšanu un Atbilstības Aģents</h3>
             <span class="agent-tag">Dokumenti</span>
         </div>
-        <p style="font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.7; margin: 0;">Meklē augšupielādētajos dokumentos ar vektoru meklēšanu (RAG). Atbild dabīgā valodā ar precīzu atsauci uz avota dokumentu &mdash; neizdomā atbildes.</p>
+        <p style="font-size: 14px; color: #475569; line-height: 1.7; margin: 0;">Meklē augšupielādētajos dokumentos ar vektoru meklēšanu (RAG). Atbild dabīgā valodā ar precīzu atsauci uz avota dokumentu &mdash; neizdomā atbildes.</p>
         <div class="agent-scenario">
             <div class="agent-before">
                 <h4>Bez VTP</h4>
@@ -1330,8 +1332,8 @@
             <span class="agent-tool-tag">Avota atsauces</span>
         </div>
 
-        <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.08);">
-            <p style="font-size: 12px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px; font-weight: 700;">Vēl viens piemērs</p>
+        <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid #e2e8f0;">
+            <p style="font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px; font-weight: 700;">Vēl viens piemērs</p>
             <div class="agent-scenario">
                 <div class="agent-before">
                     <h4>Bez VTP</h4>
@@ -1349,11 +1351,11 @@
     <!-- Agent 4: Fleet Health -->
     <div class="agent-card">
         <div class="agent-card-header">
-            <div class="agent-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><style>.ci0{fill:#fff}.ci1{fill:#c4b5fd}</style></defs><path class="ci0" d="M25.9,8.9h-.6c.8-.3,1.3-1.1,1.3-1.9s-1-2.1-2.1-2.1-2.1.9-2.1,2.1.5,1.6,1.3,1.9h-.6c-1,0-1.9.7-2.1,1.7h0c.8,1.1,2.1,1.8,3.6,1.8s2.7-.7,3.6-1.8h0c-.2-1-1.1-1.7-2.1-1.7h0Z"/><path class="ci1" d="M24.5,2.3c-3.1,0-5.5,2.5-5.5,5.6s0,.9.2,1.3l-5,2.3c-.9-1.7-2.8-2.9-4.9-2.9-3.1,0-5.6,2.5-5.6,5.6s2.5,5.6,5.6,5.6,2.2-.3,3.1-.9l1.7,1.9c-1,1-1.6,2.4-1.6,3.9,0,3.1,2.5,5.6,5.6,5.6s5.5-2.5,5.5-5.5-1.1-3.9-2.8-4.8l2.2-6.6c.6.2,1.2.3,1.8.3,3.1,0,5.5-2.5,5.5-5.6s-2.5-5.6-5.5-5.6h0Z"/><path class="ci0" d="M10.6,15.2h-.6c.8-.3,1.3-1.1,1.3-1.9s-.9-2.1-2.1-2.1-2.1.9-2.1,2.1.5,1.6,1.3,1.9h-.6c-1,0-1.9.7-2.2,1.7h0c.8,1.1,2.1,1.8,3.6,1.8s2.7-.7,3.6-1.8h0c-.2-1-1.1-1.7-2.2-1.7h0Z"/><path class="ci0" d="M19.2,25.6h-.6c.8-.3,1.3-1.1,1.3-2s-1-2.1-2.1-2.1-2.1,1-2.1,2.1.5,1.6,1.3,2h-.6c-1,0-1.9.7-2.1,1.7h0c.8,1.1,2.1,1.8,3.6,1.8s2.7-.7,3.6-1.8h0c-.2-1-1.1-1.7-2.1-1.7h0Z"/></svg></div>
+            <div class="agent-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><style>.ci0{fill:#ffffff}.ci1{fill:#c4b5fd}</style></defs><path class="ci0" d="M25.9,8.9h-.6c.8-.3,1.3-1.1,1.3-1.9s-1-2.1-2.1-2.1-2.1.9-2.1,2.1.5,1.6,1.3,1.9h-.6c-1,0-1.9.7-2.1,1.7h0c.8,1.1,2.1,1.8,3.6,1.8s2.7-.7,3.6-1.8h0c-.2-1-1.1-1.7-2.1-1.7h0Z"/><path class="ci1" d="M24.5,2.3c-3.1,0-5.5,2.5-5.5,5.6s0,.9.2,1.3l-5,2.3c-.9-1.7-2.8-2.9-4.9-2.9-3.1,0-5.6,2.5-5.6,5.6s2.5,5.6,5.6,5.6,2.2-.3,3.1-.9l1.7,1.9c-1,1-1.6,2.4-1.6,3.9,0,3.1,2.5,5.6,5.6,5.6s5.5-2.5,5.5-5.5-1.1-3.9-2.8-4.8l2.2-6.6c.6.2,1.2.3,1.8.3,3.1,0,5.5-2.5,5.5-5.6s-2.5-5.6-5.5-5.6h0Z"/><path class="ci0" d="M10.6,15.2h-.6c.8-.3,1.3-1.1,1.3-1.9s-.9-2.1-2.1-2.1-2.1.9-2.1,2.1.5,1.6,1.3,1.9h-.6c-1,0-1.9.7-2.2,1.7h0c.8,1.1,2.1,1.8,3.6,1.8s2.7-.7,3.6-1.8h0c-.2-1-1.1-1.7-2.2-1.7h0Z"/><path class="ci0" d="M19.2,25.6h-.6c.8-.3,1.3-1.1,1.3-2s-1-2.1-2.1-2.1-2.1,1-2.1,2.1.5,1.6,1.3,2h-.6c-1,0-1.9.7-2.1,1.7h0c.8,1.1,2.1,1.8,3.6,1.8s2.7-.7,3.6-1.8h0c-.2-1-1.1-1.7-2.1-1.7h0Z"/></svg></div>
             <h3>Transporta Parka Veselības Aģents</h3>
             <span class="agent-tag">Telemetrija</span>
         </div>
-        <p style="font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.7; margin: 0;">Uzrauga OBD-II telemetriju no katra transportlīdzekļa. Atklāj anomālijas dzinēja temperatūrā, akumulatora spriegumā, degvielas patēriņā &mdash; un brīdina pirms avārijas.</p>
+        <p style="font-size: 14px; color: #475569; line-height: 1.7; margin: 0;">Uzrauga OBD-II telemetriju no katra transportlīdzekļa. Atklāj anomālijas dzinēja temperatūrā, akumulatora spriegumā, degvielas patēriņā &mdash; un brīdina pirms avārijas.</p>
         <div class="agent-scenario">
             <div class="agent-before">
                 <h4>Bez VTP</h4>
@@ -1372,8 +1374,8 @@
             <span class="agent-tool-tag">Brīdinājumi</span>
         </div>
 
-        <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.08);">
-            <p style="font-size: 12px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px; font-weight: 700;">Vēl viens piemērs</p>
+        <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid #e2e8f0;">
+            <p style="font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px; font-weight: 700;">Vēl viens piemērs</p>
             <div class="agent-scenario">
                 <div class="agent-before">
                     <h4>Bez VTP</h4>
@@ -1390,7 +1392,7 @@
 
     <!-- More Agents Grid -->
     <h3 style="font-size: 18px; font-weight: 800; margin: 32px 0 8px; position: relative; z-index: 1;">Vēl 7 specializēti MI rīki</h3>
-    <p style="font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 16px; position: relative; z-index: 1;">Katrs rīks piekļūst konkrētai datu sistēmai un veic specifiskas darbības.</p>
+    <p style="font-size: 13px; color: #64748b; margin-bottom: 16px; position: relative; z-index: 1;">Katrs rīks piekļūst konkrētai datu sistēmai un veic specifiskas darbības.</p>
 
     <div class="agents-grid">
         <div class="agent-mini">
@@ -1423,9 +1425,9 @@
         </div>
     </div>
 
-    <div style="margin-top: 28px; padding: 20px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); position: relative; z-index: 1;">
-        <h4 style="margin: 0 0 8px; font-size: 14px; color: #c4b5fd;">MI darbojas 24/7 &mdash; arī tad, kad jūs nē</h4>
-        <p style="font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.7; margin: 0;">
+    <div style="margin-top: 28px; padding: 20px; background: white; border: 1px solid #cbd5e1; position: relative; z-index: 1;">
+        <h4 style="margin: 0 0 8px; font-size: 14px; color: #1e40af;">MI darbojas 24/7 &mdash; arī tad, kad jūs nē</h4>
+        <p style="font-size: 13px; color: #475569; line-height: 1.7; margin: 0;">
             Svētdienas naktī plīst ūdensvads Brīvības ielā. Nakts dispečers &mdash; jauns darbinieks bez pieredzes &mdash; nezina, kurus maršrutus tas ietekmē un kā rīkoties. Ar VTP viņš jautā MI aģentam: <em>"Kuri maršruti šķērso Brīvības ielu starp Elizabetes un Čaka?"</em> un saņem sarakstu ar 4 maršrutiem, to grafikiem un ieteikumu novirzīšanai &mdash; 10 sekundēs. Tas, kas iepriekš prasīja pieredzējuša kolēģa zvanu un 20 minūtes, tagad ir pieejams jebkuram darbiniekam jebkurā laikā.
         </p>
     </div>
@@ -1438,27 +1440,28 @@
 
 <div class="progress-section">
     <div class="progress-overall">
-        <div class="progress-percent">85%</div>
+        <div class="progress-percent">87%</div>
         <div class="progress-label">
             <strong>Vienas pilsētas platforma &mdash; pilnībā gatava</strong>
-            17 lapas, 120+ galapunkti, 11 MI rīki, 1 151 testi, 4 lomu drošība
+            18 lapas, 128 galapunkti, 11 MI rīki, 1 200+ testi, 4 lomu drošība
         </div>
     </div>
-    <div class="progress-bar"><div class="progress-fill" style="width:85%"></div></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:87%"></div></div>
 
     <div style="margin-bottom: 16px; padding: 12px 16px; background: #ecfdf5; border: 1px solid #a7f3d0; font-size: 13px; color: #065f46; line-height: 1.6;">
         <strong>Rīgas mērogam platforma ir 100% gatava darbam.</strong> Zemāk redzamais progress atspoguļo visa Latvijas mēroga pārklājumu, ieskaitot daudzpilsētu atbalstu un paplašināto MI.
     </div>
 
-    <div class="module-row"><span class="module-name">Pārvaldības saskarne (17 lapas)</span><div class="module-bar"><div class="module-fill green" style="width:100%"></div></div><span class="module-pct" style="color:#059669">100%</span></div>
+    <div class="module-row"><span class="module-name">Pārvaldības saskarne (18 lapas)</span><div class="module-bar"><div class="module-fill green" style="width:100%"></div></div><span class="module-pct" style="color:#059669">100%</span></div>
     <div class="module-row"><span class="module-name">MI asistents (11 rīki, dokumentu meklēšana)</span><div class="module-bar"><div class="module-fill green" style="width:100%"></div></div><span class="module-pct" style="color:#059669">100%</span></div>
     <div class="module-row"><span class="module-name">Reāllaika izsekošana un WebSocket</span><div class="module-bar"><div class="module-fill green" style="width:100%"></div></div><span class="module-pct" style="color:#059669">100%</span></div>
     <div class="module-row"><span class="module-name">Transporta pārvaldība un ģeogrāfiskās zonas</span><div class="module-bar"><div class="module-fill green" style="width:100%"></div></div><span class="module-pct" style="color:#059669">100%</span></div>
     <div class="module-row"><span class="module-name">Drošība, autentifikācija, audits</span><div class="module-bar"><div class="module-fill green" style="width:100%"></div></div><span class="module-pct" style="color:#059669">100%</span></div>
     <div class="module-row"><span class="module-name">ES standartu eksporti (GTFS, NeTEx, SIRI)</span><div class="module-bar"><div class="module-fill green" style="width:100%"></div></div><span class="module-pct" style="color:#059669">100%</span></div>
+    <div class="module-row"><span class="module-name">MI atmiņa un sarunu vēsture</span><div class="module-bar"><div class="module-fill green" style="width:100%"></div></div><span class="module-pct" style="color:#059669">100%</span></div>
     <div class="module-row"><span class="module-name">Grāmatvedības integrācija</span><div class="module-bar"><div class="module-fill blue" style="width:15%"></div></div><span class="module-pct" style="color:#6366f1">15%</span></div>
     <div class="module-row"><span class="module-name">Visa Latvija (daudzpilsētu atbalsts)</span><div class="module-bar"><div class="module-fill amber" style="width:35%"></div></div><span class="module-pct" style="color:#d97706">35%</span></div>
-    <div class="module-row"><span class="module-name">Paplašināta MI inteliģence</span><div class="module-bar"><div class="module-fill blue" style="width:8%"></div></div><span class="module-pct" style="color:#6366f1">8%</span></div>
+    <div class="module-row"><span class="module-name">Paplašināta MI inteliģence (pipeline, validācija)</span><div class="module-bar"><div class="module-fill amber" style="width:20%"></div></div><span class="module-pct" style="color:#d97706">20%</span></div>
 </div>
 
 <!-- Roadmap -->
@@ -1481,7 +1484,7 @@
             <span class="status-badge planned" style="margin-left:auto;">Plānots</span>
         </div>
         <h4>Paplašināta MI inteliģence un grāmatvedības sasaiste</h4>
-        <p>Uzlabota dokumentu meklēšana un MI sarunas atmiņa. Tiešā integrācija ar grāmatvedības sistēmu &mdash; degviela, apkope, algas un apdrošināšana sinhronizējas automātiski.</p>
+        <p>Uzlabota dokumentu meklēšana un MI sarunu atmiņa. Tiešā integrācija ar grāmatvedības sistēmu &mdash; degviela, apkope, algas un apdrošināšana sinhronizējas automātiski.</p>
     </div>
     <div class="roadmap-item">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
@@ -1529,33 +1532,27 @@
         </div>
     </div>
     <div style="text-align: center; margin-top: 16px; font-size: 13px; color: #4338ca;">
-        <strong>Kopējais laiks no līguma līdz pilnai darbībai: 8&ndash;12 nedēļas</strong>
+        <strong>Kopējais laiks no līguma līdz pilnai darbībai: 7&ndash;12 nedēļas</strong>
     </div>
 </div>
 
 <!-- CTA: Pricing Model -->
 <div class="cta" style="margin-top: 0; border-top: 1px solid #c7d2fe;">
     <h2>Sadarbības Modelis</h2>
-    <p>Elastīgs cenu modelis, kas pielāgojas parka apjomam un vajadzībām. Bez lieliem sākotnējiem ieguldījumiem.</p>
+    <p>Cenu modelis tiek pielāgots katra klienta vajadzībām un apjomam. Iespējami vairāki sadarbības varianti &mdash; konkrēti nosacījumi tiek saskaņoti individuāli.</p>
 
     <div class="pricing-grid">
         <div class="pricing-card">
             <h4>SaaS abonements</h4>
-            <div class="pricing-desc">Ikmēneša maksa par transportlīdzekli. Ietver hostingu, atjauninājumus, tehnisko atbalstu un MI asistentu.</div>
-            <div class="pricing-value">Fiksēta maksa/mēn</div>
-            <div class="pricing-desc">Par transportlīdzekli vai fiksēts operatora līgums</div>
+            <div class="pricing-desc">Ikmēneša maksa, kas ietver hostingu, atjauninājumus, tehnisko atbalstu un MI asistentu. Bez lieliem sākotnējiem ieguldījumiem.</div>
         </div>
         <div class="pricing-card">
-            <h4>Lokāla izvietošana</h4>
-            <div class="pricing-desc">Sistēma darbojas jūsu serverī. Pilna datu kontrole, atbilst stingrajām drošības prasībām.</div>
-            <div class="pricing-value">Licence + atbalsts</div>
-            <div class="pricing-desc">Vienreizēja licence + gada uzturēšana</div>
+            <h4>Vienreizēja licence</h4>
+            <div class="pricing-desc">Sistēmas iegāde ar pilnu datu kontroli un lokālu vai mākoņa izvietošanu. Iespējams gada uzturēšanas līgums.</div>
         </div>
         <div class="pricing-card">
-            <h4>Hibrīds</h4>
-            <div class="pricing-desc">Dati lokāli, MI mākonī. Optimāls drošības un veiktspējas balansam.</div>
-            <div class="pricing-value">Pēc pieprasījuma</div>
-            <div class="pricing-desc">Pielāgots jūsu infrastruktūrai</div>
+            <h4>Individuāls piedāvājums</h4>
+            <div class="pricing-desc">Sazināties ar mums, lai apspriestu jūsu konkrētās vajadzības un saņemtu pielāgotu cenu piedāvājumu.</div>
         </div>
     </div>
 </div>
@@ -1571,11 +1568,54 @@
         </div>
         <div class="cta-card">
             <h4>Nacionāls pārskats</h4>
-            <p>Satiksmes ministrija vai ATD var redzēt apvienotu statistiku pār visiem pārvadātājiem, nezaudējot detaļas.</p>
+            <p>Satiksmes ministrija vai ATD var redzēt apvienotu statistiku par visiem pārvadātājiem, nezaudējot detaļas.</p>
         </div>
         <div class="cta-card">
             <h4>Marginālās izmaksas</h4>
             <p>Pievienot jaunu pilsētu maksā daļu no pirmā ieviešanas. Koplietotā infrastruktūra samazina katras nākamās pilsētas izmaksas par 40&ndash;60%.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Team -->
+<div class="cta" style="margin-top: 0; border-top: 1px solid #c7d2fe;">
+    <h2>Komanda</h2>
+    <p>Tehnoloģiju un biznesa pieredze, kas nodrošina platformas izstrādi un ieviešanu.</p>
+    <div class="cta-grid">
+        <div class="cta-card">
+            <h4>Linards Bērziņš</h4>
+            <p style="font-weight: 700; margin-bottom: 4px;">CTO / CEO &amp; Izstrādātājs</p>
+            <p>Platformas arhitekts un galvenais izstrādātājs. Atbild par tehnisko vīziju, sistēmas arhitektūru un produkta attīstību.</p>
+        </div>
+        <div class="cta-card">
+            <h4>Atis Vīķis</h4>
+            <p style="font-weight: 700; margin-bottom: 4px;">Valdes loceklis</p>
+            <p>Stratēģiskā vadība un lēmumu pieņemšana. Nodrošina uzņēmuma ilgtermiņa attīstības virzību.</p>
+        </div>
+        <div class="cta-card">
+            <h4>Juris Ņefedovs</h4>
+            <p style="font-weight: 700; margin-bottom: 4px;">Biznesa konsultants</p>
+            <p>Biznesa attīstība, klientu attiecības un tirgus stratēģija. Nodrošina platformas atbilstību klientu vajadzībām.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Data Privacy & SLA -->
+<div class="cta" style="margin-top: 0; border-top: 1px solid #c7d2fe;">
+    <h2>Datu Drošība un Pakalpojuma Līmenis</h2>
+    <p>Platformas drošība un pieejamība ir projektēta atbilstoši Eiropas standartiem.</p>
+    <div class="cta-grid">
+        <div class="cta-card">
+            <h4>VDAR / GDPR atbilstība</h4>
+            <p>Personas datu apstrāde atbilst ES Vispārīgajai datu aizsardzības regulai. Datu minimizācija, piekļuves kontrole un audita pieraksti ir iebūvēti platformā.</p>
+        </div>
+        <div class="cta-card">
+            <h4>SLA garantijas</h4>
+            <p>99.5% pieejamība, &lt;4h kritisko incidentu reakcijas laiks, regulāras drošības atjauninājumi. Pielāgojams pēc operatora prasībām.</p>
+        </div>
+        <div class="cta-card">
+            <h4>Datu suverenitāte</h4>
+            <p>Izvēle starp ES mākoņa hostingu un lokālu serveri. Dati nekad neatstāj ES jurisdikciju. Pilna datu kontrole un eksporta iespējas jebkurā brīdī.</p>
         </div>
     </div>
 </div>
@@ -1585,6 +1625,9 @@
 <footer class="footer">
     <div class="footer-logo">VTP</div>
     <p>Vienota Transportlīdzekļu Pārvalde</p>
+    <p style="margin-top: 12px; font-size: 14px; color: var(--text-secondary);">
+        <a href="mailto:linardsberzins@gmail.com" style="color: var(--primary); text-decoration: none; font-weight: 600;">linardsberzins@gmail.com</a>
+    </p>
     <p style="margin-top: 6px; font-size: 12px; opacity: 0.5;">2026 &middot; Atjaunots aprīlī</p>
 </footer>
 </body>
