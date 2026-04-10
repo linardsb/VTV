@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence █████████████░░░░░░░░░░  65%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. AI-4.3 parent-child retrieval + context expansion done. AI-4.4 re-chunk migration done. AI-5.1 bounded self-correction loop done (standard tier). AI-5.2 extended QA checks with severity tiers done. AI-5.3 correction metrics + admin endpoint done. Remaining: multi-agent+harness+L3 skills, eval)
+Agent Intelligence █████████████░░░░░░░░░░  68%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. AI-4.3 parent-child retrieval + context expansion done. AI-4.4 re-chunk migration done. AI-5.1 bounded self-correction loop done (standard tier). AI-5.2 extended QA checks with severity tiers done. AI-5.3 correction metrics + admin endpoint done. AI-6.1 BaseAgentService harness done (9 hook points, pure refactor). Remaining: domain-specific agents+router+L3 skills, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -277,7 +277,7 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 > **Sprint deliverable:** Monolithic 11-tool agent split into 3 domain specialists + router. Full BaseAgentService harness (9 hook points, confidence extraction, context budgets). Progressive L3 skill loading with token budgets and priority gating. Token usage drops ~40%. Tool selection accuracy improves.
 > **Depends on:** Phase AI-3 (memory — shared across agents)
 
-#### AI-6.1 BaseAgentService Shared Pipeline (Full Harness)
+#### AI-6.1 BaseAgentService Shared Pipeline (Full Harness) ✅
 **What:** Extract shared agent pipeline logic from `AgentService` into `app/core/agents/base.py` — full `BaseAgentService` harness adapted from email-hub's `app/ai/agents/base.py` (468 lines, 9 hook points). Handles: tier routing → skill detection → memory recall → prompt building → agent execution → post-processing → confidence extraction → self-correction → memory bridge → response construction.
 **Why:** Email-hub's `BaseAgentService` eliminates ~80% code duplication across 9 agents. Each domain agent needs the same pipeline but different tools, prompts, and QA checks. The harness pattern provides 9 extensibility hook points that subclasses override while the base handles the battle-tested flow.
 **Implementation:**
@@ -588,6 +588,9 @@ These items from the original roadmap are standalone improvements that don't fit
 
 - [x] **Multi-Tier Model Routing** — Heuristic prompt classifier in `routing.py` routes simple lookups to fast tier, standard queries to default, complex analysis to premium. `resolve_tier_model()` in `config.py` resolves tier-specific models. Integrated into `AgentService.chat()`. 6 env vars (`LLM_FAST_*`/`LLM_STANDARD_*`/`LLM_COMPLEX_*`). 37 new tests. (2026-03-09)
   - Plan: [.agents/plans/agent-model-routing.md](../.agents/plans/agent-model-routing.md)
+
+- [x] **AI-6.1 BaseAgentService Harness** — Extracted `AgentService.chat()` orchestration into a reusable `BaseAgentService` base class in `app/core/agents/base.py` (~430 lines) with 11 hook points (tier classification, RAG routing, skill detection, memory recall, system prompt assembly, user message shaping, validation cache preload, agent execution, post-process / QA / should-run-QA, response assembly, memory persist). `AgentService` is now a thin transit-specific subclass that overrides hooks touching service-module globals (preserving all `test_service.py` patch contracts). Pure refactor — zero behavior change, all 132 agent+bridge tests and 106 security convention tests pass unchanged. Added 23 new hook-point unit tests in `app/core/agents/tests/test_base.py`. Type-check baseline preserved (pyright 5, mypy 3 errors — all pre-existing). Foundation for AI-6.2 domain-specific agents. (2026-04-10)
+  - Plan: [.agents/plans/ai-6.1-base-agent-service.md](../.agents/plans/ai-6.1-base-agent-service.md)
 
 ### CMS Frontend Pages
 

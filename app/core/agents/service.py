@@ -1,40 +1,43 @@
-"""Agent service layer for orchestrating chat interactions.
+"""Transit-domain agent service — wires the BaseAgentService harness.
 
-This module provides the AgentService class that handles the full
-lifecycle of a chat request: extracting user messages, running the
-agent, and constructing OpenAI-compatible responses.
+``AgentService`` is a thin subclass of ``BaseAgentService`` that overrides
+the hooks that touch transit-specific dependencies (RAG router, GTFS static
+cache, memory recall, self-correction loop, complex pipeline, transit
+validator).
+
+NOTE: every symbol patched by ``app/core/agents/tests/test_service.py`` MUST
+remain importable at *this* module's top level. The test suite patches these
+via ``patch("app.core.agents.service.<name>", ...)`` and relies on Python's
+attribute-binding semantics to intercept calls. Do not remove re-exports
+even if pyflakes claims they are unused — the ``# noqa: F401`` comments
+document that constraint.
 """
 
-import re
+from __future__ import annotations
+
 import time
 import uuid
+from typing import TYPE_CHECKING, Any
 
-from pydantic_ai.messages import (
-    ModelMessage,
-    ModelRequest,
-    ModelResponse,
-    TextPart,
-    UserPromptPart,
-)
+from pydantic_ai.messages import ModelMessage
 
 from app.core.agents.agent import agent, build_instructions_with_skills
+from app.core.agents.base import BaseAgentService, _PipelineOutcome
 from app.core.agents.config import resolve_tier_model
 from app.core.agents.correction import CorrectedResult, SelfCorrectionLoop
-from app.core.agents.exceptions import AgentExecutionError
 from app.core.agents.pipeline import get_complex_pipeline
-from app.core.agents.routing import classify_prompt
+from app.core.agents.routing import (
+    ModelTier,
+    classify_prompt,
+)
 from app.core.agents.schemas import (
     ChatCompletionChoice,
-    ChatCompletionRequest,
     ChatCompletionResponse,
     ChatMessage,
     UsageInfo,
 )
 from app.core.agents.tools.transit.deps import UnifiedDeps, create_unified_deps
-from app.core.agents.tools.transit.static_store import (
-    GTFSStaticStore,
-    get_static_store,
-)
+from app.core.agents.tools.transit.static_store import GTFSStaticStore, get_static_store
 from app.core.agents.validation import (
     ValidationContext,
     extract_tool_returns,
@@ -49,63 +52,51 @@ from app.memory.schemas import MemoryRecallByQueryRequest
 from app.memory.service import MemoryService
 from app.skills.service import SkillService
 
+if TYPE_CHECKING:
+    from pydantic_ai.models import Model
+
 logger = get_logger(__name__)
 
 
-def _build_message_history(messages: list[ChatMessage]) -> list[ModelMessage]:
-    """Convert OpenAI-format chat messages to Pydantic AI ModelMessage objects.
+# Explicit re-exports — every name below is patched by the test suite via
+# ``patch("app.core.agents.service.<name>", ...)``. Removing any entry breaks
+# ``app/core/agents/tests/test_service.py``.
+__all__ = [
+    "AgentService",
+    "AsyncSessionLocal",
+    "CorrectedResult",
+    "MemoryService",
+    "SelfCorrectionLoop",
+    "SkillService",
+    "agent",
+    "build_instructions_with_skills",
+    "classify_prompt",
+    "close_agent_service",
+    "extract_tool_returns",
+    "get_agent_service",
+    "get_complex_pipeline",
+    "get_settings",
+    "logger",
+    "needs_rag",
+    "persist_agent_episode",
+    "resolve_tier_model",
+    "validate_transit_response",
+]
 
-    Converts prior conversation messages (excluding the final user message)
-    into the format expected by agent.run(message_history=...).
 
-    Args:
-        messages: Prior messages to include as history (user + assistant).
+class AgentService(BaseAgentService):
+    """Orchestrates transit agent chat interactions.
 
-    Returns:
-        List of ModelMessage objects for Pydantic AI.
+    Concrete subclass of ``BaseAgentService`` that wires the transit agent,
+    the GTFS static cache, the self-correction loop, the complex-tier
+    pipeline, and the VTV memory/skills infrastructure.
     """
-    history: list[ModelMessage] = []
-    for msg in messages:
-        if msg.role == "user":
-            history.append(ModelRequest(parts=[UserPromptPart(content=msg.content)]))
-        elif msg.role == "assistant":
-            history.append(ModelResponse(parts=[TextPart(content=msg.content)]))
-        # system messages are handled by the agent's system_prompt config
-    return history
 
-
-_INJECTION_PATTERNS = (
-    re.compile(r"ignore\s+(previous|all|above)\s+(instructions|prompts)", re.IGNORECASE),
-    re.compile(r"you\s+are\s+now\s+(?:a|an)\s+", re.IGNORECASE),
-    re.compile(r"<\s*system\s*>", re.IGNORECASE),
-)
-
-
-def _check_prompt_injection(text: str) -> None:
-    """Log a warning if common prompt injection patterns are detected.
-
-    Does not block the message — only logs for operator awareness.
-    Blocking legitimate messages is a worse outcome than logging false positives.
-    """
-    for pattern in _INJECTION_PATTERNS:
-        if pattern.search(text):
-            logger.warning(
-                "agent.prompt_injection_detected",
-                pattern=pattern.pattern,
-                prompt_length=len(text),
-            )
-            return
-
-
-class AgentService:
-    """Orchestrates agent chat interactions.
-
-    Handles message extraction, agent execution, and response formatting
-    following the OpenAI Chat Completions API format.
-    """
+    agent_name: str = "transit_agent"
 
     def __init__(self) -> None:
         """Initialize with unified dependencies for agent tool execution."""
+        super().__init__()
         self._deps: UnifiedDeps = create_unified_deps()
         init_settings = get_settings()
         self._correction_loop: SelfCorrectionLoop | None = (
@@ -114,46 +105,14 @@ class AgentService:
             else None
         )
 
-    async def chat(self, request: ChatCompletionRequest) -> ChatCompletionResponse:
-        """Process a chat completion request.
-
-        Extracts the last user message, runs the agent with transit deps,
-        and returns an OpenAI-compatible response.
-
-        Args:
-            request: The chat completion request with messages.
-
-        Returns:
-            ChatCompletionResponse with the agent's response.
-
-        Raises:
-            AgentExecutionError: If the agent fails to generate a response.
-        """
-        # Split into history (all but last) and current user prompt (last message)
-        current_prompt = request.messages[-1].content
-        prior_messages = request.messages[:-1]
-        message_history = _build_message_history(prior_messages) if prior_messages else None
-
-        # Check for prompt injection patterns (log-only, does not block)
-        _check_prompt_injection(current_prompt)
-
-        # Classify prompt complexity for model routing
-        tier = classify_prompt(current_prompt)
-        tier_model = resolve_tier_model(tier)
-
-        logger.info(
-            "agent.chat_started",
-            message_count=len(request.messages),
-            history_count=len(prior_messages),
-            user_prompt_length=len(current_prompt),
-            model_tier=tier,
-            tier_override=tier_model is not None,
-        )
-
-        # RAG query router - skip knowledge search for transit/schedule/vault queries
+    # ------------------------------------------------------------------
+    # Hook: RAG routing
+    # ------------------------------------------------------------------
+    async def _apply_rag_routing(self, prompt: str, tier: ModelTier) -> None:
+        """Toggle ``self._deps.rag_enabled`` from the knowledge router."""
         settings = get_settings()
         if settings.knowledge_router_enabled:
-            rag_decision = needs_rag(current_prompt)
+            rag_decision = needs_rag(prompt)
             self._deps.rag_enabled = rag_decision.needs_rag
             logger.info(
                 "agent.rag_routing",
@@ -165,177 +124,234 @@ class AgentService:
         else:
             self._deps.rag_enabled = True
 
-        # Load active skills for dynamic instructions
-        skills_instructions = ""
+    # ------------------------------------------------------------------
+    # Hook: skill detection
+    # ------------------------------------------------------------------
+    async def detect_relevant_skills(self, prompt: str) -> str:
+        """Load all active skills from the DB (fail-open to '')."""
+        _ = prompt  # skills loader returns all active skills regardless of prompt
         try:
             async with AsyncSessionLocal() as db:
                 skill_service = SkillService(db)
-                skills_instructions = await skill_service.get_active_skills_content()
+                return await skill_service.get_active_skills_content()
         except Exception:
             logger.warning("agent.skills_load_failed", exc_info=True)
+            return ""
 
-        # Recall relevant memories for context injection
-        memory_context = ""
-        if settings.memory_enabled:
-            try:
-                async with AsyncSessionLocal() as memory_db:
-                    memory_service = MemoryService(memory_db)
-                    recall_request = MemoryRecallByQueryRequest(
-                        query=current_prompt[:2000],
-                        limit=settings.memory_max_recall_results,
-                        min_score=settings.memory_recall_min_score,
-                    )
-                    recalled = await memory_service.recall_by_query(recall_request)
+    # ------------------------------------------------------------------
+    # Hook: memory recall block
+    # ------------------------------------------------------------------
+    async def _recall_memories_block(self, prompt: str) -> str:
+        """Recall relevant memories and format the ``RELEVANT MEMORIES`` block.
 
-                if recalled:
-                    memory_lines = [
-                        f"- [{r.score:.2f}] {r.memory.content[:300]}"
-                        for r in recalled[: settings.memory_context_injection_limit]
-                    ]
-                    memory_context = (
-                        "RELEVANT MEMORIES (from prior interactions - use as context, "
-                        "not as authoritative facts):\n" + "\n".join(memory_lines)
-                    )
-                    logger.info(
-                        "agent.memory.recall_injected",
-                        count=len(recalled),
-                        top_score=recalled[0].score if recalled else 0.0,
-                    )
-            except Exception:
-                logger.warning("agent.memory.recall_failed", exc_info=True)
-
-        instructions = build_instructions_with_skills(skills_instructions, memory_context) or None
-
-        # Pre-load GTFS static cache once for validation existence checks.
-        # Fail-open: validators gracefully degrade when cache is None.
-        static_cache: GTFSStaticStore | None = None
-        if self._deps.db_session_factory is not None:
-            try:
-                static_cache = await get_static_store(
-                    self._deps.db_session_factory,
-                    settings,
-                )
-            except Exception:
-                logger.warning("agent.validation.static_cache_unavailable", exc_info=True)
-
-        correction_warnings: list[str] | None = None
-        fallback_messages: list[ModelMessage] = []
-        try:
-            if tier == "complex":
-                pipeline = get_complex_pipeline(agent, self._deps)
-                pipeline_result = await pipeline.run(
-                    current_prompt,
-                    message_history=message_history,
-                    instructions=instructions,
-                    model=tier_model,
-                )
-                response_content = pipeline_result.output
-
-                logger.info(
-                    "agent.pipeline.summary",
-                    phases_completed=pipeline_result.phases_completed,
-                    total_duration_ms=pipeline_result.total_duration_ms,
-                    phase_details=[
-                        {"name": pd.name, "duration_ms": pd.duration_ms, "status": pd.status}
-                        for pd in pipeline_result.phase_details
-                    ],
-                )
-            elif self._correction_loop is not None:
-                corrected: CorrectedResult = await self._correction_loop.run_with_correction(
-                    agent,
-                    current_prompt,
-                    deps=self._deps,
-                    message_history=message_history,
-                    instructions=instructions,
-                    model=tier_model,
-                    static_cache=static_cache,
-                )
-                response_content = corrected.output
-                # Memory persistence uses the FINAL attempt's messages.
-                persist_agent_episode(
-                    agent_name="transit_agent",
-                    prompt=current_prompt,
-                    response=response_content,
-                    messages=corrected.all_messages,
-                )
-                correction_warnings = corrected.warnings
-            else:
-                result = await agent.run(
-                    current_prompt,
-                    deps=self._deps,
-                    message_history=message_history,
-                    instructions=instructions,
-                    model=tier_model,
-                )
-                response_content = result.output
-                fallback_messages = list(result.all_messages())
-
-                # Fire-and-forget: persist multi-tool episodes as memory
-                persist_agent_episode(
-                    agent_name="transit_agent",
-                    prompt=current_prompt,
-                    response=response_content,
-                    messages=fallback_messages,
-                )
-        except Exception as e:
-            logger.error(
-                "agent.chat_failed",
-                exc_info=True,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-            raise AgentExecutionError(f"Agent execution failed: {e}") from e
-
-        # Reuse correction loop's validation when available; otherwise validate now.
-        if correction_warnings is None:
-            fallback_ctx = ValidationContext(
-                user_message=current_prompt,
-                static_cache=static_cache,
-                tool_returns=extract_tool_returns(fallback_messages),
-            )
-            validation = validate_transit_response(response_content, fallback_ctx)
-            warnings_to_render = list(validation.warnings)
-        else:
-            warnings_to_render = correction_warnings
-
-        if warnings_to_render:
-            for warning in warnings_to_render:
-                logger.warning(
-                    "agent.response_validation_warning",
-                    warning=warning,
-                )
-            footnotes = "\n".join(f"\u26a0\ufe0f {w}" for w in warnings_to_render)
-            response_content = f"{response_content}\n\n---\n{footnotes}"
-
-        response_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
+        Byte-identical to the original ``service.py:177-205`` block — the
+        ``test_service.py`` suite asserts on the exact prefix, score
+        formatting, and 300-char content truncation.
+        """
         settings = get_settings()
+        if not settings.memory_enabled:
+            return ""
+        try:
+            async with AsyncSessionLocal() as memory_db:
+                memory_service = MemoryService(memory_db)
+                recall_request = MemoryRecallByQueryRequest(
+                    query=prompt[:2000],
+                    limit=settings.memory_max_recall_results,
+                    min_score=settings.memory_recall_min_score,
+                )
+                recalled = await memory_service.recall_by_query(recall_request)
+
+            if not recalled:
+                return ""
+
+            memory_lines = [
+                f"- [{r.score:.2f}] {r.memory.content[:300]}"
+                for r in recalled[: settings.memory_context_injection_limit]
+            ]
+            memory_context = (
+                "RELEVANT MEMORIES (from prior interactions - use as context, "
+                "not as authoritative facts):\n" + "\n".join(memory_lines)
+            )
+            logger.info(
+                "agent.memory.recall_injected",
+                count=len(recalled),
+                top_score=recalled[0].score if recalled else 0.0,
+            )
+            return memory_context
+        except Exception:
+            logger.warning("agent.memory.recall_failed", exc_info=True)
+            return ""
+
+    # ------------------------------------------------------------------
+    # Hook: system prompt assembly
+    # ------------------------------------------------------------------
+    def build_system_prompt(self, skills: str, memory_context: str) -> str:
+        """Compose skills + memory via ``build_instructions_with_skills``.
+
+        Overridden so ``test_service.py`` can patch
+        ``app.core.agents.service.build_instructions_with_skills``.
+        """
+        return build_instructions_with_skills(skills, memory_context)
+
+    # ------------------------------------------------------------------
+    # Hook: validation cache preload (GTFS static)
+    # ------------------------------------------------------------------
+    async def _preload_validation_cache(self) -> GTFSStaticStore | None:
+        """Pre-load the GTFS static cache (fail-open to None)."""
+        if self._deps.db_session_factory is None:
+            return None
+        try:
+            settings = get_settings()
+            return await get_static_store(self._deps.db_session_factory, settings)
+        except Exception:
+            logger.warning("agent.validation.static_cache_unavailable", exc_info=True)
+            return None
+
+    # ------------------------------------------------------------------
+    # Hook: execute (tier-routed agent invocation)
+    # ------------------------------------------------------------------
+    async def _execute(
+        self,
+        *,
+        user_message: str,
+        current_prompt: str,
+        message_history: list[ModelMessage] | None,
+        instructions: str | None,
+        tier: ModelTier,
+        tier_model: str | Model | None,
+        static_cache: Any,  # noqa: ANN401 — GTFSStaticStore | None, typed as Any in base
+    ) -> _PipelineOutcome:
+        """Route to the complex pipeline, self-correction loop, or fallback.
+
+        Mirrors the behavior of the original ``AgentService.chat`` lines
+        223-287: complex tier runs the orchestrator; standard tier runs the
+        self-correction loop when enabled; otherwise a plain ``agent.run``
+        with fire-and-forget memory bridge persistence.
+        """
+        if tier == "complex":
+            pipeline = get_complex_pipeline(agent, self._deps)
+            pipeline_result = await pipeline.run(
+                user_message,
+                message_history=message_history,
+                instructions=instructions,
+                model=tier_model,
+            )
+            logger.info(
+                "agent.pipeline.summary",
+                phases_completed=pipeline_result.phases_completed,
+                total_duration_ms=pipeline_result.total_duration_ms,
+                phase_details=[
+                    {"name": pd.name, "duration_ms": pd.duration_ms, "status": pd.status}
+                    for pd in pipeline_result.phase_details
+                ],
+            )
+            # Complex path: no QA footnotes, no memory persist (existing behavior).
+            return _PipelineOutcome(
+                response_text=pipeline_result.output,
+                warnings=[],
+                messages=[],
+            )
+
+        if self._correction_loop is not None:
+            corrected: CorrectedResult = await self._correction_loop.run_with_correction(
+                agent,
+                user_message,
+                deps=self._deps,
+                message_history=message_history,
+                instructions=instructions,
+                model=tier_model,
+                static_cache=static_cache,
+            )
+            # Memory persistence uses the FINAL attempt's messages.
+            persist_agent_episode(
+                agent_name=self.agent_name,
+                prompt=current_prompt,
+                response=corrected.output,
+                messages=corrected.all_messages,
+            )
+            return _PipelineOutcome(
+                response_text=corrected.output,
+                warnings=corrected.warnings,
+                messages=corrected.all_messages,
+            )
+
+        result = await agent.run(
+            user_message,
+            deps=self._deps,
+            message_history=message_history,
+            instructions=instructions,
+            model=tier_model,
+        )
+        fallback_messages = list(result.all_messages())
+
+        # Fire-and-forget: persist multi-tool episodes as memory.
+        persist_agent_episode(
+            agent_name=self.agent_name,
+            prompt=current_prompt,
+            response=result.output,
+            messages=fallback_messages,
+        )
+        return _PipelineOutcome(
+            response_text=result.output,
+            warnings=None,  # signal _post_process to run QA itself
+            messages=fallback_messages,
+        )
+
+    # ------------------------------------------------------------------
+    # Hook: post-process (re-run QA via service-module validate helper)
+    # ------------------------------------------------------------------
+    def _run_qa(
+        self,
+        *,
+        response: str,
+        current_prompt: str,
+        messages: list[ModelMessage],
+        static_cache: Any,  # noqa: ANN401
+    ) -> list[str]:
+        """Delegate to ``validate_transit_response`` via the service module.
+
+        Overridden so ``test_service.py`` could patch the transit validator
+        through ``app.core.agents.service.validate_transit_response`` if it
+        ever needed to.
+        """
+        ctx = ValidationContext(
+            user_message=current_prompt,
+            static_cache=static_cache,
+            tool_returns=extract_tool_returns(messages),
+        )
+        validation = validate_transit_response(response, ctx)
+        return list(validation.warnings)
+
+    # ------------------------------------------------------------------
+    # Hook: response assembly (overridden so tests can patch get_settings)
+    # ------------------------------------------------------------------
+    def _build_response(
+        self,
+        *,
+        content: str,
+        tier_model: str | Model | None,
+    ) -> ChatCompletionResponse:
+        """Assemble the OpenAI-compatible response envelope."""
+        settings = get_settings()
+        response_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
         model_name = (
             str(tier_model)
             if tier_model is not None
             else f"{settings.llm_provider}:{settings.llm_model}"
         )
-
-        response = ChatCompletionResponse(
+        return ChatCompletionResponse(
             id=response_id,
             created=int(time.time()),
             model=model_name,
             choices=[
                 ChatCompletionChoice(
                     index=0,
-                    message=ChatMessage(role="assistant", content=response_content),
+                    message=ChatMessage(role="assistant", content=content),
                     finish_reason="stop",
                 )
             ],
             usage=UsageInfo(),
         )
-
-        logger.info(
-            "agent.chat_completed",
-            response_id=response_id,
-            output_length=len(response_content),
-        )
-
-        return response
 
     async def close(self) -> None:
         """Close HTTP clients used by agent tools."""
@@ -349,7 +365,7 @@ class AgentService:
             pass  # Event loop already closed during shutdown
 
 
-# --- Module-level singleton ---
+# --- Module-level singleton -------------------------------------------------
 
 _agent_service: AgentService | None = None
 
@@ -357,10 +373,10 @@ _agent_service: AgentService | None = None
 def get_agent_service() -> AgentService:
     """Get or create the agent service singleton.
 
-    Reuses the same httpx.AsyncClient across requests for connection pooling.
+    Reuses the same ``httpx.AsyncClient`` across requests for connection pooling.
 
     Returns:
-        Singleton AgentService instance.
+        Singleton ``AgentService`` instance.
     """
     global _agent_service
     if _agent_service is None:
