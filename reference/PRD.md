@@ -47,7 +47,7 @@ Provide RS dispatchers and administrators with a single platform to manage trans
 - Dashboard alert indicator ✅ — Backed by notification/alerts system: 11 REST endpoints, configurable alert rules (maintenance_due, registration_expiry, delay_threshold, manual), background evaluator, severity-based dashboard badge counts, RBAC enforcement
 
 **AI Agent Service (FastAPI + Pydantic AI)**
-- Single unified agent with transit + vault + knowledge + skills tools
+- Unified agent with transit + vault + knowledge + skills tools, plus three domain-specific agent subclasses (`TransitAgent`, `KnowledgeAgent`, `VaultAgent`) selected via the `agent: 'unified'|'transit'|'knowledge'|'vault'` field on `ChatCompletionRequest` (AI-6.2, default `unified` preserves the all-11-tool fallback) ✅
 - OpenAI-compatible `/v1/chat/completions` endpoint
 - Streaming (SSE) and non-streaming support
 - 4 Obsidian vault tools (query, notes, folders, bulk)
@@ -150,7 +150,7 @@ All services run locally via Docker Compose with resource limits. LLM is fully c
 
 ### 6.1 Design Philosophy
 
-One agent, all tools. The LLM decides which tools to use based on the user's query. No routing logic, no agent registry — the agent has access to 11 tools and selects the appropriate ones per request.
+A unified 11-tool agent is the default. The LLM decides which tools to use based on the user's query. For focused domains (transit-only, knowledge-only, vault-only), three `BaseAgentService` subclasses (`TransitAgent`, `KnowledgeAgent`, `VaultAgent`) register only the tools relevant to their domain and carry domain-focused system prompts, trimming per-request token footprint by ~40% for single-domain queries. Clients pick the agent via the `agent: 'unified'|'transit'|'knowledge'|'vault'` field on `ChatCompletionRequest`; default `unified` preserves the all-11-tool fallback for cross-domain queries. Auto-routing (AI-6.3) is planned but not yet implemented — today the selector is explicit.
 
 ```python
 agent = Agent(

@@ -1,7 +1,7 @@
 """Tests for agent API routes."""
 
 from collections.abc import Generator
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,6 +11,11 @@ from pydantic_ai.models.test import TestModel
 from app.auth.dependencies import get_current_user
 from app.auth.models import User
 from app.core.agents.agent import agent
+from app.core.agents.schemas import (
+    ChatCompletionChoice,
+    ChatCompletionResponse,
+    ChatMessage,
+)
 from app.core.rate_limit import limiter
 from app.main import app
 
@@ -38,6 +43,23 @@ def _setup_auth_override() -> Generator[None, None, None]:
     app.dependency_overrides[get_current_user] = _mock_admin_user
     yield
     app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.fixture(autouse=True)
+def _bypass_quota_tracker() -> Generator[None, None, None]:
+    """Bypass the daily quota tracker for route tests.
+
+    Without this, tests that hit ``/v1/chat/completions`` leak into a shared
+    Redis-backed quota counter (or the in-memory fallback) and eventually
+    exhaust the 50-query daily budget, causing cascading 429s across the
+    suite. Patching ``get_quota_tracker`` on the routes module returns a
+    stub that always allows.
+    """
+    fake_tracker = MagicMock()
+    fake_tracker.check_and_increment = AsyncMock(return_value=True)
+    fake_tracker.get_remaining = AsyncMock(return_value=50)
+    with patch("app.core.agents.routes.get_quota_tracker", return_value=fake_tracker):
+        yield
 
 
 def test_chat_completions_endpoint():
@@ -89,3 +111,74 @@ def test_chat_completions_returns_assistant_message():
     data = response.json()
     assert data["choices"][0]["message"]["role"] == "assistant"
     assert data["choices"][0]["finish_reason"] == "stop"
+
+
+# --- AI-6.2: agent selector regressions -----------------------------------
+
+
+def _fake_chat_response() -> ChatCompletionResponse:
+    """Build a minimal ChatCompletionResponse for patching service.chat()."""
+    return ChatCompletionResponse(
+        model="test:test-model",
+        choices=[
+            ChatCompletionChoice(
+                index=0,
+                message=ChatMessage(role="assistant", content="ok"),
+                finish_reason="stop",
+            )
+        ],
+    )
+
+
+def test_chat_completions_unknown_agent_returns_422() -> None:
+    """Pydantic Literal validation rejects unknown selector values."""
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            json={
+                "messages": [{"role": "user", "content": "Hello"}],
+                "agent": "bogus",
+            },
+        )
+    assert response.status_code == 422
+
+
+def test_chat_completions_default_agent_is_unified() -> None:
+    """Omitting ``agent`` resolves to the unified ``AgentService``."""
+    fake_service = MagicMock()
+    fake_service.chat = AsyncMock(return_value=_fake_chat_response())
+
+    with patch(
+        "app.core.agents.routes.get_agent_by_name", return_value=fake_service
+    ) as mock_resolver:
+        with TestClient(app) as client:
+            response = client.post(
+                "/v1/chat/completions",
+                json={"messages": [{"role": "user", "content": "Hello"}]},
+            )
+
+    assert response.status_code == 200
+    mock_resolver.assert_called_once_with("unified")
+    fake_service.chat.assert_awaited_once()
+
+
+def test_chat_completions_routes_to_transit_agent() -> None:
+    """Explicit ``agent: 'transit'`` is forwarded to ``get_agent_by_name``."""
+    fake_service = MagicMock()
+    fake_service.chat = AsyncMock(return_value=_fake_chat_response())
+
+    with patch(
+        "app.core.agents.routes.get_agent_by_name", return_value=fake_service
+    ) as mock_resolver:
+        with TestClient(app) as client:
+            response = client.post(
+                "/v1/chat/completions",
+                json={
+                    "messages": [{"role": "user", "content": "Kuri marsruti kavejas?"}],
+                    "agent": "transit",
+                },
+            )
+
+    assert response.status_code == 200
+    mock_resolver.assert_called_once_with("transit")
+    fake_service.chat.assert_awaited_once()

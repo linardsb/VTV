@@ -11,6 +11,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+AgentName = Literal["unified", "transit", "knowledge", "vault"]
+
 
 class ChatMessage(BaseModel):
     """A single message in a chat conversation.
@@ -38,6 +40,7 @@ class ChatCompletionRequest(BaseModel):
 
     messages: list[ChatMessage] = Field(min_length=1, max_length=20)
     model: str | None = None
+    agent: AgentName = "unified"
 
     @field_validator("messages")
     @classmethod

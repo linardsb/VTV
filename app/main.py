@@ -26,6 +26,7 @@ from app.alerts.routes import router as alerts_router
 from app.analytics.routes import router as analytics_router
 from app.auth.routes import router as auth_router
 from app.compliance.routes import router as compliance_router
+from app.core.agents.agents.registry import close_all_agents
 from app.core.agents.exceptions import setup_agent_exception_handlers
 from app.core.agents.routes import router as agent_router
 from app.core.agents.service import close_agent_service
@@ -148,6 +149,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     logger.info("transit.poller.lifecycle_stopped")
     await close_transit_service()
     await close_agent_service()
+    await close_all_agents()
     logger.info("security.singletons_closed")
     await close_redis()
     await engine.dispose()

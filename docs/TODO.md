@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence █████████████░░░░░░░░░░  68%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. AI-4.3 parent-child retrieval + context expansion done. AI-4.4 re-chunk migration done. AI-5.1 bounded self-correction loop done (standard tier). AI-5.2 extended QA checks with severity tiers done. AI-5.3 correction metrics + admin endpoint done. AI-6.1 BaseAgentService harness done (9 hook points, pure refactor). Remaining: domain-specific agents+router+L3 skills, eval)
+Agent Intelligence ██████████████░░░░░░░░░  71%  (Multi-tier routing done. AI-1.1 reranking done. AI-1.2 date filtering done. AI-1.3 temporal boost + RRF tuning done. AI-2.1 query router done. AI-2.2 HyDE done. AI-2.3 embedding cache done. AI-3.1 memory vertical slice done. AI-3.2 memory lifecycle done. AI-3.3 memory bridge done. AI-3.4 memory agent integration done. AI-4.1 semantic chunker done. AI-4.2 parent-child chunk model done. AI-4.3 parent-child retrieval + context expansion done. AI-4.4 re-chunk migration done. AI-5.1 bounded self-correction loop done (standard tier). AI-5.2 extended QA checks with severity tiers done. AI-5.3 correction metrics + admin endpoint done. AI-6.1 BaseAgentService harness done (9 hook points, pure refactor). AI-6.2 domain-specific agents done (TransitAgent + KnowledgeAgent + VaultAgent + registry + `agent` selector). Remaining: AI-6.3 auto-router, AI-6.4 L3 skills, AI-6.5 AgentResult, eval)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -309,21 +309,19 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 - Refactor existing `AgentService` to extend `BaseAgentService`
 **Verify:** Existing `AgentService` works identically after refactor. All 964 unit tests pass. No behavioral change — pure refactor. Each hook point tested independently.
 
-#### AI-6.2 Domain-Specific Agents
-**What:** Create 3 domain agents: `TransitAgent` (5 transit tools), `KnowledgeAgent` (1 RAG tool), `VaultAgent` (4 obsidian tools). Each extends `BaseAgentService` with domain-focused system prompt and tools.
-**Why:** The unified agent loads all 11 tool docstrings (~3000 tokens) for every query. A transit query doesn't need vault tools in context. Domain-specific prompts can be shorter and more focused, improving tool selection accuracy.
+#### AI-6.2 Domain-Specific Agents ✅
+**What:** 3 domain-agent subclasses of `BaseAgentService`, selected via `agent: 'unified'|'transit'|'knowledge'|'vault'` field on `ChatCompletionRequest` (default `unified` preserves the all-11-tool fallback).
+**Why:** The unified agent loaded all 11 tool docstrings (~3000 tokens) for every query. A vault rename didn't need transit tools in context. Domain-specific prompts are shorter and more focused, improving tool selection accuracy and cutting per-request token footprint.
 **Implementation:**
-- Create `app/core/agents/agents/transit.py`:
-  - System prompt: Latvian transit glossary, GTFS data interpretation, delay analysis rules
-  - Tools: query_bus_status, get_route_schedule, search_stops, get_adherence_report, check_driver_availability
-- Create `app/core/agents/agents/knowledge.py`:
-  - System prompt: Citation rules, document grounding, "I don't know" instruction, response synthesis
-  - Tools: search_knowledge_base
-- Create `app/core/agents/agents/vault.py`:
-  - System prompt: Note organization, frontmatter conventions, safe deletion (require confirm)
-  - Tools: obsidian_query_vault, obsidian_manage_notes, obsidian_manage_folders, obsidian_bulk_operations
-- Keep existing `AgentService` as `UnifiedAgent` fallback (all 11 tools)
-**Verify:** Each agent responds correctly to domain-specific queries. Transit agent can't access vault tools. Knowledge agent enforces citations. 15+ tests per agent.
+- `app/core/agents/agents/transit.py` — `TransitAgent` with the 5 transit tools, `TRANSIT_SYSTEM_PROMPT` (Latvian glossary + response format, no KB/vault sections), full QA + self-correction loop + complex-tier pipeline dispatch. `agent_name="transit_agent_v2"` to avoid memory-store collision with unified.
+- `app/core/agents/agents/knowledge.py` — `KnowledgeAgent` with the single `search_knowledge_base` tool, `KNOWLEDGE_SYSTEM_PROMPT` enforcing citation format (`[title](/lv/documents/{id})`), "I don't know" instruction, and `Sources` list. RAG always-on, no QA, single-branch `_execute`.
+- `app/core/agents/agents/vault.py` — `VaultAgent` with the 4 obsidian tools, `VAULT_SYSTEM_PROMPT` enforcing frontmatter conventions, `dry_run=true`-first bulk ops, and the confirm-before-destructive safe-delete clause (defense-in-depth on top of tool-level `confirm` enforcement).
+- `app/core/agents/agents/registry.py` — `get_agent_by_name(AgentName)` returns per-domain singletons; `close_all_agents()` wired into the lifespan shutdown handler next to `close_agent_service()`.
+- `app/core/agents/schemas.py` — `AgentName = Literal["unified","transit","knowledge","vault"]` + `agent: AgentName = "unified"` field on `ChatCompletionRequest` (Pydantic strict mode → 422 for bogus values before service layer).
+- `app/core/agents/routes.py` — `chat_completions` resolves the service via `get_agent_by_name(body.agent)` instead of hardcoded `Depends(get_agent_service)`; logs `agent.chat.selected` on every request.
+- Skills tool (`manage_agent_skills`) stays **only** on unified — domain agents can't create artifacts that need human activation.
+- The three `_recall_memories_block` copies carry `# NOTE: duplicated from AgentService; extract on AI-6.2.1` — three-feature rule threshold reached, extraction deferred to a follow-up task to keep this diff focused.
+**Verify:** ✅ 48 new tests (16 transit + 15 knowledge + 15 vault + 3 route regressions including the 422-on-bogus-agent assertion). Pyright baseline preserved (5 errors, all pre-existing). Mypy baseline preserved (3 errors, all pre-existing). 1288 unit tests + 106 security convention tests green. Plan: `.agents/plans/ai-6.2-domain-specific-agents.md`.
 
 #### AI-6.3 Agent Router
 **What:** Create `app/core/agents/router.py` — routes incoming queries to the appropriate domain agent using keyword signals. Cross-domain or unclassifiable queries fall back to `UnifiedAgent`.
@@ -591,6 +589,9 @@ These items from the original roadmap are standalone improvements that don't fit
 
 - [x] **AI-6.1 BaseAgentService Harness** — Extracted `AgentService.chat()` orchestration into a reusable `BaseAgentService` base class in `app/core/agents/base.py` (~430 lines) with 11 hook points (tier classification, RAG routing, skill detection, memory recall, system prompt assembly, user message shaping, validation cache preload, agent execution, post-process / QA / should-run-QA, response assembly, memory persist). `AgentService` is now a thin transit-specific subclass that overrides hooks touching service-module globals (preserving all `test_service.py` patch contracts). Pure refactor — zero behavior change, all 132 agent+bridge tests and 106 security convention tests pass unchanged. Added 23 new hook-point unit tests in `app/core/agents/tests/test_base.py`. Type-check baseline preserved (pyright 5, mypy 3 errors — all pre-existing). Foundation for AI-6.2 domain-specific agents. (2026-04-10)
   - Plan: [.agents/plans/ai-6.1-base-agent-service.md](../.agents/plans/ai-6.1-base-agent-service.md)
+
+- [x] **AI-6.2 Domain-Specific Agents** — Three `BaseAgentService` subclasses under `app/core/agents/agents/`: `TransitAgent` (5 transit tools, `agent_name="transit_agent_v2"`, full QA + self-correction loop + complex-tier pipeline dispatch, new `TRANSIT_SYSTEM_PROMPT` stripped of KB/vault sections), `KnowledgeAgent` (single `search_knowledge_base` tool, RAG always-on, citation-enforcing `KNOWLEDGE_SYSTEM_PROMPT` with "I don't know" grounding clause and `Sources` list), `VaultAgent` (4 obsidian tools, `VAULT_SYSTEM_PROMPT` with frontmatter conventions + confirm-before-destructive safe-delete clause). Selection via `agent: 'unified'|'transit'|'knowledge'|'vault'` `Literal` field on `ChatCompletionRequest` (default `unified` keeps the all-11-tool fallback bit-identical). Per-domain singletons in `app/core/agents/agents/registry.py` via `get_agent_by_name()`; `close_all_agents()` wired into the lifespan shutdown next to `close_agent_service()`. `manage_agent_skills` stays only on unified. Three `_recall_memories_block` duplicates carry `# NOTE: duplicated from AgentService; extract on AI-6.2.1` comments — three-feature-rule threshold reached, shared extraction deferred. 48 new tests: 16 transit + 15 knowledge + 15 vault + 3 route regressions (422-on-bogus-agent, unified default, explicit transit selector). Also retroactively fixed a latent `test_routes.py` quota-tracker pollution bug (Redis-backed counter leaking across runs) via new `_bypass_quota_tracker` autouse fixture. Pyright/mypy baseline preserved (5/3 pre-existing errors). 1288 unit tests + 106 security convention tests green. Foundation for AI-6.3 auto-router. (2026-04-10)
+  - Plan: [.agents/plans/ai-6.2-domain-specific-agents.md](../.agents/plans/ai-6.2-domain-specific-agents.md)
 
 ### CMS Frontend Pages
 

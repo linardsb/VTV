@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_user, require_role
 from app.auth.models import User
+from app.core.agents.agents.registry import get_agent_by_name
 from app.core.agents.metrics import get_metrics_tracker
 from app.core.agents.quota import get_quota_tracker
 from app.core.agents.schemas import (
@@ -22,7 +23,6 @@ from app.core.agents.schemas import (
     CorrectionMetricsResponse,
     CorrectionTotals,
 )
-from app.core.agents.service import AgentService, get_agent_service
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.rate_limit import _get_client_ip, limiter
@@ -37,18 +37,17 @@ router = APIRouter(prefix="/v1", tags=["agent"])
 async def chat_completions(
     request: Request,
     body: ChatCompletionRequest,
-    service: AgentService = Depends(get_agent_service),
     _current_user: User = Depends(get_current_user),
 ) -> ChatCompletionResponse:
     """Create a chat completion.
 
     Accepts a list of messages and returns the agent's response
-    in OpenAI-compatible format.
+    in OpenAI-compatible format. The concrete agent used is resolved from
+    ``body.agent`` (defaults to ``"unified"`` for the all-tools ``AgentService``).
 
     Args:
         request: The incoming HTTP request (used for rate limiting).
-        body: Chat completion request with messages.
-        service: Agent service instance (injected).
+        body: Chat completion request with messages and agent selector.
 
     Returns:
         Chat completion response with the agent's message.
@@ -64,6 +63,8 @@ async def chat_completions(
             detail=f"Daily query quota exceeded. Remaining: {remaining}. Resets in 24 hours.",
         )
 
+    service = get_agent_by_name(body.agent)
+    logger.info("agent.chat.selected", agent=body.agent)
     return await service.chat(body)
 
 
