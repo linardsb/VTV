@@ -51,6 +51,22 @@ dev = [
     "lxml-stubs>=0.5.0",
 ]
 
+[tool.uv]
+# Force security patches for transitive dependencies flagged by pip-audit.
+# These come via fastmcp/mcp/python-jose/pydantic-ai/openai — we pin minimums
+# via override-dependencies so uv picks up CVE fixes during resolution.
+override-dependencies = [
+    "aiohttp>=3.13.4",       # CVE-2026-22815, CVE-2026-34513..34525 (10 CVEs: DoS, header injection, auth leak)
+    "authlib>=1.6.9",        # CVE-2026-27962, CVE-2026-28490 (JWK header injection, crit bypass)
+    "fastmcp>=3.2.0",        # CVE-2025-64340, CVE-2026-27124 (Windows CLI command injection, OAuthProxy Confused Deputy)
+    "cryptography>=46.0.7",  # CVE-2026-34073, CVE-2026-39892 (name constraint bypass, buffer overflow)
+    "ecdsa>=0.19.2",         # CVE-2026-33936
+    "pyasn1>=0.6.3",         # CVE-2026-30922 (DoS via deep ASN.1 nesting)
+    "pygments>=2.20.0",      # CVE-2026-4539 (ReDoS in AdlLexer)
+    "pyjwt>=2.12.0",         # CVE-2026-32597 (unvalidated crit header)
+    "requests>=2.33.0",      # CVE-2026-25645 (extract_zipped_paths tmpfile hijack)
+]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100

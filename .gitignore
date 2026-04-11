@@ -63,3 +63,8 @@ cms/apps/web/.next/
 
 # AI-7.2 eval runs (JSONL traces are per-run artifacts)
 evals/traces/*.jsonl
+
+# AI-7.3 judge verdicts (per-run artifacts; baselines stay committed)
+evals/verdicts/
+# NOTE: evals/baselines/ is intentionally COMMITTED so CI can compare
+# against the canonical numbers.
