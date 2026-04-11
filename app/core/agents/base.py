@@ -52,6 +52,7 @@ from app.core.agents.schemas import (
     UsageInfo,
 )
 from app.core.agents.validation import (
+    ToolReturnRecord,
     ValidationContext,
     extract_tool_returns,
     validate_transit_response,
@@ -158,11 +159,44 @@ class BaseAgentService:
     async def chat(self, request: ChatCompletionRequest) -> ChatCompletionResponse:
         """Run the full chat pipeline for one request.
 
+        Returns only the OpenAI-compatible envelope. For pipeline metadata
+        (confidence, tools_used, warnings, tool return records) call
+        :meth:`chat_with_trace`.
+
         Args:
             request: Parsed ``ChatCompletionRequest`` from the HTTP layer.
 
         Returns:
             An OpenAI-compatible ``ChatCompletionResponse``.
+
+        Raises:
+            AgentExecutionError: If ``_execute`` raises anything. The original
+                exception is preserved as ``__cause__``.
+        """
+        response, _result, _tool_returns = await self.chat_with_trace(request)
+        return response
+
+    async def chat_with_trace(
+        self,
+        request: ChatCompletionRequest,
+    ) -> tuple[ChatCompletionResponse, AgentResult, tuple[ToolReturnRecord, ...]]:
+        """Run the full chat pipeline and return envelope + trace metadata.
+
+        Identical semantics to :meth:`chat` — this is the implementation that
+        ``chat`` delegates to. Returning the internal ``AgentResult`` and the
+        parsed tool return records exposes ``confidence``, ``warnings``,
+        ``tools_used``, and per-tool payloads to observability consumers
+        (AI-7.2 eval runner, future audit tooling).
+
+        Args:
+            request: Parsed ``ChatCompletionRequest`` from the HTTP layer or
+                a script.
+
+        Returns:
+            ``(response, result, tool_returns)`` — the OpenAI-compatible
+            envelope, the frozen ``AgentResult`` built after any confidence
+            re-route, and the tuple of ``ToolReturnRecord`` extracted from
+            the final pipeline outcome's message history.
 
         Raises:
             AgentExecutionError: If ``_execute`` raises anything. The original
@@ -244,6 +278,7 @@ class BaseAgentService:
             tools_used=outcome.tools_used,
             domain=result_domain,
         )
+        final_outcome = outcome
 
         # Phase 11c: AI-6.5 confidence re-route gate (single retry, hard cap).
         settings = get_settings()
@@ -299,10 +334,16 @@ class BaseAgentService:
                     tools_used=retry_outcome.tools_used,
                     domain=result_domain,
                 )
+                final_outcome = retry_outcome
                 tier_model = complex_model
 
         # Phase 12: build OpenAI-compatible response envelope.
         response = self._build_response(content=result.content, tier_model=tier_model)
+
+        # Phase 12b: capture parsed tool returns from the final pipeline
+        # outcome's message history. Consumed by AI-7.2 eval runner via
+        # ``chat_with_trace``; ``chat`` discards this tuple.
+        tool_returns = tuple(extract_tool_returns(final_outcome.messages))
 
         logger.info(
             "agent.chat_completed",
@@ -312,7 +353,7 @@ class BaseAgentService:
             tools_used=list(result.tools_used),
         )
 
-        return response
+        return response, result, tool_returns
 
     # ------------------------------------------------------------------
     # Hook 1 — tier classification

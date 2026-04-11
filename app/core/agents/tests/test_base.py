@@ -17,6 +17,7 @@ import pytest
 from pydantic_ai import models
 from pydantic_ai.messages import ModelMessage
 
+from app.core.agents.agent_result import AgentResult
 from app.core.agents.base import (
     BaseAgentService,
     _build_message_history,
@@ -380,3 +381,39 @@ def test_build_message_history_converts_roles() -> None:
     history = _build_message_history(messages)
     # Only user + assistant are converted; system is skipped.
     assert len(history) == 2
+
+
+# --- chat_with_trace exposes AgentResult + tool returns (AI-7.2) ------------
+
+
+@pytest.mark.asyncio
+async def test_chat_with_trace_returns_response_result_and_tool_returns() -> None:
+    """chat_with_trace exposes the AgentResult that chat() discards."""
+    svc = _FakeAgentService(response_text="ok", warnings=[])
+    request = _make_request("hello")
+
+    with patch("app.core.agents.base.logger"):
+        response, result, tool_returns = await svc.chat_with_trace(request)
+
+    assert response.choices[0].message.content == "ok"
+    assert isinstance(result, AgentResult)
+    assert result.content == "ok"
+    # _FakeAgentService.agent_name is "fake_agent" which is not in VALID_DOMAINS,
+    # so the base falls back to "unified".
+    assert result.domain == "unified"
+    # No messages in the fake outcome → no tool returns extracted.
+    assert tool_returns == ()
+
+
+@pytest.mark.asyncio
+async def test_chat_delegates_to_chat_with_trace_and_returns_only_response() -> None:
+    """chat() remains a thin shim that returns only the envelope."""
+    svc = _FakeAgentService(response_text="shim", warnings=[])
+    request = _make_request("hello")
+
+    with patch("app.core.agents.base.logger"):
+        response = await svc.chat(request)
+
+    # chat() return type is ChatCompletionResponse, not a tuple.
+    assert response.choices[0].message.content == "shim"
+    assert hasattr(response, "choices")

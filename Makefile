@@ -98,6 +98,15 @@ rechunk: ## Re-chunk all documents with the new SemanticChunker (one-shot AI-4.4
 rechunk-dry-run: ## Preview re-chunking without modifying the database
 	uv run python scripts/rechunk_documents.py --dry-run
 
+# === Agent evals (AI-7.x) ===
+# Traces are written to evals/traces/*.jsonl (git-ignored, may contain PII).
+
+eval: ## Run eval suite (usage: make eval SUITE=transit|knowledge|vault|all)
+	uv run python -m app.core.agents.evals.runner --suite $(or $(SUITE),transit)
+
+eval-all: ## Run all three eval suites sequentially
+	uv run python -m app.core.agents.evals.runner --suite all
+
 # === Security ===
 
 install-hooks: ## Install git pre-commit hook
