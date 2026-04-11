@@ -292,6 +292,13 @@ class Settings(BaseSettings):
     eval_judge_enabled: bool = True
     eval_baseline_tolerance_pct: float = 3.0
 
+    # Circuit breaker (AI-8.1) — LLM provider fast-fail
+    circuit_breaker_enabled: bool = True
+    circuit_breaker_failure_threshold: int = 5
+    circuit_breaker_recovery_timeout_s: float = 30.0
+    circuit_breaker_success_threshold: int = 2
+    circuit_breaker_failure_rate_threshold: float = 0.5
+
     @model_validator(mode="after")
     def _reject_default_secrets_in_production(self) -> "Settings":
         """Refuse to start with default JWT secret in non-development environments."""

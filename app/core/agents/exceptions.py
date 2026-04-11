@@ -6,6 +6,7 @@ Exception hierarchy:
   - AgentExecutionError (LLM call failed) → 502
   - TransitDataError (transit feed fetch/parse failed) → 503
   - ObsidianError (vault operation failed) → 503
+  - CircuitBreakerOpenError (LLM provider breaker tripped) → 503
 """
 
 from typing import Any, cast
@@ -48,6 +49,17 @@ class ObsidianError(AgentError):
     pass
 
 
+class CircuitBreakerOpenError(AgentError):
+    """Raised when an LLM provider circuit breaker is OPEN and rejects a call.
+
+    Maps to HTTP 503 (Service Unavailable) via the agent exception handler.
+    The breaker opens after consecutive failures or sliding-window rate
+    threshold is exceeded; it auto-recovers via HALF_OPEN probes.
+    """
+
+    pass
+
+
 async def agent_exception_handler(request: Request, exc: AgentError) -> JSONResponse:
     """Handle agent exceptions globally.
 
@@ -72,7 +84,7 @@ async def agent_exception_handler(request: Request, exc: AgentError) -> JSONResp
     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     if isinstance(exc, AgentExecutionError):
         status_code = status.HTTP_502_BAD_GATEWAY
-    elif isinstance(exc, (TransitDataError, ObsidianError)):
+    elif isinstance(exc, (TransitDataError, ObsidianError, CircuitBreakerOpenError)):
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     return JSONResponse(
@@ -97,3 +109,4 @@ def setup_agent_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AgentExecutionError, handler)
     app.add_exception_handler(TransitDataError, handler)
     app.add_exception_handler(ObsidianError, handler)
+    app.add_exception_handler(CircuitBreakerOpenError, handler)

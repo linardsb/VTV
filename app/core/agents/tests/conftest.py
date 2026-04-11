@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 
 from app.core.agents.agent_result import AgentResult
+from app.core.agents.circuit_breaker import BreakerConfig, CircuitBreaker
 from app.core.agents.evals.schemas import EvalCase, QualityCriterion
 from app.core.agents.skill_loader import SkillMeta, clear_cache
 
@@ -102,3 +103,51 @@ def tmp_eval_dir(tmp_path: Path) -> Path:
     root = tmp_path / "cases"
     root.mkdir(parents=True, exist_ok=True)
     return root
+
+
+# --- AI-8.1 circuit breaker factories -----------------------------------
+
+
+class ManualClock:
+    """Deterministic monotonic clock for circuit-breaker tests.
+
+    Instances are callable — pass as ``time_fn=clock`` to
+    :class:`CircuitBreaker`. Advance with :meth:`advance`.
+    """
+
+    def __init__(self, start: float = 0.0) -> None:
+        self.now: float = start
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+def make_breaker_config(**overrides: Any) -> BreakerConfig:
+    """Return a ``BreakerConfig`` with fast defaults for unit tests."""
+    defaults: dict[str, Any] = {
+        "failure_threshold": 3,
+        "recovery_timeout_s": 10.0,
+        "success_threshold": 2,
+        "window_size": 10,
+        "failure_rate_threshold": 0.5,
+    }
+    defaults.update(overrides)
+    return BreakerConfig(**defaults)
+
+
+def make_breaker(
+    name: str = "test-provider",
+    *,
+    config: BreakerConfig | None = None,
+    clock: ManualClock | None = None,
+) -> CircuitBreaker:
+    """Return a ``CircuitBreaker`` wired to an optional :class:`ManualClock`."""
+    clock = clock or ManualClock()
+    return CircuitBreaker(
+        name=name,
+        config=config or make_breaker_config(),
+        time_fn=clock,
+    )

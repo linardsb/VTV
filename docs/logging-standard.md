@@ -199,12 +199,20 @@ agent.
 │   ├── retrieval_queried      # Memory query initiated
 │   ├── retrieval_found        # Memory item found
 │   └── retrieval_not_found    # Memory item not found
-└── self_correction.
-    ├── initiated              # Self-correction started
-    ├── strategy_selected      # Correction strategy chosen
-    ├── retry_attempted        # Retry attempt
-    ├── completed              # Self-correction successful
-    └── failed                 # Self-correction failed
+├── self_correction.
+│   ├── initiated              # Self-correction started
+│   ├── strategy_selected      # Correction strategy chosen
+│   ├── retry_attempted        # Retry attempt
+│   ├── completed              # Self-correction successful
+│   └── failed                 # Self-correction failed
+└── circuit_breaker.           # AI-8.1 LLM provider fast-fail
+    ├── opened                 # CLOSED → OPEN (fields: provider, failure_count, failure_rate, trigger)
+    ├── half_opened            # OPEN → HALF_OPEN (fields: provider, elapsed_s)
+    ├── closed                 # HALF_OPEN → CLOSED (fields: provider, successful_probes)
+    ├── reopened               # HALF_OPEN → OPEN on probe failure (fields: provider, trigger)
+    ├── rejected               # call blocked by OPEN breaker (fields: provider, state)
+    ├── probe_success          # successful probe in HALF_OPEN (fields: provider, consecutive_successes)
+    └── probe_failure          # failed probe in HALF_OPEN (fields: provider)
 ```
 
 **Examples:**
