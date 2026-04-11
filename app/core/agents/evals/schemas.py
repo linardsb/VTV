@@ -109,11 +109,174 @@ class EvalCase:
             )
 
 
+@dataclass(frozen=True, slots=True)
+class JudgeVerdict:
+    """One per-criterion grade for one eval case (AI-7.3).
+
+    Attributes:
+        case_id: Stable ``EvalCase.id``.
+        domain: Matches ``EvalTrace.domain``; must be in ``VALID_DOMAINS``.
+        criterion_name: Short identifier from ``QualityCriterion.name``.
+        passed: Binary pass/fail decision from the judge.
+        reasoning: One-line rationale, ≤280 characters.
+        error: ``None`` on success; populated when judging itself errored
+            (LLM failure, schema parse error). Errored verdicts have
+            ``passed=False`` and ``reasoning=""``.
+    """
+
+    case_id: str
+    domain: str
+    criterion_name: str
+    passed: bool
+    reasoning: str
+    error: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.case_id or not self.case_id.strip():
+            raise ValueError("JudgeVerdict.case_id must be non-empty")
+        if self.domain not in VALID_DOMAINS:
+            raise ValueError(f"JudgeVerdict.domain={self.domain!r} not in {sorted(VALID_DOMAINS)}")
+        if not self.criterion_name or not self.criterion_name.strip():
+            raise ValueError("JudgeVerdict.criterion_name must be non-empty")
+        if len(self.reasoning) > 280:
+            raise ValueError("JudgeVerdict.reasoning must be <=280 chars")
+
+
+@dataclass(frozen=True, slots=True)
+class SuiteJudgement:
+    """All verdicts for one suite plus the unjudged case IDs (AI-7.3).
+
+    Attributes:
+        suite: Domain name (one of ``VALID_DOMAINS``).
+        verdicts: Per-criterion verdicts produced by the judge.
+        unjudged_case_ids: IDs of cases skipped because their trace had
+            ``error is not None`` (unreachable, infra failure, etc.).
+    """
+
+    suite: str
+    verdicts: tuple[JudgeVerdict, ...]
+    unjudged_case_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.suite not in VALID_DOMAINS:
+            raise ValueError(f"SuiteJudgement.suite={self.suite!r} not in {sorted(VALID_DOMAINS)}")
+
+
+@dataclass(frozen=True, slots=True)
+class CriterionBaseline:
+    """Per-criterion pass-rate snapshot for one suite (AI-7.4).
+
+    Attributes:
+        suite: Domain name (one of ``VALID_DOMAINS``).
+        criterion_name: Short identifier from ``QualityCriterion.name``.
+        pass_rate: Fraction in ``[0.0, 1.0]``; rounded to 4 decimals on
+            disk for stable diffs.
+        sample_count: Number of clean (non-errored) verdicts that fed
+            this rate.
+        created_at: ISO-8601 UTC timestamp captured when the baseline was
+            generated.
+    """
+
+    suite: str
+    criterion_name: str
+    pass_rate: float
+    sample_count: int
+    created_at: str
+
+    def __post_init__(self) -> None:
+        if self.suite not in VALID_DOMAINS:
+            raise ValueError(
+                f"CriterionBaseline.suite={self.suite!r} not in {sorted(VALID_DOMAINS)}"
+            )
+        if not self.criterion_name or not self.criterion_name.strip():
+            raise ValueError("CriterionBaseline.criterion_name must be non-empty")
+        if not (0.0 <= self.pass_rate <= 1.0):
+            raise ValueError(f"CriterionBaseline.pass_rate={self.pass_rate} not in [0, 1]")
+        if self.sample_count < 0:
+            raise ValueError("CriterionBaseline.sample_count must be >= 0")
+
+
+@dataclass(frozen=True, slots=True)
+class BaselineReport:
+    """Full baseline for one suite — all criteria rolled up (AI-7.4).
+
+    Attributes:
+        suite: Domain name (one of ``VALID_DOMAINS``).
+        criteria: Per-criterion baselines for this suite.
+        total_cases: Number of distinct eval cases that contributed.
+        created_at: ISO-8601 UTC timestamp.
+    """
+
+    suite: str
+    criteria: tuple[CriterionBaseline, ...]
+    total_cases: int
+    created_at: str
+
+    def __post_init__(self) -> None:
+        if self.suite not in VALID_DOMAINS:
+            raise ValueError(f"BaselineReport.suite={self.suite!r} not in {sorted(VALID_DOMAINS)}")
+        if self.total_cases < 0:
+            raise ValueError("BaselineReport.total_cases must be >= 0")
+
+
+@dataclass(frozen=True, slots=True)
+class RegressionFinding:
+    """One criterion whose pass rate regressed beyond tolerance (AI-7.4).
+
+    Attributes:
+        suite: Domain name.
+        criterion_name: Short identifier from ``QualityCriterion.name``.
+        baseline_rate: Stored baseline pass-rate fraction.
+        current_rate: Pass-rate from the run being checked.
+        delta_pct: ``(current - baseline) * 100``; negative on regression.
+        tolerance_pct: Tolerance threshold this finding breached.
+    """
+
+    suite: str
+    criterion_name: str
+    baseline_rate: float
+    current_rate: float
+    delta_pct: float
+    tolerance_pct: float
+
+
+@dataclass(frozen=True, slots=True)
+class RegressionReport:
+    """Result of comparing a fresh run against a stored baseline (AI-7.4).
+
+    Attributes:
+        suite: Domain name.
+        tolerance_pct: Tolerance applied during the comparison.
+        findings: Criteria that regressed beyond tolerance. Empty tuple
+            means the run passed.
+        missing_baselines: Criterion names present in the current run but
+            absent from the stored baseline (reported, not failed).
+        created_at: ISO-8601 UTC timestamp.
+    """
+
+    suite: str
+    tolerance_pct: float
+    findings: tuple[RegressionFinding, ...]
+    missing_baselines: tuple[str, ...]
+    created_at: str
+
+    @property
+    def passed(self) -> bool:
+        """Return ``True`` when no regressions were detected."""
+        return not self.findings
+
+
 __all__ = [
     "KNOWN_TOOLS",
     "REQUIRED_CRITERIA_COUNT",
     "VALID_DOMAINS",
     "VALID_LANGUAGES",
+    "BaselineReport",
+    "CriterionBaseline",
     "EvalCase",
+    "JudgeVerdict",
     "QualityCriterion",
+    "RegressionFinding",
+    "RegressionReport",
+    "SuiteJudgement",
 ]

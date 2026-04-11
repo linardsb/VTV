@@ -288,6 +288,10 @@ class Settings(BaseSettings):
     agent_confidence_reroute_enabled: bool = True
     agent_confidence_reroute_threshold: float = 0.3
 
+    # AI-7.3/7.4 Eval framework
+    eval_judge_enabled: bool = True
+    eval_baseline_tolerance_pct: float = 3.0
+
     @model_validator(mode="after")
     def _reject_default_secrets_in_production(self) -> "Settings":
         """Refuse to start with default JWT secret in non-development environments."""

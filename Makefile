@@ -107,6 +107,15 @@ eval: ## Run eval suite (usage: make eval SUITE=transit|knowledge|vault|all)
 eval-all: ## Run all three eval suites sequentially
 	uv run python -m app.core.agents.evals.runner --suite all
 
+eval-judge: ## Judge latest traces (usage: make eval-judge SUITE=transit|knowledge|vault|all)
+	uv run python -m app.core.agents.evals.judge --suite $(or $(SUITE),transit)
+
+eval-baseline: ## Generate or update baselines from latest judged run
+	uv run python -m app.core.agents.evals.regression baseline --suite $(or $(SUITE),transit)
+
+eval-check: ## Judge latest traces and compare against baseline (CI-friendly)
+	uv run python -m app.core.agents.evals.regression check --suite $(or $(SUITE),transit)
+
 # === Security ===
 
 install-hooks: ## Install git pre-commit hook
