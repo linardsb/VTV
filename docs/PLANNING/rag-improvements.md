@@ -1,15 +1,33 @@
 # RAG Knowledge Base Improvements Plan
 
+## Status (2026-04-11)
+
+Items from this plan that have already shipped via Agent Intelligence phases AI-1..AI-7 and earlier DMS work:
+
+| Improvement | Status | Shipped by |
+|-------------|--------|------------|
+| Excel/CSV extraction | ✅ Done | DMS Backend — `_extract_excel_sync` / `_extract_csv_sync` in `app/knowledge/processing.py` |
+| Auto-domain tagging | ✅ Done | DMS Enhancements — `_auto_tag_document` in `app/knowledge/service.py`, `auto_tag_enabled` config |
+| Parent-child chunking | ✅ Done | AI-4.2/4.3/4.4 — `parent_chunk_id`, `heading_path`, `section_type` columns + retrieval-time parent expansion |
+| Temporal metadata | ✅ Covered | AI-1.2 `created_after`/`created_before` filtering + AI-1.3 temporal boost + `evergreen` flag (plan's speculative `content_date`/`valid_from`/`valid_until` fields deferred as unneeded) |
+| Cross-lingual search | ✅ Covered | Multilingual embeddings (Jina v3 / BGE-M3) + AI-2.2 HyDE + AI-7.1 cross-lingual eval cases |
+
+**Still pending** (~9.5 days, ~$0.55/month): PPTX support, Latvian UDPipe lemmatizer, document versioning, search feedback loop, knowledge graph overlay. HTML support dropped — no concrete use case.
+
 ## Current State
 
 The RAG knowledge base is fully implemented with:
-- **Document ingestion**: PDF, DOCX, email (.eml), image (OCR via pytesseract), plain text
+- **Document ingestion**: PDF, DOCX, email (.eml), image (OCR via pytesseract), plain text, Excel (.xlsx), CSV
 - **Hybrid search**: pgvector cosine similarity + PostgreSQL fulltext (RRF fusion, k=60)
-- **Cross-encoder reranking**: Local BGE-Reranker-v2-m3 or noop
+- **Cross-encoder reranking**: Local BGE-Reranker-v2-m3 or noop, always-on (AI-1.1)
 - **Configurable embeddings**: OpenAI, Jina, or local sentence-transformers (BGE-M3)
-- **Recursive chunking**: Paragraphs -> lines -> sentences -> words (512 chars, 100 overlap)
-- **Agent tool**: `search_knowledge_base` with 1500-char truncation for token efficiency, `created_after`/`created_before` date filtering
-- **REST API**: 5 endpoints for upload, list, get, delete, search
+- **Semantic chunking**: Heading-aware parent-child hierarchy (AI-4.1/4.2), target 800 chars, min 256, max 1500
+- **Query router**: Skip RAG for transit queries (AI-2.1), HyDE query expansion for Latvian (AI-2.2), Redis embedding cache (AI-2.3)
+- **Temporal awareness**: Recency boost with evergreen flag (AI-1.3), confidence threshold filter (AI-1.4), `created_after`/`created_before` filtering
+- **Parent-context expansion**: Matched child chunks return full parent section in agent context (AI-4.3)
+- **Auto-domain tagging**: LLM classifies `domain` on upload
+- **Agent tool**: `search_knowledge_base` with 1500-char per-hit truncation, parent-context markers
+- **REST API**: 14 endpoints for upload, list, get, delete, search, tags, rechunk
 
 ## Phase 1: High-Value Document Types
 
@@ -72,7 +90,9 @@ System and fleet documentation.
 
 ## Phase 2: File Format Expansion
 
-### Excel/CSV Support (Priority: High)
+### Excel/CSV Support (Priority: High) ✅ DONE
+Shipped in DMS Backend. See `_extract_excel_sync` and `_extract_csv_sync` in `app/knowledge/processing.py`.
+
 **Why**: Spreadsheets are the #1 format for operational data in transit agencies.
 
 **Implementation approach**:
@@ -103,15 +123,8 @@ def _extract_xlsx_sync(file_path: str) -> str:
     return "\n".join(text_parts)
 ```
 
-### HTML Support (Priority: Medium)
-**Why**: Web-scraped regulations, municipal announcements, CKAN dataset descriptions.
-
-**Implementation approach**:
-- Add `beautifulsoup4` + `lxml` dependencies
-- Strip scripts/styles, extract semantic text
-- Preserve heading hierarchy for chunk boundaries
-
-**Estimated effort**: 0.5 days
+### HTML Support — DROPPED
+Not needed. Transit operational documents arrive as PDF/DOCX/XLSX; no concrete use case for web-scraped HTML ingestion has surfaced.
 
 ### PowerPoint Support (Priority: Low)
 **Why**: Training presentations, board reports.
@@ -135,7 +148,9 @@ def _extract_xlsx_sync(file_path: str) -> str:
 
 ## Phase 3: Search & Retrieval Improvements
 
-### 1. Auto-Domain Tagging
+### 1. Auto-Domain Tagging ✅ DONE
+Shipped in DMS Enhancements. See `_auto_tag_document` in `app/knowledge/service.py:960`, gated by `auto_tag_enabled` config.
+
 **Current**: Users manually set `domain` on upload (transit, hr, legal).
 **Improved**: LLM classifies domain automatically from content.
 
@@ -149,7 +164,9 @@ async def auto_classify_domain(text_preview: str) -> str:
 **Cost**: ~$0.001 per document (500 tokens input)
 **Benefit**: Enables domain-filtered search without manual tagging
 
-### 2. Parent-Child Chunking (Hierarchical)
+### 2. Parent-Child Chunking (Hierarchical) ✅ DONE
+Shipped in AI-4.2 (model), AI-4.3 (search-time parent-context expansion), AI-4.4 (re-chunk migration script). Heading-aware semantic chunking from AI-4.1 underpins it. See `parent_chunk_id`, `heading_path`, `section_type` on `DocumentChunk`; parent expansion in `KnowledgeService.search()`.
+
 **Current**: Flat recursive chunking - each chunk is independent.
 **Improved**: Two-level hierarchy - parent chunks (2048 chars) contain child chunks (512 chars).
 
@@ -163,7 +180,9 @@ async def auto_classify_domain(text_preview: str) -> str:
 - Store parent chunks with `is_parent=True` flag
 - Search child chunks, return parent content
 
-### 3. Temporal Metadata
+### 3. Temporal Metadata ✅ COVERED (partial build, remainder deferred)
+Core intent shipped in AI-1.2 + AI-1.3: `created_after`/`created_before` filtering on `SearchRequest` (repository, service, agent tool), age-weighted temporal boost (today 1.5x / week 1.2x / month 1.0x / older 0.8x), and an `evergreen` boolean on `Document` to skip decay. The plan's speculative `content_date` / `valid_from` / `valid_until` fields are **deferred** — no concrete transit use case has surfaced for content-validity windows distinct from document creation time.
+
 **Current**: Documents have `created_at` but no content date awareness.
 **Improved**: Extract and store document dates for time-aware search.
 
@@ -245,7 +264,9 @@ class SearchFeedback(Base):
 **Cost**: ~$0.01 per document for entity extraction
 **Estimated effort**: 3-4 days
 
-### 8. Cross-Lingual Search
+### 8. Cross-Lingual Search ✅ COVERED
+The multilingual embedding path (Jina v3 / BGE-M3) already makes LV queries match EN chunks on the vector side, as this plan anticipated. AI-2.2 HyDE further improves Latvian retrieval by generating a hypothetical answer and embedding that. AI-7.1 synthetic eval cases explicitly cover cross-lingual retrieval (LV question → EN document) and are part of the regression baseline. The residual fulltext-side query-translation idea is **dropped** — marginal lift over the above, and query translation latency contradicts the sub-500ms target.
+
 **Current**: Queries in language X only match documents in language X well.
 **Improved**: Latvian query matches English documents and vice versa.
 
@@ -297,20 +318,19 @@ class SearchFeedback(Base):
 
 All fits comfortably in the existing PostgreSQL instance with no additional infrastructure.
 
-## Recommended Build Order
+## Recommended Build Order — Remaining Work Only
+
+Items already shipped (Excel/CSV, auto-domain tagging, parent-child chunking, temporal metadata, cross-lingual search) are excluded. See the Status table at the top of this doc.
 
 | Priority | Improvement | Impact | Effort | Dependencies |
 |----------|-------------|--------|--------|-------------|
-| 1 | Excel/CSV support | High (most operational data) | 1 day | openpyxl dependency |
-| 2 | Auto-domain tagging | Medium (reduces upload friction) | 1 day | LLM provider configured |
-| 3 | Latvian lemmatizer | High (20-30% recall improvement) | 2-3 days | UDPipe model download |
-| 4 | Temporal metadata | Medium (time-aware search) | 1 day | Alembic migration |
-| 5 | Parent-child chunking | Medium (better context quality) | 1.5 days | Alembic migration |
-| 6 | Cross-lingual search | Medium (LV/EN interop) | 1 day | LLM provider |
-| 7 | Document versioning | Low-Medium (audit trail) | 1.5 days | Alembic migration |
-| 8 | HTML/PPTX support | Low (occasional use) | 1 day | beautifulsoup4, python-pptx |
-| 9 | Search feedback loop | Low-Medium (long-term quality) | 2 days | Alembic migration |
-| 10 | Knowledge graph | Low (advanced, future) | 3-4 days | Entity extraction pipeline |
+| 1 | Latvian UDPipe lemmatizer | High (distinct BM25 channel, 20-30% fulltext recall lift on top of existing multilingual embeddings) | 2-3 days | UDPipe model download |
+| 2 | PPTX support | Low (training decks, board reports) | 0.5 days | python-pptx |
+| 3 | Document versioning | Low-Medium (audit trail on regulated docs) | 1.5 days | Alembic migration |
+| 4 | Search feedback loop | Low-Medium (long-term quality — note partial overlap with AI-11 synthetic-QA retrieval evals, but feedback loop is a production-signal channel AI-11 does not replace) | 2 days | Alembic migration |
+| 5 | Knowledge graph overlay | Low (advanced; future) | 3-4 days | Entity extraction pipeline |
+
+Total remaining: ~9.5 days.
 
 ## Success Metrics
 

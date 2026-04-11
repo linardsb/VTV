@@ -34,7 +34,7 @@ Dispečers ierodas operāciju centrā plkst. 5:30 un atver VTV platformu, lai sa
 
 2. **Paneļa pārskats** — Sākumlapā redz galvenos rādītājus: aktīvo maršrutu skaits, transportlīdzekļu statuss, šodienas notikumi kalendārā.
 
-3. **Reāllaika karte** — Atver maršrutu lapu. Kartē redzami visi transportlīdzekļi, kas jau ir izbraukuši rīta reisā. Marķieri ir krāsoti pēc maršruta krāsas un atjaunojas ik pēc 10 sekundēm.
+3. **Reāllaika karte** — Atver maršrutu lapu. Kartē redzami visi transportlīdzekļi, kas jau ir izbraukuši rīta reisā. Marķieri ir krāsoti pēc maršruta krāsas un atjaunojas reāllaikā caur WebSocket straumējumu (~100 ms latentums), ar automātisku atgriešanos uz HTTP pārbaudēm, ja savienojums krīt. Statusa plāksnīte kartē rāda savienojuma stāvokli (Tiešraide / Pārbaudes / Savienojas).
    - Redz, ka 3. maršruta autobuss ir aizkavējies — marķieris ir tālu aiz grafika pozīcijas.
    - Noklikšķina uz maršruta tabulas rindas, lai redzētu detalizētu informāciju.
 
