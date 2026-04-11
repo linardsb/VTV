@@ -266,6 +266,292 @@ Total remaining agent hardening: **12 days** across 14 subtasks. AI-8 and AI-9 a
 
 ---
 
+## Operations & Platform Hardening — Phased Implementation
+
+Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipline, application metrics, durable background work, per-user authorization, and documentation infrastructure. These phases are independent of AI-8..AI-11 and can be executed in parallel by a second track.
+
+> **Not duplicated from elsewhere:** `CRUD E2E Tests` is already tracked in § In Progress. Circuit breaker + provider health is AI-8. Prompt injection blocking is AI-9. RAG regression guard is AI-11.4. The phases below cover gaps NOT already in another section.
+>
+> **Starting-state note:** `.env` is currently git-ignored and NOT tracked in git history (verified via `git ls-files .env`). OPS-1 is forward-looking hardening — preventing the next accidental commit, not purging an existing one. Pre-existing agent-module baseline: pyright 5 / mypy 3 errors in `tools/transit/static_store.py`, `tools/transit/client.py`, `pipeline.py` (per AI-8.1 completion note) — OPS-5.1 clears these.
+
+---
+
+### Phase OPS-1: Secrets Discipline & Credential Lifecycle (1 day)
+
+> **Sprint deliverable:** Pre-commit secrets scanning is installed in the local dev loop (not just CI), structured logs never leak credentials even when exceptions bubble through, and operators have a documented runbook for rotating every secret the platform holds.
+
+#### OPS-1.1 Commit `.pre-commit-config.yaml` at Repo Root
+**What:** Add `.pre-commit-config.yaml` at the repository root with hooks for ruff-format, ruff-check, mypy, detect-secrets, and trailing-whitespace/end-of-file fixes. Wire `pre-commit install` into a `make bootstrap` target so first-time contributors get hooks automatically on clone. `.pre-commit-config.yaml` does NOT exist today — verified via `ls`.
+**Why:** `make install-hooks` exists but is opt-in — a new contributor can ship code through lint that only fails in CI 10 minutes later, and detect-secrets never runs against the first commit. Enforcing hooks locally is a ~1 day, one-time investment that pays back on every PR.
+**Implementation:**
+- `.pre-commit-config.yaml` (new, at repo root):
+  - `ruff` (repo `astral-sh/ruff-pre-commit`) — `ruff-format` + `ruff-check --fix`
+  - `mypy` (local hook — runs `uv run mypy app/` to inherit the strict config already in `pyproject.toml`)
+  - `detect-secrets` (repo `Yelp/detect-secrets`) with `--baseline .secrets.baseline`; generate initial baseline via `detect-secrets scan > .secrets.baseline`
+  - `trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-added-large-files` from `pre-commit-hooks`
+- `Makefile` — add `make bootstrap` target running `uv sync --all-extras && pre-commit install && pre-commit install --hook-type commit-msg`. Keep the existing `install-hooks` target as an alias for back-compat.
+- `docs/CONTRIBUTING.md` — first step is `make bootstrap`. Document the detect-secrets allowlist workflow (`pre-commit run detect-secrets --all-files` to update baseline intentionally).
+- `.github/workflows/*.yml` — add `pre-commit run --all-files` as an early CI job so PRs fail fast if a contributor skipped local hooks.
+**Verify:** Fresh `git clone`, run `make bootstrap`, modify a file to add `GROQ_API_KEY="gsk_realkey"`, attempt to commit — detect-secrets blocks. Ruff violations are auto-fixed on commit. CI's `pre-commit run --all-files` passes on a clean tree.
+
+#### OPS-1.2 Structured-Log Secret Sanitization Filter
+**What:** Add a `structlog` processor that redacts known-sensitive field names (`api_key`, `token`, `authorization`, `password`, `groq_api_key`, `google_api_key`, `jina_api_key`, `sentry_dsn`, `jwt_secret_key`, `cookie`, `set-cookie`, `refresh_token`, `secret`) from every log event before JSON serialization, plus a redactor that scrubs `exc_info` stack frames for the same patterns.
+**Why:** structlog is configured (`docs/logging-standard.md`) but there is no global allowlist of sensitive field names. An exception during LLM setup can surface with `exc_info=True` containing the config repr — which includes API keys — and it lands in GlitchTip. Redacting at the processor level is defense-in-depth regardless of which call site leaks.
+**Implementation:**
+- `app/core/logging.py` (or wherever structlog is configured):
+  - `SENSITIVE_KEYS: frozenset[str] = frozenset({"api_key", "token", "authorization", "password", "groq_api_key", "google_api_key", "jina_api_key", "sentry_dsn", "jwt_secret_key", "secret", "refresh_token", "cookie", "set-cookie"})`
+  - `redact_sensitive(logger, method_name, event_dict: dict[str, Any]) -> dict[str, Any]` — recurses into nested dicts and lists, replaces matching keys with `"<redacted>"`, preserves all other keys. Case-insensitive key matching.
+  - Insert processor immediately before `structlog.processors.JSONRenderer()` in the chain.
+  - Wrap `format_exc_info` with a post-processor that applies regex substitution covering `GROQ_API_KEY=\S+`, `Authorization: Bearer \S+`, JWT pattern `eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+`.
+- 8 unit tests: top-level key redaction (1), nested dict redaction (1), list-of-dicts redaction (1), case-insensitive match (1), exc_info JWT redaction (1), exc_info bearer redaction (1), non-sensitive pass-through (1), empty dict edge case (1).
+**Verify:** Force an exception inside `app/core/agents/llm.py` provider setup. Inspect the GlitchTip event — no API key visible in any field, no JWT visible in the stack frame. `logger.info("probe", api_key="real_key_here")` renders `"api_key": "<redacted>"` in JSON output.
+
+#### OPS-1.3 Credential Rotation Runbook
+**What:** Write `docs/runbooks/credential-rotation.md` with step-by-step procedures for rotating every secret VTV holds (JWT secret key, GROQ, Google, Jina, Sentry DSN, Redis password, PostgreSQL password, Hetzner SSH key, GitHub Actions secrets). Each secret has: location, rotation command, impact/downtime, verification, rollback.
+**Why:** On-call has zero playbook for an actual credential incident. A compromised GROQ key at 2am today means googling the dashboard and hoping.
+**Implementation:**
+- `docs/runbooks/credential-rotation.md` — one section per secret: **Location** (env var name, where it is set in prod), **Rotation command**, **Downtime** (zero / brief / rolling restart), **Verification** (how to confirm new key works), **Rollback**.
+- `docs/runbooks/README.md` — runbook index (creates a runbook home that OPS-5.3 and later phases can extend).
+- Cross-link from `CLAUDE.md` § Operations.
+- Dry-run the runbook against a staging environment for each secret to capture the actual command output as a reference block inside the doc.
+**Verify:** A new on-call engineer can take `docs/runbooks/credential-rotation.md` cold, rotate the GROQ key from scratch, and verify the fallback chain is working without reading any other document.
+
+---
+
+### Phase OPS-2: Application Metrics & Deep Health Checks (3 days)
+
+> **Sprint deliverable:** `GET /metrics` exposes Prometheus-format request latency histograms, cache hit/miss counters, agent tool execution time, circuit breaker state, database pool utilization, and background poller liveness. `GET /health` probes every critical dependency in parallel and returns a structured per-dependency status object, not just a 200.
+
+#### OPS-2.1 Prometheus `/metrics` Endpoint
+**What:** Add `prometheus-client` dependency and expose a `/metrics` endpoint on the main FastAPI app. Register core counters, histograms, and gauges for HTTP requests, DB pool, Redis cache, agent execution, circuit breaker state (wiring the AI-8.1 breaker's state transitions to a gauge), and background-poller liveness.
+**Why:** Sentry/GlitchTip tracks errors but gives zero visibility into latency percentiles, cache hit rates, provider health over time, or rate of "slow but not failing" requests. Ops is blind to degradation until the error rate spikes — that is a 15-minute lag minimum.
+**Implementation:**
+- `pyproject.toml` — add `prometheus-client ^0.21`.
+- `app/core/metrics.py` (new):
+  - `REQUEST_LATENCY = Histogram("vtv_http_request_duration_seconds", "HTTP request latency", ["method", "path", "status"], buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0))`
+  - `DB_POOL_IN_USE = Gauge("vtv_db_pool_in_use", "SQLAlchemy connections in use")` + `DB_POOL_SIZE`, `DB_POOL_OVERFLOW`
+  - `REDIS_CACHE_HITS = Counter("vtv_redis_cache_hits_total", "Redis cache hit count", ["cache_name"])` + parallel `_misses_total`
+  - `AGENT_TOOL_DURATION = Histogram("vtv_agent_tool_duration_seconds", "Agent tool invocation latency", ["tool_name", "status"])`
+  - `CIRCUIT_BREAKER_STATE = Gauge("vtv_circuit_breaker_state", "0=closed 1=half_open 2=open", ["provider"])`
+  - `POLLER_LAST_TICK = Gauge("vtv_poller_last_tick_seconds", "Seconds since the poller last ticked", ["poller_name"])`
+- `app/main.py` — mount `prometheus_client.make_asgi_app()` at `/metrics`. Access control via IP allowlist at the reverse-proxy layer (scrapers do not carry JWTs).
+- `app/core/metrics_middleware.py` — async middleware that wraps request handling and records `REQUEST_LATENCY.labels(method, path_template, status).observe(duration)`. Path templates come from FastAPI's route resolver, NOT the raw URL, to keep cardinality finite.
+- Wire observations at call sites:
+  - `app/core/rate_limit.py` — Redis hit/miss counters
+  - `app/core/agents/circuit_breaker.py` — update `CIRCUIT_BREAKER_STATE` gauge inside `_transition_to_*` hooks (reuses the existing AI-8.1 state machine)
+  - Agent tool layer — wrap tool calls with a histogram observation decorator
+  - Background pollers (`app/gtfs_rt/poller.py`, WebSocket subscriber, memory lifecycle workers) — update `POLLER_LAST_TICK` gauge on each tick
+- Cardinality guard: document max label combinations per metric in `app/core/metrics.py` docstring. Never label with `user_id` or `vehicle_id` (unbounded).
+- 12 unit tests: middleware path templating (2), histogram bucket correctness (1), counter monotonicity (1), gauge transitions (2), label cardinality guard (1), `/metrics` endpoint returns prometheus format (1), 404 cardinality collapse (path_template = `__not_found__`) (1), disabled-metrics feature flag (2), circuit-breaker gauge wiring (1).
+**Verify:** `curl localhost:8000/metrics` returns prometheus text format. Hit the vehicles endpoint 100 times — `vtv_http_request_duration_seconds_bucket{le="0.5",path="/v1/vehicles"}` increments. Trip the AI-8.1 circuit breaker — `vtv_circuit_breaker_state{provider="groq"}` flips 0 → 2.
+
+#### OPS-2.2 Deep `/health` Endpoint with Dependency Probes
+**What:** Replace the current `/health` implementation with one that probes every critical dependency (PostgreSQL, Redis, reranker model, GTFS-RT feeds, background pollers, LLM providers) in parallel, returns a structured per-dependency object, and degrades status without crashing when any probe fails.
+**Why:** Today's `/health` returns 200 as long as the process is up. Docker/Kubernetes/nginx happily route traffic to a worker with an exhausted DB pool or a crashed poller. Deep health catches these before user reports.
+**Implementation:**
+- `app/core/health.py` (new):
+  - `@dataclass(frozen=True) DependencyProbe`: `name: str`, `check: Callable[[], Awaitable[ProbeResult]]`, `timeout_s: float = 2.0`, `critical: bool = True`
+  - `@dataclass(frozen=True) ProbeResult`: `status: Literal["ok", "degraded", "down"]`, `latency_ms: float`, `detail: str | None`
+  - `HealthChecker.run(*, deep: bool = False) -> HealthReport` — runs probes concurrently via `asyncio.gather(return_exceptions=True)`, aggregates into an overall status (ok if all critical ok; degraded if any non-critical fails; down if any critical fails or times out)
+  - Built-in probes:
+    - `probe_postgres()` — `SELECT 1` with 2s timeout; also reports `pg_stat_activity` connection count as detail
+    - `probe_redis()` — `PING` with 1s timeout
+    - `probe_reranker()` — checks that the reranker model is loaded
+    - `probe_gtfs_rt_feeds()` — reads last-success timestamp from each feed state; degraded if > 60s stale
+    - `probe_pollers()` — checks `POLLER_LAST_TICK` gauge from OPS-2.1; degraded if any poller > 2× its interval stale
+    - `probe_llm_providers()` — reads AI-8.1 circuit breaker state per provider; reports `closed|half_open|open` without making a real LLM call (no token cost)
+- `app/main.py`:
+  - `GET /health` — runs critical probes only (sub-500ms), returns 200 if ok, 503 if down. Kubernetes liveness.
+  - `GET /health/deep` — runs every probe including non-critical, returns full `HealthReport` JSON. Admin-auth. Kubernetes readiness.
+- 15 unit tests: each probe success (6), each probe failure (6), concurrent execution (1), timeout handling (1), critical vs non-critical aggregation (1).
+**Verify:** Stop the Redis container → `/health` returns 503 with `redis: down, detail: "connection refused"`. Pause the GTFS-RT poller for 120s → `/health/deep` reports `gtfs_rt: degraded`. All probes complete in under 500ms even when one times out.
+
+#### OPS-2.3 SLO Definitions + Prometheus Alert Rules
+**What:** Document service-level objectives in `docs/slos.md` and commit a starter Prometheus alert rules file (`ops/prometheus/alerts.yml`) that fires on SLO burn: p95 request latency > 500ms for 10 minutes, error rate > 1% for 5 minutes, circuit breaker open > 5 minutes, poller liveness > 2× interval, DB pool > 80% utilized.
+**Why:** Metrics without alerts = dashboards nobody looks at. A first pass of SLOs + alerts turns OPS-2.1 into something that can page on-call.
+**Implementation:**
+- `docs/slos.md` — table of endpoints + SLOs + error budgets + the rationale for each target.
+- `ops/prometheus/alerts.yml` — Prometheus alerting rules keyed to the metric names from OPS-2.1. `promtool check rules ops/prometheus/alerts.yml` must pass.
+- `ops/prometheus/README.md` — how to load the rules into the Prometheus instance in monitoring infra.
+- Each alert description links to a runbook section. Create runbook placeholders in `docs/runbooks/` that OPS-5 will flesh out.
+**Verify:** `promtool check rules ops/prometheus/alerts.yml` exits 0. Trigger a synthetic error rate spike in a local Prometheus → alert fires. Each alert's `annotations.runbook_url` points to an existing runbook section.
+
+---
+
+### Phase OPS-3: Durable Background Jobs & Graceful Shutdown (3 days)
+
+> **Sprint deliverable:** Background work (memory compaction, episodic-to-procedural promotion, GTFS-RT polling, WebSocket pub/sub) survives Gunicorn restarts without data loss, respects a coordinated shutdown sequence, and exposes completion status via metrics + a small admin API.
+
+#### OPS-3.1 Shutdown Coordinator for Lifespan Tasks
+**What:** Replace the ad-hoc cancel loop in `app/main.py` lifespan with a `ShutdownCoordinator` that tracks every long-running task, honors per-task drain timeouts, and logs a structured shutdown report before the process exits.
+**Why:** Gunicorn's default graceful-timeout is 30s. If memory compaction (in `app/memory/lifecycle.py`) is mid-run, it gets SIGKILL'd and can leave the embedding cache inconsistent. Coordinated shutdown with explicit per-task budgets gives each background job a chance to reach a stable checkpoint.
+**Implementation:**
+- `app/core/shutdown.py` (new):
+  - `@dataclass ShutdownTask`: `name: str`, `drain_timeout_s: float`, `drain: Callable[[], Awaitable[None]]`
+  - `ShutdownCoordinator`:
+    - `register(task: ShutdownTask) -> None`
+    - `async shutdown() -> ShutdownReport` — drains in LIFO order via `asyncio.wait_for(..., timeout=task.drain_timeout_s)`; on timeout logs `shutdown.task.timeout` and continues to the next task
+  - `@dataclass ShutdownReport`: `tasks_drained: int`, `tasks_timed_out: list[str]`, `total_duration_ms: int`
+- `app/main.py` lifespan:
+  - During startup, register all background tasks with the coordinator. Suggested budgets: memory compactor = 15s, episodic promoter = 10s, GTFS-RT poller = 5s, WebSocket pub/sub subscriber = 3s, Redis rate-limit bucket flush = 2s. Sum = 35s — trim where needed so total stays below Gunicorn's timeout minus a 5s safety margin.
+  - During shutdown call `coordinator.shutdown()` and log the report as `shutdown.report`.
+- Tune Gunicorn config: ensure `--graceful-timeout` is explicit (at least 5s above the coordinator budget) so the coordinator, not Gunicorn, decides cutoff.
+- 10 unit tests: LIFO drain order (1), drain timeout enforcement (2), drain failure continues next task (1), report aggregation (1), empty coordinator no-op (1), task registration idempotency (1), metric emission on drain (1), startup failure triggers partial drain (1), signal handling (1).
+**Verify:** Start VTV, begin a long-running memory compaction, issue `docker stop vtv-api`. Shutdown report logs each task drained in order; none are killed by Gunicorn's timeout. Memory cache remains consistent on next startup.
+
+#### OPS-3.2 Durable Job Queue for Memory Lifecycle
+**What:** Move `app/memory/lifecycle.py`'s async-task-based compaction and episodic-to-procedural promotion onto a persistent job queue (Arq on Redis, chosen for async-native integration + minimal surface area). Jobs survive process restarts and can be retried.
+**Why:** Bare `asyncio.create_task()` dies with the process. If Gunicorn restarts during a 4-hour compaction run, the job is gone and procedural promotion never catches up, silently degrading agent memory quality over time. A durable queue gives at-least-once semantics with retry on transient failure.
+**Implementation:**
+- `pyproject.toml` — add `arq ^0.26` (picked over Celery for async-first simplicity; RQ would also work but is sync).
+- `app/core/jobs/queue.py` (new) — wraps `arq.create_pool()`; exposes `enqueue(task_name: str, *args, _defer_until: datetime | None = None, _job_id: str | None = None)`.
+- `app/core/jobs/worker.py` — Arq `WorkerSettings`: Redis conn from settings, cron entries for scheduled compaction (every 6h) and promotion (daily 03:00 UTC).
+- `app/memory/lifecycle.py`:
+  - Extract compaction logic into `async def run_compaction(ctx: dict[str, Any]) -> CompactionResult`
+  - Extract promotion logic into `async def run_promotion(ctx: dict[str, Any]) -> PromotionResult`
+  - Delete the `asyncio.create_task()` scheduling — the worker cron handles it
+- `docker-compose.yml` — add `vtv-worker` service running `arq app.core.jobs.worker.WorkerSettings`
+- `docker-compose.prod.yml` — same, with resource limits matching `vtv-api`
+- Admin API: `GET /admin/jobs/status` returns last run, next run, failure count for each scheduled job (reuses existing admin auth stack)
+- Feature flag: `BACKGROUND_QUEUE_ENABLED` (default `false` during rollout so existing behavior is preserved byte-for-byte)
+- 14 integration tests: enqueue + execute (2), scheduled cron trigger (1), retry on failure (2), job idempotency via `_job_id` (1), worker survives Redis reconnect (1), compaction result persisted (1), promotion result persisted (1), admin status API (2), feature-flag gating (2), shutdown coordinator integration (1).
+**Verify:** Start worker, kill it mid-compaction, restart. The job re-enqueues from cron within 6h and completes successfully. Admin status API shows `last_run`, `next_run`, `last_result`.
+
+#### OPS-3.3 Redis Cache Invalidation Strategy
+**What:** Add explicit cache invalidation hooks for entities whose mutation should invalidate cached reads: stops (position cache), routes (route cache), vehicles (position cache), geofences (spatial cache). Wire into the repository layer so mutations auto-invalidate without per-call-site boilerplate.
+**Why:** Redis caches vehicle positions (120s TTL) and other entities but there is no bulk invalidation when upstream data changes. A stop moving via a GTFS re-import leaves stale lat/lon cached for up to 120s, which breaks geofence detection and proximity search during migration windows.
+**Implementation:**
+- `app/core/cache/invalidation.py` (new):
+  - `CacheInvalidator` — keyed namespaces (`stops:*`, `routes:*`, `vehicles:position:*`, `geofences:spatial:*`)
+  - `async invalidate(namespace: str, *keys: str) -> int` — `DEL` for exact keys; `SCAN` + `DEL` for wildcard on namespace
+  - `async invalidate_pattern(pattern: str, *, batch_size: int = 100) -> int` — scan in batches to avoid blocking Redis
+- Repository layer:
+  - `app/stops/repository.py::update_stop` → invalidate `stops:{stop_id}` + proximity-lookup cache
+  - `app/gtfs/import.py::import_stops` → invalidate `stops:*` after import
+  - `app/geofences/repository.py::update_geofence` → invalidate `geofences:spatial:*` (whole spatial index)
+- Observability: emit `cache.invalidation.performed` structured log events with `namespace`, `keys_invalidated`, `duration_ms`. Reuse the Redis counters from OPS-2.1.
+- 10 unit tests: exact-key invalidation (1), pattern invalidation with batching (2), namespace isolation (1), empty-result handling (1), repository-hook auto-invalidation (3), metric emission (1), GTFS import invalidation (1).
+**Verify:** Cache a vehicle position, update its stop via CMS → next read returns fresh data. GTFS re-import → all stop caches cleared within 1s. Invalidation never calls `FLUSHDB`.
+
+---
+
+### Phase OPS-4: Per-User Rate Limiting & RBAC Scoping (4 days)
+
+> **Sprint deliverable:** Rate limits are enforced per authenticated user (not global), dispatcher queries are scoped to their assigned routes/depots via a repository-layer filter, and every denied authorization check is audit-logged for compliance review.
+
+#### OPS-4.1 Per-User Rate Limit Bucketing
+**What:** Extend `app/core/rate_limit.py` to key slowapi limits on the authenticated user's id (resolved from the existing auth dependency) or remote IP for unauthenticated requests. Introduce tiers: `anonymous` (IP-scoped, 30/min), `dispatcher` (user-scoped, 300/min), `admin` (user-scoped, 1000/min). Heavy endpoints (agent chat, analytics exports) get their own sub-buckets.
+**Why:** Current slowapi limiter is global per endpoint. One abusive authenticated client exhausts the bucket for everyone. Per-user bucketing gives fairness and turns rate limits into a real DoS defense for authenticated abuse.
+**Implementation:**
+- `app/core/rate_limit.py`:
+  - Replace the single default key function with `user_or_ip_key(request)` that returns `f"user:{user_id}"` if the request carries an authenticated user (read from wherever the existing auth layer stores it), else `f"ip:{get_remote_address(request)}"`
+  - Add `TIER_LIMITS: dict[str, str]` mapping role → rate (anonymous=`"30/minute"`, dispatcher=`"300/minute"`, admin=`"1000/minute"`)
+  - Use `@limiter.limit(dynamic_limit_fn)` where `dynamic_limit_fn(request)` reads the authenticated role and returns the matching tier
+- `app/core/agents/routes.py` — agent chat gets a separate sub-bucket (`"10/minute"` per user) on top of the tier limit; prevents one user burning through LLM budget
+- `app/analytics/routes.py` — export endpoints use `"5/hour"` per user
+- Redis keys use the slowapi default (`LIMITER/{key}`); confirm TTL cleanup to avoid key bloat
+- 12 unit tests: anonymous IP bucketing (1), authenticated user bucketing (2), tier selection by role (3), per-endpoint sub-bucket stacking (2), Redis TTL expiry (1), missing auth context fallback to IP (1), 429 response includes retry-after (1), admin exemption toggle (1).
+**Verify:** Dispatcher A hits analytics at 250/min (under limit) → allowed. Dispatcher B hits vehicles at 500/min → allowed (different endpoint limit). Dispatcher A bursts chat to 20/min → second 10 get 429 without affecting Dispatcher B's chat bucket.
+
+#### OPS-4.2 Dispatcher-Scoped Query Filters (RBAC Scoping)
+**What:** Add a `RequestScope` dependency that resolves "what routes/depots/vehicles this user may see" from their role + assignments, and inject it into every repository query for data-scoped models (vehicles, routes, schedules, geofences, alerts). Admins see everything; dispatchers see only their assigned scope; drivers see only their assigned vehicle.
+**Why:** Auth has 4 roles but queries are role-checked at the route level only. A dispatcher with scope "routes 1-10" can still read data for routes 11-50 by calling the same endpoint with a different query parameter. This is the biggest authorization gap in the platform.
+**Implementation:**
+- Data model:
+  - `alembic/versions/xxxx_add_dispatcher_assignments.py` — new table `dispatcher_assignments(user_id, route_id, depot_id, assigned_at, assigned_by)`
+  - CMS admin page to manage assignments (backend API first; frontend is a follow-up)
+- `app/core/auth/scope.py` (new):
+  - `@dataclass(frozen=True) RequestScope`: `user_id`, `role`, `route_ids: frozenset[int] | None` (None = unrestricted for admin), `depot_ids: frozenset[int] | None`
+  - `async get_request_scope(user = Depends(current_user)) -> RequestScope` — admin → `(None, None)`; dispatcher → loads from assignments table; driver → only their assigned vehicle; viewer → `(None, None)` (read-only everything)
+- Repository layer — every repository method returning scoped data takes `scope: RequestScope` and applies:
+  ```python
+  if scope.route_ids is not None:
+      stmt = stmt.where(Route.id.in_(scope.route_ids))
+  ```
+  Covers `RouteRepository`, `VehicleRepository`, `ScheduleRepository`, `GeofenceRepository`, `AlertRepository`.
+- Route handlers inject `scope: RequestScope = Depends(get_request_scope)` and pass to the repository.
+- Fail-closed default: if a route forgets to pass `scope`, the repository raises `RBACConfigurationError` at request time (caught by unit tests; never reaches prod).
+- Audit logging: emit `rbac.scope.resolved` + `rbac.scope.denied` via structlog.
+- 20 unit tests: admin sees all (1), dispatcher scope filter (3), driver single-vehicle scope (2), viewer unrestricted read (1), repository without scope fails (1), dispatcher with empty assignments (1), fail-closed enforcement (2), scope caching in request state (1), RBAC audit log fields (2), assignments CRUD (3), scope invalidation on assignment change (2), HTTP 403 vs empty-result semantics (1).
+**Verify:** Dispatcher A (scope routes 1-10) calls `GET /v1/vehicles?route_id=15` → 200 with empty result (not 403, to avoid info leak). Dispatcher A calls `GET /v1/vehicles` → returns only vehicles on routes 1-10. Admin sees everything. Forgetting `scope` on a new endpoint → unit test fails with `RBACConfigurationError`.
+
+#### OPS-4.3 Authorization Audit Log
+**What:** Emit a structured `auth.denied` log event whenever a request is blocked by role check, scope filter, or rate limit — with `request_id`, `user_id`, `path`, `reason`, `enforcement_layer`. Persist to a TimescaleDB hypertable `auth_audit_events` for queryability and surface via `GET /admin/audit/auth` with date-range + user filters.
+**Why:** Compliance and incident response both need "who tried to access what and got denied". Without audit trails, breach investigation has no primary evidence.
+**Implementation:**
+- `app/core/auth/audit.py` — helper that emits structured log events and writes to the hypertable.
+- `alembic/versions/xxxx_auth_audit_events.py` — TimescaleDB hypertable with 30-day retention, composite index on `(user_id, created_at DESC)`.
+- Hook points:
+  - `app/core/auth/dependencies.py::current_user` — emits on JWT rejection
+  - `app/core/auth/scope.py::get_request_scope` — emits on scope-related denial
+  - `app/core/rate_limit.py::handle_rate_limit_exceeded` — emits on 429
+- `app/admin/routes.py` — `GET /admin/audit/auth?from=...&to=...&user_id=...` with pagination
+- 12 unit tests: denial event emission (3), hypertable insert (1), retention policy (1), admin query filters (3), pagination (1), index usage (EXPLAIN plan assertion) (1), PII redaction (log never contains password/token) (2).
+**Verify:** Trigger a 403, 401, and 429 → all three appear in `GET /admin/audit/auth` with enforcement_layer annotation. A dispatcher tries an admin-only endpoint → event logged with `reason="role_required:admin"`.
+
+---
+
+### Phase OPS-5: DX & Documentation Hardening (3 days)
+
+> **Sprint deliverable:** Baseline type errors cleared, four core ADRs committed, database ER diagram auto-generated from SQLAlchemy models, and the logging event taxonomy is exhaustive enough to power GlitchTip dashboards without reverse-engineering the code.
+
+#### OPS-5.1 Clear Baseline Type Errors in Agent Tools + Pipeline
+**What:** Fix the 8 pre-existing type errors (5 pyright, 3 mypy) called out in the AI-8.1 completion note: `app/core/agents/tools/transit/client.py`, `app/core/agents/tools/transit/static_store.py`, `app/core/agents/pipeline.py`. No suppressions — fix the underlying types.
+**Why:** "Strict type safety" is contradicted by 8 known errors that CI has been told to ignore. These will quietly multiply as the agent surface grows. Clearing them now resets the baseline to zero and lets CI fail on any regression.
+**Implementation:**
+- Capture the 8 errors: run `uv run mypy app/core/agents/tools/transit/client.py app/core/agents/tools/transit/static_store.py app/core/agents/pipeline.py` and `uv run pyright` against the same files.
+- Fix each at the source: add missing generics, narrow `Any` to typed unions, add `@overload` where signatures are ambiguous, replace dict-based records with typed dataclasses or Pydantic models.
+- Remove any baseline tolerance from `pyproject.toml` that was relaxing strict checking for these paths.
+- Re-run `uv run mypy app/` and `uv run pyright` repo-wide to confirm zero errors.
+**Verify:** `uv run mypy app/` → 0 errors. `uv run pyright` → 0 errors. CI's type-check job passes without baseline suppressions.
+
+#### OPS-5.2 Architecture Decision Records
+**What:** Write 4 short ADRs capturing the non-obvious architectural choices already in the codebase: (1) Vertical Slice Architecture, (2) Pydantic AI over LangChain, (3) Redis for embedding + position cache, (4) slowapi vs reverse-proxy rate limiting. ADR template: status, context, decision, consequences.
+**Why:** Onboarding currently requires archaeology. New contributors re-propose LangChain, re-propose per-feature `shared/` folders, re-propose reverse-proxy rate limits — all already decided and rejected for reasons nobody wrote down. ADRs block the time-sink.
+**Implementation:**
+- `docs/adr/0001-vertical-slice-architecture.md`
+- `docs/adr/0002-pydantic-ai-over-langchain.md`
+- `docs/adr/0003-redis-for-cache-layer.md`
+- `docs/adr/0004-slowapi-rate-limiting.md`
+- `docs/adr/README.md` — index + Nygard ADR template (status / context / decision / consequences)
+- Cross-link from `CLAUDE.md` § Architecture and main `README.md`.
+**Verify:** Each ADR reads self-contained: a new contributor can read ADR-0002 cold and understand why Pydantic AI won over LangChain without reading any code.
+
+#### OPS-5.3 Database ER Diagram from SQLAlchemy Models
+**What:** Add a `make er-diagram` target that generates a Mermaid ER diagram from the SQLAlchemy metadata and writes it to `docs/schema/er.md`. Commit the generated output so it is viewable in GitHub without running the target locally.
+**Why:** 23 migrations, no diagram, no single place to understand the schema. Onboarding and refactor discussions both need it.
+**Implementation:**
+- `scripts/generate_er_diagram.py` — imports all model modules (populates `Base.metadata`), walks `metadata.tables`, emits Mermaid `erDiagram` syntax with foreign keys.
+- `Makefile` — `er-diagram: uv run python scripts/generate_er_diagram.py > docs/schema/er.md`
+- `docs/schema/er.md` — the generated output (re-run on every migration to keep in sync)
+- Optional pre-commit hook that fails the commit if `alembic/versions/` changed without a regenerated `er.md`.
+**Verify:** `make er-diagram` regenerates the file. `docs/schema/er.md` renders in GitHub as a Mermaid diagram showing all 20+ tables with foreign-key relationships.
+
+#### OPS-5.4 Logging Taxonomy Audit + Backfill
+**What:** Audit `app/core/agents/circuit_breaker.py` (added in AI-8.1), background pollers, and the agent tool layer for structured log events missing from `docs/logging-standard.md`. Add every missing event to the taxonomy with fields + severity + example.
+**Why:** AI-8.1 added 7 new `agent.circuit_breaker.*` events and the taxonomy doc is not yet caught up. Dashboard builders in GlitchTip hit "what is this event?" dead ends every time a new subsystem logs.
+**Implementation:**
+- `scripts/audit_log_taxonomy.py` — greps the code for `structlog.get_logger().*(event=...)` calls, extracts event names, compares against `docs/logging-standard.md`, prints deltas.
+- Backfill `docs/logging-standard.md` with missing entries. Target: zero untracked events.
+- Add a CI step (optional) that runs the audit script and fails if new events land without doc entries.
+**Verify:** `python scripts/audit_log_taxonomy.py` reports 0 missing entries. Every event emitted by the code is documented with fields + severity + example.
+
+---
+
+### Operations & Platform Hardening — Summary
+
+| Phase | Focus | Days | Depends on |
+|-------|-------|------|------------|
+| OPS-1 | Secrets discipline + rotation runbook | 1 | — |
+| OPS-2 | Prometheus /metrics + deep /health + alerts | 3 | AI-8.1 (for breaker gauge) |
+| OPS-3 | Graceful shutdown + durable job queue + cache invalidation | 3 | — |
+| OPS-4 | Per-user rate limiting + RBAC scoping + audit log | 4 | — |
+| OPS-5 | Type baseline + ADRs + ER diagram + logging taxonomy | 3 | — |
+
+Total operational hardening: **14 days** across 16 subtasks. All five phases are independent of AI-8..AI-11 and of each other; a second engineer can run the OPS track in parallel with the agent-intelligence track. Highest-leverage single item is **OPS-2.1 (Prometheus /metrics)** — it unblocks every later conversation about performance, degradation, and capacity, and provides the gauge surface that OPS-2.2 and OPS-2.3 depend on.
+
+---
+
 ## Planned Features
 
 ### Full Latvia Transit Platform
