@@ -2,6 +2,7 @@
 
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false
 
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,7 +10,9 @@ from pydantic_ai import models
 from pydantic_ai.models.test import TestModel
 
 from app.core.agents.agent import agent
+from app.core.agents.circuit_breaker import CircuitBreaker, CircuitState
 from app.core.agents.exceptions import AgentExecutionError
+from app.core.agents.llm import get_breaker
 from app.core.agents.schemas import ChatCompletionRequest, ChatMessage
 from app.core.agents.service import AgentService
 from app.knowledge.router import RoutingDecision
@@ -17,6 +20,11 @@ from app.memory.schemas import MemoryEntryResponse, MemoryRecallResponse
 
 # Prevent accidental real LLM API calls during testing
 models.ALLOW_MODEL_REQUESTS = False
+
+
+def _state(breaker: CircuitBreaker) -> CircuitState:
+    """Return ``breaker.state`` indirectly to defeat mypy literal narrowing."""
+    return breaker.state
 
 
 def _create_service() -> AgentService:
@@ -64,13 +72,33 @@ async def test_chat_extracts_last_user_message():
 
 
 @pytest.mark.asyncio
-async def test_chat_failure_raises_agent_execution_error():
+async def test_chat_failure_with_breaker_disabled_raises_agent_execution_error():
+    """With the breaker kill-switched off, raw LLM exceptions still bubble up.
+
+    Pre-AI-8.3 behavior is preserved when ``circuit_breaker_enabled`` is
+    False — invoke_provider_chain flattens to a single direct call and
+    re-raises the original exception, which BaseAgentService.chat then
+    wraps as AgentExecutionError.
+    """
     service = _create_service()
     request = ChatCompletionRequest(messages=[ChatMessage(role="user", content="Hello")])
 
     with patch("app.core.agents.service.agent") as mock_agent:
         mock_agent.run.side_effect = RuntimeError("LLM connection failed")
-        with patch("app.core.agents.service.logger"):
+        settings_obj = MagicMock()
+        settings_obj.circuit_breaker_enabled = False
+        settings_obj.knowledge_router_enabled = False
+        settings_obj.memory_enabled = False
+        settings_obj.llm_provider = "test"
+        settings_obj.llm_fallback_provider = None
+        settings_obj.llm_model = "test-model"
+        settings_obj.agent_progressive_skills_enabled = False
+        settings_obj.agent_confidence_reroute_enabled = False
+        with (
+            patch("app.core.agents.service.logger"),
+            patch("app.core.agents.service.get_settings", return_value=settings_obj),
+            patch("app.core.agents.llm.get_settings", return_value=settings_obj),
+        ):
             with pytest.raises(AgentExecutionError, match="Agent execution failed"):
                 await service.chat(request)
 
@@ -279,3 +307,263 @@ async def test_chat_respects_min_score_setting() -> None:
     assert call_args is not None
     recall_req = call_args.args[0]
     assert recall_req.min_score == 0.5
+
+
+# --- AI-8.3 circuit breaker integration tests --------------------------------
+
+
+def _make_breaker_settings(
+    *,
+    primary: str = "primary",
+    fallback: str | None = "fallback",
+    enabled: bool = True,
+    failure_threshold: int = 3,
+    recovery_timeout_s: float = 10.0,
+) -> MagicMock:
+    """Build a mock Settings object that disables every other side effect."""
+    settings_obj = MagicMock()
+    settings_obj.circuit_breaker_enabled = enabled
+    settings_obj.circuit_breaker_failure_threshold = failure_threshold
+    settings_obj.circuit_breaker_recovery_timeout_s = recovery_timeout_s
+    settings_obj.circuit_breaker_success_threshold = 2
+    settings_obj.circuit_breaker_failure_rate_threshold = 0.5
+    settings_obj.llm_provider = primary
+    settings_obj.llm_fallback_provider = fallback
+    settings_obj.llm_model = "test-model"
+    settings_obj.knowledge_router_enabled = False
+    settings_obj.memory_enabled = False
+    settings_obj.agent_progressive_skills_enabled = False
+    settings_obj.agent_self_correction_enabled = False
+    settings_obj.agent_max_correction_rounds = 0
+    settings_obj.agent_confidence_reroute_enabled = False
+    settings_obj.agent_confidence_reroute_threshold = 0.3
+    return settings_obj
+
+
+class TestCircuitBreakerIntegration:
+    """End-to-end tests for the AI-8.3 provider chain wiring."""
+
+    @pytest.mark.asyncio
+    async def test_single_provider_trip_routes_to_fallback(self) -> None:
+        """After threshold consecutive failures on primary, the next call uses fallback."""
+        service = _create_service()
+        request = ChatCompletionRequest(messages=[ChatMessage(role="user", content="Hello")])
+        settings_obj = _make_breaker_settings(failure_threshold=2)
+
+        # Pre-trip the primary breaker by recording two failures.
+        primary_breaker = get_breaker("primary", settings_obj)
+
+        async def _fail() -> None:
+            raise RuntimeError("primary down")
+
+        for _ in range(2):
+            with pytest.raises(RuntimeError):
+                await primary_breaker.call(_fail)
+        assert _state(primary_breaker) is CircuitState.OPEN
+
+        with (
+            patch("app.core.agents.service.logger"),
+            patch("app.core.agents.service.get_settings", return_value=settings_obj),
+            patch("app.core.agents.llm.get_settings", return_value=settings_obj),
+            agent.override(model=TestModel()),
+        ):
+            response = await service.chat(request)
+
+        assert response.object == "chat.completion"
+        # Primary remains open; fallback served the request and stays CLOSED.
+        assert _state(primary_breaker) is CircuitState.OPEN
+        assert _state(get_breaker("fallback", settings_obj)) is CircuitState.CLOSED
+
+    @pytest.mark.asyncio
+    async def test_fallback_also_fails_returns_degraded(self) -> None:
+        """When primary is open and fallback also raises, degraded response is returned."""
+        service = _create_service()
+        request = ChatCompletionRequest(messages=[ChatMessage(role="user", content="Hello")])
+        settings_obj = _make_breaker_settings(failure_threshold=2)
+
+        # Pre-trip the primary breaker.
+        primary_breaker = get_breaker("primary", settings_obj)
+
+        async def _fail() -> None:
+            raise RuntimeError("primary down")
+
+        for _ in range(2):
+            with pytest.raises(RuntimeError):
+                await primary_breaker.call(_fail)
+
+        with patch("app.core.agents.service.agent") as mock_agent:
+            mock_agent.run.side_effect = RuntimeError("fallback down too")
+            with (
+                patch("app.core.agents.service.logger"),
+                patch("app.core.agents.service.get_settings", return_value=settings_obj),
+                patch("app.core.agents.llm.get_settings", return_value=settings_obj),
+            ):
+                response = await service.chat(request)
+
+        assert response.object == "chat.completion"
+        content = response.choices[0].message.content
+        assert "temporarily unavailable" in content.lower()
+
+    @pytest.mark.asyncio
+    async def test_all_providers_open_returns_degraded(self) -> None:
+        """Both breakers OPEN → degraded response with no LLM call attempted."""
+        service = _create_service()
+        request = ChatCompletionRequest(messages=[ChatMessage(role="user", content="Hello")])
+        settings_obj = _make_breaker_settings(failure_threshold=1)
+
+        async def _fail() -> None:
+            raise RuntimeError("down")
+
+        for name in ("primary", "fallback"):
+            breaker = get_breaker(name, settings_obj)
+            with pytest.raises(RuntimeError):
+                await breaker.call(_fail)
+            assert _state(breaker) is CircuitState.OPEN
+
+        with patch("app.core.agents.service.agent") as mock_agent:
+            mock_agent.run.return_value = MagicMock(
+                output="should-not-be-called",
+                all_messages=lambda: [],
+            )
+            with (
+                patch("app.core.agents.service.logger"),
+                patch("app.core.agents.service.get_settings", return_value=settings_obj),
+                patch("app.core.agents.llm.get_settings", return_value=settings_obj),
+            ):
+                response = await service.chat(request)
+
+        # No LLM call should have been made.
+        mock_agent.run.assert_not_called()
+        content = response.choices[0].message.content
+        assert "temporarily unavailable" in content.lower()
+
+    @pytest.mark.asyncio
+    async def test_breaker_preempts_before_timeout(self) -> None:
+        """A second call after a tripped breaker fast-fails in <100ms."""
+        service = _create_service()
+        request = ChatCompletionRequest(messages=[ChatMessage(role="user", content="Hello")])
+        settings_obj = _make_breaker_settings(failure_threshold=1, fallback=None)
+
+        # Trip the primary breaker (single-provider chain).
+        primary_breaker = get_breaker("primary", settings_obj)
+
+        async def _fail() -> None:
+            raise RuntimeError("down")
+
+        with pytest.raises(RuntimeError):
+            await primary_breaker.call(_fail)
+
+        with patch("app.core.agents.service.agent") as mock_agent:
+            mock_agent.run.side_effect = AssertionError("should never be called")
+            with (
+                patch("app.core.agents.service.logger"),
+                patch("app.core.agents.service.get_settings", return_value=settings_obj),
+                patch("app.core.agents.llm.get_settings", return_value=settings_obj),
+            ):
+                t0 = time.monotonic()
+                response = await service.chat(request)
+                elapsed_ms = (time.monotonic() - t0) * 1000
+
+        # Generous bound — chain skip plus FastAPI machinery is well under this.
+        assert elapsed_ms < 200, f"chain skip took {elapsed_ms:.1f}ms"
+        mock_agent.run.assert_not_called()
+        content = response.choices[0].message.content
+        assert "temporarily unavailable" in content.lower()
+
+    @pytest.mark.asyncio
+    async def test_breaker_second_request_fast_fails(self) -> None:
+        """Two consecutive requests after a trip both return constant-time degraded."""
+        service = _create_service()
+        request = ChatCompletionRequest(messages=[ChatMessage(role="user", content="Hello")])
+        settings_obj = _make_breaker_settings(failure_threshold=1, fallback=None)
+
+        primary_breaker = get_breaker("primary", settings_obj)
+
+        async def _fail() -> None:
+            raise RuntimeError("down")
+
+        with pytest.raises(RuntimeError):
+            await primary_breaker.call(_fail)
+
+        with patch("app.core.agents.service.agent") as mock_agent:
+            mock_agent.run.side_effect = AssertionError("should never be called")
+            with (
+                patch("app.core.agents.service.logger"),
+                patch("app.core.agents.service.get_settings", return_value=settings_obj),
+                patch("app.core.agents.llm.get_settings", return_value=settings_obj),
+            ):
+                first = await service.chat(request)
+                second = await service.chat(request)
+
+        for response in (first, second):
+            assert "temporarily unavailable" in response.choices[0].message.content.lower()
+        mock_agent.run.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_recovery_after_timeout_probes_and_closes(self) -> None:
+        """After recovery_timeout_s elapses, the breaker probes successfully and closes."""
+        service = _create_service()
+        request = ChatCompletionRequest(messages=[ChatMessage(role="user", content="Hello")])
+        # Tiny recovery window so the test does not actually sleep.
+        settings_obj = _make_breaker_settings(
+            failure_threshold=1, recovery_timeout_s=0.0, fallback=None
+        )
+
+        primary_breaker = get_breaker("primary", settings_obj)
+
+        async def _fail() -> None:
+            raise RuntimeError("down")
+
+        with pytest.raises(RuntimeError):
+            await primary_breaker.call(_fail)
+        assert _state(primary_breaker) is CircuitState.OPEN
+
+        # First successful chat — breaker enters HALF_OPEN, probe succeeds.
+        with (
+            patch("app.core.agents.service.logger"),
+            patch("app.core.agents.service.get_settings", return_value=settings_obj),
+            patch("app.core.agents.llm.get_settings", return_value=settings_obj),
+            agent.override(model=TestModel()),
+        ):
+            await service.chat(request)
+            # Second probe success closes the breaker (success_threshold=2).
+            await service.chat(request)
+
+        assert _state(primary_breaker) is CircuitState.CLOSED
+
+    @pytest.mark.asyncio
+    async def test_breaker_disabled_does_not_register_breakers(self) -> None:
+        """Kill switch off → no registry writes, plain pre-AI-8 path."""
+        from app.core.agents.llm import _breakers
+
+        service = _create_service()
+        request = ChatCompletionRequest(messages=[ChatMessage(role="user", content="Hello")])
+        settings_obj = _make_breaker_settings(enabled=False)
+
+        with (
+            patch("app.core.agents.service.logger"),
+            patch("app.core.agents.service.get_settings", return_value=settings_obj),
+            patch("app.core.agents.llm.get_settings", return_value=settings_obj),
+            agent.override(model=TestModel()),
+        ):
+            response = await service.chat(request)
+
+        assert response.object == "chat.completion"
+        assert _breakers == {}, "disabled breaker must not register entries"
+
+    @pytest.mark.asyncio
+    async def test_breaker_disabled_propagates_original_exception(self) -> None:
+        """Kill switch off → raw exception still wraps as AgentExecutionError, no degraded path."""
+        service = _create_service()
+        request = ChatCompletionRequest(messages=[ChatMessage(role="user", content="Hello")])
+        settings_obj = _make_breaker_settings(enabled=False)
+
+        with patch("app.core.agents.service.agent") as mock_agent:
+            mock_agent.run.side_effect = RuntimeError("LLM connection failed")
+            with (
+                patch("app.core.agents.service.logger"),
+                patch("app.core.agents.service.get_settings", return_value=settings_obj),
+                patch("app.core.agents.llm.get_settings", return_value=settings_obj),
+            ):
+                with pytest.raises(AgentExecutionError, match="Agent execution failed"):
+                    await service.chat(request)

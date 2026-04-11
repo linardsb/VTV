@@ -17,10 +17,11 @@ Design notes:
 * In-process only. Under Gunicorn + 4 workers each worker maintains an
   independent tracker. Ops reads are approximate — use for degradation
   signals, not distributed consensus.
-* The ``state`` field on each entry is currently always ``CLOSED``
-  because AI-8.2 adds the tracker + endpoint but does NOT wire a
-  per-provider ``CircuitBreaker`` registry into ``_execute()``. That
-  wiring is a follow-up PR (see ``_extract_provider_name`` docstring).
+* AI-8.3 wires the per-provider breaker registry from
+  :mod:`app.core.agents.llm` into ``track_provider_call``: the live
+  :class:`CircuitState` is looked up at the moment ``record_call`` runs
+  and stored on the ``ProviderHealth`` entry, so the admin endpoint and
+  any other consumer of ``get_all()`` see the up-to-date state.
 """
 
 from __future__ import annotations
@@ -52,9 +53,9 @@ class ProviderHealth:
     Attributes:
         provider_name: Short provider identifier (e.g. ``anthropic``,
             ``google``, ``groq``, ``ollama``, ``test``).
-        state: Most recently observed circuit breaker state. Defaults to
-            :attr:`CircuitState.CLOSED` until a per-provider breaker
-            registry is wired into ``_execute()`` in a follow-up PR.
+        state: Most recently observed circuit breaker state. Refreshed by
+            ``track_provider_call`` on every recorded call from the AI-8.3
+            breaker registry in :mod:`app.core.agents.llm`.
         total_calls: Total LLM call attempts recorded today.
         total_failures: Total LLM call failures recorded today.
         last_failure_at: UTC timestamp of the most recent failure, or
@@ -215,11 +216,6 @@ def _extract_provider_name(
       not end in ``"model"`` are returned as-is (e.g.
       ``OpenAIChatModel`` → ``"openaichat"``). This is internal
       observability, not user-facing.
-
-    TODO(AI-8.2-followup): when ``_execute()`` is wired to a
-    per-provider ``BreakerRegistry``, callers should also pass the live
-    ``CircuitState`` into ``record_call`` so the snapshot reflects the
-    breaker state instead of the hard-coded ``CLOSED`` default.
     """
     if tier_model is None:
         return default
@@ -251,6 +247,10 @@ async def track_provider_call(
         default_provider: Fallback provider name when ``tier_model`` is
             ``None`` — typically ``settings.llm_provider``.
     """
+    # Local import avoids a circular dependency at module-load time
+    # (``llm.py`` imports from ``circuit_breaker`` which is the same package).
+    from app.core.agents.llm import get_breaker_state
+
     tracker = get_provider_health_tracker()
     provider = _extract_provider_name(tier_model, default_provider)
     t0 = time.monotonic()
@@ -259,14 +259,24 @@ async def track_provider_call(
     except Exception:
         latency_ms = (time.monotonic() - t0) * 1000
         try:
-            tracker.record_call(provider, latency_ms=latency_ms, success=False)
+            tracker.record_call(
+                provider,
+                latency_ms=latency_ms,
+                success=False,
+                state=get_breaker_state(provider),
+            )
         except Exception:
             logger.warning("agent.provider_health.record_failed", exc_info=True)
         raise
     else:
         latency_ms = (time.monotonic() - t0) * 1000
         try:
-            tracker.record_call(provider, latency_ms=latency_ms, success=True)
+            tracker.record_call(
+                provider,
+                latency_ms=latency_ms,
+                success=True,
+                state=get_breaker_state(provider),
+            )
         except Exception:
             logger.warning("agent.provider_health.record_failed", exc_info=True)
 

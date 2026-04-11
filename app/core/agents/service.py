@@ -26,6 +26,8 @@ from app.core.agents.base import BaseAgentService, _PipelineOutcome
 from app.core.agents.config import resolve_tier_model
 from app.core.agents.context_budget import AGENT_BUDGETS, ContextBudget, agent_budget_for
 from app.core.agents.correction import CorrectedResult, SelfCorrectionLoop
+from app.core.agents.exceptions import AllProvidersUnavailableError
+from app.core.agents.llm import invoke_provider_chain
 from app.core.agents.pipeline import get_complex_pipeline
 from app.core.agents.provider_health import track_provider_call
 from app.core.agents.routing import (
@@ -263,37 +265,112 @@ class AgentService(BaseAgentService):
         223-287: complex tier runs the orchestrator; standard tier runs the
         self-correction loop when enabled; otherwise a plain ``agent.run``
         with fire-and-forget memory bridge persistence.
+
+        AI-8.3: every LLM invocation goes through
+        :func:`invoke_provider_chain` so an open per-provider breaker
+        fast-fails the request to the next provider in <100ms instead of
+        waiting for the call-time timeout. The chain is keyed on
+        ``settings.llm_provider`` / ``settings.llm_fallback_provider``;
+        ``tier_model`` is passed through unchanged (a future refinement
+        could resolve a per-provider tier model). When the entire chain is
+        exhausted, :class:`AllProvidersUnavailableError` is caught here
+        and a degraded :class:`_PipelineOutcome` is returned so the
+        end-user sees a static, user-safe message instead of a 5xx.
         """
-        if tier == "complex":
-            pipeline = get_complex_pipeline(agent, self._deps)
-            async with track_provider_call(tier_model, get_settings().llm_provider):
-                pipeline_result = await pipeline.run(
+        try:
+            if tier == "complex":
+                return await self._execute_complex_tier(
+                    user_message=user_message,
+                    message_history=message_history,
+                    instructions=instructions,
+                    tier_model=tier_model,
+                )
+
+            if self._correction_loop is not None:
+                return await self._execute_correction_tier(
+                    user_message=user_message,
+                    current_prompt=current_prompt,
+                    message_history=message_history,
+                    instructions=instructions,
+                    tier_model=tier_model,
+                    static_cache=static_cache,
+                )
+
+            return await self._execute_fallback_tier(
+                user_message=user_message,
+                current_prompt=current_prompt,
+                message_history=message_history,
+                instructions=instructions,
+                tier_model=tier_model,
+            )
+        except AllProvidersUnavailableError as exc:
+            logger.error(
+                "agent.provider_chain.exhausted",
+                providers_tried=exc.providers_tried,
+                tier=tier,
+            )
+            return self._degraded_outcome()
+
+    # ------------------------------------------------------------------
+    # Per-tier execution helpers (AI-8.3 — chain-aware)
+    # ------------------------------------------------------------------
+    async def _execute_complex_tier(
+        self,
+        *,
+        user_message: str,
+        message_history: list[ModelMessage] | None,
+        instructions: str | None,
+        tier_model: str | Model | None,
+    ) -> _PipelineOutcome:
+        """Run the complex-tier pipeline through the provider chain."""
+        pipeline = get_complex_pipeline(agent, self._deps)
+
+        async def _run(provider_name: str) -> Any:  # noqa: ANN401 — ComplexPipelineResult
+            async with track_provider_call(None, provider_name):
+                return await pipeline.run(
                     user_message,
                     message_history=message_history,
                     instructions=instructions,
                     model=tier_model,
                 )
-            logger.info(
-                "agent.pipeline.summary",
-                phases_completed=pipeline_result.phases_completed,
-                total_duration_ms=pipeline_result.total_duration_ms,
-                phase_details=[
-                    {"name": pd.name, "duration_ms": pd.duration_ms, "status": pd.status}
-                    for pd in pipeline_result.phase_details
-                ],
-            )
-            # Complex path: no QA footnotes, no memory persist (existing behavior).
-            return _PipelineOutcome(
-                response_text=pipeline_result.output,
-                warnings=[],
-                messages=[],
-                confidence=0.9,
-                tools_used=(),
-            )
 
-        if self._correction_loop is not None:
-            async with track_provider_call(tier_model, get_settings().llm_provider):
-                corrected: CorrectedResult = await self._correction_loop.run_with_correction(
+        pipeline_result = await invoke_provider_chain(_run)
+        logger.info(
+            "agent.pipeline.summary",
+            phases_completed=pipeline_result.phases_completed,
+            total_duration_ms=pipeline_result.total_duration_ms,
+            phase_details=[
+                {"name": pd.name, "duration_ms": pd.duration_ms, "status": pd.status}
+                for pd in pipeline_result.phase_details
+            ],
+        )
+        # Complex path: no QA footnotes, no memory persist (existing behavior).
+        return _PipelineOutcome(
+            response_text=pipeline_result.output,
+            warnings=[],
+            messages=[],
+            confidence=0.9,
+            tools_used=(),
+        )
+
+    async def _execute_correction_tier(
+        self,
+        *,
+        user_message: str,
+        current_prompt: str,
+        message_history: list[ModelMessage] | None,
+        instructions: str | None,
+        tier_model: str | Model | None,
+        static_cache: Any,  # noqa: ANN401
+    ) -> _PipelineOutcome:
+        """Run the self-correction loop through the provider chain."""
+        correction_loop = self._correction_loop
+        if correction_loop is None:  # pragma: no cover — guarded by caller
+            raise RuntimeError("_execute_correction_tier called without a correction loop")
+
+        async def _run(provider_name: str) -> CorrectedResult:
+            async with track_provider_call(None, provider_name):
+                return await correction_loop.run_with_correction(
                     agent,
                     user_message,
                     deps=self._deps,
@@ -302,33 +379,49 @@ class AgentService(BaseAgentService):
                     model=tier_model,
                     static_cache=static_cache,
                 )
-            # Memory persistence uses the FINAL attempt's messages.
-            persist_agent_episode(
-                agent_name=self.agent_name,
-                prompt=current_prompt,
-                response=corrected.output,
-                messages=corrected.all_messages,
-            )
-            corrected_confidence = 1.0 if not corrected.warnings else 0.6
-            corrected_tools = tuple(
-                rec.tool_name for rec in extract_tool_returns(corrected.all_messages)
-            )
-            return _PipelineOutcome(
-                response_text=corrected.output,
-                warnings=corrected.warnings,
-                messages=corrected.all_messages,
-                confidence=corrected_confidence,
-                tools_used=corrected_tools,
-            )
 
-        async with track_provider_call(tier_model, get_settings().llm_provider):
-            result = await agent.run(
-                user_message,
-                deps=self._deps,
-                message_history=message_history,
-                instructions=instructions,
-                model=tier_model,
-            )
+        corrected: CorrectedResult = await invoke_provider_chain(_run)
+        # Memory persistence uses the FINAL attempt's messages.
+        persist_agent_episode(
+            agent_name=self.agent_name,
+            prompt=current_prompt,
+            response=corrected.output,
+            messages=corrected.all_messages,
+        )
+        corrected_confidence = 1.0 if not corrected.warnings else 0.6
+        corrected_tools = tuple(
+            rec.tool_name for rec in extract_tool_returns(corrected.all_messages)
+        )
+        return _PipelineOutcome(
+            response_text=corrected.output,
+            warnings=corrected.warnings,
+            messages=corrected.all_messages,
+            confidence=corrected_confidence,
+            tools_used=corrected_tools,
+        )
+
+    async def _execute_fallback_tier(
+        self,
+        *,
+        user_message: str,
+        current_prompt: str,
+        message_history: list[ModelMessage] | None,
+        instructions: str | None,
+        tier_model: str | Model | None,
+    ) -> _PipelineOutcome:
+        """Run the plain ``agent.run`` fallback path through the provider chain."""
+
+        async def _run(provider_name: str) -> Any:  # noqa: ANN401 — pydantic_ai AgentRunResult
+            async with track_provider_call(None, provider_name):
+                return await agent.run(
+                    user_message,
+                    deps=self._deps,
+                    message_history=message_history,
+                    instructions=instructions,
+                    model=tier_model,
+                )
+
+        result = await invoke_provider_chain(_run)
         fallback_messages = list(result.all_messages())
 
         # Fire-and-forget: persist multi-tool episodes as memory.
@@ -345,6 +438,25 @@ class AgentService(BaseAgentService):
             messages=fallback_messages,
             confidence=None,  # QA hasn't run yet; leave re-route gate disabled
             tools_used=fallback_tools,
+        )
+
+    @staticmethod
+    def _degraded_outcome() -> _PipelineOutcome:
+        """Return the user-safe degraded response when the provider chain is exhausted.
+
+        The content is a static string — never includes provider names or
+        underlying error text. ``warnings=[]`` skips QA + footnote rendering;
+        ``confidence=None`` keeps the AI-6.5 confidence re-route gate from
+        kicking off another doomed retry.
+        """
+        return _PipelineOutcome(
+            response_text=(
+                "All LLM providers are temporarily unavailable. Please retry in 30 seconds."
+            ),
+            warnings=[],
+            messages=[],
+            confidence=None,
+            tools_used=(),
         )
 
     # ------------------------------------------------------------------

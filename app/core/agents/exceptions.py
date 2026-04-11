@@ -7,6 +7,7 @@ Exception hierarchy:
   - TransitDataError (transit feed fetch/parse failed) → 503
   - ObsidianError (vault operation failed) → 503
   - CircuitBreakerOpenError (LLM provider breaker tripped) → 503
+  - AllProvidersUnavailableError (entire provider chain exhausted) → 503
 """
 
 from typing import Any, cast
@@ -60,6 +61,21 @@ class CircuitBreakerOpenError(AgentError):
     pass
 
 
+class AllProvidersUnavailableError(AgentError):
+    """Raised when every LLM provider in the fallback chain is unavailable.
+
+    Either all breakers are OPEN or every attempted call raised. Maps to
+    HTTP 503 so clients can retry after the configured ``recovery_timeout_s``.
+    The service layer typically catches this and returns a degraded
+    ``AgentResult`` instead of letting it propagate to HTTP — see
+    ``app.core.agents.service.AgentService._execute``.
+    """
+
+    def __init__(self, providers_tried: list[str]) -> None:
+        self.providers_tried = providers_tried
+        super().__init__(f"All LLM providers unavailable: {', '.join(providers_tried)}")
+
+
 async def agent_exception_handler(request: Request, exc: AgentError) -> JSONResponse:
     """Handle agent exceptions globally.
 
@@ -84,7 +100,15 @@ async def agent_exception_handler(request: Request, exc: AgentError) -> JSONResp
     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     if isinstance(exc, AgentExecutionError):
         status_code = status.HTTP_502_BAD_GATEWAY
-    elif isinstance(exc, (TransitDataError, ObsidianError, CircuitBreakerOpenError)):
+    elif isinstance(
+        exc,
+        (
+            TransitDataError,
+            ObsidianError,
+            CircuitBreakerOpenError,
+            AllProvidersUnavailableError,
+        ),
+    ):
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     return JSONResponse(
@@ -110,3 +134,4 @@ def setup_agent_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(TransitDataError, handler)
     app.add_exception_handler(ObsidianError, handler)
     app.add_exception_handler(CircuitBreakerOpenError, handler)
+    app.add_exception_handler(AllProvidersUnavailableError, handler)

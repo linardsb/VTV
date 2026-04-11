@@ -69,6 +69,16 @@ def _reset_skill_cache() -> Generator[None, None, None]:
     clear_cache()
 
 
+@pytest.fixture(autouse=True)
+def _reset_provider_breakers() -> Generator[None, None, None]:
+    """Clear the AI-8.3 LLM provider breaker registry around every test."""
+    from app.core.agents.llm import reset_provider_breakers
+
+    reset_provider_breakers()
+    yield
+    reset_provider_breakers()
+
+
 # --- AI-7.1 eval case factories -----------------------------------------
 
 
