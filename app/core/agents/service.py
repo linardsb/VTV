@@ -27,6 +27,7 @@ from app.core.agents.config import resolve_tier_model
 from app.core.agents.context_budget import AGENT_BUDGETS, ContextBudget, agent_budget_for
 from app.core.agents.correction import CorrectedResult, SelfCorrectionLoop
 from app.core.agents.pipeline import get_complex_pipeline
+from app.core.agents.provider_health import track_provider_call
 from app.core.agents.routing import (
     ModelTier,
     classify_prompt,
@@ -265,12 +266,13 @@ class AgentService(BaseAgentService):
         """
         if tier == "complex":
             pipeline = get_complex_pipeline(agent, self._deps)
-            pipeline_result = await pipeline.run(
-                user_message,
-                message_history=message_history,
-                instructions=instructions,
-                model=tier_model,
-            )
+            async with track_provider_call(tier_model, get_settings().llm_provider):
+                pipeline_result = await pipeline.run(
+                    user_message,
+                    message_history=message_history,
+                    instructions=instructions,
+                    model=tier_model,
+                )
             logger.info(
                 "agent.pipeline.summary",
                 phases_completed=pipeline_result.phases_completed,
@@ -290,15 +292,16 @@ class AgentService(BaseAgentService):
             )
 
         if self._correction_loop is not None:
-            corrected: CorrectedResult = await self._correction_loop.run_with_correction(
-                agent,
-                user_message,
-                deps=self._deps,
-                message_history=message_history,
-                instructions=instructions,
-                model=tier_model,
-                static_cache=static_cache,
-            )
+            async with track_provider_call(tier_model, get_settings().llm_provider):
+                corrected: CorrectedResult = await self._correction_loop.run_with_correction(
+                    agent,
+                    user_message,
+                    deps=self._deps,
+                    message_history=message_history,
+                    instructions=instructions,
+                    model=tier_model,
+                    static_cache=static_cache,
+                )
             # Memory persistence uses the FINAL attempt's messages.
             persist_agent_episode(
                 agent_name=self.agent_name,
@@ -318,13 +321,14 @@ class AgentService(BaseAgentService):
                 tools_used=corrected_tools,
             )
 
-        result = await agent.run(
-            user_message,
-            deps=self._deps,
-            message_history=message_history,
-            instructions=instructions,
-            model=tier_model,
-        )
+        async with track_provider_call(tier_model, get_settings().llm_provider):
+            result = await agent.run(
+                user_message,
+                deps=self._deps,
+                message_history=message_history,
+                instructions=instructions,
+                model=tier_model,
+            )
         fallback_messages = list(result.all_messages())
 
         # Fire-and-forget: persist multi-tool episodes as memory.

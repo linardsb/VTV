@@ -15,6 +15,7 @@ from app.auth.dependencies import get_current_user, require_role
 from app.auth.models import User
 from app.core.agents.agents.registry import get_agent_by_name
 from app.core.agents.metrics import get_metrics_tracker
+from app.core.agents.provider_health import get_provider_health_tracker
 from app.core.agents.quota import get_quota_tracker
 from app.core.agents.router import get_agent_router
 from app.core.agents.schemas import (
@@ -24,6 +25,8 @@ from app.core.agents.schemas import (
     CorrectionCheckSnapshot,
     CorrectionMetricsResponse,
     CorrectionTotals,
+    ProviderHealthResponse,
+    ProviderHealthSnapshot,
 )
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -172,4 +175,46 @@ async def get_correction_metrics(
         generated_at=datetime.datetime.now(datetime.UTC),
         checks=checks,
         totals=totals,
+    )
+
+
+@router.get("/chat/provider-health", response_model=ProviderHealthResponse)
+@limiter.limit("60/minute")
+async def get_provider_health(
+    request: Request,
+    _admin: User = Depends(require_role("admin")),
+) -> ProviderHealthResponse:
+    """Return per-LLM-provider health metrics for the current UTC day.
+
+    Admin-only. Counters reset at 00:00 UTC. Exposes success/failure
+    counts, p50/p95 latency over the last 100 calls per provider, last
+    failure timestamp, and current circuit breaker state. Use this to
+    detect provider degradation before users report slow responses.
+
+    Args:
+        request: The incoming HTTP request (required by slowapi).
+        _admin: Injected admin user (RBAC enforcement only).
+
+    Returns:
+        Per-provider snapshots plus period metadata.
+    """
+    tracker = get_provider_health_tracker()
+    providers = [
+        ProviderHealthSnapshot(
+            provider_name=p.provider_name,
+            state=p.state.value,
+            total_calls=p.total_calls,
+            total_failures=p.total_failures,
+            failure_rate=p.failure_rate,
+            p50_latency_ms=p.p50_latency_ms,
+            p95_latency_ms=p.p95_latency_ms,
+            last_failure_at=p.last_failure_at,
+            last_success_at=p.last_success_at,
+        )
+        for p in tracker.get_all()
+    ]
+    return ProviderHealthResponse(
+        period_start=tracker.period_start(),
+        generated_at=datetime.datetime.now(datetime.UTC),
+        providers=providers,
     )

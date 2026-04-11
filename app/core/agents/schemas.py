@@ -163,3 +163,51 @@ class CorrectionMetricsResponse(BaseModel):
     generated_at: datetime.datetime
     checks: list[CorrectionCheckSnapshot]
     totals: CorrectionTotals
+
+
+# --- AI-8.2: Per-provider LLM health ---
+
+
+class ProviderHealthSnapshot(BaseModel):
+    """Per-provider health counters + current circuit breaker state.
+
+    Attributes:
+        provider_name: Short provider identifier (``anthropic``,
+            ``google``, ``groq``, ``ollama``, ``test``).
+        state: Current breaker state as the raw enum value string
+            (``"closed"`` | ``"open"`` | ``"half_open"``). Always
+            ``"closed"`` until a per-provider breaker registry is wired
+            into ``_execute()`` in a follow-up PR.
+        total_calls: Total LLM call attempts recorded today.
+        total_failures: Total LLM call failures recorded today.
+        failure_rate: ``total_failures / total_calls`` or ``0.0`` when
+            no calls have been recorded yet.
+        p50_latency_ms: Median latency over the last 100 calls, or
+            ``None`` when fewer than 2 observations have been recorded.
+        p95_latency_ms: 95th-percentile latency over the last 100 calls,
+            or ``None`` when fewer than 2 observations have been recorded.
+        last_failure_at: UTC timestamp of the most recent failure.
+        last_success_at: UTC timestamp of the most recent success.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    provider_name: str
+    state: str
+    total_calls: int
+    total_failures: int
+    failure_rate: float
+    p50_latency_ms: float | None
+    p95_latency_ms: float | None
+    last_failure_at: datetime.datetime | None
+    last_success_at: datetime.datetime | None
+
+
+class ProviderHealthResponse(BaseModel):
+    """Response for ``GET /v1/chat/provider-health`` (admin-only)."""
+
+    model_config = ConfigDict(strict=True)
+
+    period_start: datetime.datetime
+    generated_at: datetime.datetime
+    providers: list[ProviderHealthSnapshot]

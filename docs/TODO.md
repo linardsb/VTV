@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence █████████████████░░░░░░  86%  (Phases AI-1 through AI-7 complete — see docs/TODO-archive.md. AI-8.1 circuit-breaker primitive complete. Next up: AI-8.2 provider health metrics, AI-8.3 FallbackModel wiring, AI-9 injection hardening, AI-10 citation breadcrumbs, AI-11 RAG eval pipeline.)
+Agent Intelligence █████████████████░░░░░░  88%  (Phases AI-1 through AI-7 complete — see docs/TODO-archive.md. AI-8.1 circuit-breaker primitive + AI-8.2 per-provider health metrics complete. Next up: AI-8.3 FallbackModel wiring, AI-9 injection hardening, AI-10 citation breadcrumbs, AI-11 RAG eval pipeline.)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -57,21 +57,26 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 
 **Verify:** Mock a provider that fails 5 times — breaker opens, 6th call raises `CircuitBreakerOpenError` without invoking the provider. Wait past `recovery_timeout_s`, breaker goes `HALF_OPEN`, 2 successful probes close it.
 
-#### AI-8.2 Per-Provider Health Metrics + Admin Endpoint
-**What:** Add `ProviderHealthTracker` singleton that records per-provider success/failure counts, p50/p95 latency, last failure timestamp, and current breaker state. Expose via admin-only `GET /v1/chat/provider-health` endpoint.
+#### AI-8.2 Per-Provider Health Metrics + Admin Endpoint ✅
+**Status:** Complete. Plan: `.agents/plans/ai-8.2-provider-health-metrics.md`. Execution report: `.agents/execution-reports/ai-8.2-provider-health-metrics.md`.
+**What:** Added `ProviderHealthTracker` singleton that records per-provider success/failure counts, p50/p95 latency, last failure/success timestamps, and current breaker state. Exposed via admin-only `GET /v1/chat/provider-health` endpoint.
 **Why:** Ops needs visibility into which LLM provider is degrading before opening incidents. Current observability is zero — failures show up only as GlitchTip errors or user-reported slow responses.
-**Implementation:**
+**Shipped:**
 - `app/core/agents/provider_health.py`:
-  - `@dataclass ProviderHealth`: `provider_name`, `state: Literal["closed","open","half_open"]`, `total_calls`, `total_failures`, `failure_rate`, `p50_latency_ms`, `p95_latency_ms`, `last_failure_at: datetime | None`, `last_success_at: datetime | None`
-  - `ProviderHealthTracker` singleton with `record_call(provider, latency_ms, success)` and `get_health(provider) -> ProviderHealth` / `get_all() -> list[ProviderHealth]`
-  - Latency tracked via bounded deque (last 100 calls) — `statistics.quantiles` for p50/p95
-  - Lazy 00:00 UTC daily reset (same pattern as `CorrectionMetricsTracker` from AI-5.3)
-- `app/core/agents/routes.py` — new `GET /v1/chat/provider-health` (admin role, 30/min rate limit) returning `list[ProviderHealthResponse]`
-- `app/core/agents/schemas.py` — `ProviderHealthResponse` Pydantic model mirroring the dataclass
-- Integration: instrument `llm.py` provider wrappers to call `tracker.record_call(...)` on every invocation (success + failure)
-- 10+ unit tests: recording (3), latency percentiles (2), daily reset (1), endpoint auth (2), empty state (1), singleton reuse (1)
+  - `@dataclass ProviderHealth`: `provider_name`, `state: CircuitState`, `total_calls`, `total_failures`, `failure_rate`, `p50_latency_ms`, `p95_latency_ms`, `last_failure_at`, `last_success_at`, bounded 100-observation `_latencies_ms` deque
+  - `ProviderHealthTracker` singleton with `record_call(provider, *, latency_ms, success, state)`, `get_health(provider)`, `get_all()` (deep-copied + sorted), `period_start()`, `reset()`
+  - `_percentile()` gates on `<2` observations to avoid `statistics.StatisticsError`; `quantiles(method="inclusive")` matches pandas/numpy linear interpolation
+  - Lazy 00:00 UTC daily reset via `_maybe_reset()` called on every public method (mirrors `metrics.py` AI-5.3 pattern)
+  - `track_provider_call()` async context manager — wraps the 3 LLM call sites in `service.py` (complex pipeline, correction loop, fallback `agent.run`). Fail-open: `record_call` errors log `agent.provider_health.record_failed` and never block LLM results
+  - `_extract_provider_name()` helper — handles `None` → default, `str` → split on `:`, pydantic_ai.Model instance → lowercased class name with `"model"` suffix stripped
+- `app/core/agents/routes.py` — new admin-only `GET /v1/chat/provider-health` (`require_role("admin")`, `60/minute` rate limit) returning `ProviderHealthResponse` with period metadata + sorted provider snapshots
+- `app/core/agents/schemas.py` — `ProviderHealthSnapshot` + `ProviderHealthResponse` Pydantic models with `ConfigDict(strict=True)`
+- `app/core/agents/service.py` — 3 instrumentation sites wrapped in `async with track_provider_call(tier_model, get_settings().llm_provider)`
+- 19 unit tests: tracker primitives (9), provider name extraction (4), singleton lifecycle (2), endpoint 200/403 + state field (4)
+- No new env vars, no kill switch — always-on, rollback via wrapping instrumentation in `try/except`
+- **Out of scope (AI-8.3 follow-up):** wiring a per-provider `CircuitBreaker` registry into `_execute()` — until then, the `state` field always reports `"closed"`
 
-**Verify:** Fire 20 successful calls through `resolve_tier_model("fast")`, then 5 failing calls. `GET /v1/chat/provider-health` (as admin) returns per-provider entries with correct counts, p95 latency, and `open` state for the degraded provider.
+**Verify:** Admin fires a `GET /v1/chat/provider-health` request; response returns period metadata + per-provider snapshots with success/failure counts and p95 latency.
 
 #### AI-8.3 Circuit Breaker Integration with FallbackModel
 **What:** Wire the circuit breaker into `app/core/agents/llm.py` so that opening a primary-provider breaker automatically routes to the fallback chain without waiting for call-time exceptions.
