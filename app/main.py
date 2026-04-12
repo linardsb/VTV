@@ -35,6 +35,7 @@ from app.core.database import engine
 from app.core.exceptions import setup_exception_handlers
 from app.core.health import router as health_router
 from app.core.logging import get_logger, setup_logging
+from app.core.metrics_middleware import MetricsMiddleware
 from app.core.middleware import setup_middleware
 from app.core.rate_limit import limiter
 from app.core.redis import close_redis
@@ -176,6 +177,7 @@ app.add_exception_handler(RateLimitExceeded, cast(Any, _rate_limit_exceeded_hand
 
 # Setup middleware
 setup_middleware(app)
+app.add_middleware(MetricsMiddleware)
 
 # Setup exception handlers
 setup_exception_handlers(app)
@@ -200,6 +202,15 @@ app.include_router(analytics_router)
 app.include_router(alerts_router)
 app.include_router(fleet_router)
 app.include_router(geofences_router)
+
+# Prometheus metrics endpoint (OPS-2.1)
+# Access control via nginx IP allowlist — scrapers don't carry JWTs.
+if get_settings().metrics_enabled:
+    from prometheus_client import (
+        make_asgi_app as _make_metrics_app,  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
+    )
+
+    app.mount("/metrics", _make_metrics_app())  # pyright: ignore[reportUnknownArgumentType]
 
 
 @app.get("/")

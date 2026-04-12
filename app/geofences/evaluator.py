@@ -12,6 +12,7 @@ from app.alerts.schemas import AlertInstanceCreate
 from app.core.config import Settings
 from app.core.database import get_db_context
 from app.core.logging import get_logger
+from app.core.metrics import record_poller_tick
 from app.core.redis import get_redis
 from app.geofences.models import Geofence
 from app.geofences.repository import GeofenceEventRepository, GeofenceRepository
@@ -195,6 +196,9 @@ async def evaluate_geofences_once() -> int:
             error_type="EvaluationError",
             exc_info=True,
         )
+        return total_new
+
+    record_poller_tick("geofence_evaluator")
     return total_new
 
 

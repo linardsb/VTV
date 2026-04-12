@@ -240,7 +240,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 
 > **Sprint deliverable:** `GET /metrics` exposes Prometheus-format request latency histograms, cache hit/miss counters, agent tool execution time, circuit breaker state, database pool utilization, and background poller liveness. `GET /health` probes every critical dependency in parallel and returns a structured per-dependency status object, not just a 200.
 
-#### OPS-2.1 Prometheus `/metrics` Endpoint
+#### OPS-2.1 Prometheus `/metrics` Endpoint ✅ (2026-04-12)
 **What:** Add `prometheus-client` dependency and expose a `/metrics` endpoint on the main FastAPI app. Register core counters, histograms, and gauges for HTTP requests, DB pool, Redis cache, agent execution, circuit breaker state (wiring the AI-8.1 breaker's state transitions to a gauge), and background-poller liveness.
 **Why:** Sentry/GlitchTip tracks errors but gives zero visibility into latency percentiles, cache hit rates, provider health over time, or rate of "slow but not failing" requests. Ops is blind to degradation until the error rate spikes — that is a 15-minute lag minimum.
 **Implementation:**

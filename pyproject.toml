@@ -36,6 +36,7 @@ dependencies = [
     "geoalchemy2>=0.18.3",
     "lxml>=5.0.0",
     "pdfplumber>=0.11.9",
+    "prometheus-client>=0.21",
 ]
 
 [dependency-groups]
@@ -225,6 +226,11 @@ ignore_missing_imports = true
 # python-jose lacks py.typed marker
 [[tool.mypy.overrides]]
 module = "jose.*"
+ignore_missing_imports = true
+
+# prometheus-client lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "prometheus_client.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

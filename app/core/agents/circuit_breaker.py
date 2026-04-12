@@ -28,6 +28,7 @@ from typing import TypeVar
 
 from app.core.agents.exceptions import CircuitBreakerOpenError
 from app.core.logging import get_logger
+from app.core.metrics import update_circuit_breaker_gauge
 
 logger = get_logger(__name__)
 
@@ -235,3 +236,4 @@ class CircuitBreaker:
                 provider=self._name,
                 **log_fields,
             )
+        update_circuit_breaker_gauge(self._name, new_state.value)

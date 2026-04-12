@@ -309,6 +309,9 @@ class Settings(BaseSettings):
     circuit_breaker_success_threshold: int = 2
     circuit_breaker_failure_rate_threshold: float = 0.5
 
+    # Prometheus metrics (OPS-2.1)
+    metrics_enabled: bool = True
+
     @model_validator(mode="after")
     def _reject_default_secrets_in_production(self) -> "Settings":
         """Refuse to start with default JWT secret in non-development environments."""

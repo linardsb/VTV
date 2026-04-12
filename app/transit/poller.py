@@ -22,6 +22,7 @@ from app.core.agents.tools.transit.static_cache import GTFSStaticCache
 from app.core.agents.tools.transit.static_store import get_static_store
 from app.core.config import Settings, TransitFeedConfig, get_settings
 from app.core.logging import get_logger
+from app.core.metrics import record_poller_tick
 from app.core.redis import get_redis
 
 logger = get_logger(__name__)
@@ -200,6 +201,9 @@ class FeedPoller:
                     error=str(e),
                     error_type=type(e).__name__,
                 )
+
+        if count > 0:
+            record_poller_tick("transit_feed")
 
         return count
 

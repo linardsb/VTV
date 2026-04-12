@@ -39,7 +39,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (1686 tests, ~35s)
+make test            # Unit tests (1698 tests, ~35s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -85,7 +85,7 @@ make rag-eval-check REPORT=...     # Check for RAG regressions against baseline 
 ```
 VTV/
 ├── app/                # Backend features (VSA: models, schemas, routes, service, tests per feature)
-│   ├── core/           # Infrastructure (config, database, logging, middleware, health, rate_limit, redis)
+│   ├── core/           # Infrastructure (config, database, logging, middleware, health, rate_limit, redis, metrics)
 │   │   └── agents/     # AI agent module — 11 tools, see app/core/agents/CLAUDE.md
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── alerts/         # Notification/alerts system (11 endpoints, background evaluator, RBAC)
@@ -182,6 +182,7 @@ Security enforced through 6 automated layers. Pre-commit framework (`.pre-commit
 Operational runbooks for on-call incident response and production maintenance. See `docs/runbooks/README.md` for the full index.
 
 - **Credential rotation:** `docs/runbooks/credential-rotation.md` — step-by-step procedures for rotating all 15 secrets (JWT, DB, Redis, API keys, SSH, SSL). Each secret: location, rotation command, downtime impact, verification, rollback.
+- **Prometheus metrics (OPS-2.1):** `/metrics` endpoint via `prometheus-client` ASGI app. Metrics: HTTP request latency histogram (`vtv_http_request_duration_seconds`), DB pool gauges, Redis cache hit/miss counters, agent tool duration histogram, circuit breaker state gauge, background poller liveness gauges. Access via nginx IP allowlist (no JWT). Feature flag: `metrics_enabled`. Definitions in `app/core/metrics.py`, middleware in `app/core/metrics_middleware.py`.
 
 ## Compact instructions
 

@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable
 from app.core.config import get_settings
 from app.core.database import get_db_context
 from app.core.logging import get_logger
+from app.core.metrics import record_poller_tick
 from app.memory.service import MemoryService
 
 logger = get_logger(__name__)
@@ -52,6 +53,7 @@ async def _run_compaction() -> None:
         merged=result.merged,
         promoted=result.promoted,
     )
+    record_poller_tick("memory_compaction")
 
 
 async def _run_promotion() -> None:
@@ -60,6 +62,7 @@ async def _run_promotion() -> None:
         service = MemoryService(db)
         promoted = await service.promote_episodes()
     logger.info("memory.lifecycle.promotion_completed", promoted_count=promoted)
+    record_poller_tick("memory_promotion")
 
 
 async def start_memory_tasks() -> None:

@@ -16,6 +16,7 @@ from app.alerts.schemas import AlertInstanceCreate
 from app.core.config import Settings
 from app.core.database import get_db_context
 from app.core.logging import get_logger
+from app.core.metrics import record_poller_tick
 from app.core.redis import get_redis
 from app.vehicles.models import Vehicle
 
@@ -48,6 +49,9 @@ async def evaluate_rules_once(settings: Settings) -> int:
             error_type="EvaluationError",
             exc_info=True,
         )
+        return total_new
+
+    record_poller_tick("alert_evaluator")
     return total_new
 
 
