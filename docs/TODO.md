@@ -17,7 +17,7 @@ Testing           ████████████████████�
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
-Intelligence/ML   ███░░░░░░░░░░░░░░░░░░░░  12%  (ML-1.1 GTFS archive importer + ML-1.3 weather/traffic ETL complete — 8 tables, 2 background ETLs, 2 CLI backfills, 37 tests)
+Intelligence/ML   ████░░░░░░░░░░░░░░░░░░░  18%  (ML-1.1 GTFS archive + ML-1.2 e-ticket pipeline + ML-1.3 weather/traffic ETL complete — 10 tables, 2 background ETLs, 3 CLI backfills, 56 tests)
 ```
 
 ## In Progress
@@ -534,7 +534,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 
 **Verify:** `make gtfs-backfill SINCE=2025-10` imports last 3 months without duplicates. Query `SELECT COUNT(*), MIN(snapshot_date), MAX(snapshot_date) FROM gtfs_snapshots;` returns expected rows. Re-run: no new rows (idempotent). Disk usage within projected range.
 
-#### ML-1.2 E-Ticket Validation Data Pipeline
+#### ML-1.2 E-Ticket Validation Data Pipeline ✅ (2026-04-12)
 **What:** Create `app/transit/eticket_importer.py` — downloads monthly e-ticket validation archives (~100MB compressed each, 67 total), parses TXT files, writes to `eticket_validations` TimescaleDB hypertable partitioned on `validated_at`. Enables passenger load prediction training.
 **Why:** E-ticket data is the most valuable ML dataset in the platform — every tap-on since 2018 mapped to vehicle + route + direction + time. Combined with GPS positions, it predicts bus crowding. The dataset is too large (~45 GB uncompressed) to load on-demand; needs a staged backfill with compression from day one.
 **Implementation:**

@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.shared.models import TimestampMixin
 
 
 class VehiclePositionRecord(Base):
@@ -71,4 +72,57 @@ class VehiclePositionRecord(Base):
         Index("ix_vehicle_positions_route_time", "route_id", "recorded_at"),
         Index("ix_vehicle_positions_feed_time", "feed_id", "recorded_at"),
         Index("ix_vehicle_positions_source", "source"),
+    )
+
+
+class EticketValidation(Base):
+    """A single e-ticket tap-on record.
+
+    Stored in TimescaleDB hypertable partitioned by validated_at.
+    No TimestampMixin - same rationale as VehiclePositionRecord.
+    """
+
+    __tablename__ = "eticket_validations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    record_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    depot: Mapped[str] = mapped_column(String(50), nullable=False)
+    transport_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    vehicle_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    route_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    route_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    direction: Mapped[str] = mapped_column(String(10), nullable=False)
+    validation_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    validated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+
+    __table_args__ = (
+        Index("ix_eticket_route_time", "route_code", "validated_at"),
+        Index("ix_eticket_vehicle_time", "vehicle_number", "validated_at"),
+    )
+
+
+class EticketImport(TimestampMixin, Base):
+    """Tracks which monthly archives have been imported (resume semantics)."""
+
+    __tablename__ = "eticket_imports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    archive_month: Mapped[str] = mapped_column(
+        String(7),
+        unique=True,
+        nullable=False,
+    )  # "2026-01"
+    record_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        server_default="0",
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        server_default="in_progress",
     )
