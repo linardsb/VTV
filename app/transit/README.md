@@ -262,4 +262,28 @@ CLI tool that downloads all available GTFS static feed snapshots from data.gov.l
 
 **Configuration:** `DATA_GOV_LV_BASE_URL`, `DATA_GOV_LV_DATASET_ID`, `GTFS_BACKFILL_RATE_LIMIT_SECONDS`
 
+### Weather + Traffic Observations ETL (ML-1.3)
+
+Background ETL pullers that ingest weather and traffic data from Latvian government open data sources into PostGIS-enabled tables for later spatial joins against stops/routes (ML-2.3 feature engineering). No REST endpoints.
+
+**Files:** `weather_models.py`, `traffic_models.py`, `weather_etl.py`, `traffic_etl.py`
+**CLI:** `scripts/weather_backfill.py` / `make weather-backfill`, `scripts/traffic_backfill.py` / `make traffic-backfill`
+
+**Tables** (Geography POINT 4326 for meter-native distance calculations):
+- `weather_stations` — station_id (PK), name, location (Geography POINT)
+- `weather_observations` — TimescaleDB hypertable on `observed_at`, station_id, temp_c, wind_mps, precip_mm, phenomena JSONB, location
+- `traffic_counts` — point_id, period_start/end, avg_count_per_day, vehicle_class, location (with TimestampMixin)
+- `traffic_accidents` — source_id (unique), occurred_at, severity, fatalities, injuries, location (with TimestampMixin)
+
+**Key features:**
+- Hourly weather polling with circuit breaker (3 failures, 5min reset) and Redis leader election (`vtv:weather_etl:leader`)
+- Daily traffic pull at configurable UTC hour (default 04:00) using `_run_at_hour` scheduler pattern
+- Defensive CSV parsing: skips bad rows with warning logs, NaN/inf rejection, UTF-8 `errors="replace"`
+- 50MB HTTP response size cap to prevent memory exhaustion
+- Idempotent ON CONFLICT upserts for all 4 tables
+- Phenomena JSONB merge from separate CSV endpoint
+- 22 unit tests (12 weather + 10 traffic)
+
+**Configuration:** `WEATHER_ETL_ENABLED`, `WEATHER_STATION_URL`, `WEATHER_OBSERVATIONS_URL`, `WEATHER_PHENOMENA_URL`, `WEATHER_ETL_INTERVAL_SECONDS`, `WEATHER_ETL_LEADER_LOCK_TTL`, `WEATHER_HISTORY_RETENTION_DAYS`, `TRAFFIC_ETL_ENABLED`, `TRAFFIC_COUNTS_URL`, `TRAFFIC_ACCIDENTS_URL`, `TRAFFIC_ETL_CRON_HOUR`
+
 See `docs/PLANNING/Implementation-Plan.md` for the complete 4-phase roadmap.

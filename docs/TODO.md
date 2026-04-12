@@ -17,7 +17,7 @@ Testing           ████████████████████�
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
-Intelligence/ML   ██░░░░░░░░░░░░░░░░░░░░░   6%  (ML-1.1 historical GTFS archive importer complete — 4 shadow tables, CLI backfill, 15 tests)
+Intelligence/ML   ███░░░░░░░░░░░░░░░░░░░░  12%  (ML-1.1 GTFS archive importer + ML-1.3 weather/traffic ETL complete — 8 tables, 2 background ETLs, 2 CLI backfills, 37 tests)
 ```
 
 ## In Progress
@@ -554,7 +554,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 
 **Verify:** `make eticket-backfill MONTH=2026-01` imports January 2026 (~100MB). `SELECT route_code, COUNT(*) FROM eticket_validations WHERE validated_at >= '2026-01-01' GROUP BY route_code ORDER BY 2 DESC LIMIT 10` shows realistic ridership (route 22 & 6 should top the list). Compression policy active via `SELECT * FROM timescaledb_information.compression_settings`.
 
-#### ML-1.3 Weather + Traffic Observations ETL
+#### ML-1.3 Weather + Traffic Observations ETL ✅ (2026-04-12)
 **What:** Create `app/transit/weather_etl.py` and `app/transit/traffic_etl.py` — scheduled pullers for data.gov.lv weather (meteo + road conditions) and traffic count / accident datasets. Writes to dedicated tables with spatial columns for later join against stops/routes.
 **Why:** ETA models need weather context (rain +15% delay, snow +40% delay). Traffic counts + accident hotspots feed congestion factors. These datasets update at different cadences (weather hourly, traffic daily, accidents annually) — each needs its own scheduler and idempotent upsert logic.
 **Implementation:**

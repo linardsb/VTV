@@ -54,6 +54,8 @@ from app.transit.routes import router as transit_router
 from app.transit.service import close_transit_service
 from app.transit.ws_routes import close_ws_manager, get_ws_manager, ws_router
 from app.transit.ws_subscriber import start_ws_subscriber, stop_ws_subscriber
+from app.public_api.routes import key_mgmt_router as public_api_key_mgmt_router
+from app.public_api.routes import public_router as public_api_router
 from app.vehicles.routes import router as vehicles_router
 
 settings = get_settings()
@@ -121,6 +123,16 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
     await start_memory_tasks()
 
+    # Start weather ETL background task (ML-1.3)
+    from app.transit.weather_etl import start_weather_etl
+
+    await start_weather_etl()
+
+    # Start traffic ETL background task (ML-1.3)
+    from app.transit.traffic_etl import start_traffic_etl
+
+    await start_traffic_etl()
+
     # Pre-load reranker model (avoids cold-start on first search)
     try:
         from app.knowledge.service import warm_up_reranker
@@ -141,6 +153,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     from app.memory.lifecycle import stop_memory_tasks
 
     await stop_memory_tasks()
+
+    from app.transit.traffic_etl import stop_traffic_etl
+    from app.transit.weather_etl import stop_weather_etl
+
+    await stop_weather_etl()
+    await stop_traffic_etl()
+
     await stop_geofence_evaluator()
     await stop_evaluator()
     await stop_ws_subscriber()
@@ -202,6 +221,8 @@ app.include_router(analytics_router)
 app.include_router(alerts_router)
 app.include_router(fleet_router)
 app.include_router(geofences_router)
+app.include_router(public_api_key_mgmt_router)
+app.include_router(public_api_router)
 
 # Prometheus metrics endpoint (OPS-2.1)
 # Access control via nginx IP allowlist — scrapers don't carry JWTs.

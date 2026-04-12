@@ -336,6 +336,24 @@ class Settings(BaseSettings):
     data_gov_lv_dataset_id: str = "rigas-satiksmes-marsrutu-saraksti-gtfs"
     gtfs_backfill_rate_limit_seconds: float = 1.0
 
+    # Public Developer API (ML-5.3)
+    public_api_enabled: bool = True
+    public_api_default_rate_limit: int = 60  # requests per minute per key
+    public_api_tier_limits: dict[str, int] = {
+        "free": 60,
+        "basic": 300,
+        "pro": 1000,
+    }
+    public_api_key_prefix: str = "vtv_pk_"
+
+    # Text-to-SQL with Schema RAG (ML-5.4)
+    analytics_sql_enabled: bool = False
+    analytics_sql_statement_timeout_ms: int = 5000
+    analytics_sql_max_query_cost: int = 10000
+    analytics_sql_max_result_rows: int = 100
+    analytics_sql_example_retrieval_k: int = 5
+    analytics_sql_readonly_dsn: str | None = None
+
     # Prometheus metrics (OPS-2.1)
     metrics_enabled: bool = True
 

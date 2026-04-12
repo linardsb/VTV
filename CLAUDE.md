@@ -78,6 +78,16 @@ make gtfs-backfill SINCE=2018-05             # Backfill all snapshots from data.
 make gtfs-backfill SINCE=2025-01 DRY_RUN=1   # Preview without importing
 make gtfs-backfill SINCE=2024-01 UNTIL=2024-12  # Date-range backfill
 
+# E-ticket validation data backfill (ML-1.2)
+make eticket-backfill MONTH=2026-01       # Backfill single month
+make eticket-backfill-all                 # Backfill ALL months (~45GB, alert ops first)
+make eticket-backfill-dry-run             # Preview without importing
+make eticket-backfill-dry-run MONTH=2026-01  # Preview single month
+
+# Weather + traffic ETL backfill (ML-1.3)
+make weather-backfill              # Backfill weather observations from data.gov.lv archive
+make traffic-backfill              # Backfill traffic counts and accidents from open data
+
 # RAG retrieval eval
 make rag-eval-generate COUNT=100   # Generate synthetic QA pairs from knowledge base (AI-11.1)
 make rag-eval-run QA_FILE=...      # Run RAG eval on existing QA pairs (AI-11.3)
@@ -109,7 +119,7 @@ VTV/
 │   ├── stops/          # Stop management (6 endpoints, PostGIS spatial queries)
 │   ├── schedules/      # GTFS schedule management (23 endpoints, ZIP import/export)
 │   ├── skills/         # Agent skills system (7 endpoints)
-│   ├── transit/        # Multi-feed GTFS-RT tracking (5 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage, historical GTFS archive importer for ML training)
+│   ├── transit/        # Multi-feed GTFS-RT tracking (5 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage, historical GTFS archive importer, e-ticket validation data pipeline, weather + traffic ETL for ML training)
 │   ├── vehicles/       # Vehicle management (8 endpoints, fleet CRUD, maintenance, driver assignment)
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
