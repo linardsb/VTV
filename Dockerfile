@@ -64,4 +64,4 @@ CMD ["gunicorn", "app.main:app", \
      "-w", "4", \
      "--bind", "0.0.0.0:8123", \
      "--timeout", "120", \
-     "--graceful-timeout", "30"]
+     "--graceful-timeout", "45"]

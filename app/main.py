@@ -34,18 +34,24 @@ from app.core.config import get_settings
 from app.core.database import engine
 from app.core.exceptions import setup_exception_handlers
 from app.core.health import router as health_router
+from app.core.jobs.queue import close_arq_pool, get_arq_pool
+from app.core.jobs.routes import router as jobs_router
 from app.core.logging import get_logger, setup_logging
 from app.core.metrics_middleware import MetricsMiddleware
 from app.core.middleware import setup_middleware
 from app.core.rate_limit import limiter
 from app.core.redis import close_redis
+from app.core.shutdown import ShutdownCoordinator, ShutdownTask
 from app.drivers.routes import router as drivers_router
 from app.events.routes import router as events_router
 from app.fleet.routes import router as fleet_router
 from app.geofences.evaluator import start_geofence_evaluator, stop_geofence_evaluator
 from app.geofences.routes import router as geofences_router
 from app.knowledge.routes import router as knowledge_router
+from app.memory.lifecycle import start_memory_tasks, stop_memory_tasks
 from app.memory.routes import router as memory_router
+from app.ml.anomaly.evaluator import start_anomaly_evaluator, stop_anomaly_evaluator
+from app.ml.anomaly.off_route import start_off_route_evaluator, stop_off_route_evaluator
 from app.public_api.routes import key_mgmt_router as public_api_key_mgmt_router
 from app.public_api.routes import public_router as public_api_router
 from app.schedules.routes import router as schedules_router
@@ -54,6 +60,8 @@ from app.stops.routes import router as stops_router
 from app.transit.poller import start_pollers, stop_pollers
 from app.transit.routes import router as transit_router
 from app.transit.service import close_transit_service
+from app.transit.traffic_etl import start_traffic_etl, stop_traffic_etl
+from app.transit.weather_etl import start_weather_etl, stop_weather_etl
 from app.transit.ws_routes import close_ws_manager, get_ws_manager, ws_router
 from app.transit.ws_subscriber import start_ws_subscriber, stop_ws_subscriber
 from app.vehicles.routes import router as vehicles_router
@@ -118,19 +126,24 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Start geofence evaluator background task
     await start_geofence_evaluator(settings)
 
-    # Start memory background tasks (compaction + promotion)
-    from app.memory.lifecycle import start_memory_tasks
+    # Start anomaly detection evaluator (ML-4.2)
+    await start_anomaly_evaluator(settings)
 
+    # Start off-route anomaly evaluator (ML-4.1)
+    await start_off_route_evaluator(settings)
+
+    # Start memory background tasks (compaction + promotion)
     await start_memory_tasks()
 
-    # Start weather ETL background task (ML-1.3)
-    from app.transit.weather_etl import start_weather_etl
+    # Initialize arq pool for durable job queue (OPS-3.2)
+    if settings.background_queue_enabled:
+        await get_arq_pool()
+        logger.info("jobs.queue.lifecycle_started")
 
+    # Start weather ETL background task (ML-1.3)
     await start_weather_etl()
 
     # Start traffic ETL background task (ML-1.3)
-    from app.transit.traffic_etl import start_traffic_etl
-
     await start_traffic_etl()
 
     # Pre-load reranker model (avoids cold-start on first search)
@@ -147,33 +160,79 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await start_ws_subscriber(ws_manager)
         logger.info("transit.ws.subscriber_started")
 
+    # Register shutdown tasks (LIFO: last registered = first drained)
+    coordinator = ShutdownCoordinator()
+
+    # Infrastructure singletons (drain last = register first)
+    coordinator.register(ShutdownTask(name="database", drain_timeout_s=3.0, drain=engine.dispose))
+    coordinator.register(ShutdownTask(name="redis", drain_timeout_s=2.0, drain=close_redis))
+    coordinator.register(ShutdownTask(name="arq_pool", drain_timeout_s=2.0, drain=close_arq_pool))
+    coordinator.register(
+        ShutdownTask(name="agent_clients", drain_timeout_s=2.0, drain=close_all_agents)
+    )
+    coordinator.register(
+        ShutdownTask(name="agent_service", drain_timeout_s=2.0, drain=close_agent_service)
+    )
+    coordinator.register(
+        ShutdownTask(name="transit_service", drain_timeout_s=2.0, drain=close_transit_service)
+    )
+
+    # Background task groups (drain first = register last)
+    coordinator.register(
+        ShutdownTask(name="transit_pollers", drain_timeout_s=5.0, drain=stop_pollers)
+    )
+
+    # close_ws_manager is sync -- wrap it
+    async def _close_ws() -> None:
+        await stop_ws_subscriber()
+        close_ws_manager()
+
+    coordinator.register(ShutdownTask(name="websocket", drain_timeout_s=3.0, drain=_close_ws))
+    coordinator.register(
+        ShutdownTask(name="alert_evaluator", drain_timeout_s=3.0, drain=stop_evaluator)
+    )
+    coordinator.register(
+        ShutdownTask(
+            name="geofence_evaluator",
+            drain_timeout_s=3.0,
+            drain=stop_geofence_evaluator,
+        )
+    )
+    coordinator.register(
+        ShutdownTask(
+            name="anomaly_evaluator",
+            drain_timeout_s=3.0,
+            drain=stop_anomaly_evaluator,
+        )
+    )
+    coordinator.register(
+        ShutdownTask(
+            name="off_route_evaluator",
+            drain_timeout_s=3.0,
+            drain=stop_off_route_evaluator,
+        )
+    )
+    coordinator.register(
+        ShutdownTask(name="weather_etl", drain_timeout_s=3.0, drain=stop_weather_etl)
+    )
+    coordinator.register(
+        ShutdownTask(name="traffic_etl", drain_timeout_s=3.0, drain=stop_traffic_etl)
+    )
+    coordinator.register(
+        ShutdownTask(name="memory_tasks", drain_timeout_s=5.0, drain=stop_memory_tasks)
+    )
+
     yield
 
-    # Shutdown
-    from app.memory.lifecycle import stop_memory_tasks
-
-    await stop_memory_tasks()
-
-    from app.transit.traffic_etl import stop_traffic_etl
-    from app.transit.weather_etl import stop_weather_etl
-
-    await stop_weather_etl()
-    await stop_traffic_etl()
-
-    await stop_geofence_evaluator()
-    await stop_evaluator()
-    await stop_ws_subscriber()
-    close_ws_manager()
-    logger.info("transit.ws.lifecycle_stopped")
-    await stop_pollers()
-    logger.info("transit.poller.lifecycle_stopped")
-    await close_transit_service()
-    await close_agent_service()
-    await close_all_agents()
-    logger.info("security.singletons_closed")
-    await close_redis()
-    await engine.dispose()
-    logger.info("database.connection_closed")
+    # Shutdown via coordinator
+    report = await coordinator.shutdown()
+    logger.info(
+        "shutdown.report",
+        tasks_drained=report.tasks_drained,
+        tasks_timed_out=report.tasks_timed_out,
+        tasks_failed=report.tasks_failed,
+        total_duration_ms=report.total_duration_ms,
+    )
     logger.info("application.lifecycle_stopped", app_name=settings.app_name)
 
 
@@ -223,6 +282,7 @@ app.include_router(fleet_router)
 app.include_router(geofences_router)
 app.include_router(public_api_key_mgmt_router)
 app.include_router(public_api_router)
+app.include_router(jobs_router)
 
 # Prometheus metrics endpoint (OPS-2.1)
 # Access control via nginx IP allowlist — scrapers don't carry JWTs.

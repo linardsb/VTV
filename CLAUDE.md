@@ -103,7 +103,7 @@ make rag-eval-check REPORT=...     # Check for RAG regressions against baseline 
 ```
 VTV/
 ├── app/                # Backend features (VSA: models, schemas, routes, service, tests per feature)
-│   ├── core/           # Infrastructure (config, database, logging, middleware, health + deep probes, rate_limit, redis, metrics)
+│   ├── core/           # Infrastructure (config, database, logging, middleware, health + deep probes, rate_limit, redis, metrics, shutdown coordinator, cache invalidation)
 │   │   └── agents/     # AI agent module — 11 tools, see app/core/agents/CLAUDE.md
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── alerts/         # Notification/alerts system (11 endpoints, background evaluator, RBAC)
@@ -202,9 +202,11 @@ Security enforced through 6 automated layers. Pre-commit framework (`.pre-commit
 Operational runbooks for on-call incident response and production maintenance. See `docs/runbooks/README.md` for the full index.
 
 - **Credential rotation:** `docs/runbooks/credential-rotation.md` — step-by-step procedures for rotating all 15 secrets (JWT, DB, Redis, API keys, SSH, SSL). Each secret: location, rotation command, downtime impact, verification, rollback.
-- **Prometheus metrics (OPS-2.1):** `/metrics` endpoint via `prometheus-client` ASGI app. Metrics: HTTP request latency histogram (`vtv_http_request_duration_seconds`), DB pool gauges, Redis cache hit/miss counters, agent tool duration histogram, circuit breaker state gauge, background poller liveness gauges. Access via nginx IP allowlist (no JWT). Feature flag: `metrics_enabled`. Definitions in `app/core/metrics.py`, middleware in `app/core/metrics_middleware.py`.
+- **Prometheus metrics (OPS-2.1):** `/metrics` endpoint via `prometheus-client` ASGI app. Metrics: HTTP request latency histogram (`vtv_http_request_duration_seconds`), DB pool gauges, Redis cache hit/miss/invalidation counters, agent tool duration histogram, circuit breaker state gauge, background poller liveness gauges. Access via nginx IP allowlist (no JWT). Feature flag: `metrics_enabled`. Definitions in `app/core/metrics.py`, middleware in `app/core/metrics_middleware.py`.
 - **Deep health probes (OPS-2.2):** `GET /health/deep` admin-only endpoint runs 6 dependency probes concurrently (postgres, redis, reranker, pollers, gtfs_rt_feeds, llm_providers) and returns structured `HealthReport` with per-probe status/latency. Critical probes (postgres, redis) failing = 503; non-critical failing = "degraded" in response body. TTL-cached (`health_deep_cache_ttl_seconds`, default 5s). `GET /health/ready` upgraded to parallel probes via `asyncio.gather`. All in `app/core/health.py`. 26 tests.
 - **Architecture decisions:** `docs/adr/README.md` — 4 ADRs documenting non-obvious choices (VSA, Pydantic AI, Redis cache, slowapi rate limiting). Nygard template: status, context, decision, consequences.
+- **Graceful shutdown (OPS-3.1):** `ShutdownCoordinator` in `app/core/shutdown.py` replaces ad-hoc sequential cancel loop in lifespan. Registers 12 tasks (8 background + 4 singletons) with per-task drain timeouts, drains in LIFO order, logs structured `shutdown.report`. Gunicorn `--graceful-timeout` bumped to 45s (36s worst-case budget + 9s safety margin). 10 tests.
+- **Cache invalidation (OPS-3.3):** `CacheInvalidator` in `app/core/cache/invalidation.py` provides namespaced key deletion and SCAN-based pattern invalidation. Wired into repository layer: stops (create/update/delete), geofences (create/update/delete), schedules (GTFS import). Convenience functions: `invalidate_stop_cache()`, `invalidate_geofence_cache()`, `invalidate_vehicle_position_cache()`, `invalidate_route_cache()`. Fire-and-forget safe (errors logged, never raised). Prometheus counter: `vtv_redis_cache_invalidations_total`. 11 tests.
 - **ER diagram (OPS-5.3):** `docs/schema/er.md` — Mermaid ER diagram auto-generated from SQLAlchemy models via `make er-diagram`. 24 tables with FK relationships. Re-run after migrations.
 
 ## Compact instructions

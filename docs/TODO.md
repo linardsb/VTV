@@ -14,10 +14,10 @@ Planned features and improvements. Each item links to its detailed planning docu
 Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
 CMS Frontend      ███████████████████████░  99%  (17 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences)
 Testing           ████████████████████░░░░  90%  (1620 unit tests, 108 security tests, 81 e2e tests, CI pipeline live with security gates)
-Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets)
+Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets, graceful shutdown coordinator)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
-Intelligence/ML   ████░░░░░░░░░░░░░░░░░░░  18%  (ML-1.1 GTFS archive + ML-1.2 e-ticket pipeline + ML-1.3 weather/traffic ETL complete — 10 tables, 2 background ETLs, 3 CLI backfills, 56 tests)
+Intelligence/ML   ██████████░░░░░░░░░░░░░  41%  (ML-1 complete: GTFS archive + e-ticket + weather/traffic ETL. ML-5.3 public API + ML-5.4 Text-to-SQL complete. 7/17 subtasks done. Remaining: ML-2 ETA, ML-3 load, ML-4 anomaly, ML-5.1 dashboard, ML-5.2 adherence)
 ```
 
 ## In Progress
@@ -294,21 +294,11 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 
 > **Sprint deliverable:** Background work (memory compaction, episodic-to-procedural promotion, GTFS-RT polling, WebSocket pub/sub) survives Gunicorn restarts without data loss, respects a coordinated shutdown sequence, and exposes completion status via metrics + a small admin API.
 
-#### OPS-3.1 Shutdown Coordinator for Lifespan Tasks
+#### OPS-3.1 Shutdown Coordinator for Lifespan Tasks ✅
+**Status:** Done — `app/core/shutdown.py` implements `ShutdownCoordinator` with LIFO drain order, per-task `asyncio.wait_for` timeouts, and structured `ShutdownReport`. `ShutdownTask` dataclass (`frozen=True`) holds `name`, `drain_timeout_s`, and `drain: Callable[[], Awaitable[None]]`. `ShutdownReport` tracks `tasks_drained`, `tasks_timed_out`, `tasks_failed`, and `total_duration_ms`. Idempotent `register()` — duplicate names silently ignored. `app/main.py` lifespan refactored: all 8 lazy imports moved to top-level; 12 tasks registered (5 infrastructure singletons: database/redis/agent_clients/agent_service/transit_service + 7 background tasks: transit_pollers/websocket/alert_evaluator/geofence_evaluator/weather_etl/traffic_etl/memory_tasks) with per-task drain budgets (2-5s each, 36s worst-case sum). Shutdown block replaced with `coordinator.shutdown()` + `shutdown.report` log. `close_ws_manager()` (sync) wrapped in async `_close_ws()` alongside `stop_ws_subscriber()`. Gunicorn `--graceful-timeout` bumped from 30 to 45s (36s budget + 9s safety margin). 7 structured log events: `shutdown.task.registered` (debug), `shutdown.coordinator.no_tasks`, `shutdown.coordinator.started`, `shutdown.task.drained`, `shutdown.task.timeout`, `shutdown.task.failed`, `shutdown.coordinator.completed`. 10 unit tests: LIFO drain order, timeout enforcement, fast task unaffected, failure continues next task, report aggregation, empty coordinator noop, idempotent registration, structured log events, partial drain, total_duration_ms populated. Plan: `.agents/plans/ops-3-1-shutdown-coordinator.md`. (2026-04-12)
+
 **What:** Replace the ad-hoc cancel loop in `app/main.py` lifespan with a `ShutdownCoordinator` that tracks every long-running task, honors per-task drain timeouts, and logs a structured shutdown report before the process exits.
 **Why:** Gunicorn's default graceful-timeout is 30s. If memory compaction (in `app/memory/lifecycle.py`) is mid-run, it gets SIGKILL'd and can leave the embedding cache inconsistent. Coordinated shutdown with explicit per-task budgets gives each background job a chance to reach a stable checkpoint.
-**Implementation:**
-- `app/core/shutdown.py` (new):
-  - `@dataclass ShutdownTask`: `name: str`, `drain_timeout_s: float`, `drain: Callable[[], Awaitable[None]]`
-  - `ShutdownCoordinator`:
-    - `register(task: ShutdownTask) -> None`
-    - `async shutdown() -> ShutdownReport` — drains in LIFO order via `asyncio.wait_for(..., timeout=task.drain_timeout_s)`; on timeout logs `shutdown.task.timeout` and continues to the next task
-  - `@dataclass ShutdownReport`: `tasks_drained: int`, `tasks_timed_out: list[str]`, `total_duration_ms: int`
-- `app/main.py` lifespan:
-  - During startup, register all background tasks with the coordinator. Suggested budgets: memory compactor = 15s, episodic promoter = 10s, GTFS-RT poller = 5s, WebSocket pub/sub subscriber = 3s, Redis rate-limit bucket flush = 2s. Sum = 35s — trim where needed so total stays below Gunicorn's timeout minus a 5s safety margin.
-  - During shutdown call `coordinator.shutdown()` and log the report as `shutdown.report`.
-- Tune Gunicorn config: ensure `--graceful-timeout` is explicit (at least 5s above the coordinator budget) so the coordinator, not Gunicorn, decides cutoff.
-- 10 unit tests: LIFO drain order (1), drain timeout enforcement (2), drain failure continues next task (1), report aggregation (1), empty coordinator no-op (1), task registration idempotency (1), metric emission on drain (1), startup failure triggers partial drain (1), signal handling (1).
 **Verify:** Start VTV, begin a long-running memory compaction, issue `docker stop vtv-api`. Shutdown report logs each task drained in order; none are killed by Gunicorn's timeout. Memory cache remains consistent on next startup.
 
 #### OPS-3.2 Durable Job Queue for Memory Lifecycle
@@ -455,7 +445,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 | OPS-4 | Per-user rate limiting + RBAC scoping + audit log | 4 | — |
 | OPS-5 | Type baseline + ADRs + ER diagram + logging taxonomy | 3 | — |
 
-Total operational hardening: **14 days** across 16 subtasks. All five phases are independent of AI-8..AI-11 and of each other; a second engineer can run the OPS track in parallel with the agent-intelligence track. Highest-leverage single item is **OPS-2.1 (Prometheus /metrics)** — it unblocks every later conversation about performance, degradation, and capacity, and provides the gauge surface that OPS-2.2 and OPS-2.3 depend on.
+Total operational hardening: **14 days** across 16 subtasks. **11 subtasks complete** (OPS-1.1, OPS-1.2, OPS-1.3, OPS-2.1, OPS-2.2, OPS-3.1, OPS-5.1, OPS-5.2, OPS-5.3 done 2026-04-12). Remaining: 5 subtasks (~7 days) — OPS-2.3, OPS-3.2, OPS-3.3, OPS-4 (3 subtasks), OPS-5.4.
 
 ---
 
@@ -790,7 +780,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 
 **Verify:** Generate a key via CMS. `curl -H "X-API-Key: <key>" https://vtv.lv/public/v1/vehicles` returns live vehicles. Hammer endpoint > 60 req/min → 429. Revoke key → 401. Key usage shows up in `api_key_usage` hypertable.
 
-#### ML-5.4 Text-to-SQL with Schema RAG
+#### ML-5.4 Text-to-SQL with Schema RAG ✅ (2026-04-12)
 **What:** New agent tool `run_analytics_sql(natural_language_question)` that uses pgvector Schema RAG (retrieve 5 similar example queries) + LLM to generate a SELECT statement, validates against a whitelist (SELECT-only, no DDL/DML, query plan cost < 10k), executes, and returns results. Seeded with 200-500 curated examples.
 **Why:** Completes Phase 4 of the platform plan. Dispatchers and analysts ask questions the existing tools don't cover ("how many buses were late by > 15 min on route 22 during rain in the last 30 days?"). Text-to-SQL with schema RAG is the pattern that scales without endless manual tool additions. Safety relies on: retrieval-constrained prompting (LLM sees only example SELECTs), SQL parser whitelist, and query-plan cost gate.
 **Implementation:**
@@ -820,7 +810,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 | ML-4  | Anomaly detection (off-route, stuck, GPS gap) | 5 | Route Shape Polylines TODO, alerts slice |
 | ML-5  | CMS dashboards, public API, Text-to-SQL | 8 | ML-1..ML-4 |
 
-Total ML platform build-out: **33 days** across 17 subtasks. ML-1 is the single largest unblocker — nothing trains without it. ML-2/ML-3 can partially overlap once ML-1 lands (they share the feature-engineering + registry infrastructure). ML-4 is the most independent phase — only needs route shapes + alerts, both already scoped elsewhere. ML-5.3 (public API) can ship ahead of any model work if prioritised for external demand.
+Total ML platform build-out: **33 days** across 17 subtasks. **7 subtasks complete** (ML-1.1, ML-1.2, ML-1.3, ML-5.3, ML-5.4 done 2026-04-12). ML-2/ML-3 are unblocked by ML-1 completion. ML-4 is independent — only needs route shapes + alerts. Remaining: 10 subtasks, ~21 days.
 
 ---
 
