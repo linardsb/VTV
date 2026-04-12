@@ -1,4 +1,4 @@
-.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run
+.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run er-diagram
 
 # === Local Development (terminals) ===
 
@@ -103,6 +103,11 @@ rechunk: ## Re-chunk all documents with the new SemanticChunker (one-shot AI-4.4
 
 rechunk-dry-run: ## Preview re-chunking without modifying the database
 	uv run python scripts/rechunk_documents.py --dry-run
+
+er-diagram: ## Generate Mermaid ER diagram from SQLAlchemy models
+	@mkdir -p docs/schema
+	uv run python scripts/generate_er_diagram.py > docs/schema/er.md
+	@echo "ER diagram written to docs/schema/er.md"
 
 # === Agent evals (AI-7.x) ===
 # Traces are written to evals/traces/*.jsonl (git-ignored, may contain PII).

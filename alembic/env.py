@@ -7,10 +7,14 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import app.alerts.models
 import app.auth.models
 import app.drivers.models
 import app.events.models
+import app.fleet.models
+import app.geofences.models
 import app.knowledge.models
+import app.memory.models
 import app.schedules.models
 import app.skills.models
 import app.stops.models

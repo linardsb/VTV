@@ -1510,3 +1510,23 @@ class TestAuditCoverageCompleteness:
         ]
         missing = [c for c in self.REQUIRED_TEST_CLASSES if c not in actual_classes]
         assert missing == [], f"Missing required test classes: {missing}"
+
+
+class TestERDiagram:
+    """Convention tests: ER diagram script and output exist."""
+
+    def test_er_diagram_script_exists(self) -> None:
+        """The generate_er_diagram.py script must be present."""
+        from pathlib import Path
+
+        script = Path("scripts/generate_er_diagram.py")
+        assert script.exists(), "scripts/generate_er_diagram.py not found"
+
+    def test_er_diagram_output_exists(self) -> None:
+        """Generated ER diagram must exist and contain valid Mermaid markup."""
+        from pathlib import Path
+
+        er = Path("docs/schema/er.md")
+        assert er.exists(), "Run 'make er-diagram' to generate docs/schema/er.md"
+        content = er.read_text()
+        assert "erDiagram" in content
