@@ -1,7 +1,7 @@
 ---
 description: Scan frontend plan target files for fragile patterns before execution
 argument-hint: [plan-file-path] e.g. .agents/plans/fe-fleet-telemetry.md
-allowed-tools: Read, Glob, Grep, Edit, Bash(pnpm:*)
+allowed-tools: Read, Glob, Grep, Edit, Bash(pnpm:*), mcp__jcodemunch__search_symbols, mcp__jcodemunch__find_references, mcp__jcodemunch__get_file_outline, mcp__jcodemunch__get_symbol_source
 ---
 
 # Frontend Preflight Check — Scan & Fix Known Friction Patterns
@@ -55,6 +55,14 @@ Grep pattern: "mockReturnValue\(|mockResolvedValue\("
 ## Step 3: Scan & Fix Target Files for Fragile Patterns
 
 For each file being **modified** (not created):
+
+### Step 0: Use jCodeMunch for Impact Tracing
+
+If the project is indexed via jcodemunch, use MCP tools for cross-file impact analysis:
+- `find_references(component_name)` — trace all consumers of components/hooks being modified by the plan
+- `get_file_outline(file_path)` — scan file exports and prop types without full reads
+- `search_symbols(query, kind)` — find related components, hooks, or types across the frontend
+- `get_symbol_source(symbol_name)` — read specific component/hook to check prop shape changes
 
 ### 3a: `as any` Casts
 ```

@@ -46,6 +46,8 @@ from app.geofences.evaluator import start_geofence_evaluator, stop_geofence_eval
 from app.geofences.routes import router as geofences_router
 from app.knowledge.routes import router as knowledge_router
 from app.memory.routes import router as memory_router
+from app.public_api.routes import key_mgmt_router as public_api_key_mgmt_router
+from app.public_api.routes import public_router as public_api_router
 from app.schedules.routes import router as schedules_router
 from app.skills.routes import router as skills_router
 from app.stops.routes import router as stops_router
@@ -54,8 +56,6 @@ from app.transit.routes import router as transit_router
 from app.transit.service import close_transit_service
 from app.transit.ws_routes import close_ws_manager, get_ws_manager, ws_router
 from app.transit.ws_subscriber import start_ws_subscriber, stop_ws_subscriber
-from app.public_api.routes import key_mgmt_router as public_api_key_mgmt_router
-from app.public_api.routes import public_router as public_api_router
 from app.vehicles.routes import router as vehicles_router
 
 settings = get_settings()

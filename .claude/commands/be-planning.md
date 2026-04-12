@@ -17,7 +17,7 @@ Research the codebase and produce a self-contained plan that `/be-execute` can f
 
 **Feature request:** $ARGUMENTS
 
-Make sure the structured planning is between 600 to 700 lines. 
+Make sure the structured planning is between 600 to 700 lines.
 
 You are creating a detailed implementation plan that ANOTHER AGENT will execute without seeing this conversation. The plan must be completely self-contained with explicit file paths, exact code patterns, and unambiguous steps.
 

@@ -1,4 +1,4 @@
-we need to address first the security audit fail again. Please see the areas that need to be improved immediately. make plan for this to execute in methodical and thorough pattern. make a TODO for this security audit to address each step by step. 
+we need to address first the security audit fail again. Please see the areas that need to be improved immediately. make plan for this to execute in methodical and thorough pattern. make a TODO for this security audit to address each step by step.
 
 
 ## VTV Security Vulnerability Traces

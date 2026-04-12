@@ -31,6 +31,7 @@ dependencies = [
     "sentry-sdk[fastapi]>=2.0.0",
     "slowapi>=0.1.9",
     "sqlalchemy[asyncio]>=2.0.44",
+    "sqlparse>=0.5.0",
     "structlog>=25.5.0",
     "uvicorn[standard]>=0.38.0",
     "geoalchemy2>=0.18.3",
@@ -231,6 +232,11 @@ ignore_missing_imports = true
 # prometheus-client lacks py.typed marker
 [[tool.mypy.overrides]]
 module = "prometheus_client.*"
+ignore_missing_imports = true
+
+# sqlparse lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "sqlparse.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

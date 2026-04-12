@@ -106,7 +106,7 @@ Replace the entire file. The new module provides:
 class ProbeResult(BaseModel):
     """Result of a single dependency probe."""
     model_config = ConfigDict(frozen=True)
-    
+
     name: str
     status: Literal["ok", "degraded", "down"]
     latency_ms: float
@@ -116,7 +116,7 @@ class ProbeResult(BaseModel):
 class HealthReport(BaseModel):
     """Aggregated health report."""
     model_config = ConfigDict(frozen=True)
-    
+
     status: Literal["ok", "degraded", "down"]
     version: str
     probes: list[ProbeResult]

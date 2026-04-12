@@ -12,7 +12,7 @@ and deeply understand how the src/tools/obsidian_note_manager tool is built.
 
 Prompt 2:
 
-I want to build a tool similar to the note manager tool where the agent can also operate on folders, rename, move create, delete etc. 
+I want to build a tool similar to the note manager tool where the agent can also operate on folders, rename, move create, delete etc.
 Explore our options for how we can build this, do any necessary research online.
 
 Report back to me the options in this format:

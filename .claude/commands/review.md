@@ -1,7 +1,7 @@
 ---
 description: Review code against all 8 VTV quality standards
 argument-hint: [file-or-directory] e.g. app/core/ or app/core/health.py
-allowed-tools: Read, Glob, Grep, Write
+allowed-tools: Read, Glob, Grep, Write, mcp__jcodemunch__search_symbols, mcp__jcodemunch__find_references, mcp__jcodemunch__get_file_outline, mcp__jcodemunch__get_symbol_source, mcp__jcodemunch__get_file_tree
 ---
 
 Review code against VTV's 8 quality standards and produce a findings table with fix suggestions.
@@ -17,7 +17,20 @@ Review code against VTV's 8 quality standards and produce a findings table with 
 
 ## PROCESS
 
-Read all files in the target path. For each file, check against VTV's standards in this order:
+### Step 0: Use jCodeMunch for Structure Discovery
+
+If the project is indexed via jcodemunch, use MCP tools before full file reads:
+- `get_file_tree({ "path_prefix": "<target>" })` — map all files in the target directory
+- `get_file_outline(file_path)` — scan each file's structure (functions, classes, imports) without reading full content
+- `search_symbols(query, kind)` — find cross-feature imports, shared utility usage, route registrations
+- `find_references(symbol_name)` — trace callers/callees to verify VSA boundary compliance
+- `get_symbol_source(symbol_name)` — read specific functions for deeper inspection
+
+Only `Read` the full file when you need exact line-by-line review or when the file is small enough that outline + symbol reads don't save tokens.
+
+### Standards Checklist
+
+For each file, check against VTV's standards in this order:
 
 ### 1. Type Safety (CRITICAL)
 

@@ -134,7 +134,7 @@ Pre-existing errors in `app/core/agents/` (unrelated to AI-7.1's new files):
 
 ### Step 1 — `app/core/agents/evals/__init__.py`
 
-Empty package marker (single docstring line). 
+Empty package marker (single docstring line).
 
 ```python
 """Agent eval framework (AI-7.x)."""
@@ -367,7 +367,7 @@ Each case must specify exactly 5 `quality_criteria`. Reuse the same 5 names acro
 4. `data_freshness` — flags stale data
 5. `completeness` — all relevant tools invoked, no sampling
 
-**Validation:** `uv run python -c "import yaml; d=yaml.safe_load(open('app/core/agents/evals/cases/transit.yaml')); assert len(d['cases'])==15, f'expected 15, got {len(d[\"cases\"])}'"` 
+**Validation:** `uv run python -c "import yaml; d=yaml.safe_load(open('app/core/agents/evals/cases/transit.yaml')); assert len(d['cases'])==15, f'expected 15, got {len(d[\"cases\"])}'"`
 
 Then load through the new loader: `uv run python -c "from app.core.agents.evals.loader import load_eval_cases; cases=load_eval_cases('transit'); assert len(cases)==15; print(f'transit: {len(cases)} cases OK')"`
 

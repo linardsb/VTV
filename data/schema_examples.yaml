@@ -1,0 +1,628 @@
+# Schema examples for ML-5.4 Text-to-SQL with Schema RAG
+# Each entry: question (natural language) + sql (validated SELECT)
+# Run: make seed-schema-examples
+examples:
+  # --- Vehicle counts and status (5) ---
+  - question: "How many vehicles are currently active?"
+    sql: "SELECT COUNT(*) AS active_count FROM vehicles WHERE is_active = true"
+    description: "Simple count with boolean filter"
+    tags: ["vehicles", "count"]
+
+  - question: "List all vehicles with their last known position"
+    sql: >
+      SELECT v.license_plate, vp.latitude, vp.longitude, vp.timestamp
+      FROM vehicles v
+      LEFT JOIN vehicle_positions vp ON v.id = vp.vehicle_id
+      WHERE vp.timestamp = (SELECT MAX(timestamp) FROM vehicle_positions WHERE vehicle_id = v.id)
+      ORDER BY v.license_plate
+    description: "Vehicle positions with self-join for latest"
+    tags: ["vehicles", "positions"]
+
+  - question: "How many vehicles are assigned to each route?"
+    sql: >
+      SELECT r.route_short_name, COUNT(DISTINCT vp.vehicle_id) AS vehicle_count
+      FROM routes r
+      JOIN trips t ON r.route_id = t.route_id
+      JOIN vehicle_positions vp ON t.trip_id = vp.trip_id
+      WHERE vp.timestamp >= CURRENT_DATE
+      GROUP BY r.route_short_name
+      ORDER BY vehicle_count DESC
+    description: "Count vehicles per route today"
+    tags: ["vehicles", "routes", "count"]
+
+  - question: "Which vehicles have not reported positions in the last hour?"
+    sql: >
+      SELECT v.id, v.license_plate
+      FROM vehicles v
+      WHERE v.is_active = true
+      AND v.id NOT IN (
+        SELECT DISTINCT vehicle_id FROM vehicle_positions
+        WHERE timestamp >= NOW() - INTERVAL '1 hour'
+      )
+    description: "Find silent vehicles"
+    tags: ["vehicles", "positions", "monitoring"]
+
+  - question: "What is the fleet utilization rate today?"
+    sql: >
+      SELECT
+        COUNT(DISTINCT vp.vehicle_id) AS active_vehicles,
+        (SELECT COUNT(*) FROM vehicles WHERE is_active = true) AS total_vehicles,
+        ROUND(
+          COUNT(DISTINCT vp.vehicle_id)::numeric /
+          NULLIF((SELECT COUNT(*) FROM vehicles WHERE is_active = true), 0) * 100, 1
+        ) AS utilization_pct
+      FROM vehicle_positions vp
+      WHERE vp.timestamp >= CURRENT_DATE
+    description: "Fleet utilization percentage"
+    tags: ["vehicles", "analytics"]
+
+  # --- Route performance and delays (10) ---
+  - question: "What is the average delay per route today?"
+    sql: >
+      SELECT r.route_short_name, AVG(vp.delay) AS avg_delay_seconds
+      FROM vehicle_positions vp
+      JOIN trips t ON vp.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE vp.timestamp >= CURRENT_DATE
+      GROUP BY r.route_short_name
+      ORDER BY avg_delay_seconds DESC
+    description: "Aggregation with join and date filter"
+    tags: ["routes", "delays", "aggregation"]
+
+  - question: "Which routes had the most delays this week?"
+    sql: >
+      SELECT r.route_short_name,
+        COUNT(*) FILTER (WHERE vp.delay > 300) AS severe_delay_count,
+        AVG(vp.delay) AS avg_delay_seconds
+      FROM vehicle_positions vp
+      JOIN trips t ON vp.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE vp.timestamp >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY r.route_short_name
+      ORDER BY severe_delay_count DESC
+      LIMIT 10
+    description: "Top delayed routes this week"
+    tags: ["routes", "delays", "ranking"]
+
+  - question: "Show delay distribution for route 22"
+    sql: >
+      SELECT
+        CASE
+          WHEN vp.delay < 60 THEN 'on_time'
+          WHEN vp.delay < 300 THEN 'minor_delay'
+          WHEN vp.delay < 600 THEN 'moderate_delay'
+          ELSE 'severe_delay'
+        END AS delay_category,
+        COUNT(*) AS count
+      FROM vehicle_positions vp
+      JOIN trips t ON vp.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE r.route_short_name = '22'
+        AND vp.timestamp >= CURRENT_DATE
+      GROUP BY delay_category
+      ORDER BY count DESC
+    description: "Delay categorization with CASE"
+    tags: ["routes", "delays", "distribution"]
+
+  - question: "Average delay by hour for route 15"
+    sql: >
+      SELECT
+        EXTRACT(HOUR FROM vp.timestamp) AS hour,
+        AVG(vp.delay) AS avg_delay_seconds,
+        COUNT(*) AS sample_count
+      FROM vehicle_positions vp
+      JOIN trips t ON vp.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE r.route_short_name = '15'
+        AND vp.timestamp >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY hour
+      ORDER BY hour
+    description: "Hourly delay pattern"
+    tags: ["routes", "delays", "time_series"]
+
+  - question: "Compare delays between route 1 and route 2"
+    sql: >
+      SELECT r.route_short_name,
+        AVG(vp.delay) AS avg_delay,
+        MAX(vp.delay) AS max_delay,
+        COUNT(*) AS position_count
+      FROM vehicle_positions vp
+      JOIN trips t ON vp.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE r.route_short_name IN ('1', '2')
+        AND vp.timestamp >= CURRENT_DATE
+      GROUP BY r.route_short_name
+    description: "Comparison between two routes"
+    tags: ["routes", "delays", "comparison"]
+
+  - question: "How many trips ran on each route yesterday?"
+    sql: >
+      SELECT r.route_short_name, COUNT(DISTINCT vp.trip_id) AS trip_count
+      FROM vehicle_positions vp
+      JOIN trips t ON vp.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE vp.timestamp >= CURRENT_DATE - INTERVAL '1 day'
+        AND vp.timestamp < CURRENT_DATE
+      GROUP BY r.route_short_name
+      ORDER BY trip_count DESC
+    description: "Trip counts by route for yesterday"
+    tags: ["routes", "trips", "count"]
+
+  - question: "Which routes have no vehicles running right now?"
+    sql: >
+      SELECT r.route_id, r.route_short_name, r.route_long_name
+      FROM routes r
+      WHERE r.route_id NOT IN (
+        SELECT DISTINCT t.route_id
+        FROM vehicle_positions vp
+        JOIN trips t ON vp.trip_id = t.trip_id
+        WHERE vp.timestamp >= NOW() - INTERVAL '10 minutes'
+      )
+      ORDER BY r.route_short_name
+    description: "Routes without active vehicles"
+    tags: ["routes", "monitoring"]
+
+  - question: "What is the on-time performance for each route this week?"
+    sql: >
+      SELECT r.route_short_name,
+        COUNT(*) AS total_positions,
+        COUNT(*) FILTER (WHERE ABS(vp.delay) <= 120) AS on_time,
+        ROUND(COUNT(*) FILTER (WHERE ABS(vp.delay) <= 120)::numeric / NULLIF(COUNT(*), 0) * 100, 1) AS on_time_pct
+      FROM vehicle_positions vp
+      JOIN trips t ON vp.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE vp.timestamp >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY r.route_short_name
+      ORDER BY on_time_pct ASC
+    description: "On-time performance percentage by route"
+    tags: ["routes", "adherence", "aggregation"]
+
+  - question: "What are the busiest routes by passenger vehicle count today?"
+    sql: >
+      SELECT r.route_short_name,
+        COUNT(DISTINCT vp.vehicle_id) AS vehicles_used,
+        COUNT(DISTINCT vp.trip_id) AS trips_operated
+      FROM vehicle_positions vp
+      JOIN trips t ON vp.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE vp.timestamp >= CURRENT_DATE
+      GROUP BY r.route_short_name
+      ORDER BY vehicles_used DESC
+      LIMIT 10
+    description: "Busiest routes by vehicle count"
+    tags: ["routes", "ranking"]
+
+  - question: "Show the daily average delay trend for route 3 this month"
+    sql: >
+      SELECT DATE(vp.timestamp) AS day,
+        AVG(vp.delay) AS avg_delay_seconds,
+        COUNT(*) AS samples
+      FROM vehicle_positions vp
+      JOIN trips t ON vp.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE r.route_short_name = '3'
+        AND vp.timestamp >= DATE_TRUNC('month', CURRENT_DATE)
+      GROUP BY day
+      ORDER BY day
+    description: "Daily trend for a specific route"
+    tags: ["routes", "delays", "time_series"]
+
+  # --- Driver hours and availability (5) ---
+  - question: "How many hours has each driver worked this week?"
+    sql: >
+      SELECT d.first_name, d.last_name,
+        ROUND(EXTRACT(EPOCH FROM SUM(
+          COALESCE(vp.max_ts - vp.min_ts, INTERVAL '0')
+        )) / 3600.0, 1) AS hours_worked
+      FROM drivers d
+      JOIN (
+        SELECT vehicle_id, MIN(timestamp) AS min_ts, MAX(timestamp) AS max_ts
+        FROM vehicle_positions
+        WHERE timestamp >= CURRENT_DATE - INTERVAL '7 days'
+        GROUP BY vehicle_id, DATE(timestamp)
+      ) vp ON d.vehicle_id = vp.vehicle_id
+      GROUP BY d.id, d.first_name, d.last_name
+      ORDER BY hours_worked DESC
+    description: "Driver work hours from vehicle positions"
+    tags: ["drivers", "hours", "aggregation"]
+
+  - question: "How many drivers are on duty today?"
+    sql: >
+      SELECT COUNT(DISTINCT d.id) AS drivers_on_duty
+      FROM drivers d
+      JOIN vehicles v ON d.vehicle_id = v.id
+      JOIN vehicle_positions vp ON v.id = vp.vehicle_id
+      WHERE vp.timestamp >= CURRENT_DATE
+    description: "Active driver count"
+    tags: ["drivers", "count"]
+
+  - question: "Which drivers have the most trips this month?"
+    sql: >
+      SELECT d.first_name, d.last_name,
+        COUNT(DISTINCT vp.trip_id) AS trip_count
+      FROM drivers d
+      JOIN vehicles v ON d.vehicle_id = v.id
+      JOIN vehicle_positions vp ON v.id = vp.vehicle_id
+      WHERE vp.timestamp >= DATE_TRUNC('month', CURRENT_DATE)
+      GROUP BY d.id, d.first_name, d.last_name
+      ORDER BY trip_count DESC
+      LIMIT 10
+    description: "Top drivers by trip count"
+    tags: ["drivers", "ranking"]
+
+  - question: "List all drivers and their assigned vehicles"
+    sql: >
+      SELECT d.first_name, d.last_name, d.license_number,
+        v.license_plate, v.model
+      FROM drivers d
+      LEFT JOIN vehicles v ON d.vehicle_id = v.id
+      ORDER BY d.last_name, d.first_name
+    description: "Driver-vehicle assignment list"
+    tags: ["drivers", "vehicles"]
+
+  - question: "How many drivers have no vehicle assigned?"
+    sql: >
+      SELECT COUNT(*) AS unassigned_count
+      FROM drivers d
+      WHERE d.vehicle_id IS NULL
+    description: "Unassigned drivers count"
+    tags: ["drivers", "count"]
+
+  # --- Stop usage and proximity (5) ---
+  - question: "Which stops have the most vehicle visits today?"
+    sql: >
+      SELECT s.stop_name, COUNT(*) AS visit_count
+      FROM stops s
+      JOIN stop_times st ON s.stop_id = st.stop_id
+      JOIN trips t ON st.trip_id = t.trip_id
+      JOIN vehicle_positions vp ON t.trip_id = vp.trip_id
+      WHERE vp.timestamp >= CURRENT_DATE
+      GROUP BY s.stop_id, s.stop_name
+      ORDER BY visit_count DESC
+      LIMIT 20
+    description: "Most visited stops today"
+    tags: ["stops", "ranking"]
+
+  - question: "How many stops does each route have?"
+    sql: >
+      SELECT r.route_short_name, COUNT(DISTINCT st.stop_id) AS stop_count
+      FROM routes r
+      JOIN trips t ON r.route_id = t.route_id
+      JOIN stop_times st ON t.trip_id = st.trip_id
+      GROUP BY r.route_short_name
+      ORDER BY stop_count DESC
+    description: "Stops per route"
+    tags: ["stops", "routes", "count"]
+
+  - question: "Find stops that are served by more than 5 routes"
+    sql: >
+      SELECT s.stop_name, COUNT(DISTINCT r.route_id) AS route_count
+      FROM stops s
+      JOIN stop_times st ON s.stop_id = st.stop_id
+      JOIN trips t ON st.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      GROUP BY s.stop_id, s.stop_name
+      HAVING COUNT(DISTINCT r.route_id) > 5
+      ORDER BY route_count DESC
+    description: "Highly-connected stops"
+    tags: ["stops", "routes", "aggregation"]
+
+  - question: "What are the scheduled departure times at stop Brivibas?"
+    sql: >
+      SELECT s.stop_name, st.departure_time, r.route_short_name, t.trip_headsign
+      FROM stop_times st
+      JOIN stops s ON st.stop_id = s.stop_id
+      JOIN trips t ON st.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE s.stop_name ILIKE '%Brivibas%'
+      ORDER BY st.departure_time
+    description: "Scheduled departures at a named stop"
+    tags: ["stops", "schedules"]
+
+  - question: "How many unique stops are in the system?"
+    sql: "SELECT COUNT(*) AS total_stops FROM stops"
+    description: "Simple total count"
+    tags: ["stops", "count"]
+
+  # --- Schedule adherence (5) ---
+  - question: "What percentage of trips were on time yesterday?"
+    sql: >
+      SELECT
+        COUNT(*) AS total_positions,
+        COUNT(*) FILTER (WHERE ABS(delay) <= 120) AS on_time,
+        ROUND(COUNT(*) FILTER (WHERE ABS(delay) <= 120)::numeric / NULLIF(COUNT(*), 0) * 100, 1) AS on_time_pct
+      FROM vehicle_positions
+      WHERE timestamp >= CURRENT_DATE - INTERVAL '1 day'
+        AND timestamp < CURRENT_DATE
+    description: "System-wide on-time percentage"
+    tags: ["adherence", "aggregation"]
+
+  - question: "Which trips had delays greater than 10 minutes today?"
+    sql: >
+      SELECT t.trip_id, r.route_short_name, t.trip_headsign,
+        MAX(vp.delay) AS max_delay_seconds
+      FROM vehicle_positions vp
+      JOIN trips t ON vp.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE vp.delay > 600
+        AND vp.timestamp >= CURRENT_DATE
+      GROUP BY t.trip_id, r.route_short_name, t.trip_headsign
+      ORDER BY max_delay_seconds DESC
+    description: "Severely delayed trips"
+    tags: ["adherence", "delays"]
+
+  - question: "Show hourly on-time performance today"
+    sql: >
+      SELECT
+        EXTRACT(HOUR FROM timestamp) AS hour,
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE ABS(delay) <= 120) AS on_time,
+        ROUND(COUNT(*) FILTER (WHERE ABS(delay) <= 120)::numeric / NULLIF(COUNT(*), 0) * 100, 1) AS on_time_pct
+      FROM vehicle_positions
+      WHERE timestamp >= CURRENT_DATE
+      GROUP BY hour
+      ORDER BY hour
+    description: "Hourly adherence trend"
+    tags: ["adherence", "time_series"]
+
+  - question: "What is the median delay across all routes today?"
+    sql: >
+      SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY delay) AS median_delay
+      FROM vehicle_positions
+      WHERE timestamp >= CURRENT_DATE
+    description: "Median delay computation"
+    tags: ["adherence", "statistics"]
+
+  - question: "Compare this week's on-time rate to last week"
+    sql: >
+      SELECT
+        'this_week' AS period,
+        ROUND(COUNT(*) FILTER (WHERE ABS(delay) <= 120)::numeric / NULLIF(COUNT(*), 0) * 100, 1) AS on_time_pct
+      FROM vehicle_positions
+      WHERE timestamp >= CURRENT_DATE - INTERVAL '7 days'
+      UNION ALL
+      SELECT
+        'last_week' AS period,
+        ROUND(COUNT(*) FILTER (WHERE ABS(delay) <= 120)::numeric / NULLIF(COUNT(*), 0) * 100, 1) AS on_time_pct
+      FROM vehicle_positions
+      WHERE timestamp >= CURRENT_DATE - INTERVAL '14 days'
+        AND timestamp < CURRENT_DATE - INTERVAL '7 days'
+    description: "Week-over-week comparison"
+    tags: ["adherence", "comparison"]
+
+  # --- Fleet telemetry aggregations (5) ---
+  - question: "How many fleet devices are reporting?"
+    sql: >
+      SELECT COUNT(*) AS total_devices,
+        COUNT(*) FILTER (WHERE is_active = true) AS active_devices
+      FROM fleet_devices
+    description: "Fleet device count"
+    tags: ["fleet", "count"]
+
+  - question: "What is the average speed by vehicle today?"
+    sql: >
+      SELECT v.license_plate, AVG(vp.speed) AS avg_speed_kmh
+      FROM vehicle_positions vp
+      JOIN vehicles v ON vp.vehicle_id = v.id
+      WHERE vp.timestamp >= CURRENT_DATE
+        AND vp.speed IS NOT NULL
+      GROUP BY v.id, v.license_plate
+      ORDER BY avg_speed_kmh DESC
+    description: "Average vehicle speed"
+    tags: ["fleet", "speed", "aggregation"]
+
+  - question: "Which vehicles have reported low speed for over 30 minutes?"
+    sql: >
+      SELECT v.license_plate, COUNT(*) AS low_speed_reports,
+        MIN(vp.timestamp) AS first_slow, MAX(vp.timestamp) AS last_slow
+      FROM vehicle_positions vp
+      JOIN vehicles v ON vp.vehicle_id = v.id
+      WHERE vp.speed < 5
+        AND vp.timestamp >= NOW() - INTERVAL '2 hours'
+      GROUP BY v.id, v.license_plate
+      HAVING MAX(vp.timestamp) - MIN(vp.timestamp) > INTERVAL '30 minutes'
+    description: "Potential stuck vehicles"
+    tags: ["fleet", "monitoring"]
+
+  - question: "Show fleet device status summary"
+    sql: >
+      SELECT
+        CASE WHEN is_active THEN 'active' ELSE 'inactive' END AS status,
+        COUNT(*) AS device_count
+      FROM fleet_devices
+      GROUP BY is_active
+    description: "Device status distribution"
+    tags: ["fleet", "summary"]
+
+  - question: "What is the total distance covered by each vehicle this week?"
+    sql: >
+      SELECT v.license_plate,
+        COUNT(*) AS position_count
+      FROM vehicle_positions vp
+      JOIN vehicles v ON vp.vehicle_id = v.id
+      WHERE vp.timestamp >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY v.id, v.license_plate
+      ORDER BY position_count DESC
+    description: "Vehicle activity by position count"
+    tags: ["fleet", "analytics"]
+
+  # --- Geofence events (5) ---
+  - question: "How many geofence entries happened today?"
+    sql: >
+      SELECT COUNT(*) AS entry_count
+      FROM geofence_events
+      WHERE event_type = 'entry'
+        AND created_at >= CURRENT_DATE
+    description: "Daily geofence entry count"
+    tags: ["geofences", "count"]
+
+  - question: "Which geofences have the most events this week?"
+    sql: >
+      SELECT g.name, COUNT(*) AS event_count
+      FROM geofence_events ge
+      JOIN geofences g ON ge.geofence_id = g.id
+      WHERE ge.created_at >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY g.id, g.name
+      ORDER BY event_count DESC
+      LIMIT 10
+    description: "Most active geofences"
+    tags: ["geofences", "ranking"]
+
+  - question: "Average dwell time per geofence"
+    sql: >
+      SELECT g.name,
+        AVG(EXTRACT(EPOCH FROM ge.dwell_seconds) / 60.0) AS avg_dwell_minutes
+      FROM geofence_events ge
+      JOIN geofences g ON ge.geofence_id = g.id
+      WHERE ge.event_type = 'exit'
+        AND ge.dwell_seconds IS NOT NULL
+      GROUP BY g.id, g.name
+      ORDER BY avg_dwell_minutes DESC
+    description: "Dwell time analysis"
+    tags: ["geofences", "analytics"]
+
+  - question: "Which vehicles entered the depot geofence today?"
+    sql: >
+      SELECT DISTINCT v.license_plate, ge.created_at
+      FROM geofence_events ge
+      JOIN geofences g ON ge.geofence_id = g.id
+      JOIN vehicles v ON ge.vehicle_id = v.id
+      WHERE g.name ILIKE '%depot%'
+        AND ge.event_type = 'entry'
+        AND ge.created_at >= CURRENT_DATE
+      ORDER BY ge.created_at
+    description: "Depot entry tracking"
+    tags: ["geofences", "vehicles"]
+
+  - question: "How many vehicles are currently inside each geofence?"
+    sql: >
+      SELECT g.name, COUNT(DISTINCT ge.vehicle_id) AS vehicles_inside
+      FROM geofence_events ge
+      JOIN geofences g ON ge.geofence_id = g.id
+      WHERE ge.event_type = 'entry'
+        AND ge.vehicle_id NOT IN (
+          SELECT vehicle_id FROM geofence_events
+          WHERE geofence_id = ge.geofence_id
+            AND event_type = 'exit'
+            AND created_at > ge.created_at
+        )
+        AND ge.created_at >= CURRENT_DATE
+      GROUP BY g.id, g.name
+      ORDER BY vehicles_inside DESC
+    description: "Current geofence occupancy"
+    tags: ["geofences", "monitoring"]
+
+  # --- Time-series patterns (5) ---
+  - question: "Show position counts by hour for today"
+    sql: >
+      SELECT EXTRACT(HOUR FROM timestamp) AS hour,
+        COUNT(*) AS position_count
+      FROM vehicle_positions
+      WHERE timestamp >= CURRENT_DATE
+      GROUP BY hour
+      ORDER BY hour
+    description: "Hourly activity distribution"
+    tags: ["time_series", "positions"]
+
+  - question: "What are the peak hours for delays?"
+    sql: >
+      SELECT EXTRACT(HOUR FROM timestamp) AS hour,
+        AVG(delay) AS avg_delay,
+        COUNT(*) FILTER (WHERE delay > 300) AS severe_delays
+      FROM vehicle_positions
+      WHERE timestamp >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY hour
+      ORDER BY avg_delay DESC
+      LIMIT 5
+    description: "Peak delay hours"
+    tags: ["time_series", "delays"]
+
+  - question: "Daily trip count trend this month"
+    sql: >
+      SELECT DATE(timestamp) AS day,
+        COUNT(DISTINCT trip_id) AS trip_count
+      FROM vehicle_positions
+      WHERE timestamp >= DATE_TRUNC('month', CURRENT_DATE)
+      GROUP BY day
+      ORDER BY day
+    description: "Monthly trip trend"
+    tags: ["time_series", "trips"]
+
+  - question: "Compare weekday vs weekend delays"
+    sql: >
+      SELECT
+        CASE WHEN EXTRACT(DOW FROM timestamp) IN (0, 6) THEN 'weekend' ELSE 'weekday' END AS day_type,
+        AVG(delay) AS avg_delay,
+        COUNT(*) AS sample_count
+      FROM vehicle_positions
+      WHERE timestamp >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY day_type
+    description: "Weekday vs weekend comparison"
+    tags: ["time_series", "comparison"]
+
+  - question: "Show the busiest day of the week historically"
+    sql: >
+      SELECT
+        TO_CHAR(timestamp, 'Day') AS day_name,
+        EXTRACT(DOW FROM timestamp) AS day_of_week,
+        COUNT(*) AS position_count
+      FROM vehicle_positions
+      WHERE timestamp >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY day_name, day_of_week
+      ORDER BY day_of_week
+    description: "Weekly activity pattern"
+    tags: ["time_series", "analytics"]
+
+  # --- Multi-table joins (5) ---
+  - question: "Show routes with their agencies and trip counts"
+    sql: >
+      SELECT a.agency_name, r.route_short_name, r.route_long_name,
+        COUNT(DISTINCT t.trip_id) AS trip_count
+      FROM agencies a
+      JOIN routes r ON a.agency_id = r.agency_id
+      JOIN trips t ON r.route_id = t.route_id
+      GROUP BY a.agency_name, r.route_short_name, r.route_long_name
+      ORDER BY a.agency_name, trip_count DESC
+    description: "Agency-route-trip hierarchy"
+    tags: ["agencies", "routes", "trips"]
+
+  - question: "Which calendar services are active today?"
+    sql: >
+      SELECT c.service_id, c.monday, c.tuesday, c.wednesday,
+        c.thursday, c.friday, c.saturday, c.sunday,
+        c.start_date, c.end_date
+      FROM calendar c
+      WHERE c.start_date <= CURRENT_DATE
+        AND c.end_date >= CURRENT_DATE
+    description: "Active calendar services"
+    tags: ["calendar", "schedules"]
+
+  - question: "Are there any calendar date exceptions today?"
+    sql: >
+      SELECT cd.service_id, cd.date, cd.exception_type
+      FROM calendar_dates cd
+      WHERE cd.date = CURRENT_DATE
+    description: "Calendar date exceptions"
+    tags: ["calendar", "exceptions"]
+
+  - question: "Show alerts with their rule definitions"
+    sql: >
+      SELECT a.id, a.message, a.severity, a.status,
+        ar.name AS rule_name, ar.condition_type
+      FROM alerts a
+      JOIN alert_rules ar ON a.rule_id = ar.id
+      WHERE a.created_at >= CURRENT_DATE - INTERVAL '7 days'
+      ORDER BY a.created_at DESC
+      LIMIT 20
+    description: "Recent alerts with rules"
+    tags: ["alerts", "rules"]
+
+  - question: "How many events of each type happened this month?"
+    sql: >
+      SELECT event_type, COUNT(*) AS event_count
+      FROM events
+      WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE)
+      GROUP BY event_type
+      ORDER BY event_count DESC
+    description: "Event type distribution"
+    tags: ["events", "aggregation"]

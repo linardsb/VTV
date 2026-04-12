@@ -1,4 +1,4 @@
-.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run weather-backfill traffic-backfill er-diagram gtfs-backfill
+.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run weather-backfill traffic-backfill er-diagram gtfs-backfill seed-schema-examples
 
 # === Local Development (terminals) ===
 
@@ -127,6 +127,9 @@ er-diagram: ## Generate Mermaid ER diagram from SQLAlchemy models
 
 gtfs-backfill: ## Backfill historical GTFS snapshots from data.gov.lv
 	uv run python scripts/backfill_gtfs_history.py --since $(or $(SINCE),2018-05) $(if $(UNTIL),--until $(UNTIL)) $(if $(DRY_RUN),--dry-run)
+
+seed-schema-examples: ## Seed schema_examples table from YAML (ML-5.4)
+	uv run python scripts/seed_schema_examples.py --file data/schema_examples.yaml
 
 # === Agent evals (AI-7.x) ===
 # Traces are written to evals/traces/*.jsonl (git-ignored, may contain PII).

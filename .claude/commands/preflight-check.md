@@ -1,7 +1,7 @@
 ---
 description: Scan plan target files for fragile patterns before backend execution
 argument-hint: [plan-file-path] e.g. .agents/plans/driver-availability.md
-allowed-tools: Read, Glob, Grep, Edit, Bash(uv run ruff:*), Bash(uv run pyright:*), Bash(uv run mypy:*)
+allowed-tools: Read, Glob, Grep, Edit, Bash(uv run ruff:*), Bash(uv run pyright:*), Bash(uv run mypy:*), mcp__jcodemunch__search_symbols, mcp__jcodemunch__find_references, mcp__jcodemunch__get_file_outline, mcp__jcodemunch__get_symbol_source
 ---
 
 # Preflight Check — Scan & Fix Known Friction Patterns (Backend)
@@ -57,7 +57,7 @@ Grep pattern: 'assert.*==.*"[^"]{20,}"'
 For each file being **modified** (not created):
 
 ### 3a: New Parameter Propagation
-For any function whose signature is changing (new parameter added by the plan), `Grep` for all callsites across the codebase.
+For any function whose signature is changing (new parameter added by the plan), use `find_references(symbol_name)` to trace all callsites across the codebase (faster and more accurate than Grep). Fall back to `Grep` if the function name is too generic for symbol search.
 
 **Auto-fix:** If the new parameter has a default value (e.g., `slot_counter: dict | None = None`), no callsite changes needed — just verify. If it does NOT have a default, add the parameter with a sensible default to each callsite, or add a default to the function signature itself.
 
@@ -65,7 +65,7 @@ For any function whose signature is changing (new parameter added by the plan), 
 ```
 Grep pattern: "-> tuple\[|return \w+, \w+"
 ```
-If the plan adds fields to a return tuple, find all callers.
+If the plan adds fields to a return tuple, use `find_references(function_name)` to find all callers.
 
 **Auto-fix:** Update the unpacking at each callsite to include the new field with an appropriate variable name. Add `_ =` for unused fields if the caller doesn't need the new value.
 

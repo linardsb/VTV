@@ -1,7 +1,7 @@
 ---
 description: Investigate a bug and produce a root cause analysis document
 argument-hint: [github-issue-id] e.g. 42
-allowed-tools: Read, Glob, Grep, Write, Bash(git log:*), Bash(git blame:*), Bash(gh issue view:*)
+allowed-tools: Read, Glob, Grep, Write, Bash(git log:*), Bash(git blame:*), Bash(gh issue view:*), mcp__jcodemunch__search_symbols, mcp__jcodemunch__find_references, mcp__jcodemunch__get_file_outline, mcp__jcodemunch__get_symbol_source, mcp__jcodemunch__get_call_hierarchy, mcp__jdocmunch__search_sections, mcp__jdocmunch__get_section
 ---
 
 Investigate a bug systematically and produce a machine-executable RCA document for `/implement-fix`.
@@ -28,6 +28,15 @@ Investigate a bug systematically and produce a machine-executable RCA document f
 
 ### 2. Investigate the codebase
 
+**Use jCodeMunch for token-efficient tracing** (if repo is indexed):
+- `search_symbols(query, kind)` — find the function/class related to the bug symptoms
+- `get_call_hierarchy(symbol_name)` — trace the full call chain (callers → callees) to find where the bug originates
+- `find_references(symbol_name)` — identify all callsites that might be affected
+- `get_file_outline(file_path)` — understand file structure before deciding what to read fully
+- `get_symbol_source(symbol_name)` — read just the specific function suspected of being buggy
+
+Only `Read` full files when you need surrounding context or plan to edit them.
+
 Search VTV's vertical slice structure systematically:
 
 - **Routes**: Check endpoint handlers for the affected functionality
@@ -36,6 +45,10 @@ Search VTV's vertical slice structure systematically:
 - **Schemas**: Check Pydantic schemas for validation gaps
 - **Middleware**: Check `app/core/middleware.py` if the issue is cross-cutting
 - **Config**: Check `app/core/config.py` for environment-related issues
+
+**Use jDocMunch for architecture context** (if repo docs are indexed):
+- `search_sections(query)` — find relevant ADRs, runbooks, or planning docs that explain design decisions around the affected area
+- `get_section(doc, section)` — read specific sections without loading entire documents
 
 ### 3. Check structured logs
 

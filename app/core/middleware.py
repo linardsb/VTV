@@ -187,5 +187,6 @@ def setup_middleware(app: FastAPI) -> None:
             "X-Request-ID",
             "Accept",
             "Accept-Language",
+            "X-API-Key",
         ],
     )

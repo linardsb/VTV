@@ -1,7 +1,7 @@
 ---
 description: Review frontend code against all 8 VTV frontend quality standards
 argument-hint: [file-or-directory] e.g. cms/apps/web/src/app/[locale]/(dashboard)/routes/
-allowed-tools: Read, Glob, Grep, Write
+allowed-tools: Read, Glob, Grep, Write, mcp__jcodemunch__search_symbols, mcp__jcodemunch__find_references, mcp__jcodemunch__get_file_outline, mcp__jcodemunch__get_symbol_source, mcp__jcodemunch__get_file_tree
 ---
 
 Review frontend code against VTV's 8 frontend quality standards and produce a findings table with fix suggestions.
@@ -18,7 +18,20 @@ Review frontend code against VTV's 8 frontend quality standards and produce a fi
 
 ## PROCESS
 
-Read all files in the target path. For each file, check against VTV's frontend standards in this order:
+### Step 0: Use jCodeMunch for Structure Discovery
+
+If the project is indexed via jcodemunch, use MCP tools before full file reads:
+- `get_file_tree({ "path_prefix": "<target>" })` — map all files in the target directory
+- `get_file_outline(file_path)` — scan each file's exports, components, hooks without reading full content
+- `search_symbols(query, kind)` — find component usage, hook references, SDK type imports across the frontend
+- `find_references(symbol_name)` — trace component/hook consumers to verify correct prop passing
+- `get_symbol_source(symbol_name)` — read specific components or hooks for deeper inspection
+
+Only `Read` the full file when you need exact line-by-line review (design system token checks, i18n string scanning, accessibility audit) or when the file is small enough that outline + symbol reads don't save tokens.
+
+### Standards Checklist
+
+For each file, check against VTV's frontend standards in this order:
 
 ### 1. TypeScript Quality (CRITICAL)
 

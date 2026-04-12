@@ -20,6 +20,7 @@ from app.core.agents.tools.transit.deps import UnifiedDeps
 from app.core.agents.tools.transit.get_adherence_report import get_adherence_report
 from app.core.agents.tools.transit.get_route_schedule import get_route_schedule
 from app.core.agents.tools.transit.query_bus_status import query_bus_status
+from app.core.agents.tools.transit.run_analytics_sql import run_analytics_sql
 from app.core.agents.tools.transit.search_stops import search_stops
 from app.core.logging import get_logger
 
@@ -32,7 +33,9 @@ SYSTEM_PROMPT: str = (
     "schedule information, operational insights, and Obsidian vault management. "
     "You can search, read, create, update, and organize notes in the user's vault.\n"
     "You can also search the organizational knowledge base for policies, "
-    "compliance documents, legal materials, driver records, and internal communications.\n\n"
+    "compliance documents, legal materials, driver records, and internal communications.\n"
+    "You can run analytical SQL queries against the transit database for custom "
+    "aggregations, counts, and trends that other tools don't cover directly.\n\n"
     #
     # --- Language rules ---
     #
@@ -128,12 +131,13 @@ def create_agent(model: str | Model | None = None) -> Agent[UnifiedDeps, str]:
         output_type=str,
         system_prompt=SYSTEM_PROMPT,
         tools=[
-            # Transit (5 read-only)
+            # Transit (5 read-only + 1 analytics)
             query_bus_status,
             get_route_schedule,
             search_stops,
             get_adherence_report,
             check_driver_availability,
+            run_analytics_sql,
             # Obsidian vault (4)
             obsidian_query_vault,
             obsidian_manage_notes,

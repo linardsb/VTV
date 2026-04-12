@@ -1,7 +1,7 @@
 """Create memory_entries table.
 
-Revision ID: a1b2c3d4e5f6
-Revises: f3a4b5c6d7e8
+Revision ID: 9d9e77b5b0bf
+Revises: g5h6i7j8k9l0
 Create Date: 2026-04-09
 """
 
@@ -14,8 +14,8 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "a1b2c3d4e5f6"
-down_revision: str | None = "f3a4b5c6d7e8"
+revision: str = "9d9e77b5b0bf"
+down_revision: str | None = "g5h6i7j8k9l0"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -369,4 +369,3 @@ erDiagram
     stop_times }|--|| stops : "stop_id"
     stop_times }|--|| trips : "trip_id"
 ```
-

@@ -116,7 +116,7 @@ Functions (all async, take `AsyncSession`):
 - `get_snapshot_by_resource_id(db, resource_id) -> GtfsSnapshot | None`
 - `get_snapshot_by_sha256(db, sha256) -> GtfsSnapshot | None`
 - `create_snapshot(db, snapshot) -> GtfsSnapshot`
-- `update_snapshot_status(db, snapshot_id, status, row_counts)` 
+- `update_snapshot_status(db, snapshot_id, status, row_counts)`
 - `bulk_insert_snapshot_trips(db, snapshot_id, trips: list[GtfsSnapshotTrip])`
 - `bulk_insert_snapshot_stop_times(db, snapshot_id, stop_times: list[GtfsSnapshotStopTime])`
 - `bulk_insert_snapshot_calendars(db, snapshot_id, calendars: list[GtfsSnapshotCalendar])`

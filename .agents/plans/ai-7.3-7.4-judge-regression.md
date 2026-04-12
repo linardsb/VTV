@@ -393,7 +393,7 @@ Key pieces:
    - `agent.evals.judge.run_failed` — case_id, criterion_name, error_type (no raw content)
    - `agent.evals.judge.completed` — suite, total, passed, failed, unjudged
 
-**Anti-pattern watchouts:** 
+**Anti-pattern watchouts:**
 - `# pyright: reportUnknownMemberType=false` at top (same as `runner.py:17`) for Pydantic AI.
 - No bare `except: pass` (S110) — always log.
 - Use `json.dumps(..., default=str)` for non-serializable trace fields.

@@ -730,12 +730,16 @@ class TestAllEndpointsRequireAuth:
 
                 # This is a route handler — check for auth
                 source = inspect.getsource(func)
-                if "get_current_user" not in source and "require_role" not in source:
+                if (
+                    "get_current_user" not in source
+                    and "require_role" not in source
+                    and "get_api_key" not in source
+                ):
                     missing_auth.append(f"{module_path}.{name}")
 
         assert missing_auth == [], (
             f"Endpoints missing authentication: {missing_auth}. "
-            f"Add get_current_user/require_role or add to PUBLIC_ALLOWLIST."
+            f"Add get_current_user/require_role/get_api_key or add to PUBLIC_ALLOWLIST."
         )
 
 
