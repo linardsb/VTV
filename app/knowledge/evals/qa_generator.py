@@ -206,6 +206,7 @@ async def generate_qa_pairs(
             question=question,
             source_chunk_id=chunk.id,
             source_document_id=chunk.document_id,
+            source_chunk_index=chunk.chunk_index,
             source_heading_path=chunk.heading_path,
             language=lang,
             generated_at=datetime.datetime.now(datetime.UTC).isoformat(),

@@ -135,7 +135,7 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 
 **Verify:** `make rag-eval-generate COUNT=20` produces 20 QA pairs in `evals/rag/qa_pairs_{timestamp}.jsonl`. Manual spot-check: 18/20 questions are plausible dispatcher queries whose source chunk is the correct answer.
 
-#### AI-11.2 Retrieval Metrics — Faithfulness, Relevance, Completeness
+#### AI-11.2 Retrieval Metrics — Faithfulness, Relevance, Completeness ✅ (2026-04-12)
 **What:** Create `app/knowledge/evals/metrics.py` — computes three metrics per QA pair after replaying the question through `KnowledgeService.search()`:
 1. **Relevance** — binary: was the source chunk in the top-k results? (recall@k)
 2. **Position** — what rank did the source chunk receive? (MRR contribution)
@@ -194,9 +194,9 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 | AI-8  | Circuit breaker + provider health | 3 | — |
 | AI-9  | Prompt injection hardening | 3 | AI-9.1/9.2/9.3 done (2026-04-12) |
 | AI-10 | Heading-breadcrumb citations | 2 | AI-4.2, AI-7.1 | Complete (2026-04-12) |
-| AI-11 | RAG retrieval eval pipeline | 4 | AI-4, AI-7 | AI-11.1 done (2026-04-12) |
+| AI-11 | RAG retrieval eval pipeline | 4 | AI-4, AI-7 | AI-11.1, AI-11.2 done (2026-04-12) |
 
-Total remaining agent hardening: **3 days** across 3 subtasks (AI-11.2, AI-11.3, AI-11.4). AI-8, AI-9, AI-10 complete. AI-11.1 complete. AI-11.2-11.4 (retrieval metrics, eval runner, baselines) should run after AI-7 is fully green to reuse its eval infrastructure patterns.
+Total remaining agent hardening: **2 days** across 2 subtasks (AI-11.3, AI-11.4). AI-8, AI-9, AI-10 complete. AI-11.1, AI-11.2 complete. AI-11.3-11.4 (eval runner + faithfulness judge, regression baselines) should run after AI-7 is fully green to reuse its eval infrastructure patterns.
 
 ---
 
