@@ -772,7 +772,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 
 **Verify:** Manually invoke `compute_daily_report(date(2026, 04, 10))` — produces report row, prints summary. Simulate adherence < 85%, confirm high-severity alert created. `GET /v1/analytics/adherence/daily?from=2026-04-01&to=2026-04-10` returns stored rows.
 
-#### ML-5.3 Public Developer API with API Key Auth
+#### ML-5.3 Public Developer API with API Key Auth ✅ (2026-04-12)
 **What:** New `app/public_api/` vertical slice — read-only subset of transit endpoints (`/public/v1/routes`, `/public/v1/stops`, `/public/v1/vehicles`) gated behind API keys. Per-key rate limiting (default 60/min, configurable per tier). Developer portal landing page in CMS (`/developers`) with self-serve key generation.
 **Why:** Third-party app developers (rider apps, transit researchers, journalists) repeatedly ask for direct data access. A dedicated public API is much safer than opening internal endpoints — it lets us rate-limit, version, revoke, and monitor usage independently without touching internal APIs.
 **Implementation:**

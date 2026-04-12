@@ -158,7 +158,8 @@ def test_setup_exception_handlers_registers_handlers():
     setup_exception_handlers(mock_app)
 
     # Verify add_exception_handler was called for each exception type
-    assert mock_app.add_exception_handler.call_count == 5
+    # 5 core + 3 public API (InvalidAPIKeyError, APIKeyRevokedError, APIKeyRateLimitError)
+    assert mock_app.add_exception_handler.call_count == 8
 
     # Verify the exception types that were registered
     call_args_list = [call[0][0] for call in mock_app.add_exception_handler.call_args_list]
@@ -167,3 +168,13 @@ def test_setup_exception_handlers_registers_handlers():
     assert DomainValidationError in call_args_list
     assert InvalidCredentialsError in call_args_list
     assert AccountLockedError in call_args_list
+
+    from app.public_api.exceptions import (
+        APIKeyRateLimitError,
+        APIKeyRevokedError,
+        InvalidAPIKeyError,
+    )
+
+    assert InvalidAPIKeyError in call_args_list
+    assert APIKeyRevokedError in call_args_list
+    assert APIKeyRateLimitError in call_args_list

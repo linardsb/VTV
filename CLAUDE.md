@@ -112,6 +112,7 @@ VTV/
 │   ├── compliance/     # NeTEx/SIRI EU compliance exports (4 endpoints, XML generation, no DB tables)
 │   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion, Redis embedding cache, heading-aware semantic chunking, parent-child chunk hierarchy, search-time parent context expansion, heading-breadcrumb citations, one-shot rechunk migration script, synthetic QA pair generation for RAG eval, retrieval metrics computation with recall@k/MRR/completeness, RAG eval runner with LLM faithfulness judge, regression baselines with corpus checksum + CI gate)
 │   ├── memory/         # Agent memory storage (7 endpoints, pgvector similarity recall, 4 memory types, embed-on-store, duplicate detection, text-based recall, compaction, episodic-to-procedural promotion, fire-and-forget bridge auto-persists multi-tool agent episodes, memory recall injected as agent context before each run, LLM-based intent merging during compaction, daily background compaction+promotion tasks)
+│   ├── public_api/     # Public Developer API (6 endpoints: 3 key management + 3 read-only transit data, API key auth with SHA-256 hashing, per-key Redis rate limiting with tiered limits, fire-and-forget usage tracking via TimescaleDB hypertable)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)
 │   ├── fleet/          # Fleet device management (6 endpoints, Traccar GPS bridge, OBD-II telemetry)
@@ -159,7 +160,7 @@ LocTracker-inspired fleet management extension. Full plan: `docs/PLANNING/fleet-
 
 - **Pagination**: `PaginationParams` + `PaginatedResponse[T]` from `app.shared.schemas`
 - **Timestamps**: `TimestampMixin` + `utcnow()` from `app.shared.models`
-- **Errors**: `AppError` hierarchy (`NotFoundError` → 404, `DomainValidationError` → 422) in `app.core.exceptions`
+- **Errors**: `AppError` hierarchy (`NotFoundError` → 404, `DomainValidationError` → 422, `InvalidAPIKeyError` → 401, `APIKeyRateLimitError` → 429) in `app.core.exceptions` + `app.public_api.exceptions`
 - **SQL Escaping**: `escape_like()` from `app.shared.utils`
 - **Geospatial**: `haversine_distance()` from `app.shared.geo` — used by agent transit tools for in-memory GTFS cache proximity filtering
 

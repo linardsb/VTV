@@ -60,13 +60,14 @@ async def create_api_key(
         name=body.name,
         owner_user_id=current_user.id,
     )
+    resp_data = APIKeyResponse.model_validate(api_key)
     return APIKeyCreateResponse(
-        id=api_key.id,
-        name=api_key.name,
+        id=resp_data.id,
+        name=resp_data.name,
         key=raw_key,
-        key_preview=api_key.key_preview,
-        tier=api_key.tier,  # pyright: ignore[reportArgumentType]
-        created_at=api_key.created_at,  # pyright: ignore[reportArgumentType]
+        key_preview=resp_data.key_preview,
+        tier=resp_data.tier,
+        created_at=resp_data.created_at,
     )
 
 
