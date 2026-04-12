@@ -39,7 +39,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (1945 tests, ~45s)
+make test            # Unit tests (1969 tests, ~75s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -94,6 +94,9 @@ make rag-eval-run QA_FILE=...      # Run RAG eval on existing QA pairs (AI-11.3)
 make rag-eval COUNT=100            # Generate QA pairs + run RAG eval (AI-11.1 + AI-11.3)
 make rag-eval-update-baseline REPORT=...  # Update RAG regression baseline from eval report (AI-11.4)
 make rag-eval-check REPORT=...     # Check for RAG regressions against baseline — CI gate (AI-11.4)
+
+# Ops
+make validate-alerts         # Validate Prometheus alert rules YAML structure
 ```
 
 ## Architecture
@@ -126,6 +129,7 @@ VTV/
 │   ├── vehicles/       # Vehicle management (8 endpoints, fleet CRUD, maintenance, driver assignment)
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
+├── ops/               # Operational config (Prometheus alert rules)
 ├── .claude/rules/     # Path-scoped rules (backend, frontend, security, testing)
 ├── .claude/commands/   # 25 slash commands + _shared/ deduplication
 ├── typings/            # Custom type stubs (google.transit.gtfs_realtime_pb2 protobuf stubs)
@@ -206,6 +210,7 @@ Operational runbooks for on-call incident response and production maintenance. S
 - **Credential rotation:** `docs/runbooks/credential-rotation.md` — step-by-step procedures for rotating all 15 secrets (JWT, DB, Redis, API keys, SSH, SSL). Each secret: location, rotation command, downtime impact, verification, rollback.
 - **Prometheus metrics (OPS-2.1):** `/metrics` endpoint via `prometheus-client` ASGI app. Metrics: HTTP request latency histogram (`vtv_http_request_duration_seconds`), DB pool gauges, Redis cache hit/miss/invalidation counters, agent tool duration histogram, circuit breaker state gauge, background poller liveness gauges. Access via nginx IP allowlist (no JWT). Feature flag: `metrics_enabled`. Definitions in `app/core/metrics.py`, middleware in `app/core/metrics_middleware.py`.
 - **Deep health probes (OPS-2.2):** `GET /health/deep` admin-only endpoint runs 6 dependency probes concurrently (postgres, redis, reranker, pollers, gtfs_rt_feeds, llm_providers) and returns structured `HealthReport` with per-probe status/latency. Critical probes (postgres, redis) failing = 503; non-critical failing = "degraded" in response body. TTL-cached (`health_deep_cache_ttl_seconds`, default 5s). `GET /health/ready` upgraded to parallel probes via `asyncio.gather`. All in `app/core/health.py`. 26 tests.
+- **SLO definitions + alerts (OPS-2.3):** `docs/slos.md` defines SLO targets (p95 < 500ms, p99 < 2s, error rate < 1%, DB pool < 80%, circuit breaker closed, poller liveness < 4x interval). `ops/prometheus/alerts.yml` has 7 Prometheus alert rules across 5 groups. 5 runbooks in `docs/runbooks/` (high-latency, high-error-rate, circuit-breaker-open, poller-stale, db-pool-exhaustion). `make validate-alerts` for YAML validation. 24 convention tests in `app/tests/test_ops_conventions.py`.
 - **Architecture decisions:** `docs/adr/README.md` — 4 ADRs documenting non-obvious choices (VSA, Pydantic AI, Redis cache, slowapi rate limiting). Nygard template: status, context, decision, consequences.
 - **Graceful shutdown (OPS-3.1):** `ShutdownCoordinator` in `app/core/shutdown.py` replaces ad-hoc sequential cancel loop in lifespan. Registers 12 tasks (8 background + 4 singletons) with per-task drain timeouts, drains in LIFO order, logs structured `shutdown.report`. Gunicorn `--graceful-timeout` bumped to 45s (36s worst-case budget + 9s safety margin). 10 tests.
 - **Durable job queue (OPS-3.2):** Arq-based Redis job queue in `app/core/jobs/`. Feature-flagged via `background_queue_enabled` (default `false`). When enabled, memory compaction (every 6h) and promotion (daily 03:00 UTC) run as durable arq cron jobs instead of bare `asyncio.create_task()`. `GET /admin/jobs/status` (admin-only, rate-limited) returns per-job last run, result, failure count. Docker worker service: `docker compose --profile worker up vtv-worker`. 19 tests.

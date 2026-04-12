@@ -1,0 +1,90 @@
+# VTV Prometheus Alert Rules (OPS-2.3)
+#
+# These rules reference metrics from OPS-2.1 (app/core/metrics.py).
+# Load via Prometheus rule_files config directive.
+# Validate with: promtool check rules alerts.yml
+
+groups:
+  - name: vtv_latency
+    rules:
+      - alert: VTVHighLatencyP95
+        expr: histogram_quantile(0.95, rate(vtv_http_request_duration_seconds_bucket[10m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API p95 latency exceeds 500ms"
+          description: "p95 latency is {{ $value | humanizeDuration }} (SLO target: 500ms). Check slow queries, Redis connectivity, and external API calls."
+          runbook_url: "docs/runbooks/high-latency.md"
+
+      - alert: VTVHighLatencyP99
+        expr: histogram_quantile(0.99, rate(vtv_http_request_duration_seconds_bucket[10m])) > 2
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API p99 latency exceeds 2s"
+          description: "p99 latency is {{ $value | humanizeDuration }} (SLO target: 2s). Likely a downstream dependency is degraded."
+          runbook_url: "docs/runbooks/high-latency.md"
+
+  - name: vtv_errors
+    rules:
+      - alert: VTVHighErrorRate
+        expr: >
+          sum(rate(vtv_http_request_duration_seconds_count{status=~"5.."}[5m]))
+          /
+          sum(rate(vtv_http_request_duration_seconds_count[5m]))
+          > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 5xx error rate exceeds 1%"
+          description: "5xx error rate is {{ $value | humanizePercentage }} (SLO target: <1%). Check application logs, recent deploys, and database health."
+          runbook_url: "docs/runbooks/high-error-rate.md"
+
+  - name: vtv_infrastructure
+    rules:
+      - alert: VTVDBPoolExhaustion
+        expr: (vtv_db_pool_checked_out + vtv_db_pool_overflow) / 8 > 0.8
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection pool >80% utilized"
+          description: "DB pool utilization is {{ $value | humanizePercentage }} (pool_size=3, max_overflow=5, total=8). Check for slow queries or connection leaks."
+          runbook_url: "docs/runbooks/db-pool-exhaustion.md"
+
+      - alert: VTVCircuitBreakerOpen
+        expr: vtv_circuit_breaker_state > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Circuit breaker open for {{ $labels.provider }}"
+          description: "Circuit breaker for provider '{{ $labels.provider }}' is in state {{ $value }} (0=closed, 1=half_open, 2=open). LLM functionality is degraded."
+          runbook_url: "docs/runbooks/circuit-breaker-open.md"
+
+  - name: vtv_pollers
+    rules:
+      - alert: VTVPollerStale
+        expr: time() - vtv_poller_last_tick_seconds > 240
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Background poller '{{ $labels.poller_name }}' is stale"
+          description: "Poller '{{ $labels.poller_name }}' last ticked {{ $value | humanizeDuration }} ago (threshold: 240s). Check task logs and Redis connectivity."
+          runbook_url: "docs/runbooks/poller-stale.md"
+
+  - name: vtv_agent_tools
+    rules:
+      - alert: VTVAgentToolSlow
+        expr: histogram_quantile(0.95, rate(vtv_agent_tool_duration_seconds_bucket[10m])) > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent tool p95 latency exceeds 10s"
+          description: "Agent tool '{{ $labels.tool_name }}' p95 latency is {{ $value | humanizeDuration }}. Check downstream API performance."
+          runbook_url: "docs/runbooks/high-latency.md"

@@ -165,6 +165,12 @@ rag-eval-update-baseline: ## Update RAG eval baseline from latest report (usage:
 rag-eval-check: ## Run RAG eval regression check against baseline (CI gate)
 	uv run python -m app.knowledge.evals.regression check --report $(or $(REPORT),$(shell ls -t evals/rag/eval_report_*.json 2>/dev/null | head -1)) --qa-file $(or $(QA_FILE),evals/rag/qa_pairs.jsonl)
 
+# === Ops ===
+
+validate-alerts: ## Validate Prometheus alert rules YAML structure
+	@uv run python -c "import yaml, sys; rules = yaml.safe_load(open('ops/prometheus/alerts.yml')); assert 'groups' in rules, 'Missing groups key'; print(f'{sum(len(g[\"rules\"]) for g in rules[\"groups\"])} alert rules validated')"
+	@echo "Note: Install promtool for full validation: promtool check rules ops/prometheus/alerts.yml"
+
 # === Security ===
 
 install-hooks: ## Install git pre-commit hooks (pre-commit framework + legacy script)

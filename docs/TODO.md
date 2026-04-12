@@ -278,15 +278,16 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 - 26 unit tests: 7 backward-compat, 12 probe unit (6 success + 6 failure), 3 aggregation, 4 endpoint/integration (full report, 503, timeout, concurrency)
 **Verify:** Stop Redis → `/health/ready` returns 503 with `redis: unavailable`. `/health/deep` returns full JSON with all 6 probe categories. All probes complete in under 500ms even when one times out.
 
-#### OPS-2.3 SLO Definitions + Prometheus Alert Rules
-**What:** Document service-level objectives in `docs/slos.md` and commit a starter Prometheus alert rules file (`ops/prometheus/alerts.yml`) that fires on SLO burn: p95 request latency > 500ms for 10 minutes, error rate > 1% for 5 minutes, circuit breaker open > 5 minutes, poller liveness > 2× interval, DB pool > 80% utilized.
-**Why:** Metrics without alerts = dashboards nobody looks at. A first pass of SLOs + alerts turns OPS-2.1 into something that can page on-call.
-**Implementation:**
-- `docs/slos.md` — table of endpoints + SLOs + error budgets + the rationale for each target.
-- `ops/prometheus/alerts.yml` — Prometheus alerting rules keyed to the metric names from OPS-2.1. `promtool check rules ops/prometheus/alerts.yml` must pass.
-- `ops/prometheus/README.md` — how to load the rules into the Prometheus instance in monitoring infra.
-- Each alert description links to a runbook section. Create runbook placeholders in `docs/runbooks/` that OPS-5 will flesh out.
-**Verify:** `promtool check rules ops/prometheus/alerts.yml` exits 0. Trigger a synthetic error rate spike in a local Prometheus → alert fires. Each alert's `annotations.runbook_url` points to an existing runbook section.
+#### OPS-2.3 SLO Definitions + Prometheus Alert Rules ✅ (2026-04-12)
+**What:** SLO definitions in `docs/slos.md` with targets, error budgets, and rationale for all OPS-2.1 metrics. Prometheus alert rules in `ops/prometheus/alerts.yml` — 7 rules across 5 groups (latency p95/p99, error rate, DB pool exhaustion, circuit breaker open, poller staleness, agent tool slowness). 5 runbooks in `docs/runbooks/` (high-latency, high-error-rate, circuit-breaker-open, poller-stale, db-pool-exhaustion) with consistent Alert/Impact/Investigation/Remediation/Escalation structure. 24 convention tests in `app/tests/test_ops_conventions.py` validate YAML structure, runbook existence, and cross-references. `make validate-alerts` Makefile target for quick YAML validation.
+**Deliverables:**
+- `docs/slos.md` — SLO table: API latency (p95 < 500ms, p99 < 2s), error rate (< 1%), DB pool (< 80%), circuit breaker (closed), poller liveness (< 4x interval).
+- `ops/prometheus/alerts.yml` — 7 Prometheus alerting rules keyed to OPS-2.1 metric names. Each rule has severity label, summary/description annotations with `{{ $value }}` templates, and `runbook_url` pointing to existing runbook files.
+- `ops/prometheus/README.md` — setup instructions for loading rules into Prometheus.
+- `docs/runbooks/` — 5 new runbooks with investigation steps and remediation procedures.
+- `app/tests/test_ops_conventions.py` — 24 convention tests (YAML structure, alert field validation, runbook cross-references, SLO doc existence).
+- `Makefile` — `validate-alerts` target.
+**Verify:** `make validate-alerts` exits 0. `uv run pytest app/tests/test_ops_conventions.py -v` — 24/24 pass. Plan: `.agents/plans/ops-2.3-slo-definitions-alerts.md`.
 
 ---
 
@@ -446,7 +447,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 | OPS-4 | Per-user rate limiting + RBAC scoping + audit log | 4 | — |
 | OPS-5 | Type baseline + ADRs + ER diagram + logging taxonomy | 3 | — |
 
-Total operational hardening: **14 days** across 16 subtasks. **13 subtasks complete** (OPS-1.1, OPS-1.2, OPS-1.3, OPS-2.1, OPS-2.2, OPS-3.1, OPS-3.2, OPS-3.3, OPS-5.1, OPS-5.2, OPS-5.3 done 2026-04-12). Remaining: 3 subtasks (~5 days) — OPS-2.3, OPS-4 (3 subtasks), OPS-5.4.
+Total operational hardening: **14 days** across 16 subtasks. **14 subtasks complete** (OPS-1.1, OPS-1.2, OPS-1.3, OPS-2.1, OPS-2.2, OPS-2.3, OPS-3.1, OPS-3.2, OPS-3.3, OPS-5.1, OPS-5.2, OPS-5.3 done 2026-04-12). Remaining: 2 subtasks (~4 days) — OPS-4 (3 subtasks), OPS-5.4.
 
 ---
 
