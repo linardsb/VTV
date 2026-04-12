@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence ██████████████████░░░░░  93%  (Phases AI-1 through AI-7 complete — see docs/TODO-archive.md. AI-8 complete: AI-8.1 circuit-breaker primitive + AI-8.2 per-provider health metrics + AI-8.3 provider chain integration with degraded fallback. AI-9 complete: AI-9.1 expanded injection detection + AI-9.2 blocking mode + AI-9.3 output exfiltration validation. Next up: AI-10 citation breadcrumbs, AI-11 RAG eval pipeline.)
+Agent Intelligence ██████████████████░░░░░  95%  (Phases AI-1 through AI-7 complete — see docs/TODO-archive.md. AI-8 complete: AI-8.1 circuit-breaker primitive + AI-8.2 per-provider health metrics + AI-8.3 provider chain integration with degraded fallback. AI-9 complete: AI-9.1 expanded injection detection + AI-9.2 blocking mode + AI-9.3 output exfiltration validation. AI-10.1 done: heading-breadcrumb citations. Next up: AI-10.2 citation regression tests, AI-11 RAG eval pipeline.)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -107,19 +107,8 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 > **Sprint deliverable:** Agent responses cite chunks by heading breadcrumb + section ("Emergency Procedures > Route Deviation") instead of generic "chunk 5". Dispatchers can locate source material in 2 clicks instead of scrolling.
 > **Depends on:** AI-4.2 (heading_path column already populated on chunks)
 
-#### AI-10.1 Render Heading Breadcrumbs in Agent Responses
-**What:** Update `search_knowledge` tool formatter and knowledge agent system prompt so that every citation uses the chunk's `heading_path` as the visible anchor, falling back to document title only when heading_path is null (legacy chunks).
-**Why:** AI-4.2 populated `heading_path` on every new chunk, but AI-4.3 only used it as internal context for parent expansion — dispatchers still see `[Document Title](/lv/documents/42)` with no section anchor. This phase wires the breadcrumb through to the user-visible citation.
-**Implementation:**
-- `app/core/agents/tools/knowledge/search_knowledge.py`:
-  - Rewrite citation formatter: when `heading_path` present, render as `[Document Title — Emergency Procedures > Route Deviation](/lv/documents/42#section-route-deviation)`
-  - When null (pre-AI-4.2 chunks), fall back to current format: `[Document Title](/lv/documents/42)`
-  - Anchor slug derivation: `heading_path.split(" > ")[-1]` → lowercase → kebab-case → URL-safe
-- `app/core/agents/agents/knowledge.py` — update `KNOWLEDGE_SYSTEM_PROMPT` citation instructions to require the section breadcrumb when available, show an explicit example
-- `cms/apps/web/src/app/[locale]/documents/[id]/page.tsx` — add `id` attribute on rendered section headings so `#section-foo` anchors actually scroll (frontend-side piece; small diff, may be split into its own FE task)
-- 8+ unit tests: citation with heading_path (2), fallback when null (1), slug generation including LV diacritics (2), multi-level breadcrumb truncation (1), anchor format round-trip (1), empty heading_path treated as null (1)
-
-**Verify:** Query "procedure for bus breakdown". Agent response cites `[Driver SOP — Emergency Procedures > Route Deviation](/lv/documents/42#route-deviation)`. Click-through lands on the exact section (assuming FE anchor lands). Pre-AI-4.2 chunks still cite correctly without a breadcrumb.
+#### ✅ AI-10.1 Render Heading Breadcrumbs in Agent Responses (done 2026-04-12)
+**Implemented:** Heading-breadcrumb citations wired through the knowledge search tool and both agent system prompts. `_heading_to_slug()` handles Latvian diacritics via NFKD decomposition. `_build_citation_anchor()` formats `"doc-title - Section > Subsection"`. Two new fields on `KnowledgeSearchResult`: `citation_anchor` (pre-formatted link text) and `url_fragment` (URL-safe anchor slug from last heading segment). Bug fix: `heading_path` was not propagated from `DocumentChunk` to `SearchResult` in `service.py` — now set on every result (parent-context expansion still overwrites when parent exists). Both `KNOWLEDGE_SYSTEM_PROMPT` and unified `SYSTEM_PROMPT` updated with breadcrumb-aware citation format and examples. Legacy chunks (null `heading_path`) fall back to filename-only citation. Frontend anchor landing (`#section-foo` scroll) deferred to a separate FE task. 11 new tests (3 slug generation incl. Latvian diacritics, 4 citation anchor builder, 3 full-flow integration, 1 prompt content assertion). Plan: `.agents/plans/ai-10.1-heading-breadcrumb-citations.md`.
 
 #### AI-10.2 Agent-Side Citation Format Regression Test
 **What:** Add synthetic eval cases to AI-7.1's suite that specifically assert citation format quality — breadcrumb present, anchor valid, document id matches source.
@@ -220,10 +209,10 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 |-------|-------|------|------------|
 | AI-8  | Circuit breaker + provider health | 3 | — |
 | AI-9  | Prompt injection hardening | 3 | AI-9.1/9.2/9.3 done (2026-04-12) |
-| AI-10 | Heading-breadcrumb citations | 2 | AI-4.2, AI-7.1 |
+| AI-10 | Heading-breadcrumb citations | 2 | AI-4.2, AI-7.1 | AI-10.1 done (2026-04-12) |
 | AI-11 | RAG retrieval eval pipeline | 4 | AI-4, AI-7 |
 
-Total remaining agent hardening: **12 days** across 14 subtasks. AI-8 and AI-9 are independent and can run in parallel. AI-10 is a small unblock after AI-4.2 + AI-7.1 (both done). AI-11 is the largest chunk and should run after AI-7 is fully green to reuse its eval infrastructure patterns.
+Total remaining agent hardening: **5 days** across 2 subtasks. AI-8, AI-9 complete. AI-10.1 done; AI-10.2 (citation regression tests, 1 day) ready to start. AI-11 (RAG eval pipeline, 4 days) should run after AI-7 is fully green to reuse its eval infrastructure patterns.
 
 ---
 

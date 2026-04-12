@@ -690,6 +690,7 @@ class KnowledgeService:
                     score=rr.score,
                     metadata_json=chunk.metadata_json,
                     document_created_at=d_created,
+                    heading_path=chunk.heading_path,
                 )
             )
 

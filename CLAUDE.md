@@ -84,7 +84,7 @@ VTV/
 │   ├── analytics/      # Dashboard analytics (4 endpoints, read-only aggregation over vehicles/drivers/transit)
 │   ├── auth/           # JWT auth + RBAC + user management (10 endpoints)
 │   ├── compliance/     # NeTEx/SIRI EU compliance exports (4 endpoints, XML generation, no DB tables)
-│   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion, Redis embedding cache, heading-aware semantic chunking, parent-child chunk hierarchy, search-time parent context expansion, one-shot rechunk migration script)
+│   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion, Redis embedding cache, heading-aware semantic chunking, parent-child chunk hierarchy, search-time parent context expansion, heading-breadcrumb citations, one-shot rechunk migration script)
 │   ├── memory/         # Agent memory storage (7 endpoints, pgvector similarity recall, 4 memory types, embed-on-store, duplicate detection, text-based recall, compaction, episodic-to-procedural promotion, fire-and-forget bridge auto-persists multi-tool agent episodes, memory recall injected as agent context before each run, LLM-based intent merging during compaction, daily background compaction+promotion tasks)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)

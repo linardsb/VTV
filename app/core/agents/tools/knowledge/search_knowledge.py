@@ -7,7 +7,9 @@ emails, images, text) using hybrid vector + fulltext search with reranking.
 from __future__ import annotations
 
 import json
+import re
 import time
+import unicodedata
 from datetime import datetime
 
 from pydantic_ai import RunContext
@@ -26,6 +28,29 @@ logger = get_logger(__name__)
 
 _MAX_CONTENT_CHARS = 1500
 _MAX_PARENT_CHARS = 3000
+
+
+def _heading_to_slug(heading: str) -> str:
+    """Convert a heading to a URL-safe anchor slug.
+
+    Handles Latvian diacritics by stripping combining marks after NFKD
+    decomposition, then kebab-casing.
+    """
+    nfkd = unicodedata.normalize("NFKD", heading)
+    ascii_text = "".join(c for c in nfkd if not unicodedata.combining(c))
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
+    return slug
+
+
+def _build_citation_anchor(source: str, heading_path: str | None) -> str | None:
+    """Build pre-formatted citation anchor from source filename + heading breadcrumb.
+
+    Returns None when heading_path is absent or empty (legacy chunks).
+    """
+    if not heading_path:
+        return None
+    title = re.sub(r"\.[^.]+$", "", source)
+    return f"{title} - {heading_path}"
 
 
 async def search_knowledge_base(
@@ -144,6 +169,11 @@ async def search_knowledge_base(
                 )
             else:
                 formatted_content = child_content
+            anchor = _build_citation_anchor(r.document_filename, r.heading_path)
+            url_fragment: str | None = None
+            if r.heading_path:
+                last_heading = r.heading_path.rsplit(" > ", 1)[-1]
+                url_fragment = _heading_to_slug(last_heading)
             results.append(
                 KnowledgeSearchResult(
                     document_id=r.document_id,
@@ -154,6 +184,8 @@ async def search_knowledge_base(
                     page_or_section=f"chunk {r.chunk_index}",
                     parent_content=r.parent_content,
                     heading_path=r.heading_path,
+                    citation_anchor=anchor,
+                    url_fragment=url_fragment,
                 )
             )
 
