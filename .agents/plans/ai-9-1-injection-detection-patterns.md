@@ -1,6 +1,6 @@
 # Plan: AI-9.1 Expanded Detection Patterns + Confidence Scoring
 
-> **Implementation note (2026-04-12):** Russian (RU) language support was removed during implementation. Only EN and LV are supported. Future phases (AI-9.2+) that reference RU patterns must be updated to exclude them.
+> **Implementation note (2026-04-12):** Russian (RU) language support added. EN, LV, and RU (Cyrillic + transliterated) patterns are all supported. Cyrillic patterns search original text; Latin patterns search homoglyph-normalized text.
 
 ## Context
 

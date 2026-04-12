@@ -5,14 +5,14 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const lexend = Lexend({
-  subsets: ["latin", "latin-ext"],
+  subsets: ["latin", "latin-ext", "cyrillic"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
   variable: "--font-lexend",
 });
 
 const sourceSans3 = Source_Sans_3({
-  subsets: ["latin", "latin-ext"],
+  subsets: ["latin", "latin-ext", "cyrillic"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
   variable: "--font-source-sans-3",
@@ -26,6 +26,7 @@ export const metadata: Metadata = {
 const skipLinkText: Record<string, string> = {
   lv: "Pāriet uz saturu",
   en: "Skip to content",
+  ru: "Перейти к содержанию",
 };
 
 export default async function RootLayout({

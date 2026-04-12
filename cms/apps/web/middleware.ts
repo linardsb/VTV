@@ -16,7 +16,7 @@ export default auth((req) => {
   // Not authenticated — redirect to login (preserving user's locale)
   if (!role) {
     const locale = pathname.split("/")[1] || "lv";
-    const validLocale = ["lv", "en"].includes(locale) ? locale : "lv";
+    const validLocale = ["lv", "en", "ru"].includes(locale) ? locale : "lv";
     return NextResponse.redirect(new URL(`/${validLocale}/login`, req.url));
   }
 
@@ -31,5 +31,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/(lv|en)/(routes|stops|schedules|drivers|vehicles|fleet|geofences|analytics|gtfs|users|chat|documents)/:path*"],
+  matcher: ["/(lv|en|ru)/(routes|stops|schedules|drivers|vehicles|fleet|geofences|analytics|gtfs|users|chat|documents)/:path*"],
 };

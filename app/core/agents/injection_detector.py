@@ -3,7 +3,7 @@
 Detects injection attempts across 6 categories: instruction override, role hijack,
 system prompt extraction, delimiter escape, tool misuse, and encoding attacks.
 Each match produces an ``InjectionSignal`` with a confidence score (0.0-1.0).
-Multi-language support: EN and LV.
+Multi-language support: EN, LV, and RU (Cyrillic + transliterated).
 
 Log-only by default - does not block. AI-9.2 will add blocking mode.
 """
@@ -140,6 +140,34 @@ PATTERN_CATALOG: tuple[_Pattern, ...] = (
         0.90,
         "override",
     ),
+    _p(
+        "OVR-08",
+        "override_ru_cyrillic",
+        r"игнорир(?:уйте|уй)\s+(?:(?:все|предыдущие|прежние)\s+)*(?:инструкции|правила|указания)",
+        0.95,
+        "override",
+    ),
+    _p(
+        "OVR-09",
+        "override_ru_translit",
+        r"(?:ignoriruyte|ignoriruj|zabudj)\s+(?:(?:vse|predydushchie|ranee)\s+)*(?:instrukcii|pravila|ukazaniya)",
+        0.95,
+        "override",
+    ),
+    _p(
+        "OVR-10",
+        "new_instructions_ru_cyrillic",
+        r"новые\s+инструкции",
+        0.90,
+        "override",
+    ),
+    _p(
+        "OVR-11",
+        "new_instructions_ru_translit",
+        r"novye\s+instrukcii",
+        0.90,
+        "override",
+    ),
     # --- ROLE_HIJACK: persona/role override ---
     _p("ROL-01", "you_are_now_en", r"you\s+are\s+now\s+(?:a|an)\s+", 0.65, "role_hijack"),
     _p(
@@ -158,6 +186,20 @@ PATTERN_CATALOG: tuple[_Pattern, ...] = (
         "role_hijack",
     ),
     _p("ROL-05", "roleplay_en", r"(?:roleplay|role-play)\s+as\s+", 0.60, "role_hijack"),
+    _p(
+        "ROL-06",
+        "you_are_now_ru_cyrillic",
+        r"(?:ты\s+теперь|вы\s+теперь)\s+",
+        0.65,
+        "role_hijack",
+    ),
+    _p(
+        "ROL-07",
+        "pretend_ru_cyrillic",
+        r"(?:притворись|притворитесь|представь(?:\s+себя)?)\s+",
+        0.65,
+        "role_hijack",
+    ),
     # --- EXTRACTION: system prompt extraction ---
     _p(
         "EXT-01",
@@ -185,6 +227,13 @@ PATTERN_CATALOG: tuple[_Pattern, ...] = (
         "begin_with_en",
         r"(?:begin|start)\s+(?:your\s+)?(?:response|answer|reply)\s+with\s+(?:your\s+)?(?:system|original)\s+(?:prompt|instructions)",
         0.90,
+        "extraction",
+    ),
+    _p(
+        "EXT-05",
+        "show_instructions_ru_cyrillic",
+        r"(?:покажи|покажите|выведи|выведите|повтори|повторите)\s+(?:(?:свои|твои|системные)\s+)*(?:инструкции|правила|промпт|указания)",
+        0.95,
         "extraction",
     ),
     # --- DELIMITER_ESCAPE: markup/delimiter injection ---
@@ -294,10 +343,12 @@ class InjectionDetector:
 
         normalized = _normalize_text(text)
         signals: list[InjectionSignal] = []
+        seen_pattern_ids: set[str] = set()
 
         for pat in self._patterns:
-            match = pat.regex.search(normalized)
-            if match:
+            match = pat.regex.search(normalized) or pat.regex.search(text)
+            if match and pat.id not in seen_pattern_ids:
+                seen_pattern_ids.add(pat.id)
                 signals.append(
                     InjectionSignal(
                         pattern_id=pat.id,
