@@ -292,6 +292,10 @@ class Settings(BaseSettings):
     eval_judge_enabled: bool = True
     eval_baseline_tolerance_pct: float = 3.0
 
+    # Prompt injection detection (AI-9.1)
+    prompt_injection_block_threshold: float = 0.85
+    prompt_injection_warn_threshold: float = 0.5
+
     # Circuit breaker (AI-8.1) — LLM provider fast-fail
     circuit_breaker_enabled: bool = True
     circuit_breaker_failure_threshold: int = 5

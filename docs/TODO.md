@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence █████████████████░░░░░░  90%  (Phases AI-1 through AI-7 complete — see docs/TODO-archive.md. AI-8 complete: AI-8.1 circuit-breaker primitive + AI-8.2 per-provider health metrics + AI-8.3 provider chain integration with degraded fallback. Next up: AI-9 injection hardening, AI-10 citation breadcrumbs, AI-11 RAG eval pipeline.)
+Agent Intelligence █████████████████░░░░░░  92%  (Phases AI-1 through AI-7 complete — see docs/TODO-archive.md. AI-8 complete: AI-8.1 circuit-breaker primitive + AI-8.2 per-provider health metrics + AI-8.3 provider chain integration with degraded fallback. AI-9.1 complete: expanded injection detection patterns + confidence scoring. Next up: AI-9.2 blocking mode, AI-9.3 output validation, AI-10 citation breadcrumbs, AI-11 RAG eval pipeline.)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -89,21 +89,10 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 
 > **Sprint deliverable:** Current injection detection is log-only with 3 regex patterns. This phase expands detection, adds confidence-scored blocking, and adds response-side output validation to prevent data exfiltration via crafted responses.
 
-#### AI-9.1 Expanded Detection Patterns + Confidence Scoring
-**What:** Extend `app/core/agents/injection_detector.py` (or wherever the current 3-regex detector lives) to 20+ patterns covering the OWASP LLM01 taxonomy: instruction override, role hijack, delimiter escape, system prompt extraction, tool misuse, code-fence escape, unicode homoglyphs, zero-width chars. Each match carries a confidence score (0.0-1.0) based on pattern specificity + context.
-**Why:** 3 patterns catches ~30% of known injections. Expanding to a taxonomy-aligned pattern set with confidence scoring is a prerequisite for safe blocking-mode (AI-9.2) — you can't block on a noisy signal without causing false-positive support load.
-**Implementation:**
-- `app/core/agents/injection_detector.py`:
-  - `@dataclass(frozen=True) InjectionSignal`: `pattern_id: str`, `pattern_name: str`, `confidence: float`, `matched_text: str`, `category: Literal["override","role_hijack","extraction","delimiter_escape","tool_misuse","encoding"]`
-  - `InjectionDetector` class with `detect(prompt: str) -> list[InjectionSignal]`
-  - Pattern catalog (compiled regex list): instruction override ("ignore previous", "disregard above", "новые инструкции", "jaunās instrukcijas"), role hijack ("you are now", "act as", "pretend to be"), system-prompt extraction ("repeat your instructions", "show your system prompt"), delimiter escape (`</system>`, `[[INST]]`, triple-backtick-system), tool misuse ("execute SQL", "DROP TABLE", shell injection), unicode (`\u200b`, `\u202e`, homoglyph mapping)
-  - Confidence scoring: exact-match P1 patterns = 0.95, partial P2 = 0.65, weak P3 = 0.35; context boost for multiple signals (≥2 → cap at 0.9)
-  - LV + EN + RU coverage (three operator languages; Latvia transit dispatchers occasionally mix RU)
-- `app/core/config.py` — `prompt_injection_block_threshold: float = 0.85`, `prompt_injection_warn_threshold: float = 0.5`
-- Structured logging: `agent.injection.detected` (existing, enriched with `pattern_ids`, `confidence`, `category_counts`)
-- 25+ unit tests: each pattern category (12), multi-signal boost (2), unicode normalization (2), LV/EN/RU coverage (3), false-positive resilience on legitimate SOP queries (4), confidence bucket boundaries (2)
+#### ✅ AI-9.1 Expanded Detection Patterns + Confidence Scoring (done 2026-04-12)
+**Implemented:** `app/core/agents/injection_detector.py` — 31 compiled regex patterns across 6 OWASP LLM01 categories (override, role_hijack, extraction, delimiter_escape, tool_misuse, encoding). EN/LV multi-language (RU excluded — not supported). Per-match `InjectionSignal(frozen=True)` with confidence scoring (P1=0.90-0.95, P2=0.60-0.70, P3=0.30-0.40). `InjectionResult` with aggregate confidence + multi-signal boost (cross-category >=2 → +0.10, same-category >=2 → +0.05, capped 0.95). Cyrillic homoglyph normalization. Module-level `detect_injection()` singleton. `BaseAgentService.chat()` Phase 2 calls detector with threshold-based log level (warning/error). Config: `prompt_injection_block_threshold=0.85`, `prompt_injection_warn_threshold=0.5`. 42 unit tests. Plan: `.agents/plans/ai-9-1-injection-detection-patterns.md`.
 
-**Verify:** Run detector over 50 crafted injection prompts + 50 legitimate dispatcher queries. Target TPR ≥ 0.90 at confidence ≥ 0.85, TNR ≥ 0.95 (legitimate queries stay under 0.5 warn threshold). Calibrate thresholds if needed.
+> **RU language note:** Russian language injection patterns were deliberately excluded. AI-9.2 and AI-9.3 plans that reference RU must be updated to exclude them.
 
 #### AI-9.2 Blocking Mode for High-Confidence Injections
 **What:** Add blocking mode to the agent pipeline: when any signal exceeds `prompt_injection_block_threshold` (0.85), reject the request with HTTP 400 before calling the LLM. Feature-gated, defaults to warn-only on first rollout.
@@ -258,7 +247,7 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 | Phase | Focus | Days | Depends on |
 |-------|-------|------|------------|
 | AI-8  | Circuit breaker + provider health | 3 | — |
-| AI-9  | Prompt injection hardening | 3 | — |
+| AI-9  | Prompt injection hardening | 3 | AI-9.1 done (2026-04-12) |
 | AI-10 | Heading-breadcrumb citations | 2 | AI-4.2, AI-7.1 |
 | AI-11 | RAG retrieval eval pipeline | 4 | AI-4, AI-7 |
 

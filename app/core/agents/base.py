@@ -25,7 +25,6 @@ Hook points (override in subclasses):
 
 from __future__ import annotations
 
-import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -43,6 +42,7 @@ from app.core.agents.agent import build_instructions_with_skills
 from app.core.agents.agent_result import VALID_DOMAINS, AgentResult
 from app.core.agents.config import resolve_tier_model
 from app.core.agents.exceptions import AgentExecutionError
+from app.core.agents.injection_detector import detect_injection
 from app.core.agents.routing import ModelTier, classify_prompt
 from app.core.agents.schemas import (
     ChatCompletionChoice,
@@ -65,31 +65,6 @@ if TYPE_CHECKING:
     from pydantic_ai.models import Model
 
 logger = get_logger(__name__)
-
-
-# --- Prompt injection helpers (module-level to ease unit testing) -----------
-
-_INJECTION_PATTERNS = (
-    re.compile(r"ignore\s+(previous|all|above)\s+(instructions|prompts)", re.IGNORECASE),
-    re.compile(r"you\s+are\s+now\s+(?:a|an)\s+", re.IGNORECASE),
-    re.compile(r"<\s*system\s*>", re.IGNORECASE),
-)
-
-
-def _check_prompt_injection(text: str) -> None:
-    """Log a warning if common prompt injection patterns are detected.
-
-    Does not block the message — only logs for operator awareness. Blocking
-    legitimate messages is a worse outcome than logging false positives.
-    """
-    for pattern in _INJECTION_PATTERNS:
-        if pattern.search(text):
-            logger.warning(
-                "agent.prompt_injection_detected",
-                pattern=pattern.pattern,
-                prompt_length=len(text),
-            )
-            return
 
 
 def _build_message_history(messages: list[ChatMessage]) -> list[ModelMessage]:
@@ -208,7 +183,17 @@ class BaseAgentService:
         message_history = _build_message_history(prior_messages) if prior_messages else None
 
         # Phase 2: prompt injection check (log-only, does not block).
-        _check_prompt_injection(current_prompt)
+        injection_result = detect_injection(current_prompt)
+        if injection_result.detected:
+            settings = get_settings()
+            log_level = "warning"
+            if injection_result.aggregate_confidence >= settings.prompt_injection_block_threshold:
+                log_level = "error"
+            getattr(logger, log_level)(
+                "agent.injection.detected",
+                **injection_result.to_log_dict(),
+                prompt_length=len(current_prompt),
+            )
 
         # Phase 3: tier classification.
         tier, tier_model = self._get_model_tier(current_prompt)
@@ -601,5 +586,4 @@ __all__ = [
     "BaseAgentService",
     "_PipelineOutcome",
     "_build_message_history",
-    "_check_prompt_injection",
 ]
