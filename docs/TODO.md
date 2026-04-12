@@ -13,8 +13,8 @@ Planned features and improvements. Each item links to its detailed planning docu
 ```
 Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
 CMS Frontend      ███████████████████████░  99%  (17 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences)
-Testing           ████████████████████░░░░  90%  (1618 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
-Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
+Testing           ████████████████████░░░░  90%  (1620 unit tests, 108 security tests, 81 e2e tests, CI pipeline live with security gates)
+Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
@@ -214,19 +214,9 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 
 > **Sprint deliverable:** Pre-commit secrets scanning is installed in the local dev loop (not just CI), structured logs never leak credentials even when exceptions bubble through, and operators have a documented runbook for rotating every secret the platform holds.
 
-#### OPS-1.1 Commit `.pre-commit-config.yaml` at Repo Root
-**What:** Add `.pre-commit-config.yaml` at the repository root with hooks for ruff-format, ruff-check, mypy, detect-secrets, and trailing-whitespace/end-of-file fixes. Wire `pre-commit install` into a `make bootstrap` target so first-time contributors get hooks automatically on clone. `.pre-commit-config.yaml` does NOT exist today — verified via `ls`.
-**Why:** `make install-hooks` exists but is opt-in — a new contributor can ship code through lint that only fails in CI 10 minutes later, and detect-secrets never runs against the first commit. Enforcing hooks locally is a ~1 day, one-time investment that pays back on every PR.
-**Implementation:**
-- `.pre-commit-config.yaml` (new, at repo root):
-  - `ruff` (repo `astral-sh/ruff-pre-commit`) — `ruff-format` + `ruff-check --fix`
-  - `mypy` (local hook — runs `uv run mypy app/` to inherit the strict config already in `pyproject.toml`)
-  - `detect-secrets` (repo `Yelp/detect-secrets`) with `--baseline .secrets.baseline`; generate initial baseline via `detect-secrets scan > .secrets.baseline`
-  - `trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-added-large-files` from `pre-commit-hooks`
-- `Makefile` — add `make bootstrap` target running `uv sync --all-extras && pre-commit install && pre-commit install --hook-type commit-msg`. Keep the existing `install-hooks` target as an alias for back-compat.
-- `docs/CONTRIBUTING.md` — first step is `make bootstrap`. Document the detect-secrets allowlist workflow (`pre-commit run detect-secrets --all-files` to update baseline intentionally).
-- `.github/workflows/*.yml` — add `pre-commit run --all-files` as an early CI job so PRs fail fast if a contributor skipped local hooks.
-**Verify:** Fresh `git clone`, run `make bootstrap`, modify a file to add `GROQ_API_KEY="gsk_realkey"`, attempt to commit — detect-secrets blocks. Ruff violations are auto-fixed on commit. CI's `pre-commit run --all-files` passes on a clean tree.
+#### OPS-1.1 Commit `.pre-commit-config.yaml` at Repo Root ✅ (2026-04-12)
+**What:** Add `.pre-commit-config.yaml` at the repository root with hooks for ruff-format, ruff-check, mypy, detect-secrets, and trailing-whitespace/end-of-file fixes. Wire `pre-commit install` into a `make bootstrap` target so first-time contributors get hooks automatically on clone.
+**Delivered:** `.pre-commit-config.yaml` (5 hook sources: ruff-pre-commit v0.14.2, pre-commit-hooks v5.0.0, detect-secrets v1.5.0, mypy local pre-push, vtv-security local), `.secrets.baseline`, `docs/CONTRIBUTING.md`, `make bootstrap` + updated `make install-hooks`, CI `pre-commit run --all-files` step in `ci.yml`, 2 new security convention tests (`test_precommit_framework_config_exists`, `test_secrets_baseline_exists`). All 12 SDLC security gate tests pass. Plan: `.agents/plans/ops-1-1-pre-commit-config.md`.
 
 #### OPS-1.2 Structured-Log Secret Sanitization Filter
 **What:** Add a `structlog` processor that redacts known-sensitive field names (`api_key`, `token`, `authorization`, `password`, `groq_api_key`, `google_api_key`, `jina_api_key`, `sentry_dsn`, `jwt_secret_key`, `cookie`, `set-cookie`, `refresh_token`, `secret`) from every log event before JSON serialization, plus a redactor that scrubs `exc_info` stack frames for the same patterns.

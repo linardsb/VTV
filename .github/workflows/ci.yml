@@ -57,6 +57,10 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Pre-commit checks
+        run: |
+          uv run pre-commit run --all-files --show-diff-on-failure
+
       - name: Dependency audit
         run: uv run pip-audit --desc --ignore-vuln CVE-2025-69872 --ignore-vuln CVE-2024-23342
 

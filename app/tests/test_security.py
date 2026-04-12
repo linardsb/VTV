@@ -1363,6 +1363,22 @@ class TestSDLCSecurityGates:
         assert "AKIA" in content, "Pre-commit must detect AWS access keys"
         assert "PRIVATE KEY" in content, "Pre-commit must detect private key material"
 
+    def test_precommit_framework_config_exists(self) -> None:
+        """Pre-commit framework config must exist at repo root."""
+        from pathlib import Path
+
+        assert Path(".pre-commit-config.yaml").exists(), (
+            ".pre-commit-config.yaml missing - run: make bootstrap"
+        )
+
+    def test_secrets_baseline_exists(self) -> None:
+        """detect-secrets baseline must exist for pre-commit hook."""
+        from pathlib import Path
+
+        assert Path(".secrets.baseline").exists(), (
+            ".secrets.baseline missing - run: uv run detect-secrets scan > .secrets.baseline"
+        )
+
     def test_ci_has_security_audit_step(self) -> None:
         """CI pipeline must have a dedicated security audit step."""
         from pathlib import Path

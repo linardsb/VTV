@@ -55,7 +55,8 @@ make docker-logs     # Tail all service logs
 make docker-down     # Stop all services
 
 # Security
-make install-hooks        # Install git pre-commit hook (security lint + secrets detection)
+make bootstrap            # First-time setup: install deps + pre-commit hooks
+make install-hooks        # Install git pre-commit hooks (pre-commit framework)
 make security-check       # Run Ruff Bandit security rules standalone
 make security-audit-quick # Security audit (<10s) - Bandit, sensitive files, creds
 make security-audit       # Security audit (~60s) - quick + deps, types, convention tests
@@ -172,7 +173,7 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 
 ## Security
 
-Security enforced through 6 automated layers. Details in `.claude/rules/security.md` and `docs/sdlc-security-framework.md`.
+Security enforced through 6 automated layers. Pre-commit framework (`.pre-commit-config.yaml`) runs ruff, detect-secrets, and custom security checks on every commit; mypy on pre-push. Details in `.claude/rules/security.md` and `docs/sdlc-security-framework.md`.
 
 **Context-triggered security** — 6 security contexts (AUTH, RBAC, FILE, AGENT, INFRA, INPUT) in `.claude/commands/_shared/security-contexts.md` activate based on feature scope during planning and review. Derived from audit_6 findings. Referenced by `/be-planning`, `/fe-planning`, `/review`, `/fe-review`.
 

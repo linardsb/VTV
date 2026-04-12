@@ -1,4 +1,4 @@
-.PHONY: dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run
+.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run
 
 # === Local Development (terminals) ===
 
@@ -10,6 +10,12 @@ dev-be: ## Start backend dev server
 
 dev-fe: ## Start frontend dev server
 	cd cms && pnpm --filter @vtv/web dev
+
+bootstrap: ## First-time setup: install deps + pre-commit hooks
+	uv sync --all-extras
+	uv run pre-commit install
+	uv run pre-commit install --hook-type pre-push
+	@echo "Bootstrap complete. Pre-commit hooks installed."
 
 # === Docker — Local Dev ===
 
@@ -134,10 +140,10 @@ rag-eval-check: ## Run RAG eval regression check against baseline (CI gate)
 
 # === Security ===
 
-install-hooks: ## Install git pre-commit hook
-	cp scripts/pre-commit .git/hooks/pre-commit
-	chmod +x .git/hooks/pre-commit
-	@echo "Pre-commit hook installed."
+install-hooks: ## Install git pre-commit hooks (pre-commit framework + legacy script)
+	uv run pre-commit install
+	uv run pre-commit install --hook-type pre-push
+	@echo "Pre-commit hooks installed via pre-commit framework."
 
 security-check: ## Run security lint (Ruff Bandit rules)
 	uv run ruff check app/ --select=S --no-fix

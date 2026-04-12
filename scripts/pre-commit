@@ -22,7 +22,7 @@ fi
 
 # 2. Check for staged sensitive files
 SENSITIVE_PATTERNS='\.env$|\.pem$|\.key$|credentials\.|secrets\.'
-STAGED_SENSITIVE=$(git diff --cached --name-only --diff-filter=ACM | grep -E "$SENSITIVE_PATTERNS" || true)
+STAGED_SENSITIVE=$(git diff --cached --name-only --diff-filter=ACM | grep -E "$SENSITIVE_PATTERNS" | grep -v '\.secrets\.baseline$' || true)
 if [ -n "$STAGED_SENSITIVE" ]; then
     echo -e "${RED}BLOCKED: Sensitive files staged for commit:${NC}"
     echo "$STAGED_SENSITIVE"
