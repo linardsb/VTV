@@ -70,6 +70,9 @@ make db-revision m="description"   # Create new migration
 make rechunk-dry-run               # Preview re-chunking all documents (no DB writes)
 make rechunk                       # Re-chunk all documents with the current SemanticChunker (AI-4.4)
 
+# Schema documentation
+make er-diagram                    # Generate Mermaid ER diagram from SQLAlchemy models -> docs/schema/er.md
+
 # RAG retrieval eval
 make rag-eval-generate COUNT=100   # Generate synthetic QA pairs from knowledge base (AI-11.1)
 make rag-eval-run QA_FILE=...      # Run RAG eval on existing QA pairs (AI-11.3)
@@ -85,7 +88,7 @@ make rag-eval-check REPORT=...     # Check for RAG regressions against baseline 
 ```
 VTV/
 ├── app/                # Backend features (VSA: models, schemas, routes, service, tests per feature)
-│   ├── core/           # Infrastructure (config, database, logging, middleware, health, rate_limit, redis, metrics)
+│   ├── core/           # Infrastructure (config, database, logging, middleware, health + deep probes, rate_limit, redis, metrics)
 │   │   └── agents/     # AI agent module — 11 tools, see app/core/agents/CLAUDE.md
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── alerts/         # Notification/alerts system (11 endpoints, background evaluator, RBAC)
@@ -107,6 +110,7 @@ VTV/
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
 ├── .claude/rules/     # Path-scoped rules (backend, frontend, security, testing)
 ├── .claude/commands/   # 25 slash commands + _shared/ deduplication
+├── typings/            # Custom type stubs (google.transit.gtfs_realtime_pb2 protobuf stubs)
 ├── alembic/            # Database migrations
 └── pyproject.toml      # Dependencies, tooling config (ruff, mypy, pyright, pytest)
 ```
@@ -183,7 +187,9 @@ Operational runbooks for on-call incident response and production maintenance. S
 
 - **Credential rotation:** `docs/runbooks/credential-rotation.md` — step-by-step procedures for rotating all 15 secrets (JWT, DB, Redis, API keys, SSH, SSL). Each secret: location, rotation command, downtime impact, verification, rollback.
 - **Prometheus metrics (OPS-2.1):** `/metrics` endpoint via `prometheus-client` ASGI app. Metrics: HTTP request latency histogram (`vtv_http_request_duration_seconds`), DB pool gauges, Redis cache hit/miss counters, agent tool duration histogram, circuit breaker state gauge, background poller liveness gauges. Access via nginx IP allowlist (no JWT). Feature flag: `metrics_enabled`. Definitions in `app/core/metrics.py`, middleware in `app/core/metrics_middleware.py`.
+- **Deep health probes (OPS-2.2):** `GET /health/deep` admin-only endpoint runs 6 dependency probes concurrently (postgres, redis, reranker, pollers, gtfs_rt_feeds, llm_providers) and returns structured `HealthReport` with per-probe status/latency. Critical probes (postgres, redis) failing = 503; non-critical failing = "degraded" in response body. TTL-cached (`health_deep_cache_ttl_seconds`, default 5s). `GET /health/ready` upgraded to parallel probes via `asyncio.gather`. All in `app/core/health.py`. 26 tests.
 - **Architecture decisions:** `docs/adr/README.md` — 4 ADRs documenting non-obvious choices (VSA, Pydantic AI, Redis cache, slowapi rate limiting). Nygard template: status, context, decision, consequences.
+- **ER diagram (OPS-5.3):** `docs/schema/er.md` — Mermaid ER diagram auto-generated from SQLAlchemy models via `make er-diagram`. 24 tables with FK relationships. Re-run after migrations.
 
 ## Compact instructions
 

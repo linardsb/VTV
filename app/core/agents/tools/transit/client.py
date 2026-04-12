@@ -1,6 +1,3 @@
-# pyright: reportUnknownVariableType=false, reportUnknownMemberType=false
-# pyright: reportUnknownParameterType=false, reportUnknownArgumentType=false
-# pyright: reportAttributeAccessIssue=false
 """GTFS-Realtime client for fetching and parsing protobuf feeds.
 
 Fetches vehicle positions, trip updates, and alerts from Rigas Satiksme
@@ -11,6 +8,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 from google.transit import gtfs_realtime_pb2
@@ -88,10 +86,10 @@ class AlertData:
 
 
 @dataclass
-class _CacheEntry:
+class _CacheEntry[T]:
     """In-memory cache entry with timestamp."""
 
-    data: list[VehiclePositionData] | list[TripUpdateData] | list[AlertData]
+    data: list[T]
     fetched_at: float = field(default_factory=time.monotonic)
 
 
@@ -145,11 +143,11 @@ class GTFSRealtimeClient:
     def __init__(self, http_client: httpx.AsyncClient, settings: Settings) -> None:
         self._http_client = http_client
         self._settings = settings
-        self._vehicle_cache: _CacheEntry | None = None
-        self._trip_update_cache: _CacheEntry | None = None
-        self._alerts_cache: _CacheEntry | None = None
+        self._vehicle_cache: _CacheEntry[VehiclePositionData] | None = None
+        self._trip_update_cache: _CacheEntry[TripUpdateData] | None = None
+        self._alerts_cache: _CacheEntry[AlertData] | None = None
 
-    def _is_cache_fresh(self, cache: _CacheEntry | None) -> bool:
+    def _is_cache_fresh(self, cache: _CacheEntry[Any] | None) -> bool:
         """Check if a cache entry is still within TTL."""
         if cache is None:
             return False
@@ -220,8 +218,7 @@ class GTFSRealtimeClient:
             List of vehicle position records.
         """
         if self._is_cache_fresh(self._vehicle_cache) and self._vehicle_cache is not None:
-            return self._vehicle_cache.data  # type: ignore[return-value]
-
+            return self._vehicle_cache.data
         try:
             raw = await self._fetch_feed(self._settings.gtfs_rt_vehicle_positions_url)
         except (CircuitOpenError, TransitDataError) as e:
@@ -232,7 +229,7 @@ class GTFSRealtimeClient:
                     error=str(e),
                 )
                 agent_validation.last_stale_data_timestamp = time.monotonic()
-                return self._vehicle_cache.data  # type: ignore[return-value]
+                return self._vehicle_cache.data
             msg = (
                 "Transit vehicle positions feed is unavailable and no cached data exists. "
                 "Please try again shortly."
@@ -287,8 +284,7 @@ class GTFSRealtimeClient:
             List of trip update records.
         """
         if self._is_cache_fresh(self._trip_update_cache) and self._trip_update_cache is not None:
-            return self._trip_update_cache.data  # type: ignore[return-value]
-
+            return self._trip_update_cache.data
         try:
             raw = await self._fetch_feed(self._settings.gtfs_rt_trip_updates_url)
         except (CircuitOpenError, TransitDataError) as e:
@@ -299,7 +295,7 @@ class GTFSRealtimeClient:
                     error=str(e),
                 )
                 agent_validation.last_stale_data_timestamp = time.monotonic()
-                return self._trip_update_cache.data  # type: ignore[return-value]
+                return self._trip_update_cache.data
             msg = (
                 "Transit trip updates feed is unavailable and no cached data exists. "
                 "Please try again shortly."
@@ -367,8 +363,7 @@ class GTFSRealtimeClient:
             List of alert records.
         """
         if self._is_cache_fresh(self._alerts_cache) and self._alerts_cache is not None:
-            return self._alerts_cache.data  # type: ignore[return-value]
-
+            return self._alerts_cache.data
         try:
             raw = await self._fetch_feed(self._settings.gtfs_rt_alerts_url)
         except (CircuitOpenError, TransitDataError) as e:
@@ -379,7 +374,7 @@ class GTFSRealtimeClient:
                     error=str(e),
                 )
                 agent_validation.last_stale_data_timestamp = time.monotonic()
-                return self._alerts_cache.data  # type: ignore[return-value]
+                return self._alerts_cache.data
             msg = (
                 "Transit alerts feed is unavailable and no cached data exists. "
                 "Please try again shortly."

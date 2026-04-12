@@ -22,14 +22,14 @@ def _make_settings() -> MagicMock:
 
 
 def test_cache_entry_freshness():
-    entry = _CacheEntry(data=[])
+    entry: _CacheEntry[object] = _CacheEntry(data=[])
     settings = _make_settings()
     client = GTFSRealtimeClient(AsyncMock(), settings)
     assert client._is_cache_fresh(entry) is True
 
 
 def test_cache_entry_stale():
-    entry = _CacheEntry(data=[], fetched_at=time.monotonic() - 100)
+    entry: _CacheEntry[object] = _CacheEntry(data=[], fetched_at=time.monotonic() - 100)
     settings = _make_settings()
     client = GTFSRealtimeClient(AsyncMock(), settings)
     assert client._is_cache_fresh(entry) is False

@@ -206,7 +206,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 
 > **Not duplicated from elsewhere:** `CRUD E2E Tests` is already tracked in § In Progress. Circuit breaker + provider health is AI-8. Prompt injection blocking is AI-9. RAG regression guard is AI-11.4. The phases below cover gaps NOT already in another section.
 >
-> **Starting-state note:** `.env` is currently git-ignored and NOT tracked in git history (verified via `git ls-files .env`). OPS-1 is forward-looking hardening — preventing the next accidental commit, not purging an existing one. Pre-existing agent-module baseline: pyright 5 / mypy 3 errors in `tools/transit/static_store.py`, `tools/transit/client.py`, `pipeline.py` (per AI-8.1 completion note) — OPS-5.1 clears these.
+> **Starting-state note:** `.env` is currently git-ignored and NOT tracked in git history (verified via `git ls-files .env`). OPS-1 is forward-looking hardening — preventing the next accidental commit, not purging an existing one. Pre-existing agent-module baseline: pyright 5 / mypy 3 errors in `tools/transit/static_store.py`, `tools/transit/client.py`, `pipeline.py` (per AI-8.1 completion note) — **cleared by OPS-5.1** (protobuf type stubs + generic `_CacheEntry`).
 
 ---
 
@@ -263,26 +263,20 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 - 12 unit tests: middleware path templating (2), histogram bucket correctness (1), counter monotonicity (1), gauge transitions (2), label cardinality guard (1), `/metrics` endpoint returns prometheus format (1), 404 cardinality collapse (path_template = `__not_found__`) (1), disabled-metrics feature flag (2), circuit-breaker gauge wiring (1).
 **Verify:** `curl localhost:8000/metrics` returns prometheus text format. Hit the vehicles endpoint 100 times — `vtv_http_request_duration_seconds_bucket{le="0.5",path="/v1/vehicles"}` increments. Trip the AI-8.1 circuit breaker — `vtv_circuit_breaker_state{provider="groq"}` flips 0 → 2.
 
-#### OPS-2.2 Deep `/health` Endpoint with Dependency Probes
-**What:** Replace the current `/health` implementation with one that probes every critical dependency (PostgreSQL, Redis, reranker model, GTFS-RT feeds, background pollers, LLM providers) in parallel, returns a structured per-dependency object, and degrades status without crashing when any probe fails.
-**Why:** Today's `/health` returns 200 as long as the process is up. Docker/Kubernetes/nginx happily route traffic to a worker with an exhausted DB pool or a crashed poller. Deep health catches these before user reports.
+#### OPS-2.2 Deep `/health` Endpoint with Dependency Probes ✅ (2026-04-12)
+**What:** Added `GET /health/deep` admin-only endpoint that probes every critical dependency (PostgreSQL, Redis, reranker model, GTFS-RT feeds, background pollers, LLM providers) in parallel and returns a structured `HealthReport` JSON. Upgraded `GET /health/ready` to use concurrent probes via `asyncio.gather`. Preserved all existing endpoints (`/health`, `/health/db`, `/health/redis`, `/health/ready`) with backward-compatible response formats.
 **Implementation:**
-- `app/core/health.py` (new):
-  - `@dataclass(frozen=True) DependencyProbe`: `name: str`, `check: Callable[[], Awaitable[ProbeResult]]`, `timeout_s: float = 2.0`, `critical: bool = True`
-  - `@dataclass(frozen=True) ProbeResult`: `status: Literal["ok", "degraded", "down"]`, `latency_ms: float`, `detail: str | None`
-  - `HealthChecker.run(*, deep: bool = False) -> HealthReport` — runs probes concurrently via `asyncio.gather(return_exceptions=True)`, aggregates into an overall status (ok if all critical ok; degraded if any non-critical fails; down if any critical fails or times out)
-  - Built-in probes:
-    - `probe_postgres()` — `SELECT 1` with 2s timeout; also reports `pg_stat_activity` connection count as detail
-    - `probe_redis()` — `PING` with 1s timeout
-    - `probe_reranker()` — checks that the reranker model is loaded
-    - `probe_gtfs_rt_feeds()` — reads last-success timestamp from each feed state; degraded if > 60s stale
-    - `probe_pollers()` — checks `POLLER_LAST_TICK` gauge from OPS-2.1; degraded if any poller > 2× its interval stale
-    - `probe_llm_providers()` — reads AI-8.1 circuit breaker state per provider; reports `closed|half_open|open` without making a real LLM call (no token cost)
-- `app/main.py`:
-  - `GET /health` — runs critical probes only (sub-500ms), returns 200 if ok, 503 if down. Kubernetes liveness.
-  - `GET /health/deep` — runs every probe including non-critical, returns full `HealthReport` JSON. Admin-auth. Kubernetes readiness.
-- 15 unit tests: each probe success (6), each probe failure (6), concurrent execution (1), timeout handling (1), critical vs non-critical aggregation (1).
-**Verify:** Stop the Redis container → `/health` returns 503 with `redis: down, detail: "connection refused"`. Pause the GTFS-RT poller for 120s → `/health/deep` reports `gtfs_rt: degraded`. All probes complete in under 500ms even when one times out.
+- `app/core/health.py` (rewritten):
+  - `ProbeResult(BaseModel, frozen=True)`: `name`, `status: Literal["ok", "degraded", "down"]`, `latency_ms`, `detail`, `critical`
+  - `HealthReport(BaseModel, frozen=True)`: `status`, `version`, `probes: list[ProbeResult]`, `timestamp` (ISO 8601)
+  - `_run_probe(name, coro, timeout_s=2.0)` — timeout wrapper returning synthetic "down" on timeout
+  - `_aggregate_status()` — ok (all critical ok), degraded (non-critical failed), down (any critical failed)
+  - `_poller_staleness_thresholds()` — per-poller expected intervals (daily crons get 25h grace)
+  - 6 probes: `probe_postgres()` (SELECT 1 + pg_stat_activity), `probe_redis()` (PING), `probe_reranker()` (model loaded check), `probe_pollers()` (POLLER_LAST_TICK gauge), `probe_gtfs_rt_feeds()` (transit_feed staleness), `probe_llm_providers()` (circuit breaker state)
+  - `GET /health/deep` — admin-only via `require_role("admin")`, rate limited 60/min, TTL-cached (5s default via `health_deep_cache_ttl_seconds`). Returns 200 with status in body (even degraded), 503 only when critical probes down
+- `app/core/config.py`: Added `health_deep_cache_ttl_seconds: float = 5.0`
+- 26 unit tests: 7 backward-compat, 12 probe unit (6 success + 6 failure), 3 aggregation, 4 endpoint/integration (full report, 503, timeout, concurrency)
+**Verify:** Stop Redis → `/health/ready` returns 503 with `redis: unavailable`. `/health/deep` returns full JSON with all 6 probe categories. All probes complete in under 500ms even when one times out.
 
 #### OPS-2.3 SLO Definitions + Prometheus Alert Rules
 **What:** Document service-level objectives in `docs/slos.md` and commit a starter Prometheus alert rules file (`ops/prometheus/alerts.yml`) that fires on SLO burn: p95 request latency > 500ms for 10 minutes, error rate > 1% for 5 minutes, circuit breaker open > 5 minutes, poller liveness > 2× interval, DB pool > 80% utilized.
@@ -413,15 +407,16 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 
 > **Sprint deliverable:** Baseline type errors cleared, four core ADRs committed, database ER diagram auto-generated from SQLAlchemy models, and the logging event taxonomy is exhaustive enough to power GlitchTip dashboards without reverse-engineering the code.
 
-#### OPS-5.1 Clear Baseline Type Errors in Agent Tools + Pipeline
+#### OPS-5.1 Clear Baseline Type Errors in Agent Tools + Pipeline -- DONE (2026-04-12)
 **What:** Fix the 8 pre-existing type errors (5 pyright, 3 mypy) called out in the AI-8.1 completion note: `app/core/agents/tools/transit/client.py`, `app/core/agents/tools/transit/static_store.py`, `app/core/agents/pipeline.py`. No suppressions — fix the underlying types.
 **Why:** "Strict type safety" is contradicted by 8 known errors that CI has been told to ignore. These will quietly multiply as the agent surface grows. Clearing them now resets the baseline to zero and lets CI fail on any regression.
 **Implementation:**
-- Capture the 8 errors: run `uv run mypy app/core/agents/tools/transit/client.py app/core/agents/tools/transit/static_store.py app/core/agents/pipeline.py` and `uv run pyright` against the same files.
-- Fix each at the source: add missing generics, narrow `Any` to typed unions, add `@overload` where signatures are ambiguous, replace dict-based records with typed dataclasses or Pydantic models.
-- Remove any baseline tolerance from `pyproject.toml` that was relaxing strict checking for these paths.
-- Re-run `uv run mypy app/` and `uv run pyright` repo-wide to confirm zero errors.
-**Verify:** `uv run mypy app/` → 0 errors. `uv run pyright` → 0 errors. CI's type-check job passes without baseline suppressions.
+- Created `typings/google/transit/gtfs_realtime_pb2.pyi` — protobuf type stubs covering all attributes `client.py` accesses (FeedMessage, FeedEntity, VehiclePosition, TripUpdate, Alert, etc.). Classes inherit `google.protobuf.message.Message` for `HasField()` typing.
+- Made `_CacheEntry` generic using PEP 695 syntax (`class _CacheEntry[T]`) — each cache field now stores a precisely typed `list[T]`, eliminating the 6 `# type: ignore[return-value]` comments from union-typed `.data` returns.
+- Removed all 3 pyright file-level suppression directives (`reportUnknownVariableType`, `reportUnknownMemberType`, `reportUnknownParameterType`, `reportUnknownArgumentType`, `reportAttributeAccessIssue`).
+- Updated test file with `_CacheEntry[object]` type annotations for mypy `var-annotated` compliance.
+- `static_store.py` and `pipeline.py` confirmed clean (0 errors, 0 suppressions) — no changes needed.
+**Verify:** `uv run mypy app/` → 0 errors (375 files). `uv run pyright app/` → 0 errors. All 104 transit tool tests + 500 agent tests pass.
 
 #### OPS-5.2 Architecture Decision Records -- DONE (2026-04-12)
 **What:** Write 4 short ADRs capturing the non-obvious architectural choices already in the codebase: (1) Vertical Slice Architecture, (2) Pydantic AI over LangChain, (3) Redis for embedding + position cache, (4) slowapi vs reverse-proxy rate limiting. ADR template: status, context, decision, consequences.
@@ -435,15 +430,9 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 - Cross-link from `CLAUDE.md` § Operations and main `README.md` § Key References.
 **Verify:** Each ADR reads self-contained: a new contributor can read ADR-0002 cold and understand why Pydantic AI won over LangChain without reading any code.
 
-#### OPS-5.3 Database ER Diagram from SQLAlchemy Models
-**What:** Add a `make er-diagram` target that generates a Mermaid ER diagram from the SQLAlchemy metadata and writes it to `docs/schema/er.md`. Commit the generated output so it is viewable in GitHub without running the target locally.
-**Why:** 23 migrations, no diagram, no single place to understand the schema. Onboarding and refactor discussions both need it.
-**Implementation:**
-- `scripts/generate_er_diagram.py` — imports all model modules (populates `Base.metadata`), walks `metadata.tables`, emits Mermaid `erDiagram` syntax with foreign keys.
-- `Makefile` — `er-diagram: uv run python scripts/generate_er_diagram.py > docs/schema/er.md`
-- `docs/schema/er.md` — the generated output (re-run on every migration to keep in sync)
-- Optional pre-commit hook that fails the commit if `alembic/versions/` changed without a regenerated `er.md`.
-**Verify:** `make er-diagram` regenerates the file. `docs/schema/er.md` renders in GitHub as a Mermaid diagram showing all 20+ tables with foreign-key relationships.
+#### OPS-5.3 Database ER Diagram from SQLAlchemy Models ✅
+**Status:** Implemented. `make er-diagram` generates 24-table Mermaid ER diagram with FK relationships. Convention tests in `TestERDiagram`. Also fixed 4 missing model imports in `alembic/env.py` (alerts, fleet, geofences, memory). Pre-commit hook for migration sync not added (deferred — low priority given deterministic regeneration).
+**Files:** `scripts/generate_er_diagram.py`, `docs/schema/er.md`, `Makefile`, `alembic/env.py`, `app/tests/test_security.py`.
 
 #### OPS-5.4 Logging Taxonomy Audit + Backfill
 **What:** Audit `app/core/agents/circuit_breaker.py` (added in AI-8.1), background pollers, and the agent tool layer for structured log events missing from `docs/logging-standard.md`. Add every missing event to the taxonomy with fields + severity + example.
