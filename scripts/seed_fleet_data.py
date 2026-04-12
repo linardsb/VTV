@@ -262,13 +262,13 @@ ROUTE_NAMES = ["3", "7", "22", "15", "1", "11", "24"]
 
 def generate_obd_data(speed_kmh: float, is_electric: bool = False) -> dict:
     """Generate realistic OBD-II telemetry values correlated with speed."""
-    rpm = int(800 + (speed_kmh / 60) * 2200 + random.uniform(-100, 100)) if not is_electric else 0  # noqa: S311
-    engine_load = min(95, max(10, speed_kmh / 60 * 70 + random.uniform(-5, 5)))  # noqa: S311
+    rpm = int(800 + (speed_kmh / 60) * 2200 + random.uniform(-100, 100)) if not is_electric else 0
+    engine_load = min(95, max(10, speed_kmh / 60 * 70 + random.uniform(-5, 5)))
     coolant_temp = (
-        85 + (engine_load / 100) * 15 + random.uniform(-3, 3) if not is_electric else 35.0  # noqa: S311
+        85 + (engine_load / 100) * 15 + random.uniform(-3, 3) if not is_electric else 35.0
     )
-    fuel_level = random.uniform(35, 85) if not is_electric else 0  # noqa: S311
-    battery = round(random.uniform(65, 98) if is_electric else random.uniform(12.2, 14.4), 1)  # noqa: S311
+    fuel_level = random.uniform(35, 85) if not is_electric else 0
+    battery = round(random.uniform(65, 98) if is_electric else random.uniform(12.2, 14.4), 1)
     return {
         "speed": round(speed_kmh, 1),
         "rpm": rpm,
@@ -276,7 +276,7 @@ def generate_obd_data(speed_kmh: float, is_electric: bool = False) -> dict:
         "coolantTemp": round(coolant_temp, 1),
         "engineLoad": round(engine_load, 1),
         "batteryLevel": battery,
-        "odometer": random.randint(10000, 200000),  # noqa: S311
+        "odometer": random.randint(10000, 200000),
     }
 
 
@@ -323,17 +323,17 @@ def generate_position_history(
 
         lat, lon = interpolate(waypoints[seg_idx], waypoints[seg_idx + 1], seg_t)
         # Add slight randomness
-        lat += random.uniform(-0.0002, 0.0002)  # noqa: S311
-        lon += random.uniform(-0.0003, 0.0003)  # noqa: S311
+        lat += random.uniform(-0.0002, 0.0002)
+        lon += random.uniform(-0.0003, 0.0003)
 
         brg = bearing_degrees(waypoints[seg_idx], waypoints[seg_idx + 1])
 
         # Speed varies: slower near stops, faster between
         base_speed = 25 + 20 * math.sin(t_global * math.pi * 8)
-        speed = max(0, base_speed + random.uniform(-5, 5))  # noqa: S311
+        speed = max(0, base_speed + random.uniform(-5, 5))
         # At waypoints (stops) speed drops
         if seg_t < 0.05 or seg_t > 0.95:
-            speed = random.uniform(0, 5)  # noqa: S311
+            speed = random.uniform(0, 5)
 
         obd = generate_obd_data(speed, is_electric)
 

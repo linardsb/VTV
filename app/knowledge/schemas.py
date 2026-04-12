@@ -144,14 +144,14 @@ class SearchRequest(BaseModel):
     """Schema for knowledge base search."""
 
     query: str = Field(..., min_length=1, max_length=1000, description="Search query text")
-    domain: str | None = Field(None, description="Filter by domain")
-    language: str | None = Field(None, description="Filter by language")
+    domain: str | None = Field(default=None, description="Filter by domain")
+    language: str | None = Field(default=None, description="Filter by language")
     limit: int = Field(default=10, ge=1, le=50, description="Max results to return")
     created_after: datetime | None = Field(
-        None, description="Filter documents created after this timestamp"
+        default=None, description="Filter documents created after this timestamp"
     )
     created_before: datetime | None = Field(
-        None, description="Filter documents created before this timestamp"
+        default=None, description="Filter documents created before this timestamp"
     )
 
 

@@ -5,14 +5,14 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const lexend = Lexend({
-  subsets: ["latin", "latin-ext", "cyrillic"],
+  subsets: ["latin", "latin-ext"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
   variable: "--font-lexend",
 });
 
 const sourceSans3 = Source_Sans_3({
-  subsets: ["latin", "latin-ext", "cyrillic"],
+  subsets: ["latin", "latin-ext"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
   variable: "--font-source-sans-3",
