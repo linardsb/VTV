@@ -263,6 +263,21 @@ class Settings(BaseSettings):
     geofence_evaluator_enabled: bool = True
     geofence_check_interval_seconds: int = 30
 
+    # ML anomaly detection (ML-4.2)
+    ml_anomaly_evaluator_enabled: bool = True
+    ml_anomaly_check_interval_seconds: int = 60
+    ml_stuck_distance_threshold_m: float = 20.0
+    ml_stuck_time_window_minutes: int = 10
+    ml_gps_gap_threshold_minutes: int = 5
+    ml_gps_gap_feed_outage_pct: int = 50
+    ml_anomaly_cooldown_seconds: int = 900
+
+    # Off-route anomaly detection (ML-4.1)
+    anomaly_offroute_enabled: bool = True
+    anomaly_offroute_check_interval_seconds: int = 60
+    anomaly_offroute_buffer_meters: int = 50
+    anomaly_offroute_consecutive_hits: int = 3
+
     # Memory lifecycle
     memory_enabled: bool = True
     memory_procedural_decay_days: int = 90
@@ -280,6 +295,14 @@ class Settings(BaseSettings):
     memory_llm_merge_enabled: bool = False
     memory_compaction_cron_hour: int = 3
     memory_promotion_cron_hour: int = 3
+
+    # Durable job queue (OPS-3.2)
+    background_queue_enabled: bool = False
+    arq_max_jobs: int = 10
+    arq_job_timeout_seconds: int = 3600
+    arq_retry_count: int = 3
+    arq_compaction_interval_hours: int = 6
+    arq_promotion_cron_hour: int = 3
 
     # Self-correction loop (AI-5.1)
     agent_self_correction_enabled: bool = True

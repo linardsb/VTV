@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.17.1",
+    "arq>=0.26",
     "asyncpg>=0.30.0",
     "bcrypt>=5.0.0",
     "email-validator>=2.0.0",
@@ -38,6 +39,9 @@ dependencies = [
     "lxml>=5.0.0",
     "pdfplumber>=0.11.9",
     "prometheus-client>=0.21",
+    "pandas>=2.2.0",
+    "pandera>=0.21.0",
+    "pyarrow>=17.0.0",
 ]
 
 [dependency-groups]
@@ -53,6 +57,7 @@ dev = [
     "lxml-stubs>=0.5.0",
     "pre-commit>=4.5.1",
     "detect-secrets>=1.5.0",
+    "pandas-stubs>=2.2.0",
 ]
 
 [tool.uv]
@@ -238,6 +243,16 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "sqlparse.*"
 ignore_missing_imports = true
+
+# pandera lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "pandera.*"
+ignore_missing_imports = true
+
+# Modules that call pandera APIs (untyped library)
+[[tool.mypy.overrides]]
+module = "app.ml.features.validation"
+disallow_untyped_calls = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"  # Creates new event loop per test (proper isolation)

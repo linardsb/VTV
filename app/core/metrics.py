@@ -32,6 +32,11 @@ DB_POOL_OVERFLOW = Gauge("vtv_db_pool_overflow", "SQLAlchemy overflow connection
 
 REDIS_CACHE_HITS = Counter("vtv_redis_cache_hits_total", "Redis cache hits", ["cache_name"])
 REDIS_CACHE_MISSES = Counter("vtv_redis_cache_misses_total", "Redis cache misses", ["cache_name"])
+REDIS_CACHE_INVALIDATIONS = Counter(
+    "vtv_redis_cache_invalidations_total",
+    "Redis cache keys invalidated",
+    ["cache_name"],
+)
 
 # --- Agent Tool Metrics ---
 

@@ -17,7 +17,7 @@ Testing           ████████████████████�
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets, graceful shutdown coordinator)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
-Intelligence/ML   ██████████░░░░░░░░░░░░░  41%  (ML-1 complete: GTFS archive + e-ticket + weather/traffic ETL. ML-5.3 public API + ML-5.4 Text-to-SQL complete. 7/17 subtasks done. Remaining: ML-2 ETA, ML-3 load, ML-4 anomaly, ML-5.1 dashboard, ML-5.2 adherence)
+Intelligence/ML   ███████████░░░░░░░░░░░░  47%  (ML-1 complete: GTFS archive + e-ticket + weather/traffic ETL. ML-2.1 feature engineering complete. ML-5.3 public API + ML-5.4 Text-to-SQL complete. 8/17 subtasks done. Remaining: ML-2.2-2.4 ETA model/serving, ML-3 load, ML-4 anomaly, ML-5.1 dashboard, ML-5.2 adherence)
 ```
 
 ## In Progress
@@ -301,7 +301,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 **Why:** Gunicorn's default graceful-timeout is 30s. If memory compaction (in `app/memory/lifecycle.py`) is mid-run, it gets SIGKILL'd and can leave the embedding cache inconsistent. Coordinated shutdown with explicit per-task budgets gives each background job a chance to reach a stable checkpoint.
 **Verify:** Start VTV, begin a long-running memory compaction, issue `docker stop vtv-api`. Shutdown report logs each task drained in order; none are killed by Gunicorn's timeout. Memory cache remains consistent on next startup.
 
-#### OPS-3.2 Durable Job Queue for Memory Lifecycle
+#### OPS-3.2 Durable Job Queue for Memory Lifecycle ✅
 **What:** Move `app/memory/lifecycle.py`'s async-task-based compaction and episodic-to-procedural promotion onto a persistent job queue (Arq on Redis, chosen for async-native integration + minimal surface area). Jobs survive process restarts and can be retried.
 **Why:** Bare `asyncio.create_task()` dies with the process. If Gunicorn restarts during a 4-hour compaction run, the job is gone and procedural promotion never catches up, silently degrading agent memory quality over time. A durable queue gives at-least-once semantics with retry on transient failure.
 **Implementation:**
@@ -319,7 +319,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 - 14 integration tests: enqueue + execute (2), scheduled cron trigger (1), retry on failure (2), job idempotency via `_job_id` (1), worker survives Redis reconnect (1), compaction result persisted (1), promotion result persisted (1), admin status API (2), feature-flag gating (2), shutdown coordinator integration (1).
 **Verify:** Start worker, kill it mid-compaction, restart. The job re-enqueues from cron within 6h and completes successfully. Admin status API shows `last_run`, `next_run`, `last_result`.
 
-#### OPS-3.3 Redis Cache Invalidation Strategy
+#### OPS-3.3 Redis Cache Invalidation Strategy ✅
 **What:** Add explicit cache invalidation hooks for entities whose mutation should invalidate cached reads: stops (position cache), routes (route cache), vehicles (position cache), geofences (spatial cache). Wire into the repository layer so mutations auto-invalidate without per-call-site boilerplate.
 **Why:** Redis caches vehicle positions (120s TTL) and other entities but there is no bulk invalidation when upstream data changes. A stop moving via a GTFS re-import leaves stale lat/lon cached for up to 120s, which breaks geofence detection and proximity search during migration windows.
 **Implementation:**
@@ -328,11 +328,12 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
   - `async invalidate(namespace: str, *keys: str) -> int` — `DEL` for exact keys; `SCAN` + `DEL` for wildcard on namespace
   - `async invalidate_pattern(pattern: str, *, batch_size: int = 100) -> int` — scan in batches to avoid blocking Redis
 - Repository layer:
-  - `app/stops/repository.py::update_stop` → invalidate `stops:{stop_id}` + proximity-lookup cache
-  - `app/gtfs/import.py::import_stops` → invalidate `stops:*` after import
-  - `app/geofences/repository.py::update_geofence` → invalidate `geofences:spatial:*` (whole spatial index)
-- Observability: emit `cache.invalidation.performed` structured log events with `namespace`, `keys_invalidated`, `duration_ms`. Reuse the Redis counters from OPS-2.1.
-- 10 unit tests: exact-key invalidation (1), pattern invalidation with batching (2), namespace isolation (1), empty-result handling (1), repository-hook auto-invalidation (3), metric emission (1), GTFS import invalidation (1).
+  - `app/stops/repository.py` — invalidate `stops:{stop_id}` on create/update/delete
+  - `app/schedules/service.py` — invalidate `stops:*` + `routes:*` after GTFS import commit
+  - `app/geofences/repository.py` — invalidate `geofences:spatial:*` on create/update/delete
+- Convenience functions: `invalidate_stop_cache()`, `invalidate_geofence_cache()`, `invalidate_vehicle_position_cache()`, `invalidate_route_cache()`
+- Observability: `cache.invalidation.performed` / `cache.invalidation.failed` structured log events. `vtv_redis_cache_invalidations_total` Prometheus counter.
+- 11 unit tests: exact-key invalidation (1), pattern invalidation with batching (2), empty-result handling (2), repository-hook auto-invalidation (4), metric emission (1), Redis failure swallowed (1).
 **Verify:** Cache a vehicle position, update its stop via CMS → next read returns fresh data. GTFS re-import → all stop caches cleared within 1s. Invalidation never calls `FLUSHDB`.
 
 ---
@@ -445,7 +446,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 | OPS-4 | Per-user rate limiting + RBAC scoping + audit log | 4 | — |
 | OPS-5 | Type baseline + ADRs + ER diagram + logging taxonomy | 3 | — |
 
-Total operational hardening: **14 days** across 16 subtasks. **11 subtasks complete** (OPS-1.1, OPS-1.2, OPS-1.3, OPS-2.1, OPS-2.2, OPS-3.1, OPS-5.1, OPS-5.2, OPS-5.3 done 2026-04-12). Remaining: 5 subtasks (~7 days) — OPS-2.3, OPS-3.2, OPS-3.3, OPS-4 (3 subtasks), OPS-5.4.
+Total operational hardening: **14 days** across 16 subtasks. **13 subtasks complete** (OPS-1.1, OPS-1.2, OPS-1.3, OPS-2.1, OPS-2.2, OPS-3.1, OPS-3.2, OPS-3.3, OPS-5.1, OPS-5.2, OPS-5.3 done 2026-04-12). Remaining: 3 subtasks (~5 days) — OPS-2.3, OPS-4 (3 subtasks), OPS-5.4.
 
 ---
 
@@ -574,7 +575,9 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 > **Sprint deliverable:** ML-based ETA accurate within ±2 minutes on commuter routes vs the ±5-minute scheduled baseline. Served via `predict_eta()` agent tool and exposed as `GET /v1/transit/vehicles/{id}/eta`.
 > **Depends on:** ML-1, Full Latvia Phase 2 (90+ days of TimescaleDB history accumulated)
 
-#### ML-2.1 Feature Engineering Pipeline
+#### ML-2.1 Feature Engineering Pipeline ✅
+**Status:** Done — `app/ml/features/` implements `ETAFeatures` frozen dataclass (18 fields), `extract_features()` online path, `extract_features_batch()` offline batch path, `classify_weather()` bucket classifier, `parse_gtfs_time()` GTFS time parser. `queries.py` holds 10 parameterized SQL constants (vehicle delay, historical avg, weather, traffic, accidents via ST_DWithin, headway, prev stop delay, batch extraction with LATERAL join). `validation.py` provides Pandera `DataFrameSchema` with range/type checks + `detect_outliers()` 3-sigma detector. `__main__.py` CLI: `python -m app.ml.features --from --to [--out] [--dry-run] [--validate]`. Dependencies: pandas, pandera, pyarrow (+ pandas-stubs dev). Missing data uses safe defaults (0.0) — never raises. Materialized view deferred (Python extraction is source of truth). 34 unit tests: time parsing (4), weather classification (9), dataclass immutability (2), online extraction with mocked DB (8), batch extraction (2), Pandera validation (6), outlier detection (3). Plan: [.agents/plans/ml-2-1-eta-feature-engineering.md](../.agents/plans/ml-2-1-eta-feature-engineering.md). (2026-04-12)
+
 **What:** Create `app/ml/features/eta_features.py` — deterministic feature extraction job that joins `vehicle_positions` (TimescaleDB) with `gtfs_stop_times` + `weather_observations` to produce a training matrix. One row per (trip_id, stop_sequence) with features like scheduled_arrival, time_of_day, day_of_week, historical_avg_delay, weather_bucket, prev_stop_delay.
 **Why:** ML training data quality dominates model quality. Centralising feature engineering in one module (vs. ad-hoc notebooks) means the training set, online inference, and eval all use the same feature code — no train/serve skew.
 **Implementation:**

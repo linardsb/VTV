@@ -16,6 +16,10 @@ AlertRuleType = Literal[
     "geofence_enter",
     "geofence_exit",
     "geofence_dwell",
+    "stuck_vehicle",
+    "gps_gap",
+    "feed_outage",
+    "off_route",
 ]
 SourceEntityType = Literal["vehicle", "route", "driver"]
 

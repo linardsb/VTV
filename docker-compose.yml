@@ -186,6 +186,43 @@ services:
           cpus: "1.0"
           memory: 1G
 
+  vtv-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["arq", "app.core.jobs.worker.WorkerSettings"]
+    volumes:
+      - ./app:/app/app
+      - /app/.venv
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-vtv_db}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-devpassword}@redis:6379/0
+      - BACKGROUND_QUEUE_ENABLED=true
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    profiles:
+      - worker
+
   cms:
     build:
       context: ./cms

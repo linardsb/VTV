@@ -8,6 +8,7 @@ from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache.invalidation import invalidate_route_cache, invalidate_stop_cache
 from app.core.exceptions import NotFoundError
 from app.core.logging import get_logger
 from app.schedules.exceptions import (
@@ -745,6 +746,8 @@ class ScheduleService:
                 shapes_count = len(result.shapes)
 
             await self.db.commit()
+            await invalidate_stop_cache()
+            await invalidate_route_cache()
 
             duration = time.monotonic() - start_time
             logger.info(

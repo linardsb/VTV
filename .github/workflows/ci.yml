@@ -82,6 +82,12 @@ jobs:
       - name: Type check (pyright)
         run: uv run pyright app/
 
+      - name: Install PostGIS in PostgreSQL service
+        run: |
+          container_id=$(docker ps -q --filter "ancestor=pgvector/pgvector:pg18")
+          docker exec "$container_id" bash -c \
+            "apt-get update && apt-get install -y --no-install-recommends postgresql-18-postgis-3 postgresql-18-postgis-3-scripts && rm -rf /var/lib/apt/lists/*"
+
       - name: Run migrations
         run: uv run alembic upgrade head
 

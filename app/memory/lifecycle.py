@@ -74,6 +74,10 @@ async def start_memory_tasks() -> None:
         logger.info("memory.lifecycle.disabled")
         return
 
+    if settings.background_queue_enabled:
+        logger.info("memory.lifecycle.deferred_to_queue")
+        return
+
     _compaction_task = asyncio.create_task(
         _run_at_hour(settings.memory_compaction_cron_hour, "compaction", _run_compaction)
     )

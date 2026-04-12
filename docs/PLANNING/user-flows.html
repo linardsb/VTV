@@ -446,14 +446,14 @@
         <div class="hero-stats">
             <div>
                 <div class="hero-stat-value">18</div>
-                <div class="hero-stat-label">Pārvaldības lapas</div>
+                <div class="hero-stat-label">Pārvaldības lapas (CMS)</div>
             </div>
             <div>
                 <div class="hero-stat-value">11</div>
                 <div class="hero-stat-label">MI rīki</div>
             </div>
             <div>
-                <div class="hero-stat-value">2 300+</div>
+                <div class="hero-stat-value">2 000+</div>
                 <div class="hero-stat-label">Kvalitātes testi</div>
             </div>
             <div>
@@ -466,7 +466,7 @@
 
 <div class="value-card">
     <h2>Rīgas Satiksme šogad zaudēs vismaz €2,4M, ko šī platforma var ietaupīt</h2>
-    <p>1&nbsp;076 transportlīdzekļi, 3&nbsp;500 darbinieki, 116 miljoni braucienu &mdash; un joprojām Excel grafiki, telefona zvani, e-pastu arhīvi utt. VTP aizstāj šo visu ar <strong>vienu sistēmu un MI asistentu</strong>, kas saprot jūsu datus latviski. 18 pārvaldības lapas, 4 lomu drošība, Google Maps un ES standartu integrācija &mdash; izstrādāta, testēta un gatava izvietošanai.</p>
+    <p>1&nbsp;076 transportlīdzekļi, 3&nbsp;500 darbinieki, 116 miljoni braucienu &mdash; un joprojām Excel grafiki, telefona zvani, e-pastu arhīvi utt. VTP aizstāj šo visu ar <strong>vienu sistēmu un MI asistentu</strong>, kas saprot jūsu datus latviski. 18 pārvaldības lapas, 135 API galapunkti, 4 lomu drošība, Google Maps un ES standartu integrācija &mdash; izstrādāta, testēta un gatava izvietošanai.</p>
 </div>
 
 <div class="container">
@@ -942,7 +942,21 @@
             </div>
             <div class="benefit-card">
                 <h4>Datu drošība bez kompromisiem</h4>
-                <p>Šifrēta autentifikācija, brutāla spēka aizsardzība, automātiski drošības auditi. 106 drošības testi pārbauda sistēmu ar katru atjauninājumu.</p>
+                <p>Šifrēta autentifikācija, brutāla spēka aizsardzība, automātiski drošības auditi. 112 drošības testi pārbauda sistēmu ar katru atjauninājumu. MI injekciju aizsardzība bloķē ļaunprātīgus pieprasījumus.</p>
+            </div>
+        </div>
+        <div class="benefits-grid" style="margin-top: 14px;">
+            <div class="benefit-card">
+                <h4>Prometheus metrikas un uzraudzība</h4>
+                <p>Reāllaika veiktspējas metrikas: HTTP pieprasījumu latentums, Redis kešatmiņas efektivitāte, MI rīku izpildes laiks, datubāzes pūla izmantojums. Operatoru komanda redz sistēmas veselību bez minēšanas.</p>
+            </div>
+            <div class="benefit-card">
+                <h4>Dziļās veselības pārbaudes</h4>
+                <p>Automātiska 6 atkarību pārbaude paralēli (datubāze, Redis, MI nodrošinātāji, fona uzdevumi, GTFS-RT plūsmas). Degradēta pakalpojuma atklāšana pirms lietotāji pamana problēmu.</p>
+            </div>
+            <div class="benefit-card">
+                <h4>Publiskais izstrādātāju API</h4>
+                <p>6 galapunkti ar API atslēgu pārvaldību un individuāliem ātruma ierobežojumiem. Trešo pušu lietotnes var integrēt reāllaika transporta datus ar vienkāršu REST pieprasījumu.</p>
             </div>
         </div>
     </div>
@@ -1208,14 +1222,15 @@
     </div>
 
     <div class="ai-note" style="margin-top: 12px;">
-        <strong>Vairāku aģentu arhitektūra:</strong> Sistēma automātiski izvēlas piemērotāko specializēto aģentu (transports, dokumenti, skolotājs zināšanu bāzē) atkarībā no jautājuma satura. Iebūvēts pašlabošanās mehānisms ar atbilžu kvalitātes pārbaudi un atmiņas slānis (četri atmiņas tipi ar dienas konsolidāciju) ļauj MI mācīties no iepriekšējām sarunām, neaizmirstot kontekstu.
+        <strong>Vairāku aģentu arhitektūra:</strong> Sistēma automātiski izvēlas piemērotāko specializēto aģentu (transports, dokumenti, skolotājs zināšanu bāzē) atkarībā no jautājuma satura. Iebūvēts pašlabošanās mehānisms ar atbilžu kvalitātes pārbaudi un atmiņas slānis (četri atmiņas tipi ar dienas konsolidāciju) ļauj MI mācīties no iepriekšējām sarunām, neaizmirstot kontekstu. Sprieguma slēdži (circuit breaker) ar veselības monitoringu automātiski pārslēdz LLM nodrošinātājus, ja primārais pakalpojums kļūst nepieejams. Ievades injekciju aizsardzība bloķē ļaunprātīgus pieprasījumus, un izvades validācija novērš sensitīvu datu noplūdi.
     </div>
 
     <div style="margin-top: 28px; padding: 24px; background: white; border: 1px solid #cbd5e1; position: relative; z-index: 1;">
         <h3 style="margin: 0 0 14px; font-size: 16px; color: #1e293b;">Kāpēc VTP mākslīgais intelekts ir priekšrocība</h3>
         <p style="font-size: 14px; color: #475569; line-height: 1.8; margin: 0;">
             Atšķirībā no konkurentiem, kur MI ir atsevišķa papildfunkcija vai vienkāršs čatbots, VTP platformā mākslīgais intelekts ir <strong style="color: #1e293b;">dziļi integrēts ar visiem sistēmas datiem</strong>. MI asistents nav trenēts uz vispārīgiem datiem &mdash; tas reāllaikā piekļūst jūsu konkrētajiem maršrutiem, grafikiem, šoferiem, dokumentiem un transportlīdzekļu pozīcijām caur 11 specializētiem rīkiem. Tas nozīmē, ka dispečers var dabīgā valodā jautāt <em>"Cik autobusi šobrīd kavējas 3.&nbsp;maršrutā?"</em> un saņemt precīzu atbildi sekunžu laikā, nevis meklēt datus pa vairākām sistēmām.
-            Dokumentu zināšanu bāze ar vektoru meklēšanu nodrošina, ka MI atbildes ir balstītas uz jūsu faktiskajiem noteikumiem un procedūrām &mdash; nevis ģenerētas no vispārīgiem datiem. Katrai atbildei ir precīza atsauce uz avota dokumentu, ko var pārbaudīt.
+            Dokumentu zināšanu bāze ar vektoru meklēšanu nodrošina, ka MI atbildes ir balstītas uz jūsu faktiskajiem noteikumiem un procedūrām &mdash; nevis ģenerētas no vispārīgiem datiem. Katrai atbildei ir precīza atsauce uz avota dokumentu ar virsrakstu hierarhijas ceļu (piem., <em>"Drošības instrukcijas &gt; Ārkārtas procedūras &gt; Pasažieru trauma"</em>), ko var pārbaudīt.
+            MI sistēma ir aprīkota ar vairākiem drošības slāņiem: automātiska ievades injekciju atklāšana un bloķēšana (31 atklāšanas šablons ar konfidences vērtējumu), izvades validācija pret datu noplūdi, un sprieguma slēdži (circuit breaker) LLM nodrošinātājiem, kas nodrošina ātru pārslēgšanos uz rezerves modeli, ja primārais pakalpojums degradējas &mdash; dispečers to nepamana.
             Praksē tas nozīmē, ka jauns darbinieks var sākt strādāt produktīvi jau pirmajā dienā, jo MI atbild uz jebkuru jautājumu par procedūrām un maršrutiem. Pieredzējuši darbinieki ietaupa laiku, ko iepriekš pavadīja, meklējot informāciju vai zvanot kolēģiem. Un, kas svarīgi &mdash; MI darbojas 24/7, arī naktī un brīvdienās, kad pieredzējušie speciālisti nav sasniedzami.
         </p>
     </div>
@@ -1472,16 +1487,16 @@
 
 <div class="progress-section">
     <div class="progress-overall">
-        <div class="progress-percent">93%</div>
+        <div class="progress-percent">95%</div>
         <div class="progress-label">
             <strong>Vienas pilsētas platforma &mdash; pilnībā gatava</strong>
-            18 lapas, 125 galapunkti, 11 MI rīki, 2 300+ testi, 4 lomu drošība
+            18 lapas, 135 galapunkti, 11 MI rīki, 2 000+ testi, 4 lomu drošība
         </div>
     </div>
-    <div class="progress-bar"><div class="progress-fill" style="width:93%"></div></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:95%"></div></div>
 
     <div style="margin-bottom: 16px; padding: 12px 16px; background: #ecfdf5; border: 1px solid #a7f3d0; font-size: 13px; color: #065f46; line-height: 1.6;">
-        <strong>Rīgas mērogam platforma ir 100% gatava darbam.</strong> Zemāk redzamais progress atspoguļo visa Latvijas mēroga pārklājumu, ieskaitot daudzpilsētu atbalstu un paplašināto MI.
+        <strong>Rīgas mērogam platforma ir 100% gatava darbam.</strong> MI inteliģences slānis pilnībā pabeigts (11 fāzes). Operatīvā noturība ieviesta: Prometheus metrikas, dziļās veselības pārbaudes, noslēpumu skenēšana, ADR dokumentācija. Zemāk redzamais progress atspoguļo visa Latvijas mēroga pārklājumu.
     </div>
 
     <div class="module-row"><span class="module-name">Pārvaldības saskarne (18 lapas)</span><div class="module-bar"><div class="module-fill green" style="width:100%"></div></div><span class="module-pct" style="color:#059669">100%</span></div>
@@ -1493,7 +1508,9 @@
     <div class="module-row"><span class="module-name">MI atmiņa, pašlabošanās un kvalitātes pārbaude</span><div class="module-bar"><div class="module-fill green" style="width:100%"></div></div><span class="module-pct" style="color:#059669">100%</span></div>
     <div class="module-row"><span class="module-name">Grāmatvedības integrācija</span><div class="module-bar"><div class="module-fill blue" style="width:15%"></div></div><span class="module-pct" style="color:#6366f1">15%</span></div>
     <div class="module-row"><span class="module-name">Visa Latvija (daudzpilsētu atbalsts)</span><div class="module-bar"><div class="module-fill amber" style="width:35%"></div></div><span class="module-pct" style="color:#d97706">35%</span></div>
-    <div class="module-row"><span class="module-name">Paplašināta MI inteliģence (semantiskā meklēšana, HyDE, domēna aģenti, vecāka-bērna gabali, eval framework, regresijas sākuma līnijas)</span><div class="module-bar"><div class="module-fill green" style="width:95%"></div></div><span class="module-pct" style="color:#059669">95%</span></div>
+    <div class="module-row"><span class="module-name">Paplašināta MI inteliģence (semantiskā meklēšana, HyDE, domēna aģenti, vecāka-bērna gabali, eval framework, sprieguma slēdži, injekciju aizsardzība, citātu virsraksti, RAG eval)</span><div class="module-bar"><div class="module-fill green" style="width:100%"></div></div><span class="module-pct" style="color:#059669">100%</span></div>
+    <div class="module-row"><span class="module-name">Operatīvā noturība (Prometheus metrikas, veselības pārbaudes, noslēpumu disciplīna, ADR dokumentācija)</span><div class="module-bar"><div class="module-fill amber" style="width:65%"></div></div><span class="module-pct" style="color:#d97706">65%</span></div>
+    <div class="module-row"><span class="module-name">ML datu pamats (GTFS arhīvs, e-biļešu dati, laikapstākļi, satiksme)</span><div class="module-bar"><div class="module-fill green" style="width:100%"></div></div><span class="module-pct" style="color:#059669">100%</span></div>
 </div>
 
 <!-- Roadmap -->
@@ -1512,11 +1529,11 @@
     </div>
     <div class="roadmap-item">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-            <span class="roadmap-phase" style="margin:0;">2. Fāze &mdash; Daļēji izpildīta</span>
-            <span class="status-badge wip" style="margin-left:auto;">90%</span>
+            <span class="roadmap-phase" style="margin:0;">2. Fāze &mdash; MI inteliģence pabeigta</span>
+            <span class="status-badge done" style="margin-left:auto;">98%</span>
         </div>
         <h4>Paplašināta MI inteliģence un grāmatvedības sasaiste</h4>
-        <p>MI inteliģences slānis pilnībā ieviests: domēnu specifiski aģenti (transports, zināšanas, krātuve) ar heiristisku automātisko maršrutēšanu, semantiskā meklēšana ar HyDE jautājumu paplašināšanu, virsrakstos balstīta vecāka-bērna gabalu hierarhija ar konteksta paplašināšanu meklēšanas laikā, vektoru atmiņa ar dienas konsolidāciju un episodisko→procedūrisko paaugstināšanu, pašlabošanās kvalitātes pārbaude ar 6 deterministiskiem QA pārbaudēm, un pilns evalvēšanas ietvars ar regresijas sākuma līniju infrastruktūru (sintētiskie QA pāri, LLM ticamības tiesneši, izgūšanas metrikas ar recall@k/MRR/pilnīgumu, automātiskas regresijas sākuma līnijas ar salīdzināšanu). Atlikušais darbs &mdash; sprieguma slēdži LLM nodrošinātājiem, ievades injekcijas aizsardzība, citātu virsrakstu saites, un tiešā integrācija ar grāmatvedības sistēmu (degviela, apkope, algas, apdrošināšana sinhronizējas automātiski).</p>
+        <p>MI inteliģences slānis <strong>pilnībā pabeigts</strong> (11 fāzes, 40+ apakšuzdevumi): domēnu specifiski aģenti ar heiristisku maršrutēšanu, semantiskā meklēšana ar HyDE, vecāka-bērna gabalu hierarhija, vektoru atmiņa ar konsolidāciju un paaugstināšanu, pašlabošanās kvalitātes pārbaude, evalvēšanas ietvars ar regresijas sākuma līnijām, <strong>sprieguma slēdži (circuit breaker)</strong> LLM nodrošinātājiem ar veselības monitoringu un automātisku pārslēgšanu, <strong>ievades injekciju aizsardzība</strong> (31 šablons, bloķēšanas režīms, izvades validācija), <strong>citātu virsrakstu ceļi</strong> dokumentu atsaucēs, un <strong>RAG izgūšanas eval cauruļvads</strong> (sintētiskie QA pāri, LLM ticamības tiesnesis, recall@k/MRR metrikas, regresijas CI vārti). Atlikušais darbs &mdash; tiešā integrācija ar grāmatvedības sistēmu (degviela, apkope, algas, apdrošināšana sinhronizējas automātiski).</p>
     </div>
     <div class="roadmap-item">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
@@ -1528,11 +1545,11 @@
     </div>
     <div class="roadmap-item">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-            <span class="roadmap-phase" style="margin:0;">4. Fāze</span>
-            <span class="status-badge planned" style="margin-left:auto;">Ilgtermiņa</span>
+            <span class="roadmap-phase" style="margin:0;">4. Fāze &mdash; Pamats ieviests</span>
+            <span class="status-badge wip" style="margin-left:auto;">41%</span>
         </div>
         <h4>ML prognozēšana un publiskais API</h4>
-        <p>Ierašanās laiku prognozēšana balstoties uz vēsturiskajiem datiem, laika apstākļu korekcija, pasažieru noslodzes analīze un publisks izstrādātāju API.</p>
+        <p>ML datu pamats ieviests: GTFS arhīva importētājs (64 mēnešu vēsture), e-biļešu validāciju cauruļvads (67 mēnešu arhīvs), laikapstākļu un satiksmes ETL. <strong>Publiskais izstrādātāju API darbojas</strong> (6 galapunkti, API atslēgu pārvaldība, Redis ātruma ierobežojumi, Text-to-SQL). Atlikušais: ierašanās laiku prognozēšanas modelis (ML-2), pasažieru noslodzes prognozēšana (ML-3), anomāliju atklāšana (ML-4), MI panelis (ML-5.1) un grafiku atbilstības analīze (ML-5.2).</p>
     </div>
 </div>
 

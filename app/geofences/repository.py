@@ -7,6 +7,7 @@ import json
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache.invalidation import invalidate_geofence_cache
 from app.geofences.models import Geofence, GeofenceEvent
 from app.geofences.schemas import DwellTimeReport, GeofenceCreate, GeofenceUpdate
 from app.shared.utils import escape_like
@@ -121,6 +122,7 @@ class GeofenceRepository:
         self.db.add(geofence)
         await self.db.commit()
         await self.db.refresh(geofence)
+        await invalidate_geofence_cache()
         return geofence
 
     async def update(
@@ -142,6 +144,7 @@ class GeofenceRepository:
             geofence.geometry = func.ST_GeomFromText(wkt_geometry, 4326)
         await self.db.commit()
         await self.db.refresh(geofence)
+        await invalidate_geofence_cache()
         return geofence
 
     async def delete(self, geofence: Geofence) -> None:
@@ -152,6 +155,7 @@ class GeofenceRepository:
         """
         await self.db.delete(geofence)
         await self.db.commit()
+        await invalidate_geofence_cache()
 
     async def get_active_geofences(self) -> list[Geofence]:
         """Get all active geofences.

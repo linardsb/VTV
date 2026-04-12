@@ -103,15 +103,17 @@ make rag-eval-check REPORT=...     # Check for RAG regressions against baseline 
 ```
 VTV/
 ├── app/                # Backend features (VSA: models, schemas, routes, service, tests per feature)
-│   ├── core/           # Infrastructure (config, database, logging, middleware, health + deep probes, rate_limit, redis, metrics, shutdown coordinator, cache invalidation)
-│   │   └── agents/     # AI agent module — 11 tools, see app/core/agents/CLAUDE.md
+│   ├── core/           # Infrastructure (config, database, logging, middleware, health + deep probes, rate_limit, redis, metrics, shutdown coordinator, cache invalidation, durable job queue)
+│   │   ├── agents/     # AI agent module — 11 tools, see app/core/agents/CLAUDE.md
+│   │   └── jobs/       # Arq-based durable job queue (OPS-3.2) — queue wrapper, worker settings, admin status API
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── alerts/         # Notification/alerts system (11 endpoints, background evaluator, RBAC)
 │   ├── analytics/      # Dashboard analytics (4 endpoints, read-only aggregation over vehicles/drivers/transit)
 │   ├── auth/           # JWT auth + RBAC + user management (10 endpoints)
 │   ├── compliance/     # NeTEx/SIRI EU compliance exports (4 endpoints, XML generation, no DB tables)
 │   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion, Redis embedding cache, heading-aware semantic chunking, parent-child chunk hierarchy, search-time parent context expansion, heading-breadcrumb citations, one-shot rechunk migration script, synthetic QA pair generation for RAG eval, retrieval metrics computation with recall@k/MRR/completeness, RAG eval runner with LLM faithfulness judge, regression baselines with corpus checksum + CI gate)
-│   ├── memory/         # Agent memory storage (7 endpoints, pgvector similarity recall, 4 memory types, embed-on-store, duplicate detection, text-based recall, compaction, episodic-to-procedural promotion, fire-and-forget bridge auto-persists multi-tool agent episodes, memory recall injected as agent context before each run, LLM-based intent merging during compaction, daily background compaction+promotion tasks)
+│   ├── memory/         # Agent memory storage
+│   ├── ml/             # ML pipeline (ETA feature engineering, anomaly detection — no REST endpoints) (7 endpoints, pgvector similarity recall, 4 memory types, embed-on-store, duplicate detection, text-based recall, compaction, episodic-to-procedural promotion, fire-and-forget bridge auto-persists multi-tool agent episodes, memory recall injected as agent context before each run, LLM-based intent merging during compaction, daily background compaction+promotion tasks)
 │   ├── public_api/     # Public Developer API (6 endpoints: 3 key management + 3 read-only transit data, API key auth with SHA-256 hashing, per-key Redis rate limiting with tiered limits, fire-and-forget usage tracking via TimescaleDB hypertable)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)
@@ -206,6 +208,7 @@ Operational runbooks for on-call incident response and production maintenance. S
 - **Deep health probes (OPS-2.2):** `GET /health/deep` admin-only endpoint runs 6 dependency probes concurrently (postgres, redis, reranker, pollers, gtfs_rt_feeds, llm_providers) and returns structured `HealthReport` with per-probe status/latency. Critical probes (postgres, redis) failing = 503; non-critical failing = "degraded" in response body. TTL-cached (`health_deep_cache_ttl_seconds`, default 5s). `GET /health/ready` upgraded to parallel probes via `asyncio.gather`. All in `app/core/health.py`. 26 tests.
 - **Architecture decisions:** `docs/adr/README.md` — 4 ADRs documenting non-obvious choices (VSA, Pydantic AI, Redis cache, slowapi rate limiting). Nygard template: status, context, decision, consequences.
 - **Graceful shutdown (OPS-3.1):** `ShutdownCoordinator` in `app/core/shutdown.py` replaces ad-hoc sequential cancel loop in lifespan. Registers 12 tasks (8 background + 4 singletons) with per-task drain timeouts, drains in LIFO order, logs structured `shutdown.report`. Gunicorn `--graceful-timeout` bumped to 45s (36s worst-case budget + 9s safety margin). 10 tests.
+- **Durable job queue (OPS-3.2):** Arq-based Redis job queue in `app/core/jobs/`. Feature-flagged via `background_queue_enabled` (default `false`). When enabled, memory compaction (every 6h) and promotion (daily 03:00 UTC) run as durable arq cron jobs instead of bare `asyncio.create_task()`. `GET /admin/jobs/status` (admin-only, rate-limited) returns per-job last run, result, failure count. Docker worker service: `docker compose --profile worker up vtv-worker`. 19 tests.
 - **Cache invalidation (OPS-3.3):** `CacheInvalidator` in `app/core/cache/invalidation.py` provides namespaced key deletion and SCAN-based pattern invalidation. Wired into repository layer: stops (create/update/delete), geofences (create/update/delete), schedules (GTFS import). Convenience functions: `invalidate_stop_cache()`, `invalidate_geofence_cache()`, `invalidate_vehicle_position_cache()`, `invalidate_route_cache()`. Fire-and-forget safe (errors logged, never raised). Prometheus counter: `vtv_redis_cache_invalidations_total`. 11 tests.
 - **ER diagram (OPS-5.3):** `docs/schema/er.md` — Mermaid ER diagram auto-generated from SQLAlchemy models via `make er-diagram`. 24 tables with FK relationships. Re-run after migrations.
 

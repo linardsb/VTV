@@ -1,7 +1,7 @@
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportCallIssue=false
 """Unit tests for StopRepository database operations."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -9,6 +9,9 @@ from app.stops.models import Stop
 from app.stops.repository import StopRepository
 from app.stops.schemas import StopCreate, StopUpdate
 from app.stops.tests.conftest import make_stop
+
+# All mutation tests patch cache invalidation to avoid Redis dependency
+_PATCH_INVALIDATE = "app.stops.repository.invalidate_stop_cache"
 
 
 @pytest.fixture
@@ -81,7 +84,8 @@ async def test_count_active(repo):
     assert result == 42
 
 
-async def test_create(repo):
+@patch(_PATCH_INVALIDATE, new_callable=AsyncMock)
+async def test_create(mock_invalidate, repo):
     data = StopCreate(stop_name="New Stop", gtfs_stop_id="9999")
 
     # Mock refresh to set attributes
@@ -98,7 +102,8 @@ async def test_create(repo):
     repo.db.refresh.assert_awaited_once()
 
 
-async def test_update(repo):
+@patch(_PATCH_INVALIDATE, new_callable=AsyncMock)
+async def test_update(mock_invalidate, repo):
     stop = make_stop(id=1, stop_name="Old Name")
     data = StopUpdate(stop_name="New Name")
 
@@ -111,7 +116,8 @@ async def test_update(repo):
     repo.db.refresh.assert_awaited_once()
 
 
-async def test_delete(repo):
+@patch(_PATCH_INVALIDATE, new_callable=AsyncMock)
+async def test_delete(mock_invalidate, repo):
     stop = make_stop(id=1)
     repo.db.delete = AsyncMock()
     repo.db.commit = AsyncMock()

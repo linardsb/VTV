@@ -18,6 +18,7 @@ from app.memory.lifecycle import (
 async def test_start_memory_tasks_creates_tasks_when_enabled() -> None:
     with patch("app.memory.lifecycle.get_settings") as mock_settings:
         mock_settings.return_value.memory_enabled = True
+        mock_settings.return_value.background_queue_enabled = False
         mock_settings.return_value.memory_compaction_cron_hour = 3
         mock_settings.return_value.memory_promotion_cron_hour = 3
 
@@ -35,6 +36,7 @@ async def test_start_memory_tasks_creates_tasks_when_enabled() -> None:
 async def test_start_memory_tasks_skips_when_disabled() -> None:
     with patch("app.memory.lifecycle.get_settings") as mock_settings:
         mock_settings.return_value.memory_enabled = False
+        mock_settings.return_value.background_queue_enabled = False
 
         with patch("app.memory.lifecycle.asyncio.create_task") as mock_create:
             await start_memory_tasks()
@@ -51,6 +53,7 @@ async def test_stop_memory_tasks_cancels_running_tasks() -> None:
 
     with patch("app.memory.lifecycle.get_settings") as mock_settings:
         mock_settings.return_value.memory_enabled = True
+        mock_settings.return_value.background_queue_enabled = False
         mock_settings.return_value.memory_compaction_cron_hour = 3
         mock_settings.return_value.memory_promotion_cron_hour = 3
 

@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache.invalidation import invalidate_stop_cache
 from app.schedules.models import StopTime
 from app.shared.utils import escape_like
 from app.stops.models import Stop
@@ -170,6 +171,7 @@ class StopRepository:
         self.db.add(stop)
         await self.db.commit()
         await self.db.refresh(stop)
+        await invalidate_stop_cache(stop.id)
         return stop
 
     async def update(self, stop: Stop, data: StopUpdate) -> Stop:
@@ -186,6 +188,7 @@ class StopRepository:
             setattr(stop, field, value)
         await self.db.commit()
         await self.db.refresh(stop)
+        await invalidate_stop_cache(stop.id)
         return stop
 
     async def delete(self, stop: Stop) -> None:
@@ -196,6 +199,7 @@ class StopRepository:
         """
         await self.db.delete(stop)
         await self.db.commit()
+        await invalidate_stop_cache(stop.id)
 
     async def bulk_upsert(self, values: builtins.list[dict[str, Any]]) -> tuple[int, int]:
         """Upsert stops by gtfs_stop_id. Flush only, no commit.

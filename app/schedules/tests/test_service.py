@@ -462,7 +462,9 @@ async def test_validate_invalid_time_format(service):
 
 
 @pytest.mark.asyncio
-async def test_import_gtfs_success(service):
+@patch("app.schedules.service.invalidate_route_cache", new_callable=AsyncMock)
+@patch("app.schedules.service.invalidate_stop_cache", new_callable=AsyncMock)
+async def test_import_gtfs_success(mock_inv_stops, mock_inv_routes, service):
     from app.schedules.schemas import GTFSImportResponse
 
     mock_stop = AsyncMock()
@@ -514,7 +516,9 @@ async def test_import_gtfs_success(service):
 
 
 @pytest.mark.asyncio
-async def test_import_merges_existing_data(service):
+@patch("app.schedules.service.invalidate_route_cache", new_callable=AsyncMock)
+@patch("app.schedules.service.invalidate_stop_cache", new_callable=AsyncMock)
+async def test_import_merges_existing_data(mock_inv_stops, mock_inv_routes, service):
     mock_stop = AsyncMock()
     mock_stop.gtfs_stop_id = "1001"
     mock_stop.id = 42
