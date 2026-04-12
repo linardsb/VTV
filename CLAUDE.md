@@ -177,6 +177,12 @@ Security enforced through 6 automated layers. Pre-commit framework (`.pre-commit
 
 **Context-triggered security** — 6 security contexts (AUTH, RBAC, FILE, AGENT, INFRA, INPUT) in `.claude/commands/_shared/security-contexts.md` activate based on feature scope during planning and review. Derived from audit_6 findings. Referenced by `/be-planning`, `/fe-planning`, `/review`, `/fe-review`.
 
+## Operations
+
+Operational runbooks for on-call incident response and production maintenance. See `docs/runbooks/README.md` for the full index.
+
+- **Credential rotation:** `docs/runbooks/credential-rotation.md` — step-by-step procedures for rotating all 15 secrets (JWT, DB, Redis, API keys, SSH, SSL). Each secret: location, rotation command, downtime impact, verification, rollback.
+
 ## Compact instructions
 
 When compacting, preserve:

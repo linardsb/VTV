@@ -222,7 +222,9 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 **What:** Add a `structlog` processor that redacts known-sensitive field names from every log event before JSON serialization, plus a regex scrubber for `exc_info` stack frames.
 **Delivered:** `app/core/logging.py` — `SENSITIVE_KEYS` frozenset (13 keys), `_redact_value()` recursive dict/list redactor, `_redact_exc_text()` regex scrubber (env vars, Bearer tokens, JWTs), `redact_sensitive()` processor wired between `format_exc_info` and `JSONRenderer`. 9 unit tests in `app/core/tests/test_logging.py`, 2 security convention tests (`TestLogSecretSanitization`) in `app/tests/test_security.py` + added to `REQUIRED_TEST_CLASSES`. All 110 security tests pass. Plan: `.agents/plans/ops-1-2-log-secret-sanitization.md`.
 
-#### OPS-1.3 Credential Rotation Runbook
+#### OPS-1.3 Credential Rotation Runbook ✅ (2026-04-12)
+**Status:** Done — `docs/runbooks/credential-rotation.md` covers all 15 secrets across 11 sections (JWT, AUTH_SECRET, PostgreSQL, Redis, 3 LLM API keys, Embedding, Sentry DSN, Hetzner SSH, Traccar webhook, SSL certs, GitHub Actions). Each section: Location, Rotation Command, Downtime, Verification, Rollback. Emergency full-rotation procedure for compromise scenarios. `docs/runbooks/README.md` runbook index created. `CLAUDE.md` § Operations cross-link added. Plan: [.agents/plans/ops-1-3-credential-rotation-runbook.md](../.agents/plans/ops-1-3-credential-rotation-runbook.md).
+
 **What:** Write `docs/runbooks/credential-rotation.md` with step-by-step procedures for rotating every secret VTV holds (JWT secret key, GROQ, Google, Jina, Sentry DSN, Redis password, PostgreSQL password, Hetzner SSH key, GitHub Actions secrets). Each secret has: location, rotation command, impact/downtime, verification, rollback.
 **Why:** On-call has zero playbook for an actual credential incident. A compromised GROQ key at 2am today means googling the dashboard and hoping.
 **Implementation:**
