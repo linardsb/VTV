@@ -156,7 +156,7 @@ async def probe_redis() -> ProbeResult:
     start = time.monotonic()
     try:
         redis_client = await get_redis()
-        await redis_client.ping()  # type: ignore[misc]
+        await redis_client.ping()
         latency_ms = (time.monotonic() - start) * 1000
         return ProbeResult(
             name="redis",
@@ -443,7 +443,7 @@ async def health_redis(request: Request) -> dict[str, str]:
         return _redis_health_cache
     try:
         redis_client = await get_redis()
-        result = await redis_client.ping()  # type: ignore[misc]
+        result = await redis_client.ping()
         if not result:
             raise HTTPException(status_code=503, detail="Redis ping failed")
         _redis_health_cache = {"status": "healthy", "service": "redis"}

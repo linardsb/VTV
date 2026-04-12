@@ -13,7 +13,7 @@ Planned features and improvements. Each item links to its detailed planning docu
 ```
 Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
 CMS Frontend      ███████████████████████░  99%  (17 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences)
-Testing           ████████████████████░░░░  90%  (1620 unit tests, 108 security tests, 81 e2e tests, CI pipeline live with security gates)
+Testing           ████████████████████░░░░  90%  (1945 unit tests, 112 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets, graceful shutdown coordinator)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
