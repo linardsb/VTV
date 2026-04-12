@@ -41,8 +41,13 @@ from pydantic_ai.messages import (
 from app.core.agents.agent import build_instructions_with_skills
 from app.core.agents.agent_result import VALID_DOMAINS, AgentResult
 from app.core.agents.config import resolve_tier_model
-from app.core.agents.exceptions import AgentExecutionError, PromptInjectionBlockedError
+from app.core.agents.exceptions import (
+    AgentExecutionError,
+    OutputExfiltrationBlockedError,
+    PromptInjectionBlockedError,
+)
 from app.core.agents.injection_detector import detect_injection
+from app.core.agents.output_validator import validate_output
 from app.core.agents.routing import ModelTier, classify_prompt
 from app.core.agents.schemas import (
     ChatCompletionChoice,
@@ -263,6 +268,58 @@ class BaseAgentService:
                 error_type=type(e).__name__,
             )
             raise AgentExecutionError(f"Agent execution failed: {e}") from e
+
+        # Phase 10b: output-side exfiltration validation (AI-9.3).
+        try:
+            output_settings = get_settings()
+            if output_settings.output_validation_enabled:
+                result_domain = self.agent_name if self.agent_name in VALID_DOMAINS else "unified"
+                exfil_result = validate_output(
+                    outcome.response_text,
+                    domain=result_domain,
+                )
+                if exfil_result.detected:
+                    exfil_log = exfil_result.to_log_dict()
+                    exfil_mode = output_settings.output_validation_mode
+                    exfil_threshold = output_settings.output_validation_block_threshold
+
+                    if (
+                        exfil_mode == "block"
+                        and exfil_result.aggregate_confidence >= exfil_threshold
+                    ):
+                        logger.error(
+                            "agent.output_validation.blocked",
+                            **exfil_log,
+                            response_length=len(outcome.response_text),
+                        )
+                        raise OutputExfiltrationBlockedError(
+                            "Response blocked by content safety policy",
+                        )
+
+                    log_level = (
+                        "error"
+                        if exfil_result.aggregate_confidence >= exfil_threshold
+                        else "warning"
+                    )
+                    getattr(logger, log_level)(
+                        "agent.output_validation.detected",
+                        **exfil_log,
+                        response_length=len(outcome.response_text),
+                    )
+                    if outcome.warnings is None:
+                        outcome.warnings = []
+                    for issue in exfil_result.issues:
+                        outcome.warnings.append(
+                            f"Output safety: {issue.pattern_name} detected "
+                            f"(confidence: {issue.confidence:.0%})"
+                        )
+        except OutputExfiltrationBlockedError:
+            raise
+        except Exception:
+            logger.warning(
+                "agent.output_validation.validator_error",
+                exc_info=True,
+            )
 
         # Phase 11: post-process → append validation warning footnotes.
         final_text = self._post_process(
