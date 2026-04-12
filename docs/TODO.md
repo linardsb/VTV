@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1618 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence ██████████████████░░░░░  97%  (Phases AI-1 through AI-7 complete — see docs/TODO-archive.md. AI-8 complete: AI-8.1 circuit-breaker primitive + AI-8.2 per-provider health metrics + AI-8.3 provider chain integration with degraded fallback. AI-9 complete: AI-9.1 expanded injection detection + AI-9.2 blocking mode + AI-9.3 output exfiltration validation. AI-10 complete: AI-10.1 heading-breadcrumb citations + AI-10.2 citation format regression tests. AI-11.1 complete: synthetic QA pair generation. Next up: AI-11.2-11.4 retrieval metrics + eval runner + baselines.)
+Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -170,7 +170,7 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 
 **Verify:** `make rag-eval` generates 100 QA pairs, runs them through retrieval, produces a report with recall@3, MRR, mean faithfulness. Report should show current-system numbers ≥ baseline targets (recall@3 ≥ 0.85, faithfulness ≥ 0.80). If below, file a retrieval-quality ticket.
 
-#### AI-11.4 RAG Regression Baselines + CI Integration
+#### AI-11.4 RAG Regression Baselines + CI Integration ✅ (2026-04-12)
 **What:** Generate initial retrieval baselines from first `make rag-eval` run. Future runs compare and flag regressions > 3 percentage points on any metric. Add `make rag-eval-check` as CI gate.
 **Why:** Retrieval layer has many moving parts (chunker version, reranker model, RRF weights, embedding provider, HyDE toggle). Any of these can silently regress retrieval quality. Baselines + CI gate prevent deploying a regression.
 **Implementation:**
@@ -194,9 +194,9 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 | AI-8  | Circuit breaker + provider health | 3 | — |
 | AI-9  | Prompt injection hardening | 3 | AI-9.1/9.2/9.3 done (2026-04-12) |
 | AI-10 | Heading-breadcrumb citations | 2 | AI-4.2, AI-7.1 | Complete (2026-04-12) |
-| AI-11 | RAG retrieval eval pipeline | 4 | AI-4, AI-7 | AI-11.1, AI-11.2, AI-11.3 done (2026-04-12) |
+| AI-11 | RAG retrieval eval pipeline | 4 | AI-4, AI-7 | Complete (2026-04-12) |
 
-Total remaining agent hardening: **1 day** across 1 subtask (AI-11.4). AI-8, AI-9, AI-10 complete. AI-11.1, AI-11.2, AI-11.3 complete. AI-11.4 (regression baselines + CI integration) is the final subtask.
+Total remaining agent hardening: **0 days**. All phases complete (AI-8, AI-9, AI-10, AI-11).
 
 ---
 

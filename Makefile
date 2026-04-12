@@ -126,6 +126,12 @@ rag-eval-run: ## Run RAG eval on existing QA pairs (usage: make rag-eval-run QA_
 
 rag-eval: rag-eval-generate rag-eval-run ## Generate QA pairs + run RAG eval (usage: make rag-eval COUNT=100)
 
+rag-eval-update-baseline: ## Update RAG eval baseline from latest report (usage: make rag-eval-update-baseline REPORT=evals/rag/eval_report_*.json)
+	uv run python -m app.knowledge.evals.regression baseline --report $(or $(REPORT),$(shell ls -t evals/rag/eval_report_*.json 2>/dev/null | head -1)) --qa-file $(or $(QA_FILE),evals/rag/qa_pairs.jsonl) --force
+
+rag-eval-check: ## Run RAG eval regression check against baseline (CI gate)
+	uv run python -m app.knowledge.evals.regression check --report $(or $(REPORT),$(shell ls -t evals/rag/eval_report_*.json 2>/dev/null | head -1)) --qa-file $(or $(QA_FILE),evals/rag/qa_pairs.jsonl)
+
 # === Security ===
 
 install-hooks: ## Install git pre-commit hook

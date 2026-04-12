@@ -87,3 +87,40 @@ class RunReport:
     mean_faithfulness: float  # Fraction of pairs where passed=True
     faithfulness_errors: int  # Count of pairs where passed=None
     case_results: tuple[CaseResult, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RAGBaseline:
+    """Stored baseline from a known-good RAG eval run."""
+
+    recall_at_1: float
+    recall_at_3: float
+    recall_at_10: float
+    mrr: float
+    mean_completeness: float
+    mean_faithfulness: float
+    total_pairs: int
+    generated_at: str  # ISO-8601
+    corpus_checksum: str  # SHA-256 of sorted source chunk IDs from QA file
+
+
+@dataclass(frozen=True, slots=True)
+class RegressionFinding:
+    """One metric that regressed beyond tolerance."""
+
+    metric_name: str
+    baseline_value: float
+    current_value: float
+    delta: float  # current - baseline (negative = regression)
+    tolerance: float
+
+
+@dataclass(frozen=True, slots=True)
+class RegressionReport:
+    """Result of comparing current metrics against a stored baseline."""
+
+    passed: bool
+    tolerance: float
+    findings: tuple[RegressionFinding, ...]
+    corpus_checksum_match: bool
+    generated_at: str
