@@ -71,6 +71,8 @@ make rechunk                       # Re-chunk all documents with the current Sem
 
 # RAG retrieval eval
 make rag-eval-generate COUNT=100   # Generate synthetic QA pairs from knowledge base (AI-11.1)
+make rag-eval-run QA_FILE=...      # Run RAG eval on existing QA pairs (AI-11.3)
+make rag-eval COUNT=100            # Generate QA pairs + run RAG eval (AI-11.1 + AI-11.3)
 ```
 
 ## Architecture
@@ -87,7 +89,7 @@ VTV/
 │   ├── analytics/      # Dashboard analytics (4 endpoints, read-only aggregation over vehicles/drivers/transit)
 │   ├── auth/           # JWT auth + RBAC + user management (10 endpoints)
 │   ├── compliance/     # NeTEx/SIRI EU compliance exports (4 endpoints, XML generation, no DB tables)
-│   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion, Redis embedding cache, heading-aware semantic chunking, parent-child chunk hierarchy, search-time parent context expansion, heading-breadcrumb citations, one-shot rechunk migration script, synthetic QA pair generation for RAG eval, retrieval metrics computation with recall@k/MRR/completeness)
+│   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion, Redis embedding cache, heading-aware semantic chunking, parent-child chunk hierarchy, search-time parent context expansion, heading-breadcrumb citations, one-shot rechunk migration script, synthetic QA pair generation for RAG eval, retrieval metrics computation with recall@k/MRR/completeness, RAG eval runner with LLM faithfulness judge)
 │   ├── memory/         # Agent memory storage (7 endpoints, pgvector similarity recall, 4 memory types, embed-on-store, duplicate detection, text-based recall, compaction, episodic-to-procedural promotion, fire-and-forget bridge auto-persists multi-tool agent episodes, memory recall injected as agent context before each run, LLM-based intent merging during compaction, daily background compaction+promotion tasks)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)

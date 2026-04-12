@@ -121,6 +121,11 @@ eval-check: ## Judge latest traces and compare against baseline (CI-friendly)
 rag-eval-generate: ## Generate synthetic QA pairs from knowledge base (usage: make rag-eval-generate COUNT=100)
 	uv run python -m app.knowledge.evals --count $(or $(COUNT),100)
 
+rag-eval-run: ## Run RAG eval on existing QA pairs (usage: make rag-eval-run QA_FILE=evals/rag/qa_pairs.jsonl)
+	uv run python -m app.knowledge.evals.runner --qa-file $(or $(QA_FILE),evals/rag/qa_pairs.jsonl)
+
+rag-eval: rag-eval-generate rag-eval-run ## Generate QA pairs + run RAG eval (usage: make rag-eval COUNT=100)
+
 # === Security ===
 
 install-hooks: ## Install git pre-commit hook

@@ -51,3 +51,39 @@ class EvalReport:
     qa_file: str
     metrics: RetrievalMetrics
     errors: int
+
+
+@dataclass(frozen=True, slots=True)
+class FaithfulnessResult:
+    """LLM-judged faithfulness for one QA pair."""
+
+    grounded: bool | None  # Answer derivable from chunks?
+    accurate: bool | None  # Matches source content?
+    complete: bool | None  # No key info missing?
+    passed: bool | None  # All three True = pass; None = error
+    error: str | None  # Error message if LLM call failed
+
+
+@dataclass(frozen=True, slots=True)
+class CaseResult:
+    """Per-QA-pair evaluation result combining metrics + faithfulness."""
+
+    qa_pair: QAPair
+    pair_metrics: PairMetrics
+    faithfulness: FaithfulnessResult
+    search_latency_ms: float
+    judge_latency_ms: float
+
+
+@dataclass(frozen=True, slots=True)
+class RunReport:
+    """Full eval run report with retrieval metrics + faithfulness stats."""
+
+    run_id: str
+    timestamp: str
+    qa_file: str
+    total_pairs: int
+    retrieval_metrics: RetrievalMetrics
+    mean_faithfulness: float  # Fraction of pairs where passed=True
+    faithfulness_errors: int  # Count of pairs where passed=None
+    case_results: tuple[CaseResult, ...]

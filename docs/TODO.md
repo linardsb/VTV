@@ -152,7 +152,7 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 
 **Verify:** Replay 20 QA pairs through the retrieval layer. Report recall@3 ≥ 0.85 on the current system. If below, that's the retrieval regression signal worth acting on.
 
-#### AI-11.3 RAG Eval Runner + Faithfulness Judge
+#### AI-11.3 RAG Eval Runner + Faithfulness Judge ✅ (2026-04-12)
 **What:** Create `app/knowledge/evals/runner.py` — runs QA pairs through `KnowledgeService.search()`, computes AI-11.2 metrics, plus an LLM-judged **faithfulness** score: given the retrieved chunks as context, does a fast-tier LLM answer the QA pair's question correctly? (Binary pass/fail).
 **Why:** Rank-based metrics miss semantic correctness. A chunk can be rank 1 but still be the wrong answer due to ambiguity. LLM-judged faithfulness validates that the retrieved context actually supports answering the question.
 **Implementation:**
@@ -194,9 +194,9 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 | AI-8  | Circuit breaker + provider health | 3 | — |
 | AI-9  | Prompt injection hardening | 3 | AI-9.1/9.2/9.3 done (2026-04-12) |
 | AI-10 | Heading-breadcrumb citations | 2 | AI-4.2, AI-7.1 | Complete (2026-04-12) |
-| AI-11 | RAG retrieval eval pipeline | 4 | AI-4, AI-7 | AI-11.1, AI-11.2 done (2026-04-12) |
+| AI-11 | RAG retrieval eval pipeline | 4 | AI-4, AI-7 | AI-11.1, AI-11.2, AI-11.3 done (2026-04-12) |
 
-Total remaining agent hardening: **2 days** across 2 subtasks (AI-11.3, AI-11.4). AI-8, AI-9, AI-10 complete. AI-11.1, AI-11.2 complete. AI-11.3-11.4 (eval runner + faithfulness judge, regression baselines) should run after AI-7 is fully green to reuse its eval infrastructure patterns.
+Total remaining agent hardening: **1 day** across 1 subtask (AI-11.4). AI-8, AI-9, AI-10 complete. AI-11.1, AI-11.2, AI-11.3 complete. AI-11.4 (regression baselines + CI integration) is the final subtask.
 
 ---
 
