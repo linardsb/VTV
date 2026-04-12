@@ -22,6 +22,7 @@ import logging
 import re
 import uuid
 from contextvars import ContextVar
+from typing import cast
 
 import structlog
 from structlog.typing import EventDict, WrappedLogger
@@ -31,6 +32,78 @@ request_id_var: ContextVar[str] = ContextVar("request_id", default="")
 
 # Safe pattern for client-provided request IDs (prevents log injection)
 _SAFE_REQUEST_ID = re.compile(r"^[a-zA-Z0-9\-_.]{1,64}$")
+
+SENSITIVE_KEYS: frozenset[str] = frozenset(
+    {
+        "api_key",
+        "token",
+        "authorization",
+        "password",
+        "groq_api_key",
+        "google_api_key",
+        "jina_api_key",
+        "sentry_dsn",
+        "jwt_secret_key",
+        "secret",
+        "refresh_token",
+        "cookie",
+        "set-cookie",
+    }
+)
+
+_REDACTED = "<redacted>"
+
+_EXC_SECRET_PATTERNS = re.compile(
+    r"(?:"
+    r"(?:GROQ_API_KEY|GOOGLE_API_KEY|JINA_API_KEY|ANTHROPIC_API_KEY|"
+    r"OBSIDIAN_API_KEY|EMBEDDING_API_KEY|JWT_SECRET_KEY|SENTRY_DSN"
+    r")=\S+"
+    r"|Authorization:\s*Bearer\s+\S+"
+    r"|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _redact_value(value: object) -> object:
+    """Recursively replace sensitive dict keys with a redaction placeholder."""
+    if isinstance(value, dict):
+        d = cast(dict[str, object], value)
+        return {
+            k: _REDACTED if k.lower() in SENSITIVE_KEYS else _redact_value(v) for k, v in d.items()
+        }
+    if isinstance(value, list):
+        return [_redact_value(item) for item in cast(list[object], value)]
+    return value
+
+
+def _redact_exc_text(text: str) -> str:
+    """Scrub secret patterns (env vars, Bearer tokens, JWTs) from exception text."""
+    return _EXC_SECRET_PATTERNS.sub(_REDACTED, text)
+
+
+def redact_sensitive(_logger: WrappedLogger, _method_name: str, event_dict: EventDict) -> EventDict:
+    """Structlog processor that scrubs sensitive values before serialization.
+
+    Args:
+        _logger: The logger instance (unused, required by structlog).
+        _method_name: The logging method name (unused, required by structlog).
+        event_dict: The event dictionary to sanitize.
+
+    Returns:
+        The sanitized event dictionary with secret values replaced.
+    """
+    for key in list(event_dict):
+        if key.lower() in SENSITIVE_KEYS:
+            event_dict[key] = _REDACTED
+        else:
+            event_dict[key] = _redact_value(event_dict[key])
+
+    exc = event_dict.get("exception")
+    if isinstance(exc, str):
+        event_dict["exception"] = _redact_exc_text(exc)
+
+    return event_dict
 
 
 def get_request_id() -> str:
@@ -105,6 +178,7 @@ def setup_logging(log_level: str = "INFO") -> None:
             structlog.processors.TimeStamper(fmt="iso"),  # ISO 8601 timestamps
             structlog.processors.StackInfoRenderer(),  # Render stack info
             structlog.processors.format_exc_info,  # Format exception tracebacks
+            redact_sensitive,  # Scrub secrets before serialization
             structlog.processors.JSONRenderer(),  # JSON output
         ],
         wrapper_class=structlog.make_filtering_bound_logger(level_int),

@@ -7,9 +7,12 @@ import pytest
 import structlog
 
 from app.core.logging import (
+    SENSITIVE_KEYS,
+    _redact_exc_text,
     add_request_id,
     get_logger,
     get_request_id,
+    redact_sensitive,
     request_id_var,
     set_request_id,
     setup_logging,
@@ -243,3 +246,101 @@ def test_logging_with_structured_data(capsys: pytest.CaptureFixture[str]) -> Non
     assert log_data["total"] == 99.99
     assert log_data["items_count"] == 3
     assert log_data["status"] == "pending"
+
+
+# --- Redaction tests (OPS-1.2) ---
+
+
+def test_redact_sensitive_top_level_key() -> None:
+    event_dict: dict[str, object] = {
+        "event": "test",
+        "api_key": "sk-secret-123",
+        "user": "alice",
+    }
+    result = redact_sensitive(None, "info", event_dict)
+    assert result["api_key"] == "<redacted>"
+    assert result["user"] == "alice"
+    assert result["event"] == "test"
+
+
+def test_redact_sensitive_nested_dict() -> None:
+    event_dict: dict[str, object] = {
+        "event": "test",
+        "headers": {"authorization": "Bearer xyz", "content-type": "json"},
+    }
+    result = redact_sensitive(None, "info", event_dict)
+    headers = result["headers"]
+    assert isinstance(headers, dict)
+    assert headers["authorization"] == "<redacted>"
+    assert headers["content-type"] == "json"
+
+
+def test_redact_sensitive_list_of_dicts() -> None:
+    event_dict: dict[str, object] = {
+        "event": "test",
+        "items": [
+            {"password": "secret", "name": "a"},
+            {"token": "t", "name": "b"},
+        ],
+    }
+    result = redact_sensitive(None, "info", event_dict)
+    items = result["items"]
+    assert isinstance(items, list)
+    assert items[0]["password"] == "<redacted>"
+    assert items[0]["name"] == "a"
+    assert items[1]["token"] == "<redacted>"
+
+
+def test_redact_sensitive_case_insensitive() -> None:
+    event_dict: dict[str, object] = {
+        "event": "test",
+        "API_KEY": "secret",
+        "Password": "abc",
+    }
+    result = redact_sensitive(None, "info", event_dict)
+    assert result["API_KEY"] == "<redacted>"
+    assert result["Password"] == "<redacted>"
+
+
+def test_redact_exc_info_jwt() -> None:
+    exc_text = (
+        'File "config.py", line 10\n'
+        '  token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.'
+        'dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"\nValueError'
+    )
+    result = _redact_exc_text(exc_text)
+    assert "eyJ" not in result
+    assert "<redacted>" in result
+    assert "ValueError" in result
+
+
+def test_redact_exc_info_bearer() -> None:
+    exc_text = "httpx.HTTPError: Authorization: Bearer sk-ant-api03-xxxx\nTraceback"
+    result = _redact_exc_text(exc_text)
+    assert "sk-ant" not in result
+    assert "<redacted>" in result
+    assert "Traceback" in result
+
+
+def test_redact_sensitive_passthrough_non_sensitive() -> None:
+    event_dict: dict[str, object] = {
+        "event": "test.started",
+        "duration_ms": 42,
+        "status": "ok",
+        "items": [1, 2, 3],
+    }
+    result = redact_sensitive(None, "info", event_dict)
+    assert result["event"] == "test.started"
+    assert result["duration_ms"] == 42
+    assert result["status"] == "ok"
+    assert result["items"] == [1, 2, 3]
+
+
+def test_redact_sensitive_empty_dict() -> None:
+    event_dict: dict[str, object] = {}
+    result = redact_sensitive(None, "info", event_dict)
+    assert result == {}
+
+
+def test_sensitive_keys_is_frozenset() -> None:
+    assert isinstance(SENSITIVE_KEYS, frozenset)

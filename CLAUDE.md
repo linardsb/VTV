@@ -12,7 +12,7 @@ VTV is a unified transit operations platform targeting all of Latvia's public tr
 
 **Python Anti-Patterns** — 59 documented patterns that cause lint/type errors (includes security and schema validation patterns). Single source of truth: `.claude/commands/_shared/python-anti-patterns.md`. Also referenced by `/be-execute` and `/be-planning`.
 
-**Structured Logging** — `domain.component.action_state` pattern via structlog. Logger: `from app.core.logging import get_logger`. Full taxonomy: `docs/logging-standard.md`.
+**Structured Logging** — `domain.component.action_state` pattern via structlog. Logger: `from app.core.logging import get_logger`. Full taxonomy: `docs/logging-standard.md`. Runtime secret redaction via `redact_sensitive` processor scrubs 13 sensitive key names + regex-scrubs exception tracebacks before JSON serialization.
 
 ## Slash Commands
 
@@ -39,7 +39,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (1618 tests, ~35s)
+make test            # Unit tests (1686 tests, ~35s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 

@@ -28,7 +28,8 @@ Install via `make install-hooks`.
 
 ## Security Convention Tests
 
-105 convention tests in `app/tests/test_security.py` auto-discover all endpoints and enforce:
+110 convention tests in `app/tests/test_security.py` auto-discover all endpoints and enforce:
 - Auth requirements on every endpoint
 - JWT safety, bcrypt rounds, container hardening
+- Log secret redaction (`TestLogSecretSanitization`)
 - CORS, GDPR, and 15+ other security properties

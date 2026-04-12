@@ -1307,6 +1307,34 @@ class TestRequestIdSanitization:
         assert result3 == valid, "Valid UUIDs should pass through unchanged"
 
 
+# === OPS-1.2: Log secret sanitization ===
+
+
+class TestLogSecretSanitization:
+    """OPS-1.2: Structured-log secret sanitization filter."""
+
+    def test_redact_processor_in_chain(self) -> None:
+        import inspect
+
+        from app.core.logging import setup_logging
+
+        source = inspect.getsource(setup_logging)
+        assert "redact_sensitive" in source
+
+    def test_sensitive_keys_cover_api_keys(self) -> None:
+        from app.core.logging import SENSITIVE_KEYS
+
+        required = {
+            "api_key",
+            "password",
+            "authorization",
+            "jwt_secret_key",
+            "sentry_dsn",
+            "secret",
+        }
+        assert required.issubset(SENSITIVE_KEYS)
+
+
 # === Audit 5: MED-1 - Database container cap_drop ===
 
 
@@ -1465,6 +1493,7 @@ class TestAuditCoverageCompleteness:
         "TestTimingAttackPrevention",
         "TestNoFilePathExposure",
         "TestRequestIdSanitization",
+        "TestLogSecretSanitization",
         "TestDatabaseContainerHardening",
         "TestSDLCSecurityGates",
         "TestAuditCoverageCompleteness",
