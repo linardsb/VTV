@@ -1,4 +1,4 @@
-# pyright: reportUnknownMemberType=false, reportMissingTypeStubs=false
+# pyright: reportUnknownMemberType=false, reportMissingTypeStubs=false, reportUnknownArgumentType=false, reportUnknownVariableType=false
 """SQL validation for text-to-sql agent tool (ML-5.4).
 
 Three-layer defense: sqlparse whitelist, keyword blocklist, EXPLAIN cost gate.
@@ -196,16 +196,27 @@ async def check_query_cost(
         raise ValueError(msg)
 
     # Parse the JSON plan
-    if isinstance(row, str):
-        plan_data = json.loads(row)
-    else:
-        plan_data = row
+    raw_plan: object = json.loads(row) if isinstance(row, str) else row
 
-    if not isinstance(plan_data, list) or len(plan_data) == 0:
+    if not isinstance(raw_plan, list):
         msg = "EXPLAIN returned unexpected format"
         raise ValueError(msg)
 
-    total_cost = float(plan_data[0]["Plan"]["Total Cost"])
+    plan_list: list[object] = raw_plan
+    if len(plan_list) == 0:
+        msg = "EXPLAIN returned unexpected format"
+        raise ValueError(msg)
+
+    first_entry: object = plan_list[0]
+    if not isinstance(first_entry, dict):
+        msg = "EXPLAIN returned unexpected plan entry format"
+        raise ValueError(msg)
+    plan_entry: dict[str, object] = first_entry
+    plan_node = plan_entry.get("Plan")
+    if not isinstance(plan_node, dict):
+        msg = "EXPLAIN returned unexpected plan format"
+        raise ValueError(msg)
+    total_cost = float(str(plan_node.get("Total Cost", 0)))
 
     if total_cost > max_cost:
         logger.warning(
