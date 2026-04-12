@@ -17,7 +17,7 @@ Testing           ████████████████████�
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets, graceful shutdown coordinator)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
-Intelligence/ML   ███████████░░░░░░░░░░░░  47%  (ML-1 complete: GTFS archive + e-ticket + weather/traffic ETL. ML-2.1 feature engineering complete. ML-5.3 public API + ML-5.4 Text-to-SQL complete. 8/17 subtasks done. Remaining: ML-2.2-2.4 ETA model/serving, ML-3 load, ML-4 anomaly, ML-5.1 dashboard, ML-5.2 adherence)
+Intelligence/ML   ██████████████░░░░░░░░░  59%  (ML-1 complete: GTFS archive + e-ticket + weather/traffic ETL. ML-2.1 feature engineering complete. ML-4.1 off-route + ML-4.2 stuck/GPS gap detection complete. ML-5.3 public API + ML-5.4 Text-to-SQL complete. 10/17 subtasks done. Remaining: ML-2.2-2.4 ETA model/serving, ML-3 load, ML-4.3 anomaly routing, ML-5.1 dashboard, ML-5.2 adherence)
 ```
 
 ## In Progress
@@ -683,35 +683,11 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 
 > **Sprint deliverable:** Three real-time anomaly detectors (off-route, stuck, GPS gap) catching fleet issues within 2 minutes of occurrence. Alerts routed to dispatchers via existing alerts system.
 
-#### ML-4.1 Off-Route Detection
-**What:** Background evaluator using PostGIS route corridors to detect when a vehicle drifts > N meters from its assigned route shape. Uses GTFS `shapes.txt` + `ST_Buffer` to build 50m corridors; triggers when vehicle is outside corridor for ≥ 3 consecutive position updates.
-**Why:** Off-route vehicles are the #1 fleet anomaly dispatchers want to know about (wrong turn, driver deviation, service change miscommunication). GTFS shape data is already available once route polylines ship (see "Route Shape Polylines" TODO); detection is a straightforward spatial join.
-**Implementation:**
-- Prerequisite: `shapes.txt` imported into `gtfs_shapes` table (covered by existing Route Shape Polylines TODO at line 701)
-- `app/ml/anomaly/off_route.py`:
-  - `build_route_corridors()` — one-time: `ST_Buffer(ST_MakeLine(shape_points), 50)` per route → `route_corridors` materialized view
-  - `OffRouteEvaluator.check_vehicle(vehicle_id) -> OffRouteStatus` — `ST_Contains(corridor, vehicle_position)` check
-  - Background task: 60s cycle, tracks consecutive-offroute counts per vehicle in Redis, fires alert at 3 consecutive offs (≥3 min drift)
-- `app/alerts/` integration via existing `AlertService.create_alert(type="off_route", ...)`
-- Threshold configurable: `anomaly_offroute_buffer_meters: int = 50`, `anomaly_offroute_consecutive_hits: int = 3`
-- 10+ unit tests: corridor build (2), containment check (2), consecutive tracking (2), Redis state reset on re-entry (1), alert deduplication (1), config tuning (2)
+#### ML-4.1 Off-Route Detection ✅
+**Status:** Done — `app/ml/anomaly/off_route.py` implements background off-route evaluator (60s cycle, configurable). Builds PostGIS corridor geometry per route via `ST_Buffer(ST_MakeLine(shape_points ORDER BY sequence)::geography, buffer_m)::geometry` with `ST_Union` for multi-shape routes (outbound + inbound). Corridor cache at module level (cleared on stop). Vehicle containment via `ST_Contains`. Consecutive out-of-corridor tracking in Redis (`off_route_state:<vehicle_id>`, 5min TTL). Fires `"off_route"` alert via `AlertInstanceRepository` at threshold (default 3 consecutive hits). Custom dedup query on `alert_type + source_entity_id + status` (does NOT use `find_active_duplicate` — avoids FK assumption). Config: `anomaly_offroute_enabled=True`, `anomaly_offroute_check_interval_seconds=60`, `anomaly_offroute_buffer_meters=50`, `anomaly_offroute_consecutive_hits=3`. Registered in `app/main.py` lifespan + `ShutdownCoordinator`. `"off_route"` added to `AlertRuleType` Literal and CHECK constraint (migration `n7o8p9q0r1s2`). 12 unit tests: corridor/containment (2), consecutive tracking (2), threshold firing (1), reset on re-entry (1), dedup (1), no vehicles/no route/no shape edge cases (3), caching (2), lifecycle (2). Plan: `.agents/plans/ml-4-1-off-route-detection.md`. (2026-04-12, af675bf)
 
-**Verify:** Manually set a test vehicle's position 100m outside its route corridor for 3 polls. Alert fires within 3 min. Move vehicle back inside — Redis state resets. Check evaluator runtime log: `transit.anomaly.off_route.fired {vehicle_id, route_id, drift_m}`.
-
-#### ML-4.2 Stuck Vehicle + GPS Gap Detection
-**What:** Two more detectors in the same `app/ml/anomaly/` package: (1) **stuck** — vehicle moved < 20m over last 10 minutes during an active trip; (2) **gps_gap** — no position updates from an active vehicle in the last 5 minutes (despite scheduled trip).
-**Why:** "Stuck" catches breakdowns, accidents, and traffic pileups — dispatcher action (re-route other vehicles, notify passengers) requires knowing within minutes. "GPS gap" catches hardware failures, driver going offline, or upstream feed outages — different root cause, different response, so separate alert types.
-**Implementation:**
-- `app/ml/anomaly/stuck.py`:
-  - `StuckVehicleEvaluator.check(vehicle_id)` — compute distance traveled in last 10 min via TimescaleDB window query (`SUM(ST_Distance(lag(pos), pos))`)
-  - Exclude terminal stops + scheduled layovers (cross-reference `gtfs_stop_times` arrival_time/departure_time)
-- `app/ml/anomaly/gps_gap.py`:
-  - `GPSGapEvaluator.check(vehicle_id)` — compare `MAX(observed_at)` vs `NOW()`; fire if gap > 5 min and trip is scheduled active
-  - Separate "feed-wide gap" detection: if ≥ 50% of a feed's vehicles gap at once, fire `feed_outage` instead of per-vehicle spam
-- Shared base class `BaseAnomalyEvaluator` extracted when 3rd detector lands (three-feature rule)
-- 15+ unit tests: stuck detection (3), terminal-stop exclusion (2), gps_gap detection (2), feed-wide suppression (2), spam suppression via Redis cooldown (2), timezone correctness (1), layover exclusion (2), concurrent-vehicle test (1)
-
-**Verify:** Simulate a vehicle not moving for 12 min — stuck alert fires. Stop sending GPS for a vehicle for 6 min — gps_gap fires. Stop a whole feed — one `feed_outage` alert instead of 500 per-vehicle alerts.
+#### ML-4.2 Stuck Vehicle + GPS Gap Detection ✅
+**Status:** Done — `app/ml/anomaly/stuck.py` implements `StuckVehicleEvaluator` class querying TimescaleDB `vehicle_positions` for movement in configurable time window (`ml_stuck_time_window_minutes=10`), haversine distance check against threshold (`ml_stuck_distance_threshold_m=20.0`), layover/terminal stop exclusion via GTFS stop_times cross-reference. `app/ml/anomaly/gps_gap.py` implements `GPSGapEvaluator` class comparing `MAX(observed_at)` vs current time with threshold (`ml_gps_gap_threshold_minutes=5`), feed-wide gap detection fires `feed_outage` when `ml_gps_gap_feed_outage_pct=50`% of feed vehicles gap simultaneously. Both return `list[AlertInstanceCreate]` consumed by `app/ml/anomaly/evaluator.py` orchestrator (60s cycle, `ml_anomaly_evaluator_enabled` config). `"stuck_vehicle"`, `"gps_gap"`, `"feed_outage"` added to `AlertRuleType`. Redis cooldown (`ml_anomaly_cooldown_seconds=900`) prevents alert spam. 25 tests across `test_stuck.py`, `test_gps_gap.py`, `test_evaluator.py`. Plan: `.agents/plans/ml-4-2-stuck-gps-gap-detection.md`. (2026-04-12, af675bf)
 
 #### ML-4.3 Anomaly Detection Routing + Deduplication
 **What:** Central `AnomalyAlertRouter` that routes each anomaly type to the right alert channel (dispatcher dashboard, SMS for critical, Slack for ops), enforces per-vehicle cooldowns, and exposes `GET /v1/anomalies/recent` endpoint for the CMS.
@@ -813,7 +789,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 | ML-4  | Anomaly detection (off-route, stuck, GPS gap) | 5 | Route Shape Polylines TODO, alerts slice |
 | ML-5  | CMS dashboards, public API, Text-to-SQL | 8 | ML-1..ML-4 |
 
-Total ML platform build-out: **33 days** across 17 subtasks. **7 subtasks complete** (ML-1.1, ML-1.2, ML-1.3, ML-5.3, ML-5.4 done 2026-04-12). ML-2/ML-3 are unblocked by ML-1 completion. ML-4 is independent — only needs route shapes + alerts. Remaining: 10 subtasks, ~21 days.
+Total ML platform build-out: **33 days** across 17 subtasks. **10 subtasks complete** (ML-1.1, ML-1.2, ML-1.3, ML-2.1, ML-4.1, ML-4.2, ML-5.3, ML-5.4). ML-2/ML-3 are unblocked by ML-1 completion. ML-4.3 (anomaly routing) remaining. Remaining: 7 subtasks, ~15 days.
 
 ---
 
