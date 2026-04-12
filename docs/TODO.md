@@ -423,7 +423,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 - Re-run `uv run mypy app/` and `uv run pyright` repo-wide to confirm zero errors.
 **Verify:** `uv run mypy app/` → 0 errors. `uv run pyright` → 0 errors. CI's type-check job passes without baseline suppressions.
 
-#### OPS-5.2 Architecture Decision Records
+#### OPS-5.2 Architecture Decision Records -- DONE (2026-04-12)
 **What:** Write 4 short ADRs capturing the non-obvious architectural choices already in the codebase: (1) Vertical Slice Architecture, (2) Pydantic AI over LangChain, (3) Redis for embedding + position cache, (4) slowapi vs reverse-proxy rate limiting. ADR template: status, context, decision, consequences.
 **Why:** Onboarding currently requires archaeology. New contributors re-propose LangChain, re-propose per-feature `shared/` folders, re-propose reverse-proxy rate limits — all already decided and rejected for reasons nobody wrote down. ADRs block the time-sink.
 **Implementation:**
@@ -432,7 +432,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 - `docs/adr/0003-redis-for-cache-layer.md`
 - `docs/adr/0004-slowapi-rate-limiting.md`
 - `docs/adr/README.md` — index + Nygard ADR template (status / context / decision / consequences)
-- Cross-link from `CLAUDE.md` § Architecture and main `README.md`.
+- Cross-link from `CLAUDE.md` § Operations and main `README.md` § Key References.
 **Verify:** Each ADR reads self-contained: a new contributor can read ADR-0002 cold and understand why Pydantic AI won over LangChain without reading any code.
 
 #### OPS-5.3 Database ER Diagram from SQLAlchemy Models

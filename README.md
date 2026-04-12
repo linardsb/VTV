@@ -292,6 +292,7 @@ Frontend: /fe-prime → /fe-planning → /fe-execute → /fe-validate → /commi
 - [Logging Standard](docs/logging-standard.md) — Structured logging conventions
 - [Pytest Standard](docs/pytest-standard.md) — Testing patterns and configuration
 - [Commands](/.claude/commands/CLAUDE.md) — Full documentation for all 21 slash commands
+- [Architecture Decision Records](docs/adr/README.md) — Why VSA, Pydantic AI, Redis, and slowapi
 
 ## License
 

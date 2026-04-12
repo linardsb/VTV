@@ -183,6 +183,7 @@ Operational runbooks for on-call incident response and production maintenance. S
 
 - **Credential rotation:** `docs/runbooks/credential-rotation.md` — step-by-step procedures for rotating all 15 secrets (JWT, DB, Redis, API keys, SSH, SSL). Each secret: location, rotation command, downtime impact, verification, rollback.
 - **Prometheus metrics (OPS-2.1):** `/metrics` endpoint via `prometheus-client` ASGI app. Metrics: HTTP request latency histogram (`vtv_http_request_duration_seconds`), DB pool gauges, Redis cache hit/miss counters, agent tool duration histogram, circuit breaker state gauge, background poller liveness gauges. Access via nginx IP allowlist (no JWT). Feature flag: `metrics_enabled`. Definitions in `app/core/metrics.py`, middleware in `app/core/metrics_middleware.py`.
+- **Architecture decisions:** `docs/adr/README.md` — 4 ADRs documenting non-obvious choices (VSA, Pydantic AI, Redis cache, slowapi rate limiting). Nygard template: status, context, decision, consequences.
 
 ## Compact instructions
 
