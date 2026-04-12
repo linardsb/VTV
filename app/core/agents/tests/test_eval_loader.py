@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import dataclasses
+import textwrap
 from pathlib import Path
 from textwrap import dedent
 
@@ -59,17 +60,25 @@ def test_eval_case_rejects_unknown_domain() -> None:
 
 
 def test_eval_case_rejects_wrong_criteria_count_too_few() -> None:
-    with pytest.raises(ValueError, match="must have exactly 5 quality_criteria"):
+    with pytest.raises(ValueError, match="must have 5-6 quality_criteria"):
         make_eval_case(
             quality_criteria=tuple(make_quality_criterion(name=f"c{i}") for i in range(4))
         )
 
 
 def test_eval_case_rejects_wrong_criteria_count_too_many() -> None:
-    with pytest.raises(ValueError, match="must have exactly 5 quality_criteria"):
+    with pytest.raises(ValueError, match="must have 5-6 quality_criteria"):
         make_eval_case(
-            quality_criteria=tuple(make_quality_criterion(name=f"c{i}") for i in range(6))
+            quality_criteria=tuple(make_quality_criterion(name=f"c{i}") for i in range(7))
         )
+
+
+def test_eval_case_accepts_six_criteria() -> None:
+    """AI-10.2: cases with 6 criteria (5 standard + citation_format_correct) are valid."""
+    case = make_eval_case(
+        quality_criteria=tuple(make_quality_criterion(name=f"c{i}") for i in range(6))
+    )
+    assert len(case.quality_criteria) == 6
 
 
 def test_eval_case_rejects_unknown_tool() -> None:
@@ -276,6 +285,37 @@ def test_load_all_cases_detects_duplicate_ids(
     assert "duplicate_ids" in (captured.out + captured.err)
 
 
+def test_parse_eval_file_loads_six_criteria_case(tmp_eval_dir: Path) -> None:
+    """AI-10.2: YAML cases with 6 criteria load without errors."""
+    yaml_content = textwrap.dedent("""\
+        cases:
+          - id: test_six_criteria
+            prompt: "Test prompt for 6 criteria"
+            language: lv
+            expected_domain: knowledge
+            expected_tools:
+              - search_knowledge_base
+            quality_criteria:
+              - name: factual_accuracy
+                description: Stub 1.
+              - name: citation_quality
+                description: Stub 2.
+              - name: grounding
+                description: Stub 3.
+              - name: language_correctness
+                description: Stub 4.
+              - name: honesty
+                description: Stub 5.
+              - name: citation_format_correct
+                description: Stub 6.
+    """)
+    _write(tmp_eval_dir / "knowledge.yaml", yaml_content)
+    cases = parse_eval_file(tmp_eval_dir / "knowledge.yaml")
+    assert cases is not None
+    assert len(cases) == 1
+    assert len(cases[0].quality_criteria) == 6
+
+
 # --- Production-suite integrity --------------------------------------------
 
 
@@ -284,9 +324,10 @@ def test_production_transit_has_15_cases() -> None:
     assert len(cases) == 15
 
 
-def test_production_knowledge_has_10_cases() -> None:
+def test_production_knowledge_has_13_cases() -> None:
+    """10 original + 3 AI-10.2 citation format regression cases."""
     cases = load_eval_cases("knowledge")
-    assert len(cases) == 10
+    assert len(cases) == 13
 
 
 def test_production_vault_has_5_cases() -> None:
@@ -300,11 +341,26 @@ def test_production_all_case_ids_are_unique() -> None:
     assert len(all_ids) == len(set(all_ids))
 
 
-def test_production_all_cases_have_5_criteria() -> None:
+def test_production_all_cases_have_valid_criteria_count() -> None:
+    """Each case has 5 or 6 quality criteria (6 allowed since AI-10.2)."""
     suite = load_all_cases()
     for cases in suite.values():
         for case in cases:
-            assert len(case.quality_criteria) == 5
+            assert 5 <= len(case.quality_criteria) <= 6, (
+                f"{case.id} has {len(case.quality_criteria)} criteria"
+            )
+
+
+def test_production_ai_10_2_cases_have_6_criteria() -> None:
+    """AI-10.2 citation format regression cases must have the 6th criterion."""
+    cases = load_eval_cases("knowledge")
+    ai_10_2_ids = {"knowledge_011", "knowledge_012", "knowledge_013"}
+    ai_10_2_cases = [c for c in cases if c.id in ai_10_2_ids]
+    assert len(ai_10_2_cases) == 3
+    for case in ai_10_2_cases:
+        assert len(case.quality_criteria) == 6
+        criterion_names = {c.name for c in case.quality_criteria}
+        assert "citation_format_correct" in criterion_names
 
 
 def test_production_every_known_tool_appears_at_least_once() -> None:

@@ -33,7 +33,8 @@ KNOWN_TOOLS: Final[frozenset[str]] = frozenset(
     }
 )
 
-REQUIRED_CRITERIA_COUNT: Final[int] = 5
+MIN_CRITERIA_COUNT: Final[int] = 5
+MAX_CRITERIA_COUNT: Final[int] = 6
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,7 +69,7 @@ class EvalCase:
             verify the AI-6.3 auto-router classifies the prompt correctly.
         expected_tools: Tuple of tool function names the agent should
             invoke. Empty tuple is allowed (agent may answer from memory).
-        quality_criteria: Exactly :data:`REQUIRED_CRITERIA_COUNT` criteria.
+        quality_criteria: Between :data:`MIN_CRITERIA_COUNT` and :data:`MAX_CRITERIA_COUNT` criteria.
         notes: Optional free-text annotation; defaults to empty string.
 
     Raises:
@@ -97,9 +98,9 @@ class EvalCase:
                 f"EvalCase[{self.id}].expected_domain={self.expected_domain!r} "
                 f"not in {sorted(VALID_DOMAINS)}"
             )
-        if len(self.quality_criteria) != REQUIRED_CRITERIA_COUNT:
+        if not (MIN_CRITERIA_COUNT <= len(self.quality_criteria) <= MAX_CRITERIA_COUNT):
             raise ValueError(
-                f"EvalCase[{self.id}] must have exactly {REQUIRED_CRITERIA_COUNT} "
+                f"EvalCase[{self.id}] must have {MIN_CRITERIA_COUNT}-{MAX_CRITERIA_COUNT} "
                 f"quality_criteria, got {len(self.quality_criteria)}"
             )
         unknown = [t for t in self.expected_tools if t not in KNOWN_TOOLS]
@@ -268,7 +269,8 @@ class RegressionReport:
 
 __all__ = [
     "KNOWN_TOOLS",
-    "REQUIRED_CRITERIA_COUNT",
+    "MAX_CRITERIA_COUNT",
+    "MIN_CRITERIA_COUNT",
     "VALID_DOMAINS",
     "VALID_LANGUAGES",
     "BaselineReport",

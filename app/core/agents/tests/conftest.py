@@ -93,7 +93,7 @@ def make_quality_criterion(**overrides: Any) -> QualityCriterion:
 
 
 def make_eval_case(**overrides: Any) -> EvalCase:
-    """Return an ``EvalCase`` with safe defaults for tests (5 stub criteria)."""
+    """Return an ``EvalCase`` with safe defaults for tests (5 stub criteria, valid range 5-6)."""
     defaults: dict[str, Any] = {
         "id": "test_001",
         "prompt": "Test prompt",

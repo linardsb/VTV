@@ -16,7 +16,7 @@ CMS Frontend      ████████████████████�
 Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence ██████████████████░░░░░  95%  (Phases AI-1 through AI-7 complete — see docs/TODO-archive.md. AI-8 complete: AI-8.1 circuit-breaker primitive + AI-8.2 per-provider health metrics + AI-8.3 provider chain integration with degraded fallback. AI-9 complete: AI-9.1 expanded injection detection + AI-9.2 blocking mode + AI-9.3 output exfiltration validation. AI-10.1 done: heading-breadcrumb citations. Next up: AI-10.2 citation regression tests, AI-11 RAG eval pipeline.)
+Agent Intelligence ██████████████████░░░░░  96%  (Phases AI-1 through AI-7 complete — see docs/TODO-archive.md. AI-8 complete: AI-8.1 circuit-breaker primitive + AI-8.2 per-provider health metrics + AI-8.3 provider chain integration with degraded fallback. AI-9 complete: AI-9.1 expanded injection detection + AI-9.2 blocking mode + AI-9.3 output exfiltration validation. AI-10 complete: AI-10.1 heading-breadcrumb citations + AI-10.2 citation format regression tests. Next up: AI-11 RAG eval pipeline.)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -110,20 +110,8 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 #### ✅ AI-10.1 Render Heading Breadcrumbs in Agent Responses (done 2026-04-12)
 **Implemented:** Heading-breadcrumb citations wired through the knowledge search tool and both agent system prompts. `_heading_to_slug()` handles Latvian diacritics via NFKD decomposition. `_build_citation_anchor()` formats `"doc-title - Section > Subsection"`. Two new fields on `KnowledgeSearchResult`: `citation_anchor` (pre-formatted link text) and `url_fragment` (URL-safe anchor slug from last heading segment). Bug fix: `heading_path` was not propagated from `DocumentChunk` to `SearchResult` in `service.py` — now set on every result (parent-context expansion still overwrites when parent exists). Both `KNOWLEDGE_SYSTEM_PROMPT` and unified `SYSTEM_PROMPT` updated with breadcrumb-aware citation format and examples. Legacy chunks (null `heading_path`) fall back to filename-only citation. Frontend anchor landing (`#section-foo` scroll) deferred to a separate FE task. 11 new tests (3 slug generation incl. Latvian diacritics, 4 citation anchor builder, 3 full-flow integration, 1 prompt content assertion). Plan: `.agents/plans/ai-10.1-heading-breadcrumb-citations.md`.
 
-#### AI-10.2 Agent-Side Citation Format Regression Test
-**What:** Add synthetic eval cases to AI-7.1's suite that specifically assert citation format quality — breadcrumb present, anchor valid, document id matches source.
-**Why:** Citation rendering regresses easily (system prompt tweaks, formatter refactors, LLM behavior drift). Pinning it in the eval suite prevents silent degradation.
-**Implementation:**
-- `app/core/agents/evals/cases/knowledge.yaml` — add 3 new cases:
-  1. "Procedure for bus breakdown" → expect citation with `heading_path` present
-  2. "Tell me about vacation policy" → expect citation with section anchor
-  3. Legacy-doc fallback test (seed a chunk with `heading_path=NULL`) → expect graceful fallback format
-- Each case adds a 6th quality criterion: `citation_format_correct` (judge prompt includes the expected format regex)
-- `app/core/agents/evals/schemas.py` — confirm `quality_criteria` max count allows 6 (currently enforced at 5 by `__post_init__` — bump to 6 OR add optional `format_criteria` field)
-- Regenerate `evals/baselines/knowledge_baseline.json` once AI-10.1 is green
-- 4+ unit tests for the new eval cases, plus loader test that the 6-criterion case loads correctly
-
-**Verify:** `make eval SUITE=knowledge` runs the 3 new cases. Judge confirms breadcrumb citations. Degrade the formatter deliberately — regression detected via AI-7.4 pipeline.
+#### ✅ AI-10.2 Agent-Side Citation Format Regression Test (done 2026-04-12)
+**Implemented:** 3 new eval cases (knowledge_011-013) added to `knowledge.yaml` with a 6th `citation_format_correct` quality criterion. Case 011 asserts heading-breadcrumb path is present in citation. Case 012 asserts section anchor fragment matches `url_fragment` from tool returns. Case 013 tests legacy-doc fallback when `heading_path` is null — citation must gracefully use filename-only format without fabricating breadcrumbs. `REQUIRED_CRITERIA_COUNT = 5` replaced with `MIN_CRITERIA_COUNT = 5` / `MAX_CRITERIA_COUNT = 6` range validation in `EvalCase.__post_init__`. 8 new/updated tests: 6-criteria acceptance, too-many rejection (now 7), production count (10→13), criteria range validation, AI-10.2-specific assertions, YAML round-trip for 6-criteria cases. Plan: `.agents/plans/ai-10.2-citation-format-regression-tests.md`.
 
 ---
 
@@ -209,10 +197,10 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 |-------|-------|------|------------|
 | AI-8  | Circuit breaker + provider health | 3 | — |
 | AI-9  | Prompt injection hardening | 3 | AI-9.1/9.2/9.3 done (2026-04-12) |
-| AI-10 | Heading-breadcrumb citations | 2 | AI-4.2, AI-7.1 | AI-10.1 done (2026-04-12) |
+| AI-10 | Heading-breadcrumb citations | 2 | AI-4.2, AI-7.1 | Complete (2026-04-12) |
 | AI-11 | RAG retrieval eval pipeline | 4 | AI-4, AI-7 |
 
-Total remaining agent hardening: **5 days** across 2 subtasks. AI-8, AI-9 complete. AI-10.1 done; AI-10.2 (citation regression tests, 1 day) ready to start. AI-11 (RAG eval pipeline, 4 days) should run after AI-7 is fully green to reuse its eval infrastructure patterns.
+Total remaining agent hardening: **4 days** across 1 subtask. AI-8, AI-9, AI-10 complete. AI-11 (RAG eval pipeline, 4 days) should run after AI-7 is fully green to reuse its eval infrastructure patterns.
 
 ---
 
