@@ -17,7 +17,7 @@ Testing           ████████████████████�
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
-Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
+Intelligence/ML   ██░░░░░░░░░░░░░░░░░░░░░   6%  (ML-1.1 historical GTFS archive importer complete — 4 shadow tables, CLI backfill, 15 tests)
 ```
 
 ## In Progress
@@ -516,7 +516,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 > **Sprint deliverable:** All 4 historical public datasets imported as queryable tables in Postgres. Foundation for every later phase — no model training possible without this.
 > **Depends on:** Full Latvia Phase 1 (Postgres, TimescaleDB, GTFS importer)
 
-#### ML-1.1 Historical GTFS Archive Importer
+#### ML-1.1 Historical GTFS Archive Importer ✅ (2026-04-12)
 **What:** Create `app/transit/historical_gtfs_importer.py` — CLI + background task that downloads all 64 monthly Rīgas Satiksme GTFS snapshots from data.gov.lv, de-duplicates against already-imported snapshots, and stores each one in a new `gtfs_snapshots` table (one row per snapshot → link to snapshot-scoped copies of trips/stop_times/calendar).
 **Why:** Current GTFS importer only ingests the "latest" feed — overwriting prior data on every run. ML training needs the full temporal history to learn seasonal variations (summer vs winter routes, school vs holiday calendars). A single weekend scripted backfill seeds the entire ML training corpus.
 **Implementation:**

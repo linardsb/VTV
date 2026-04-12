@@ -73,6 +73,11 @@ make rechunk                       # Re-chunk all documents with the current Sem
 # Schema documentation
 make er-diagram                    # Generate Mermaid ER diagram from SQLAlchemy models -> docs/schema/er.md
 
+# Historical GTFS backfill (ML-1.1)
+make gtfs-backfill SINCE=2018-05             # Backfill all snapshots from data.gov.lv
+make gtfs-backfill SINCE=2025-01 DRY_RUN=1   # Preview without importing
+make gtfs-backfill SINCE=2024-01 UNTIL=2024-12  # Date-range backfill
+
 # RAG retrieval eval
 make rag-eval-generate COUNT=100   # Generate synthetic QA pairs from knowledge base (AI-11.1)
 make rag-eval-run QA_FILE=...      # Run RAG eval on existing QA pairs (AI-11.3)
@@ -104,7 +109,7 @@ VTV/
 │   ├── stops/          # Stop management (6 endpoints, PostGIS spatial queries)
 │   ├── schedules/      # GTFS schedule management (23 endpoints, ZIP import/export)
 │   ├── skills/         # Agent skills system (7 endpoints)
-│   ├── transit/        # Multi-feed GTFS-RT tracking (5 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage)
+│   ├── transit/        # Multi-feed GTFS-RT tracking (5 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage, historical GTFS archive importer for ML training)
 │   ├── vehicles/       # Vehicle management (8 endpoints, fleet CRUD, maintenance, driver assignment)
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md

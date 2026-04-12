@@ -158,6 +158,13 @@ class Settings(BaseSettings):
     position_history_compression_after_days: int = 7
     position_history_batch_size: int = 500
 
+    # E-ticket validation data pipeline (ML-1.2)
+    eticket_archive_base_url: str = "https://data.rigassatiksme.lv/eticket/"
+    eticket_batch_size: int = 5000
+    eticket_compression_after_days: int = 30
+    eticket_retention_years: int = 5
+    eticket_max_archive_size_mb: int = 500  # ZIP bomb guard
+
     # Query quota (daily per IP)
     agent_daily_quota: int = 50
 
@@ -308,6 +315,26 @@ class Settings(BaseSettings):
     circuit_breaker_recovery_timeout_s: float = 30.0
     circuit_breaker_success_threshold: int = 2
     circuit_breaker_failure_rate_threshold: float = 0.5
+
+    # Weather ETL (ML-1.3)
+    weather_etl_enabled: bool = False
+    weather_station_url: str = ""
+    weather_observations_url: str = ""
+    weather_phenomena_url: str = ""
+    weather_etl_interval_seconds: int = 3600
+    weather_etl_leader_lock_ttl: int = 120
+    weather_history_retention_days: int = 365
+
+    # Traffic ETL (ML-1.3)
+    traffic_etl_enabled: bool = False
+    traffic_counts_url: str = ""
+    traffic_accidents_url: str = ""
+    traffic_etl_cron_hour: int = 4
+
+    # Historical GTFS archive (data.gov.lv)
+    data_gov_lv_base_url: str = "https://data.gov.lv/dati/api/3"
+    data_gov_lv_dataset_id: str = "rigas-satiksmes-marsrutu-saraksti-gtfs"
+    gtfs_backfill_rate_limit_seconds: float = 1.0
 
     # Prometheus metrics (OPS-2.1)
     metrics_enabled: bool = True

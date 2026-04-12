@@ -1,4 +1,4 @@
-.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run er-diagram
+.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run weather-backfill traffic-backfill er-diagram gtfs-backfill
 
 # === Local Development (terminals) ===
 
@@ -104,10 +104,29 @@ rechunk: ## Re-chunk all documents with the new SemanticChunker (one-shot AI-4.4
 rechunk-dry-run: ## Preview re-chunking without modifying the database
 	uv run python scripts/rechunk_documents.py --dry-run
 
+eticket-backfill: ## Backfill single month (usage: make eticket-backfill MONTH=2026-01)
+	@test -n "$(MONTH)" || (echo "Usage: make eticket-backfill MONTH=2026-01" && exit 1)
+	uv run python scripts/backfill_eticket_data.py --month $(MONTH)
+
+eticket-backfill-all: ## Backfill ALL months (~45GB, alert ops first)
+	uv run python scripts/backfill_eticket_data.py --all
+
+eticket-backfill-dry-run: ## Preview e-ticket backfill without importing
+	uv run python scripts/backfill_eticket_data.py --dry-run $(if $(MONTH),--month $(MONTH),--all)
+
+weather-backfill: ## Backfill weather observations from archive (ML-1.3)
+	uv run python scripts/weather_backfill.py
+
+traffic-backfill: ## Backfill traffic counts and accidents (ML-1.3)
+	uv run python scripts/traffic_backfill.py
+
 er-diagram: ## Generate Mermaid ER diagram from SQLAlchemy models
 	@mkdir -p docs/schema
 	uv run python scripts/generate_er_diagram.py > docs/schema/er.md
 	@echo "ER diagram written to docs/schema/er.md"
+
+gtfs-backfill: ## Backfill historical GTFS snapshots from data.gov.lv
+	uv run python scripts/backfill_gtfs_history.py --since $(or $(SINCE),2018-05) $(if $(UNTIL),--until $(UNTIL)) $(if $(DRY_RUN),--dry-run)
 
 # === Agent evals (AI-7.x) ===
 # Traces are written to evals/traces/*.jsonl (git-ignored, may contain PII).

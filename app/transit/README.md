@@ -245,4 +245,21 @@ REDIS_VEHICLE_TTL_SECONDS=60         # TTL for Redis vehicle position keys
 | ETA calculator | Phase 2 | Valhalla map-matching + distance-to-stop / speed calculation |
 | GTFS-RT publisher | Phase 2 | Serve combined GTFS-RT feed at `/api/v1/transit/gtfs-rt/*.pb` |
 
+### Historical GTFS Archive Importer (ML-1.1)
+
+CLI tool that downloads all available GTFS static feed snapshots from data.gov.lv, de-duplicates via SHA-256, and stores each in snapshot-scoped shadow tables for ML training. No REST endpoints.
+
+**Files:** `snapshot_models.py`, `snapshot_schemas.py`, `snapshot_repository.py`, `historical_gtfs_importer.py`
+**CLI:** `scripts/backfill_gtfs_history.py` / `make gtfs-backfill`
+
+**Shadow tables** (denormalized, GTFS string IDs for ML portability):
+- `gtfs_snapshots` — metadata: feed_name, snapshot_date, resource_id (unique), sha256, status, row_counts
+- `gtfs_snapshot_trips` — trip_id, route_id, service_id, direction, headsign, shape_id
+- `gtfs_snapshot_stop_times` — trip_id, stop_id, stop_sequence, arrival/departure times
+- `gtfs_snapshot_calendars` — service_id, day-of-week booleans, start/end dates
+
+**Key features:** Resumable (skips already-imported resource IDs), SHA-256 content dedup, streaming download with 50MB size limit, reuses existing `GTFSImporter` for ZIP bomb protection and CSV parsing, configurable rate limiting (default 1 req/s), per-snapshot error isolation (failures don't abort backfill).
+
+**Configuration:** `DATA_GOV_LV_BASE_URL`, `DATA_GOV_LV_DATASET_ID`, `GTFS_BACKFILL_RATE_LIMIT_SECONDS`
+
 See `docs/PLANNING/Implementation-Plan.md` for the complete 4-phase roadmap.
