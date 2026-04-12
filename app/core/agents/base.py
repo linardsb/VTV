@@ -41,7 +41,7 @@ from pydantic_ai.messages import (
 from app.core.agents.agent import build_instructions_with_skills
 from app.core.agents.agent_result import VALID_DOMAINS, AgentResult
 from app.core.agents.config import resolve_tier_model
-from app.core.agents.exceptions import AgentExecutionError
+from app.core.agents.exceptions import AgentExecutionError, PromptInjectionBlockedError
 from app.core.agents.injection_detector import detect_injection
 from app.core.agents.routing import ModelTier, classify_prompt
 from app.core.agents.schemas import (
@@ -182,17 +182,36 @@ class BaseAgentService:
         prior_messages = request.messages[:-1]
         message_history = _build_message_history(prior_messages) if prior_messages else None
 
-        # Phase 2: prompt injection check (log-only, does not block).
+        # Phase 2: prompt injection check (AI-9.1 detection + AI-9.2 blocking).
         injection_result = detect_injection(current_prompt)
         if injection_result.detected:
             settings = get_settings()
+            log_dict = injection_result.to_log_dict()
+
+            if (
+                settings.prompt_injection_mode == "block"
+                and injection_result.aggregate_confidence
+                >= settings.prompt_injection_block_threshold
+            ):
+                # AI-9.2: block high-confidence injections before LLM call
+                logger.error(
+                    "agent.injection.blocked",
+                    **log_dict,
+                    prompt_length=len(current_prompt),
+                    mode="block",
+                    threshold=settings.prompt_injection_block_threshold,
+                )
+                raise PromptInjectionBlockedError("Request blocked by content safety policy")
+
+            # Log-only path (warn mode, or below threshold in block mode)
             log_level = "warning"
             if injection_result.aggregate_confidence >= settings.prompt_injection_block_threshold:
                 log_level = "error"
             getattr(logger, log_level)(
                 "agent.injection.detected",
-                **injection_result.to_log_dict(),
+                **log_dict,
                 prompt_length=len(current_prompt),
+                mode=settings.prompt_injection_mode,
             )
 
         # Phase 3: tier classification.

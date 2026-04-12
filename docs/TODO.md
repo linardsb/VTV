@@ -94,19 +94,8 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 
 > **RU language note:** Russian language injection patterns were deliberately excluded. AI-9.2 and AI-9.3 plans that reference RU must be updated to exclude them.
 
-#### AI-9.2 Blocking Mode for High-Confidence Injections
-**What:** Add blocking mode to the agent pipeline: when any signal exceeds `prompt_injection_block_threshold` (0.85), reject the request with HTTP 400 before calling the LLM. Feature-gated, defaults to warn-only on first rollout.
-**Why:** Detection without blocking just produces alert fatigue. Once calibrated in AI-9.1, blocking eliminates the highest-risk 10% of injections at the entry point — before any tool, LLM, or DB touch.
-**Implementation:**
-- `app/core/agents/base.py` — insert detection check early in `chat_with_trace()` pipeline (Phase 0, before `_get_model_tier()`):
-  - If `mode == "block"` and any `signal.confidence >= block_threshold`, raise `PromptInjectionBlockedError` (new exception, maps to HTTP 400 with safe response body — no echoing the injection text back)
-  - If `mode == "warn"` (default during rollout), log only; continue to agent
-- `app/core/config.py` — `prompt_injection_mode: Literal["warn","block"] = "warn"` (flip to `"block"` per-env via `PROMPT_INJECTION_MODE=block`)
-- `app/core/agents/exceptions.py` — `PromptInjectionBlockedError(AppError)` with 400 status, generic message (`"Request blocked by content safety policy"` — never echo the prompt)
-- Structured logging: `agent.injection.blocked` (high-severity), `agent.injection.mode_warn` (info); both include `request_id`, `confidence_max`, `pattern_ids` but NEVER the raw prompt
-- 10+ unit tests: warn mode is no-op (1), block mode rejects high-confidence (2), block mode allows low-confidence (2), response body safe (no prompt echo) (1), pattern_id propagation to logs (1), mode config toggle (1), exception maps to 400 (1), edge-case threshold equality (1)
-
-**Verify:** With `mode=warn`, injection prompts pass through (logged). Switch to `mode=block`, same prompts return 400 in <10ms without hitting the LLM. Legitimate queries unaffected in both modes. Audit logs contain injection metadata but no prompt text.
+#### ✅ AI-9.2 Blocking Mode for High-Confidence Injections (done 2026-04-12)
+**Implemented:** `app/core/agents/base.py` Phase 2 — mode-aware blocking gate. `prompt_injection_mode: Literal["warn","block"] = "warn"` in `app/core/config.py` (env var `PROMPT_INJECTION_MODE=block` to enable). When `mode="block"` and `aggregate_confidence >= prompt_injection_block_threshold` (0.85), raises `PromptInjectionBlockedError(AgentError)` → HTTP 400 with generic message (`"Request blocked by content safety policy"` — never echoes injection text). Below-threshold or `mode="warn"` detections log `agent.injection.detected` as before. Blocked requests log `agent.injection.blocked` at error level with `pattern_ids`, `aggregate_confidence`, `prompt_length` (never raw prompt). 12 unit tests in `test_injection_blocking.py` (exception hierarchy, HTTP 400 mapping, response body safety, block/allow threshold boundaries, warn mode passthrough, config defaults, structured log assertions). Plan: `.agents/plans/ai-9-2-injection-blocking-mode.md`.
 
 #### AI-9.3 Output-Side Data Exfiltration Validation
 **What:** Add `app/core/agents/output_validator.py` — scans outgoing LLM responses for exfiltration patterns (base64-encoded blobs, suspicious URLs, unexpected code blocks, out-of-context PII) before returning to the dispatcher. Redacts or blocks per severity.

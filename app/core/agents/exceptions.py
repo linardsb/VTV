@@ -4,6 +4,7 @@ Exception hierarchy:
 - AgentError (base)
   - AgentConfigurationError (invalid LLM config) → 500
   - AgentExecutionError (LLM call failed) → 502
+  - PromptInjectionBlockedError (high-confidence injection) → 400
   - TransitDataError (transit feed fetch/parse failed) → 503
   - ObsidianError (vault operation failed) → 503
   - CircuitBreakerOpenError (LLM provider breaker tripped) → 503
@@ -61,6 +62,16 @@ class CircuitBreakerOpenError(AgentError):
     pass
 
 
+class PromptInjectionBlockedError(AgentError):
+    """Raised when prompt injection confidence exceeds blocking threshold.
+
+    Maps to HTTP 400. Response body uses a generic message -
+    never echoes the injection text back to the caller.
+    """
+
+    pass
+
+
 class AllProvidersUnavailableError(AgentError):
     """Raised when every LLM provider in the fallback chain is unavailable.
 
@@ -98,7 +109,9 @@ async def agent_exception_handler(request: Request, exc: AgentError) -> JSONResp
     )
 
     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-    if isinstance(exc, AgentExecutionError):
+    if isinstance(exc, PromptInjectionBlockedError):
+        status_code = status.HTTP_400_BAD_REQUEST
+    elif isinstance(exc, AgentExecutionError):
         status_code = status.HTTP_502_BAD_GATEWAY
     elif isinstance(
         exc,
@@ -131,6 +144,7 @@ def setup_agent_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AgentError, handler)
     app.add_exception_handler(AgentConfigurationError, handler)
     app.add_exception_handler(AgentExecutionError, handler)
+    app.add_exception_handler(PromptInjectionBlockedError, handler)
     app.add_exception_handler(TransitDataError, handler)
     app.add_exception_handler(ObsidianError, handler)
     app.add_exception_handler(CircuitBreakerOpenError, handler)

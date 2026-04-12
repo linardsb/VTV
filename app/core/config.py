@@ -9,7 +9,7 @@ This module provides centralized configuration management:
 
 import json
 from functools import lru_cache
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -292,7 +292,8 @@ class Settings(BaseSettings):
     eval_judge_enabled: bool = True
     eval_baseline_tolerance_pct: float = 3.0
 
-    # Prompt injection detection (AI-9.1)
+    # Prompt injection detection (AI-9.1) + blocking (AI-9.2)
+    prompt_injection_mode: Literal["warn", "block"] = "warn"
     prompt_injection_block_threshold: float = 0.85
     prompt_injection_warn_threshold: float = 0.5
 
