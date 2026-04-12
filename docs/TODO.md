@@ -13,10 +13,10 @@ Planned features and improvements. Each item links to its detailed planning docu
 ```
 Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
 CMS Frontend      ███████████████████████░  99%  (17 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences)
-Testing           ████████████████████░░░░  90%  (1128 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
+Testing           ████████████████████░░░░  90%  (1618 unit tests, 106 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
-Agent Intelligence ██████████████████░░░░░  96%  (Phases AI-1 through AI-7 complete — see docs/TODO-archive.md. AI-8 complete: AI-8.1 circuit-breaker primitive + AI-8.2 per-provider health metrics + AI-8.3 provider chain integration with degraded fallback. AI-9 complete: AI-9.1 expanded injection detection + AI-9.2 blocking mode + AI-9.3 output exfiltration validation. AI-10 complete: AI-10.1 heading-breadcrumb citations + AI-10.2 citation format regression tests. Next up: AI-11 RAG eval pipeline.)
+Agent Intelligence ██████████████████░░░░░  97%  (Phases AI-1 through AI-7 complete — see docs/TODO-archive.md. AI-8 complete: AI-8.1 circuit-breaker primitive + AI-8.2 per-provider health metrics + AI-8.3 provider chain integration with degraded fallback. AI-9 complete: AI-9.1 expanded injection detection + AI-9.2 blocking mode + AI-9.3 output exfiltration validation. AI-10 complete: AI-10.1 heading-breadcrumb citations + AI-10.2 citation format regression tests. AI-11.1 complete: synthetic QA pair generation. Next up: AI-11.2-11.4 retrieval metrics + eval runner + baselines.)
 Intelligence/ML   ░░░░░░░░░░░░░░░░░░░░░░░   0%  (Phase 4 — not started)
 ```
 
@@ -121,21 +121,17 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 > **Depends on:** Phase AI-4 (parent-child chunking), Phase AI-7 (eval framework patterns)
 > **Distinct from AI-7:** AI-7 evaluates end-to-end agent responses. AI-11 isolates the retrieval layer (pgvector hybrid search + RRF + rerank + parent expansion) so retrieval regressions can be diagnosed without confounding from LLM behavior.
 
-#### AI-11.1 Synthetic QA Pair Generation from Documents
+#### AI-11.1 Synthetic QA Pair Generation from Documents ✅ (2026-04-12)
 **What:** Create `app/knowledge/evals/qa_generator.py` — sampler that picks N chunks from the indexed corpus, uses a fast-tier LLM to generate a plausible question for each (in the chunk's language), and records `(question, source_chunk_id, source_heading_path, language)` as the ground-truth set.
 **Why:** Hand-writing retrieval test cases doesn't scale and can't cover corpus drift. Generating synthetic QA pairs from the actual corpus guarantees the ground truth references real documents and stays in sync as the KB grows.
-**Implementation:**
-- `app/knowledge/evals/qa_generator.py`:
-  - `generate_qa_pairs(n: int, language_mix: dict[str, float] = {"lv": 0.7, "en": 0.3}) -> list[QAPair]`
-  - Sampling strategy: stratified by `section_type` (avoid list/table chunks — they make bad question sources), skip chunks < 200 chars, prefer chunks with `heading_path` set
-  - Prompt template: "Given the following passage from a transit operations document, write one specific factual question that a dispatcher might ask, where this passage would be the ideal answer. Respond in {language}. Question only, no preamble." (language matches chunk language)
-  - Uses `resolve_tier_model("fast")` via `pydantic_ai.Agent` — same pattern as AI-2.2 HyDE
-  - `@dataclass(frozen=True) QAPair`: `question`, `source_chunk_id`, `source_document_id`, `source_heading_path`, `language`, `generated_at`
-- `app/knowledge/evals/schemas.py` — `QAPair`, `RetrievalMetrics`, `EvalReport` dataclasses
-- CLI: `python -m app.knowledge.evals.generate --count 100 --output evals/rag/qa_pairs.jsonl`
+**Implemented:**
+- `app/knowledge/evals/schemas.py` — `QAPair`, `RetrievalMetrics`, `EvalReport` frozen dataclasses
+- `app/knowledge/evals/qa_generator.py` — chunk sampler (stratified by language, filters short/list/table chunks, prefers heading_path), LLM question generation via `pydantic_ai.Agent` (fast tier, same pattern as HyDE), path-sandboxed JSONL writer, CLI with `--count`/`--output-dir`/`--lv-ratio`
+- `app/knowledge/evals/__main__.py` — `python -m app.knowledge.evals` entry point
 - `Makefile` — `make rag-eval-generate COUNT=100`
-- Store as JSONL (git-ignored under `evals/rag/`, same pattern as AI-7.2 traces)
-- 10+ unit tests: sampling stratification (2), language mix respected (1), LLM failure fallback skips pair (1), CLI output format (1), chunk filtering rules (3), QAPair schema (2)
+- JSONL output git-ignored under `evals/rag/`
+- 12 unit tests: schema immutability/serialization (2), chunk filtering (3), LLM success/failure (2), JSONL output + path sandboxing (3), end-to-end pipeline (1), CLI (1)
+- Plan: `.agents/plans/ai-11-1-synthetic-qa-generation.md`
 
 **Verify:** `make rag-eval-generate COUNT=20` produces 20 QA pairs in `evals/rag/qa_pairs_{timestamp}.jsonl`. Manual spot-check: 18/20 questions are plausible dispatcher queries whose source chunk is the correct answer.
 
@@ -198,9 +194,9 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 | AI-8  | Circuit breaker + provider health | 3 | — |
 | AI-9  | Prompt injection hardening | 3 | AI-9.1/9.2/9.3 done (2026-04-12) |
 | AI-10 | Heading-breadcrumb citations | 2 | AI-4.2, AI-7.1 | Complete (2026-04-12) |
-| AI-11 | RAG retrieval eval pipeline | 4 | AI-4, AI-7 |
+| AI-11 | RAG retrieval eval pipeline | 4 | AI-4, AI-7 | AI-11.1 done (2026-04-12) |
 
-Total remaining agent hardening: **4 days** across 1 subtask. AI-8, AI-9, AI-10 complete. AI-11 (RAG eval pipeline, 4 days) should run after AI-7 is fully green to reuse its eval infrastructure patterns.
+Total remaining agent hardening: **3 days** across 3 subtasks (AI-11.2, AI-11.3, AI-11.4). AI-8, AI-9, AI-10 complete. AI-11.1 complete. AI-11.2-11.4 (retrieval metrics, eval runner, baselines) should run after AI-7 is fully green to reuse its eval infrastructure patterns.
 
 ---
 

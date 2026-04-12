@@ -116,6 +116,11 @@ eval-baseline: ## Generate or update baselines from latest judged run
 eval-check: ## Judge latest traces and compare against baseline (CI-friendly)
 	uv run python -m app.core.agents.evals.regression check --suite $(or $(SUITE),transit)
 
+# === RAG retrieval evals (AI-11.x) ===
+
+rag-eval-generate: ## Generate synthetic QA pairs from knowledge base (usage: make rag-eval-generate COUNT=100)
+	uv run python -m app.knowledge.evals --count $(or $(COUNT),100)
+
 # === Security ===
 
 install-hooks: ## Install git pre-commit hook

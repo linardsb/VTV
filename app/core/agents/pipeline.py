@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 
 from pydantic_ai import Agent
 from pydantic_ai.messages import ModelMessage
+from pydantic_ai.models import KnownModelName, Model
 
 from app.core.agents.tools.transit.deps import UnifiedDeps
 from app.core.logging import get_logger
@@ -44,9 +45,9 @@ class PipelineResult:
     """Result of a full pipeline execution."""
 
     output: str
-    phases_completed: list[str] = field(default_factory=list)
+    phases_completed: list[str] = field(default_factory=lambda: list[str]())
     total_duration_ms: float = 0.0
-    phase_details: list[PhaseDetail] = field(default_factory=list)
+    phase_details: list[PhaseDetail] = field(default_factory=lambda: list[PhaseDetail]())
 
 
 class Pipeline:
@@ -77,7 +78,7 @@ class Pipeline:
         prompt: str,
         message_history: list[ModelMessage] | None = None,
         instructions: str | None = None,
-        model: object | None = None,
+        model: Model | KnownModelName | str | None = None,
     ) -> PipelineResult:
         """Execute all phases sequentially.
 

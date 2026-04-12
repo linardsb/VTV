@@ -66,5 +66,6 @@ evals/traces/*.jsonl
 
 # AI-7.3 judge verdicts (per-run artifacts; baselines stay committed)
 evals/verdicts/
+evals/rag/
 # NOTE: evals/baselines/ is intentionally COMMITTED so CI can compare
 # against the canonical numbers.

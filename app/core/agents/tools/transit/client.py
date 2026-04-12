@@ -186,11 +186,10 @@ class GTFSRealtimeClient:
                 except httpx.HTTPError as e:
                     msg = f"Transit feed request failed for {url}: {e}"
                     raise TransitDataError(msg) from e
-        except CircuitOpenError:
+                return response.content
+        except (CircuitOpenError, TransitDataError):
             raise
-        except TransitDataError:
-            raise
-        return response.content
+        raise RuntimeError("unreachable")  # all paths return or raise above
 
     def _parse_feed(self, raw: bytes) -> gtfs_realtime_pb2.FeedMessage:
         """Parse raw bytes into a GTFS-RT FeedMessage.

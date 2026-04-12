@@ -146,8 +146,8 @@ class GTFSStaticStore(GTFSStaticCache):
                     .order_by(StopTime.trip_id, StopTime.stop_sequence)
                     .execution_options(yield_per=5000)
                 )
-                result = await db.stream(stop_time_query)
-                async for partition in result.partitions():
+                stream_result = await db.stream(stop_time_query)
+                async for partition in stream_result.partitions():
                     for row in partition:
                         gtfs_trip_id = trip_pk_to_gtfs.get(row.trip_id, "")
                         gtfs_stop_id = stop_pk_to_gtfs.get(row.stop_id, "")
