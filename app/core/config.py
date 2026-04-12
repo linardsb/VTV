@@ -312,6 +312,9 @@ class Settings(BaseSettings):
     # Prometheus metrics (OPS-2.1)
     metrics_enabled: bool = True
 
+    # Deep health probes (OPS-2.2)
+    health_deep_cache_ttl_seconds: float = 5.0
+
     @model_validator(mode="after")
     def _reject_default_secrets_in_production(self) -> "Settings":
         """Refuse to start with default JWT secret in non-development environments."""
