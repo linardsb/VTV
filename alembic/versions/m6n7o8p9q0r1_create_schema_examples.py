@@ -54,6 +54,7 @@ def upgrade() -> None:
     )
 
     # Read-only DB role for defense-in-depth
+    # Split into separate op.execute() calls — asyncpg cannot run multiple statements in one prepared statement
     op.execute(
         """
         DO $$
@@ -62,12 +63,12 @@ def upgrade() -> None:
                 CREATE ROLE vtv_analytics_readonly NOLOGIN;
             END IF;
         END
-        $$;
-        GRANT USAGE ON SCHEMA public TO vtv_analytics_readonly;
-        GRANT SELECT ON ALL TABLES IN SCHEMA public TO vtv_analytics_readonly;
-        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO vtv_analytics_readonly;
+        $$
         """
     )
+    op.execute("GRANT USAGE ON SCHEMA public TO vtv_analytics_readonly")
+    op.execute("GRANT SELECT ON ALL TABLES IN SCHEMA public TO vtv_analytics_readonly")
+    op.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO vtv_analytics_readonly")
 
 
 def downgrade() -> None:
