@@ -95,6 +95,9 @@ make rag-eval COUNT=100            # Generate QA pairs + run RAG eval (AI-11.1 +
 make rag-eval-update-baseline REPORT=...  # Update RAG regression baseline from eval report (AI-11.4)
 make rag-eval-check REPORT=...     # Check for RAG regressions against baseline — CI gate (AI-11.4)
 
+# ML model training (ML-2.2)
+make ml-train-eta                          # Train ETA model (usage: make ml-train-eta WINDOW=60)
+
 # Ops
 make validate-alerts         # Validate Prometheus alert rules YAML structure
 ```
@@ -116,7 +119,7 @@ VTV/
 │   ├── compliance/     # NeTEx/SIRI EU compliance exports (4 endpoints, XML generation, no DB tables)
 │   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion, Redis embedding cache, heading-aware semantic chunking, parent-child chunk hierarchy, search-time parent context expansion, heading-breadcrumb citations, one-shot rechunk migration script, synthetic QA pair generation for RAG eval, retrieval metrics computation with recall@k/MRR/completeness, RAG eval runner with LLM faithfulness judge, regression baselines with corpus checksum + CI gate)
 │   ├── memory/         # Agent memory storage (7 endpoints, pgvector similarity recall, 4 memory types, embed-on-store, duplicate detection, text-based recall, compaction, episodic-to-procedural promotion, fire-and-forget bridge auto-persists multi-tool agent episodes, memory recall injected as agent context before each run, LLM-based intent merging during compaction, daily background compaction+promotion tasks)
-│   ├── ml/             # ML pipeline — no REST endpoints (ETA feature engineering with 18-field frozen dataclass + Pandera validation + CLI, anomaly detection: off-route via PostGIS corridor containment, stuck-vehicle via TimescaleDB movement, GPS gap detection, background evaluator orchestrator with alerts integration)
+│   ├── ml/             # ML pipeline — no REST endpoints (ETA feature engineering with 18-field frozen dataclass + Pandera validation + CLI, LightGBM ETA model with quantile regression + JSON model registry + training CLI, anomaly detection: off-route via PostGIS corridor containment, stuck-vehicle via TimescaleDB movement, GPS gap detection, background evaluator orchestrator with alerts integration)
 │   ├── public_api/     # Public Developer API (6 endpoints: 3 key management + 3 read-only transit data, API key auth with SHA-256 hashing, per-key Redis rate limiting with tiered limits, fire-and-forget usage tracking via TimescaleDB hypertable)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)
@@ -129,6 +132,7 @@ VTV/
 │   ├── vehicles/       # Vehicle management (8 endpoints, fleet CRUD, maintenance, driver assignment)
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
+├── models/            # ML model artifacts (git-ignored .pkl files, committed registry.json)
 ├── ops/               # Operational config (Prometheus alert rules)
 ├── .claude/rules/     # Path-scoped rules (backend, frontend, security, testing)
 ├── .claude/commands/   # 25 slash commands + _shared/ deduplication

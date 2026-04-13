@@ -17,7 +17,7 @@ Testing           ████████████████████�
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets, graceful shutdown coordinator)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
-Intelligence/ML   ██████████████░░░░░░░░░  59%  (ML-1 complete: GTFS archive + e-ticket + weather/traffic ETL. ML-2.1 feature engineering complete. ML-4.1 off-route + ML-4.2 stuck/GPS gap detection complete. ML-5.3 public API + ML-5.4 Text-to-SQL complete. 10/17 subtasks done. Remaining: ML-2.2-2.4 ETA model/serving, ML-3 load, ML-4.3 anomaly routing, ML-5.1 dashboard, ML-5.2 adherence)
+Intelligence/ML   ███████████████░░░░░░░░  65%  (ML-1 complete: GTFS archive + e-ticket + weather/traffic ETL. ML-2.1 feature engineering + ML-2.2 LightGBM ETA model complete. ML-4.1 off-route + ML-4.2 stuck/GPS gap detection complete. ML-5.3 public API + ML-5.4 Text-to-SQL complete. 11/17 subtasks done. Remaining: ML-2.3-2.4 ETA serving, ML-3 load, ML-4.3 anomaly routing, ML-5.1 dashboard, ML-5.2 adherence)
 ```
 
 ## In Progress
@@ -583,7 +583,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 
 **Verify:** Run `python -m app.ml.features.eta_features --from 2026-03-01 --to 2026-03-31 --out /tmp/features.parquet`. Resulting parquet has ~200K rows (1 month × ~6000 trips × ~30 stops per trip). Spot-check 10 random rows against source data.
 
-#### ML-2.2 Baseline Gradient Boosting Model
+#### ML-2.2 Baseline Gradient Boosting Model ✅
 **What:** Train a LightGBM regression model predicting `actual_arrival_delay_seconds` from ML-2.1 features. Target MAE < 120s (vs ~300s for the naive "scheduled time" baseline). Track versions, metrics, and artifacts via a lightweight in-repo registry.
 **Why:** LightGBM is the right first model: fast to train on tabular data, handles categorical features natively, interpretable via SHAP. Deep-learning alternatives (LSTM, graph nets) add complexity without proven lift on this kind of schedule-adherence problem.
 **Implementation:**

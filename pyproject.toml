@@ -42,6 +42,10 @@ dependencies = [
     "pandas>=2.2.0",
     "pandera>=0.21.0",
     "pyarrow>=17.0.0",
+    "lightgbm>=4.0.0",
+    "scikit-learn>=1.4.0",
+    "shap>=0.46.0",
+    "joblib>=1.4.0",
 ]
 
 [dependency-groups]
@@ -252,6 +256,35 @@ ignore_missing_imports = true
 # Modules that call pandera APIs (untyped library)
 [[tool.mypy.overrides]]
 module = "app.ml.features.validation"
+disallow_untyped_calls = false
+
+# lightgbm lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "lightgbm.*"
+ignore_missing_imports = true
+
+# scikit-learn lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "sklearn.*"
+ignore_missing_imports = true
+
+# shap lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "shap.*"
+ignore_missing_imports = true
+
+# joblib lacks py.typed marker
+[[tool.mypy.overrides]]
+module = "joblib.*"
+ignore_missing_imports = true
+
+# Modules that call lightgbm/sklearn/joblib APIs (untyped libraries)
+[[tool.mypy.overrides]]
+module = "app.ml.models.eta_gbm"
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = "app.ml.registry"
 disallow_untyped_calls = false
 
 [tool.pytest.ini_options]

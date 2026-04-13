@@ -1,4 +1,4 @@
-.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run weather-backfill traffic-backfill er-diagram gtfs-backfill seed-schema-examples
+.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run weather-backfill traffic-backfill er-diagram gtfs-backfill seed-schema-examples ml-train-eta
 
 # === Local Development (terminals) ===
 
@@ -131,6 +131,9 @@ gtfs-backfill: ## Backfill historical GTFS snapshots from data.gov.lv
 seed-schema-examples: ## Seed schema_examples table from YAML (ML-5.4)
 	uv run python scripts/seed_schema_examples.py --file data/schema_examples.yaml
 
+ml-train-eta: ## Train ETA model (usage: make ml-train-eta WINDOW=60)
+	uv run python scripts/train_eta_model.py --training-window $(or $(WINDOW),60) --target-mae $(or $(TARGET_MAE),120)
+
 # === Agent evals (AI-7.x) ===
 # Traces are written to evals/traces/*.jsonl (git-ignored, may contain PII).
 
@@ -170,6 +173,9 @@ rag-eval-check: ## Run RAG eval regression check against baseline (CI gate)
 validate-alerts: ## Validate Prometheus alert rules YAML structure
 	@uv run python -c "import yaml, sys; rules = yaml.safe_load(open('ops/prometheus/alerts.yml')); assert 'groups' in rules, 'Missing groups key'; print(f'{sum(len(g[\"rules\"]) for g in rules[\"groups\"])} alert rules validated')"
 	@echo "Note: Install promtool for full validation: promtool check rules ops/prometheus/alerts.yml"
+
+audit-log-taxonomy: ## Audit structured log events against docs/logging-standard.md
+	uv run python scripts/audit_log_taxonomy.py
 
 # === Security ===
 

@@ -61,6 +61,10 @@ cms/apps/web/.next/
 # Playwright MCP runtime logs
 .playwright-mcp/
 
+# ML model artifacts (tracked via models/registry.json)
+models/*.pkl
+models/*.joblib
+
 # AI-7.2 eval runs (JSONL traces are per-run artifacts)
 evals/traces/*.jsonl
 
