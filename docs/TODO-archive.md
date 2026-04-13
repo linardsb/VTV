@@ -576,3 +576,86 @@ Techniques learned from merkle-email-hub's production multi-agent system. Full a
 - [x] **Codebase Audit** - 120 findings documented in `.agents/code-reviews/AUDIT-SUMMARY.md`. (2026-02-21)
 
 - [x] **Documentation Cleanup** - 74 redundant CLAUDE.md files removed, 5 substantive files retained. (2026-02-21)
+
+---
+
+## Agent Intelligence — Phases AI-8 through AI-11 (Completed 2026-04-12)
+
+> Archived from TODO.md on 2026-04-13. All 12 subtasks complete.
+
+- [x] **AI-8.1** Circuit Breaker State Machine — `app/core/agents/circuit_breaker.py`, 3-state async breaker, 19 tests
+- [x] **AI-8.2** Per-Provider Health Metrics — `app/core/agents/provider_health.py`, admin endpoint, 19 tests
+- [x] **AI-8.3** Circuit Breaker + FallbackModel Integration — `app/core/agents/llm.py`, provider chain invoker, 13 tests
+- [x] **AI-9.1** Expanded Injection Detection — `app/core/agents/injection_detector.py`, 31 patterns, 42 tests
+- [x] **AI-9.2** Blocking Mode — mode-aware gate in `base.py`, 12 tests
+- [x] **AI-9.3** Output Exfiltration Validation — `app/core/agents/output_validator.py`, 15 patterns, 47 tests
+- [x] **AI-10.1** Heading Breadcrumb Citations — `citation_anchor` + `url_fragment` fields, 11 tests
+- [x] **AI-10.2** Citation Format Regression Tests — 3 eval cases, 8 tests
+- [x] **AI-11.1** Synthetic QA Pair Generation — `app/knowledge/evals/qa_generator.py`, 12 tests
+- [x] **AI-11.2** Retrieval Metrics — `app/knowledge/evals/metrics.py`, recall@k + MRR + completeness, 12 tests
+- [x] **AI-11.3** RAG Eval Runner + Faithfulness Judge — `app/knowledge/evals/runner.py`, 14 tests
+- [x] **AI-11.4** RAG Regression Baselines — `app/knowledge/evals/regression.py`, CI gate, 10 tests
+
+---
+
+## Operations & Platform Hardening — OPS-1 through OPS-5 (Completed 2026-04-13)
+
+> Archived from TODO.md on 2026-04-13. All 16 subtasks complete across 5 phases.
+
+### OPS-1: Secrets Discipline (1 day)
+- [x] **OPS-1.1** Pre-commit framework — `.pre-commit-config.yaml`, detect-secrets, `make bootstrap`
+- [x] **OPS-1.2** Log secret sanitization — `redact_sensitive()` processor in `app/core/logging.py`
+- [x] **OPS-1.3** Credential rotation runbook — `docs/runbooks/credential-rotation.md`, 15 secrets covered
+
+### OPS-2: Application Metrics & Health (3 days)
+- [x] **OPS-2.1** Prometheus `/metrics` — `app/core/metrics.py` + `metrics_middleware.py`, 6 metric types
+- [x] **OPS-2.2** Deep `/health` — 6 dependency probes, admin-only `/health/deep`, 26 tests
+- [x] **OPS-2.3** SLO definitions — `docs/slos.md` + `ops/prometheus/alerts.yml`
+
+### OPS-3: Background Jobs & Shutdown (3 days)
+- [x] **OPS-3.1** Shutdown coordinator — `app/core/shutdown.py`, LIFO drain, 12 tasks registered, 10 tests
+- [x] **OPS-3.2** Durable job queue — Arq on Redis, `app/core/jobs/`, cron-scheduled compaction+promotion
+- [x] **OPS-3.3** Cache invalidation — `app/core/cache/invalidation.py`, namespace-scoped SCAN+DEL
+
+### OPS-4: Rate Limiting & RBAC (4 days)
+- [x] **OPS-4.1** Per-user rate limits — `RateLimitIdentityMiddleware`, 5-tier bucketing (admin/dispatcher/editor/viewer/anonymous)
+- [x] **OPS-4.2** Dispatcher RBAC scoping — `app/core/auth/scope.py`, `RequestScope`, `dispatcher_assignments` table
+- [x] **OPS-4.3** Auth audit log — `app/core/auth/audit.py`, `auth_audit_events` TimescaleDB hypertable
+
+### OPS-5: DX & Documentation (3 days)
+- [x] **OPS-5.1** Baseline type errors cleared — protobuf stubs + generic `_CacheEntry`, 0 errors
+- [x] **OPS-5.2** ADRs — 4 records in `docs/adr/` (VSA, Pydantic AI, Redis, slowapi)
+- [x] **OPS-5.3** ER diagram — `scripts/generate_er_diagram.py` + `docs/schema/er.md`, 24 tables
+- [x] **OPS-5.4** Logging taxonomy audit — `scripts/audit_log_taxonomy.py`
+
+---
+
+## Intelligence/ML — Phases ML-1 through ML-5 (Completed 2026-04-13)
+
+> Archived from TODO.md on 2026-04-13. All 17 subtasks complete across 5 phases.
+
+### ML-1: Data Ingestion Foundation (6 days)
+- [x] **ML-1.1** Historical GTFS archive importer — `app/transit/historical_gtfs_importer.py`, 64 monthly snapshots
+- [x] **ML-1.2** E-ticket validation pipeline — `app/transit/eticket_importer.py`, TimescaleDB hypertable
+- [x] **ML-1.3** Weather + traffic ETL — `app/transit/weather_etl.py` + `traffic_etl.py`, 4 new tables
+
+### ML-2: ETA Prediction Model (8 days)
+- [x] **ML-2.1** Feature engineering — `app/ml/features/eta_features.py`, 18-field frozen dataclass, 34 tests
+- [x] **ML-2.2** Baseline LightGBM model — `app/ml/models/eta_gbm.py` + `app/ml/registry.py`
+- [x] **ML-2.3** Inference service + agent tool — `app/ml/eta_service.py` + `predict_eta.py` agent tool
+
+### ML-3: Passenger Load Prediction (6 days)
+- [x] **ML-3.1** E-ticket ↔ GTFS-RT correlation — `app/ml/features/load_features.py`
+- [x] **ML-3.2** Load prediction model — `app/ml/models/load_gbm.py`, crowding bucket classification
+- [x] **ML-3.3** Crowding alerts + agent tool — `app/alerts/crowding_evaluator.py` + `predict_passenger_load.py`
+
+### ML-4: Anomaly Detection (5 days)
+- [x] **ML-4.1** Off-route detection — `app/ml/anomaly/off_route.py`, PostGIS corridor checks
+- [x] **ML-4.2** Stuck + GPS gap detection — `app/ml/anomaly/stuck.py` + `gps_gap.py`, feed-wide suppression
+- [x] **ML-4.3** Anomaly routing + dedup — `app/ml/anomaly/router.py`, cooldown enforcement
+
+### ML-5: Dashboards + Public API + Text-to-SQL (8 days)
+- [x] **ML-5.1** Route performance dashboard — `cms/.../analytics/routes/page.tsx`, 4 Recharts
+- [x] **ML-5.2** Schedule adherence daily report — `app/analytics/daily_adherence.py`, Slack/email
+- [x] **ML-5.3** Public developer API — `app/public_api/`, API key auth, 3 endpoints
+- [x] **ML-5.4** Text-to-SQL — `app/core/agents/tools/transit/run_analytics_sql.py`, schema RAG, 3-layer SQL safety

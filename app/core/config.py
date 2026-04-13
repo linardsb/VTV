@@ -14,17 +14,26 @@ from typing import Any, Literal
 from pydantic import BaseModel, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+FeedType = Literal["gtfs_rt", "scraper", "gps_text"]
+
 
 class TransitFeedConfig(BaseModel):
-    """Configuration for a single GTFS-RT transit feed."""
+    """Configuration for a single transit feed.
+
+    Supports three feed types:
+    - gtfs_rt: Standard GTFS-Realtime protobuf feeds
+    - scraper: JSON API scraper (e.g. Daugavpils)
+    - gps_text: Semicolon-delimited GPS text (e.g. marsruti.lv)
+    """
 
     feed_id: str
     operator_name: str
     rt_vehicle_positions_url: str
-    rt_trip_updates_url: str
-    static_url: str
+    rt_trip_updates_url: str = ""
+    static_url: str = ""
     poll_interval_seconds: int = 10
     enabled: bool = True
+    feed_type: FeedType = "gtfs_rt"
 
 
 class Settings(BaseSettings):
@@ -101,6 +110,16 @@ class Settings(BaseSettings):
     # Daily GTFS static auto-import (LV-1.2)
     gtfs_auto_import_enabled: bool = False
     gtfs_auto_import_hour_utc: int = 3
+
+    # Adaptive polling (LV-2.3)
+    transit_adaptive_polling_enabled: bool = True
+    transit_peak_hours: str = "6-9,16-19"
+    transit_night_hours: str = "23-5"
+
+    # Train WebSocket listener (LV-2.2)
+    train_ws_enabled: bool = True
+    train_ws_url: str = "wss://trainmap.pv.lv/ws"
+    train_ws_reconnect_max_seconds: int = 60
 
     @computed_field  # type: ignore[prop-decorator]
     @property

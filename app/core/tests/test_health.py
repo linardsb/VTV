@@ -277,7 +277,7 @@ async def test_probe_pollers_healthy() -> None:
         patch("app.core.health._get_poller_last_tick") as mock_tick,
     ):
         settings = MagicMock()
-        settings.transit_feeds = [MagicMock(poll_interval_seconds=30)]
+        settings.transit_feeds = [MagicMock(feed_id="riga", poll_interval_seconds=30)]
         settings.alerts_check_interval_seconds = 60
         settings.geofence_check_interval_seconds = 30
         mock_settings.return_value = settings
@@ -301,24 +301,24 @@ async def test_probe_pollers_stale() -> None:
         patch("app.core.health.time") as mock_time,
     ):
         settings = MagicMock()
-        settings.transit_feeds = [MagicMock(poll_interval_seconds=30)]
+        settings.transit_feeds = [MagicMock(feed_id="riga", poll_interval_seconds=30)]
         settings.alerts_check_interval_seconds = 60
         settings.geofence_check_interval_seconds = 30
         mock_settings.return_value = settings
         mock_time.time.return_value = now
         mock_time.monotonic.side_effect = time.monotonic
 
-        # transit_feed is very stale (threshold is 60s, tick was 120s ago)
+        # transit_feed_riga is very stale (threshold is 240s=30*4*2, tick was 500s ago)
         def tick_values(name: str) -> float | None:
-            if name == "transit_feed":
-                return now - 120  # very stale
+            if name == "transit_feed_riga":
+                return now - 500  # very stale
             return now - 10  # fresh
 
         mock_tick.side_effect = tick_values
 
         result = await probe_pollers()
     assert result.status == "degraded"
-    assert "transit_feed" in (result.detail or "")
+    assert "transit_feed_riga" in (result.detail or "")
 
 
 @pytest.mark.asyncio
@@ -327,9 +327,13 @@ async def test_probe_gtfs_feeds_fresh() -> None:
     now = time.time()
 
     with (
+        patch("app.core.health.get_settings") as mock_settings,
         patch("app.core.health._get_poller_last_tick", return_value=now - 10),
         patch("app.core.health.time") as mock_time,
     ):
+        settings = MagicMock()
+        settings.transit_feeds = [MagicMock(feed_id="riga", poll_interval_seconds=10)]
+        mock_settings.return_value = settings
         mock_time.monotonic.side_effect = time.monotonic
         mock_time.time.return_value = now
 
@@ -340,19 +344,23 @@ async def test_probe_gtfs_feeds_fresh() -> None:
 
 @pytest.mark.asyncio
 async def test_probe_gtfs_feeds_stale() -> None:
-    """Test GTFS-RT feeds probe with stale data (> 60s)."""
+    """Test GTFS-RT feeds probe with stale data."""
     now = time.time()
 
     with (
-        patch("app.core.health._get_poller_last_tick", return_value=now - 120),
+        patch("app.core.health.get_settings") as mock_settings,
+        patch("app.core.health._get_poller_last_tick", return_value=now - 500),
         patch("app.core.health.time") as mock_time,
     ):
+        settings = MagicMock()
+        settings.transit_feeds = [MagicMock(feed_id="riga", poll_interval_seconds=10)]
+        mock_settings.return_value = settings
         mock_time.monotonic.side_effect = time.monotonic
         mock_time.time.return_value = now
 
         result = await probe_gtfs_rt_feeds()
     assert result.status == "degraded"
-    assert "stale_seconds" in (result.detail or "")
+    assert "stale_feeds" in (result.detail or "")
 
 
 @pytest.mark.asyncio
@@ -448,7 +456,7 @@ async def test_deep_health_returns_full_report() -> None:
 
         settings = MagicMock()
         settings.health_deep_cache_ttl_seconds = 5.0
-        settings.transit_feeds = [MagicMock(poll_interval_seconds=30)]
+        settings.transit_feeds = [MagicMock(feed_id="riga", poll_interval_seconds=30)]
         settings.alerts_check_interval_seconds = 60
         settings.geofence_check_interval_seconds = 30
         settings.llm_provider = "test"

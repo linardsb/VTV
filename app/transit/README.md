@@ -1,6 +1,6 @@
 # Transit — Multi-Feed GTFS-RT with Redis Caching + WebSocket Live Streaming + TimescaleDB Historical Storage
 
-Multi-feed real-time vehicle tracking with Redis-backed caching, WebSocket push, and TimescaleDB time-series historical storage. Supports multiple GTFS-RT providers (Riga, Jurmala, Pieriga, ATD intercity) with per-feed background polling, Redis pipeline writes, batch MGET reads for sub-ms latency, WebSocket live streaming via Redis Pub/Sub fan-out, and persistent position history with compression and retention policies.
+Multi-feed real-time vehicle tracking with Redis-backed caching, WebSocket push, and TimescaleDB time-series historical storage. Supports multiple transit providers across Latvia: GTFS-RT protobuf (Riga, Jurmala, Pieriga), JSON API scraping (Daugavpils), and GPS text parsing (Liepaja, Rezekne via marsruti.lv). Pluggable feed client architecture via `FeedClient` Protocol with per-feed background polling, Redis pipeline writes, batch MGET reads for sub-ms latency, WebSocket live streaming via Redis Pub/Sub fan-out, and persistent position history with compression and retention policies.
 
 ## Key Flows
 
@@ -136,12 +136,15 @@ Table: `vehicle_positions` (converted to TimescaleDB hypertable, partitioned by 
 12. Vehicle positions retained for 90 days (TimescaleDB retention policy), compressed after 7 days
 10. WebSocket max connections capped at `WS_MAX_CONNECTIONS` (default 100) to prevent memory exhaustion
 11. Nginx limits WebSocket connections to 10 per IP (`limit_conn addr 10`)
+12. Non-GTFS-RT feeds (scraper, GPS text) validate all input: lat/lon within Latvia bounding box (55.5-58.1 N, 20.5-28.3 E), vehicle_id matches `^[\w\-.:]{1,64}$`, timestamps within stale (24h) / future (5min) bounds
+13. Invalid vehicles from non-standard feeds are silently skipped (warning logged) without failing the batch
 
 ## Integration Points
 
 - **`app.core.redis`**: Redis client singleton (`get_redis()`, `close_redis()`) with lifespan management
 - **`app.core.config`**: `TransitFeedConfig` model, `transit_feeds` computed property, `REDIS_URL`
-- **`app.core.agents.tools.transit.client`**: Reuses `GTFSRealtimeClient` for GTFS-RT feed parsing
+- **`app.core.agents.tools.transit.client`**: Reuses `GTFSRealtimeClient` for GTFS-RT feed parsing (created via `feed_client.create_feed_client()` factory)
+- **`app.transit.feed_client`**: Pluggable feed clients — `FeedClient` Protocol, `DaugavpilsScraper` (JSON API), `GpsTextClient` (semicolon-delimited GPS text), `create_feed_client()` factory dispatching on `TransitFeedConfig.feed_type`
 - **`app.core.agents.tools.transit.static_cache`**: Reuses `GTFSStaticCache` singleton for route/stop/trip name resolution
 - **`app.core.agents.tools.transit.static_store`**: DB-backed GTFSStaticStore for route/stop/trip name resolution (replaced HTTP-based GTFSStaticCache)
 - **`app.core.agents.exceptions`**: Uses `TransitDataError` for feed failure propagation (HTTP 503)
@@ -211,8 +214,8 @@ Table: `vehicle_positions` (converted to TimescaleDB hypertable, partitioned by 
 # Redis
 REDIS_URL=redis://localhost:6379/0
 
-# Multi-feed config (JSON array)
-TRANSIT_FEEDS_JSON='[{"feed_id":"riga","operator_name":"Rigas Satiksme","gtfs_rt_vehicle_url":"https://...","gtfs_rt_trip_url":"https://...","gtfs_static_url":"https://...","poll_interval_seconds":10,"enabled":true}]'
+# Multi-feed config (JSON array) — feed_type: "gtfs_rt" (default), "scraper", "gps_text"
+TRANSIT_FEEDS_JSON='[{"feed_id":"riga","operator_name":"Rigas Satiksme","rt_vehicle_positions_url":"https://...","rt_trip_updates_url":"https://...","static_url":"https://...","poll_interval_seconds":10,"enabled":true},{"feed_id":"daugavpils","operator_name":"Daugavpils Satiksme","rt_vehicle_positions_url":"https://satiksme.daugavpils.lv/transports/karte","feed_type":"scraper","poll_interval_seconds":15}]'
 
 # Polling control
 TRANSIT_POLLER_ENABLED=true
@@ -240,7 +243,7 @@ REDIS_VEHICLE_TTL_SECONDS=60         # TTL for Redis vehicle position keys
 | ~~WebSocket streaming~~ | ~~Phase 1~~ | ✅ **Implemented** — `WS /ws/transit/vehicles` with per-client feed/route filtering, Redis Pub/Sub fan-out |
 | ~~GTFS database import~~ | ~~Phase 1~~ | ✅ **Implemented** — DB-backed GTFSStaticStore replacing HTTP/ZIP-based cache |
 | ~~TimescaleDB history~~ | ~~Phase 1~~ | ✅ **Implemented** — `vehicle_positions` hypertable with compression, 90-day retention, vehicle history + delay trend endpoints |
-| Additional city feeds | Phase 2 | Daugavpils, Liepaja, Rezekne GPS text feeds |
+| ~~Additional city feeds~~ | ~~Phase 2~~ | ✅ **Implemented** — Pluggable feed client architecture: `FeedClient` Protocol + `DaugavpilsScraper` (JSON API) + `GpsTextClient` (semicolon-delimited) + factory dispatch via `feed_type` discriminator on `TransitFeedConfig` |
 | Train positions | Phase 2 | WebSocket listener for `wss://trainmap.pv.lv/ws` |
 | ETA calculator | Phase 2 | Valhalla map-matching + distance-to-stop / speed calculation |
 | GTFS-RT publisher | Phase 2 | Serve combined GTFS-RT feed at `/api/v1/transit/gtfs-rt/*.pb` |

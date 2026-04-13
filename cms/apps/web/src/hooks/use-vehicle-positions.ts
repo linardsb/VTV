@@ -75,6 +75,8 @@ function routeTypeColor(routeType: number): string {
   if (routeType === 0 || (routeType >= 900 && routeType <= 999)) return "#E53935";
   // Trolleybus (800-899)
   if (routeType >= 800 && routeType <= 899) return "#1E88E5";
+  // Rail (2, 100-199)
+  if (routeType === 2 || (routeType >= 100 && routeType <= 199)) return "#43A047";
   // Bus (3, 700-799) and default
   return "#FB8C00";
 }

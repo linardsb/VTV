@@ -303,6 +303,15 @@ transit.
 │   ├── redis_unavailable                   # Redis not available for caching
 │   ├── pubsub_publish_failed               # Pub/Sub publish error (fields: error)
 │   └── task_cleanup_error                  # Task cleanup error
+├── feed.
+│   └── circuit_open                        # Per-feed circuit breaker open, poll skipped (fields: feed_id, retry_after)
+├── scraper.
+│   ├── fetch_completed                     # Scraper feed fetch completed (fields: feed_id, raw_count, valid_count, duration_ms)
+│   └── vehicle_invalid                     # Scraper vehicle skipped validation (fields: feed_id, reason)
+├── gps_text.
+│   ├── fetch_completed                     # GPS text feed fetch completed (fields: feed_id, raw_lines, valid_count, duration_ms)
+│   ├── line_malformed                      # GPS text line has insufficient fields (fields: feed_id, reason, field_count)
+│   └── vehicle_invalid                     # GPS text vehicle skipped validation (fields: feed_id, reason)
 ├── weather.
 │   ├── lifecycle_started                   # Weather ETL started
 │   ├── lifecycle_stopped                   # Weather ETL stopped
@@ -362,6 +371,24 @@ transit.
 │   ├── broadcast_client_disconnected       # Client disconnected during broadcast
 │   ├── broadcast_client_error              # Client error during broadcast
 │   └── unexpected_error                    # Unexpected WebSocket error
+├── train_ws.
+│   ├── listener_started                    # Train WS listener task created
+│   ├── listener_stopped                    # Train WS listener gracefully stopped
+│   ├── listener_stop_error                 # Train WS listener stop error
+│   ├── connected                           # Connected to PV train WS (fields: url)
+│   ├── first_message                       # First raw message logged for format discovery (fields: raw_snippet)
+│   ├── message_received                    # Train positions processed (fields: count)
+│   ├── message_parse_failed                # Train WS message parse error (fields: error, raw_snippet)
+│   ├── redis_write_failed                  # Train Redis write error (fields: error)
+│   ├── history_write_completed             # Train history written to TimescaleDB (fields: records_inserted)
+│   ├── history_write_failed                # Train history write error (fields: error)
+│   ├── pubsub_publish_failed               # Train Pub/Sub publish error (fields: error)
+│   └── reconnecting                        # Train WS reconnecting after error (fields: error, backoff_seconds)
+├── publisher.
+│   ├── build_started                       # GTFS-RT combined feed build started (fields: feed_id)
+│   ├── build_completed                     # GTFS-RT combined feed build completed (fields: vehicle_count, feed_id, bytes_size)
+│   ├── build_failed                        # GTFS-RT combined feed build error (fields: feed_id, error)
+│   └── cache_hit                           # GTFS-RT combined feed served from cache (fields: feed_id)
 ├── anomaly.off_route.
 │   ├── lifecycle_started                   # Off-route evaluator started
 │   ├── lifecycle_stopped                   # Off-route evaluator stopped

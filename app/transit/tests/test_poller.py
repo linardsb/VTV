@@ -150,7 +150,7 @@ async def test_enrich_vehicle_no_route() -> None:
 
 @pytest.mark.asyncio
 @patch("app.transit.poller.get_static_store")
-@patch("app.transit.poller.GTFSRealtimeClient")
+@patch("app.transit.feed_client.create_feed_client")
 async def test_poll_once_writes_to_redis(
     mock_client_cls: MagicMock,
     mock_get_cache: AsyncMock,
@@ -189,7 +189,7 @@ async def test_poll_once_writes_to_redis(
 
 @pytest.mark.asyncio
 @patch("app.transit.poller.get_static_store")
-@patch("app.transit.poller.GTFSRealtimeClient")
+@patch("app.transit.feed_client.create_feed_client")
 async def test_poll_once_handles_fetch_error(
     mock_client_cls: MagicMock,
     mock_get_cache: AsyncMock,
@@ -213,7 +213,7 @@ async def test_poll_once_handles_fetch_error(
 
 @pytest.mark.asyncio
 @patch("app.transit.poller.get_static_store")
-@patch("app.transit.poller.GTFSRealtimeClient")
+@patch("app.transit.feed_client.create_feed_client")
 async def test_poll_once_publishes_to_pubsub(
     mock_client_cls: MagicMock,
     mock_get_cache: AsyncMock,
@@ -251,7 +251,7 @@ async def test_poll_once_publishes_to_pubsub(
 
 @pytest.mark.asyncio
 @patch("app.transit.poller.get_static_store")
-@patch("app.transit.poller.GTFSRealtimeClient")
+@patch("app.transit.feed_client.create_feed_client")
 async def test_poll_once_skips_publish_on_zero_vehicles(
     mock_client_cls: MagicMock,
     mock_get_cache: AsyncMock,
@@ -280,7 +280,7 @@ async def test_poll_once_skips_publish_on_zero_vehicles(
 
 @pytest.mark.asyncio
 @patch("app.transit.poller.get_static_store")
-@patch("app.transit.poller.GTFSRealtimeClient")
+@patch("app.transit.feed_client.create_feed_client")
 async def test_poll_once_continues_on_publish_failure(
     mock_client_cls: MagicMock,
     mock_get_cache: AsyncMock,

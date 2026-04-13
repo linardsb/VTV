@@ -159,6 +159,12 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Start daily GTFS feed import task (LV-1.2)
     await start_feed_import_task()
 
+    # Start train WebSocket listener (LV-2.2)
+    if settings.train_ws_enabled:
+        from app.transit.train_ws_listener import start_train_ws_listener
+
+        await start_train_ws_listener(settings)
+
     # Pre-load reranker model (avoids cold-start on first search)
     try:
         from app.knowledge.service import warm_up_reranker
@@ -251,6 +257,17 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             drain=stop_feed_import_task,
         )
     )
+
+    if settings.train_ws_enabled:
+        from app.transit.train_ws_listener import stop_train_ws_listener
+
+        coordinator.register(
+            ShutdownTask(
+                name="train_ws_listener",
+                drain_timeout_s=5.0,
+                drain=stop_train_ws_listener,
+            )
+        )
 
     yield
 

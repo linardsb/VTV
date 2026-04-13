@@ -22,6 +22,7 @@ const ROUTE_TYPE_OPTIONS: { type: number | null; key: string }[] = [
   { type: 3, key: "bus" },
   { type: 11, key: "trolleybus" },
   { type: 0, key: "tram" },
+  { type: 2, key: "train" },
 ];
 
 export function MapFilters({

@@ -2,6 +2,7 @@
 """Background GTFS-RT poller that writes vehicle positions to Redis."""
 
 import asyncio
+import datetime as _dt
 import json
 import time
 from collections.abc import Callable
@@ -14,7 +15,6 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.agents.tools.transit.client import (
-    GTFSRealtimeClient,
     TripUpdateData,
     VehiclePositionData,
 )
@@ -24,8 +24,49 @@ from app.core.config import Settings, TransitFeedConfig, get_settings
 from app.core.logging import get_logger
 from app.core.metrics import record_poller_tick
 from app.core.redis import get_redis
+from app.core.resilience import CircuitBreaker, CircuitOpenError
 
 logger = get_logger(__name__)
+
+
+def _parse_hour_ranges(spec: str) -> set[int]:
+    """Parse comma-separated hour ranges like '6-9,16-19' into a set of hours."""
+    hours: set[int] = set()
+    for part in spec.split(","):
+        part = part.strip()
+        if "-" in part:
+            start_s, end_s = part.split("-", 1)
+            start, end = int(start_s), int(end_s)
+            if start <= end:
+                hours.update(range(start, end))
+            else:  # wraps midnight, e.g. "23-5"
+                hours.update(range(start, 24))
+                hours.update(range(0, end))
+        else:
+            hours.add(int(part))
+    return hours
+
+
+def _adaptive_interval(base_interval: int, hour: int, settings: Settings) -> float:
+    """Calculate polling interval based on hour-of-day.
+
+    Peak hours (default 6-9, 16-19): 1x base interval.
+    Night hours (default 23-5): 4x base interval.
+    Off-peak (everything else): 2x base interval.
+
+    Returns base_interval unchanged when adaptive polling is disabled.
+    """
+    if not settings.transit_adaptive_polling_enabled:
+        return float(base_interval)
+
+    peak = _parse_hour_ranges(settings.transit_peak_hours)
+    night = _parse_hour_ranges(settings.transit_night_hours)
+
+    if hour in peak:
+        return float(base_interval)
+    if hour in night:
+        return float(base_interval) * 4
+    return float(base_interval) * 2
 
 
 class EnrichedVehicle(TypedDict):
@@ -70,8 +111,15 @@ class FeedPoller:
             timeout=httpx.Timeout(10.0, connect=5.0),
             limits=httpx.Limits(max_connections=5, max_keepalive_connections=3),
         )
-        self._rt_client = GTFSRealtimeClient(http_client=self._http_client, settings=settings)
+        from app.transit.feed_client import create_feed_client
+
+        self._feed_client = create_feed_client(feed_config, self._http_client, settings)
         self._running = False
+        self._breaker = CircuitBreaker(
+            name=f"feed_{feed_config.feed_id}",
+            failure_threshold=5,
+            reset_timeout=60.0,
+        )
 
     async def close(self) -> None:
         """Close HTTP client resources."""
@@ -85,8 +133,8 @@ class FeedPoller:
         """Fetch positions from feed, write to Redis. Returns vehicle count."""
         feed_id = self.feed_config.feed_id
         try:
-            raw_vehicles = await self._rt_client.fetch_vehicle_positions()
-            trip_updates = await self._rt_client.fetch_trip_updates()
+            raw_vehicles = await self._feed_client.fetch_vehicle_positions()
+            trip_updates = await self._feed_client.fetch_trip_updates()
             if self._db_session_factory is None:
                 from app.core.database import get_db_context
 
@@ -203,7 +251,7 @@ class FeedPoller:
                 )
 
         if count > 0:
-            record_poller_tick("transit_feed")
+            record_poller_tick(f"transit_feed_{self.feed_config.feed_id}")
 
         return count
 
@@ -281,19 +329,37 @@ class FeedPoller:
     async def run(self, redis_client: Redis) -> None:
         """Run the polling loop for this feed."""
         feed_id = self.feed_config.feed_id
-        interval = self.feed_config.poll_interval_seconds
+        base_interval = self.feed_config.poll_interval_seconds
         self._running = True
-        logger.info("transit.poller.started", feed_id=feed_id, interval_seconds=interval)
+        logger.info(
+            "transit.poller.started",
+            feed_id=feed_id,
+            interval_seconds=base_interval,
+            adaptive_enabled=self._settings.transit_adaptive_polling_enabled,
+        )
 
         while self._running:
+            current_hour = _dt.datetime.now(_dt.UTC).hour
+            interval = _adaptive_interval(base_interval, current_hour, self._settings)
+
             start = time.monotonic()
-            count = await self.poll_once(redis_client)
+            count = 0
+            try:
+                async with self._breaker:
+                    count = await self.poll_once(redis_client)
+            except CircuitOpenError:
+                logger.warning(
+                    "transit.feed.circuit_open",
+                    feed_id=feed_id,
+                    retry_after=self._breaker.reset_timeout,
+                )
             duration_ms = round((time.monotonic() - start) * 1000)
             logger.info(
                 "transit.poller.cycle_completed",
                 feed_id=feed_id,
                 vehicle_count=count,
                 duration_ms=duration_ms,
+                interval_seconds=interval,
             )
             await asyncio.sleep(interval)
 

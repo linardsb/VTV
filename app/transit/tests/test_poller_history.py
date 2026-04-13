@@ -66,11 +66,11 @@ class TestPollerHistoryWrite:
         mock_redis = _make_mock_redis()
 
         with (
-            patch.object(poller, "_rt_client") as mock_rt,
+            patch.object(poller, "_feed_client") as mock_fc,
             patch("app.transit.poller.get_static_store", new_callable=AsyncMock) as mock_store,
         ):
-            mock_rt.fetch_vehicle_positions = AsyncMock(return_value=[])
-            mock_rt.fetch_trip_updates = AsyncMock(return_value=[])
+            mock_fc.fetch_vehicle_positions = AsyncMock(return_value=[])
+            mock_fc.fetch_trip_updates = AsyncMock(return_value=[])
             mock_store.return_value = MagicMock()
 
             result = await poller.poll_once(mock_redis)
@@ -105,11 +105,11 @@ class TestPollerHistoryWrite:
         mock_static.get_stop_name.return_value = None
 
         with (
-            patch.object(poller, "_rt_client") as mock_rt,
+            patch.object(poller, "_feed_client") as mock_fc,
             patch("app.transit.poller.get_static_store", new_callable=AsyncMock) as mock_store,
         ):
-            mock_rt.fetch_vehicle_positions = AsyncMock(return_value=[mock_vp])
-            mock_rt.fetch_trip_updates = AsyncMock(return_value=[])
+            mock_fc.fetch_vehicle_positions = AsyncMock(return_value=[mock_vp])
+            mock_fc.fetch_trip_updates = AsyncMock(return_value=[])
             mock_store.return_value = mock_static
 
             result = await poller.poll_once(mock_redis)
@@ -146,7 +146,7 @@ class TestPollerHistoryWrite:
         mock_static.get_stop_name.return_value = None
 
         with (
-            patch.object(poller, "_rt_client") as mock_rt,
+            patch.object(poller, "_feed_client") as mock_fc,
             patch("app.transit.poller.get_static_store", new_callable=AsyncMock) as mock_store,
             patch(
                 "app.transit.repository.batch_insert_positions",
@@ -154,8 +154,8 @@ class TestPollerHistoryWrite:
                 return_value=1,
             ) as mock_insert,
         ):
-            mock_rt.fetch_vehicle_positions = AsyncMock(return_value=[mock_vp])
-            mock_rt.fetch_trip_updates = AsyncMock(return_value=[])
+            mock_fc.fetch_vehicle_positions = AsyncMock(return_value=[mock_vp])
+            mock_fc.fetch_trip_updates = AsyncMock(return_value=[])
             mock_store.return_value = mock_static
 
             result = await poller.poll_once(mock_redis)

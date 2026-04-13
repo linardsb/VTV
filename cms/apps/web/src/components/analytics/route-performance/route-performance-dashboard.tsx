@@ -67,7 +67,7 @@ interface RoutePerformanceDashboardProps {
 }
 
 async function routeListFetcher(): Promise<Route[]> {
-  const result = await fetchRoutes({ page_size: 500 });
+  const result = await fetchRoutes({ page_size: 100 });
   return result.items;
 }
 

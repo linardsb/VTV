@@ -7,8 +7,6 @@ Provides liveness (`/health`), individual dependency checks (`/health/db`,
 a structured per-dependency status report.
 """
 
-from __future__ import annotations
-
 import asyncio
 import time
 from collections.abc import Awaitable
@@ -105,19 +103,24 @@ def _get_poller_last_tick(poller_name: str) -> float | None:
 def _poller_staleness_thresholds(settings: Settings) -> dict[str, float]:
     """Return per-poller staleness thresholds in seconds.
 
-    Daily crons get 25h (24h + 1h grace). Real-time pollers get 2x their
-    configured interval.
+    Per-feed transit pollers use 4x base interval (worst-case night multiplier)
+    with a 2x safety margin. Daily crons get 25h (24h + 1h grace).
     """
-    feed_interval = (
-        settings.transit_feeds[0].poll_interval_seconds * 2 if settings.transit_feeds else 120.0
-    )
-    return {
-        "transit_feed": feed_interval,
-        "alert_evaluator": settings.alerts_check_interval_seconds * 2,
-        "geofence_evaluator": settings.geofence_check_interval_seconds * 2,
-        "memory_compaction": 25 * 3600,  # daily + 1h grace
-        "memory_promotion": 25 * 3600,  # daily + 1h grace
-    }
+    thresholds: dict[str, float] = {}
+
+    # Per-feed transit pollers
+    for feed in settings.transit_feeds:
+        max_interval = float(feed.poll_interval_seconds) * 4  # night = 4x base
+        thresholds[f"transit_feed_{feed.feed_id}"] = max_interval * 2  # 2x safety margin
+
+    if not settings.transit_feeds:
+        thresholds["transit_feed"] = 120.0  # fallback
+
+    thresholds["alert_evaluator"] = settings.alerts_check_interval_seconds * 2
+    thresholds["geofence_evaluator"] = settings.geofence_check_interval_seconds * 2
+    thresholds["memory_compaction"] = 25 * 3600  # daily + 1h grace
+    thresholds["memory_promotion"] = 25 * 3600  # daily + 1h grace
+    return thresholds
 
 
 # ---------------------------------------------------------------------------
@@ -239,12 +242,40 @@ async def probe_pollers() -> ProbeResult:
 
 
 async def probe_gtfs_rt_feeds() -> ProbeResult:
-    """Probe GTFS-RT feed freshness (non-critical)."""
+    """Probe GTFS-RT feed freshness per feed (non-critical)."""
     start = time.monotonic()
-    last_tick = _get_poller_last_tick("transit_feed")
+    settings = get_settings()
+    stale_feeds: list[str] = []
+    checked = 0
+    now = time.time()
+
+    feed_ids = [f.feed_id for f in settings.transit_feeds] if settings.transit_feeds else [""]
+    for feed_id in feed_ids:
+        label = f"transit_feed_{feed_id}" if feed_id else "transit_feed"
+        last_tick = _get_poller_last_tick(label)
+        if last_tick is not None:
+            checked += 1
+            # Use 4x base interval * 2 safety = 8x as staleness ceiling
+            base = next(
+                (f.poll_interval_seconds for f in settings.transit_feeds if f.feed_id == feed_id),
+                10,
+            )
+            max_age = float(base) * 8  # worst-case night (4x) * 2 safety
+            if (now - last_tick) > max_age:
+                stale_feeds.append(feed_id or "default")
+
     latency_ms = (time.monotonic() - start) * 1000
 
-    if last_tick is None:
+    if stale_feeds:
+        return ProbeResult(
+            name="gtfs_rt_feeds",
+            status="degraded",
+            latency_ms=round(latency_ms, 2),
+            detail=f"stale_feeds={','.join(stale_feeds)}",
+            critical=False,
+        )
+
+    if checked == 0:
         return ProbeResult(
             name="gtfs_rt_feeds",
             status="degraded",
@@ -253,21 +284,11 @@ async def probe_gtfs_rt_feeds() -> ProbeResult:
             critical=False,
         )
 
-    age_s = time.time() - last_tick
-    if age_s > 60.0:
-        return ProbeResult(
-            name="gtfs_rt_feeds",
-            status="degraded",
-            latency_ms=round(latency_ms, 2),
-            detail=f"stale_seconds={age_s:.0f}",
-            critical=False,
-        )
-
     return ProbeResult(
         name="gtfs_rt_feeds",
         status="ok",
         latency_ms=round(latency_ms, 2),
-        detail=f"age_seconds={age_s:.0f}",
+        detail=f"feeds_checked={checked}",
         critical=False,
     )
 

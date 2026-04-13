@@ -1583,7 +1583,8 @@
       "allTypes": "All types",
       "bus": "Bus",
       "trolleybus": "Trolleybus",
-      "tram": "Tram"
+      "tram": "Tram",
+      "train": "Train"
     },
     "liveStream": "Live stream",
     "pollingFallback": "Polling (WS failed)",

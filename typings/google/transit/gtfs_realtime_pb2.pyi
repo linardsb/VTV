@@ -9,6 +9,7 @@ from google.protobuf.internal.containers import RepeatedCompositeFieldContainer
 from google.protobuf.message import Message
 
 class FeedHeader(Message):
+    gtfs_realtime_version: str
     timestamp: int
 
 class Translation(Message):
@@ -68,6 +69,7 @@ class Alert(Message):
     informed_entity: RepeatedCompositeFieldContainer[EntitySelector]
 
 class FeedEntity(Message):
+    id: str
     vehicle: VehiclePosition
     trip_update: TripUpdate
     alert: Alert

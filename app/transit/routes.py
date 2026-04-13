@@ -11,6 +11,7 @@ Endpoints:
 import datetime as dt
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_role
@@ -233,3 +234,24 @@ async def get_route_delay_trend(
 
     service = get_transit_service()
     return await service.get_delay_trend(db, route_id, from_dt, to_dt, interval_minutes)
+
+
+@router.get("/gtfs-rt/vehicle_positions.pb")
+@limiter.limit("60/minute")
+async def get_gtfs_rt_vehicle_positions(
+    request: Request,
+    feed_id: str | None = Query(None, max_length=50, pattern=r"^[\w\-]+$"),
+) -> Response:
+    """Serve combined GTFS-RT VehiclePositions feed as protobuf.
+
+    Public endpoint — no authentication required. Rate limited to 60 requests/minute.
+    Returns binary protobuf (application/x-protobuf).
+    """
+    _ = request
+    from app.transit.gtfs_rt_publisher import build_combined_feed
+
+    pb_bytes = await build_combined_feed(feed_id=feed_id)
+    return Response(
+        content=pb_bytes,
+        media_type="application/x-protobuf",
+    )

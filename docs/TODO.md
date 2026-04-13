@@ -13,9 +13,9 @@ Planned features and improvements. Each item links to its detailed planning docu
 ```
 Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
 CMS Frontend      ███████████████████████░  99%  (18 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences, full-screen map)
-Testing           ████████████████████░░░░  90%  (2179 unit tests, 115 security tests, 81 e2e tests, CI pipeline live with security gates)
+Testing           ████████████████████░░░░  90%  (2258 unit tests, 115 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets, graceful shutdown coordinator)
-Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
+Latvia Platform   ████████████░░░░░░░░░░░  55%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage + pluggable feed clients + PV train WebSocket + adaptive polling + per-feed circuit breakers + GTFS-RT publisher)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
 Intelligence/ML   ████████████████████████ 100%  (17/17 subtasks done. ML-1 complete. ML-2 complete. ML-3 complete. ML-4 complete. ML-5 complete.)
 ```
@@ -40,12 +40,12 @@ Intelligence/ML   ████████████████████�
 
 > Plan: [docs/PLANNING/Implementation-Plan.md](PLANNING/Implementation-Plan.md) | [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) | [docs/PLANNING/rag-improvements.md](PLANNING/rag-improvements.md) | [docs/PLANNING/sop-file-automation.md](PLANNING/sop-file-automation.md)
 
-### Master Summary — 34 subtasks remaining
+### Master Summary — 31 subtasks remaining
 
 | Track | Subtasks | BE | FE | Mobile | Infra | Realistic Total |
 |-------|----------|----|----|--------|-------|-----------------|
 | Latvia Phase 1 | 2 | 2 | 0 | — | — | ~3h |
-| Latvia Phase 2 | 4 | 4 | — | — | — | ~1.5 days |
+| ~~Latvia Phase 2~~ | ~~0~~ | — | — | — | — | ✅ Done |
 | Latvia Phase 3 | 4 | 3 | 1 | — | 2 | ~2 days |
 | Knowledge Base | 5 | 5 | 0.5 | — | — | ~6h |
 | SOP Automation | 5 | 5 | 0.5 | — | — | ~1 day |
@@ -54,13 +54,13 @@ Intelligence/ML   ████████████████████�
 | Fleet Phase 4 | 2 | 1 | 1 | — | 1 | ~1 day |
 | Fleet Phase 5 | 2 | 1 | — | 1 | — | ~2 days |
 | CMS Features | 1 | 0.5 | 0.5 | — | — | ~30min |
-| **Totals** | **34** | **25.5** | **5.5** | **1** | **3** | **~13 days serial** |
+| **Totals** | **31** | **22.5** | **5.5** | **1** | **3** | **~11.5 days serial** |
 
 ### Max Parallel Schedule (~5 days with 3 sessions)
 
 ```
 Day 1:  Session A: LV-1.1 + LV-1.2 (BE)    | Session B: CMS-1 (FE)               | Session C: KB-1..KB-5 (BE)
-Day 2:  Session A: LV-2.1 + LV-2.2 (BE)     | Session B: SOP-1..SOP-3 + SOP-5 (BE)| Session C: FLEET-2.1 + FLEET-2.2 (BE)
+Day 2:  Session A: ~~LV-2.1 + LV-2.2~~ ✅   | Session B: SOP-1..SOP-3 + SOP-5 (BE)| Session C: FLEET-2.1 + FLEET-2.2 (BE)
 Day 3:  Session A: LV-2.3 + LV-2.4 (BE)     | Session B: LV-3.1 + LV-3.2 (BE)    | Session C: TACHO-1 (BE)
 Day 4:  Session A: LV-3.3 (BE+FE)            | Session B: LV-3.4 + FLEET-2.3 (BE) | Session C: TACHO-2 + TACHO-3 (BE+FE)
 Day 5:  Session A: ROUTE-1 + ROUTE-2 (BE+FE) | Session B: MSG-1 (BE)               | Session C: SOP-4 + MSG-2 (BE+Mobile)
@@ -109,88 +109,49 @@ Everything else is independent and can run in any order.
 - 15+ unit tests: feed-scoped parsing (3), upsert idempotency (2), composite unique constraints (2), multi-feed coexistence (2), background task scheduling (2), endpoint auth (2), migration rollback (2)
 **Verify:** Import Riga + ATD feeds. `SELECT feed_id, COUNT(*) FROM routes GROUP BY 1` shows two rows. Re-import Riga — ATD routes untouched. Agent tools query routes across feeds. GTFS export still works for single-feed download.
 
-#### LV-1.3 Full-Screen `/map` CMS Page
+#### ~~LV-1.3 Full-Screen `/map` CMS Page~~ ✅ Implemented 2026-04-13
 **What:** New CMS page at `/map` — full-viewport Leaflet map showing all live vehicles from all feeds, with operator/route/vehicle-type filters, click-to-inspect panel, and WebSocket real-time updates. Builds on existing `RouteMap` component which already supports multi-feed markers and feed health overlay.
-**Why:** Current map is a 60/40 split panel on the routes page — too small for dispatchers monitoring all Latvia. A dedicated full-screen page is the primary operational view for multi-city coverage.
-**Implementation:**
-- `cms/apps/web/src/app/[locale]/(dashboard)/map/page.tsx`:
-  - Full viewport `MapContainer` (no sidebar split)
-  - Feed selector chips (toggle Riga/ATD/Jurmala/Pieriga on/off)
-  - Route type filter (bus/trolleybus/tram/train)
-  - `leaflet.markercluster` for zoom-out with 500+ markers
-  - Click vehicle → side drawer with route, speed, next stop, ETA (from ML-2.3 `predict_eta`)
-  - Click stop → upcoming departures panel
-  - WebSocket connection via existing `useVehiclePositions` hook with `connectionMode: "websocket"`
-- `cms/apps/web/messages/lv.json` + `en.json` — ~30 new i18n keys
-- Sidebar nav entry: "Karte" / "Map" with map icon, visible to all roles
-- Middleware RBAC: viewer+ access
-- SDK: reuse existing `getVehicles()` + WebSocket hooks
-- 6+ component tests
 **Verify:** `/map` loads full-screen. Feed chips toggle Riga/ATD markers. Clicking a vehicle opens the detail drawer. WebSocket pushes update markers in real-time. Zoom out to all-Latvia → markercluster groups dense areas. Performance: 500+ markers render at 60fps.
 
 ---
 
-### Latvia Transit — Phase 2: Full Latvia Coverage (~1.5 days)
+### Latvia Transit — Phase 2: Full Latvia Coverage ✅ COMPLETE
 
-> **Sprint deliverable:** All available Latvian real-time feeds live on the map, trains visible alongside buses, ML-based ETA integrated into stop departures, circuit breakers per feed, and a published GTFS-RT combined feed for third parties.
+> **Sprint deliverable:** All available Latvian real-time feeds live on the map, trains visible alongside buses, circuit breakers per feed, and a published GTFS-RT combined feed for third parties. All 4 subtasks complete.
 
 | Subtask | Type | Realistic | Parallel? |
 |---------|------|-----------|-----------|
-| LV-2.1 Additional city feeds | BE | ~3h | ✅ Yes — independent |
-| LV-2.2 Train WebSocket | BE | ~3h | ✅ Yes — independent |
-| LV-2.3 Adaptive polling + breakers | BE | ~2h | ✅ Yes — independent |
-| LV-2.4 GTFS-RT publisher | BE | ~2h | ✅ Yes — independent |
+| ~~LV-2.1 Additional city feeds~~ | BE | ✅ Done | ✅ Implemented — pluggable feed client architecture |
+| ~~LV-2.2 Train WebSocket~~ | BE+FE | ✅ Done | ✅ Implemented 2026-04-13 — PV train WS listener + CMS train filter |
+| ~~LV-2.3 Adaptive polling + breakers~~ | BE | ✅ Done | ✅ Implemented — adaptive intervals + per-feed circuit breakers |
+| ~~LV-2.4 GTFS-RT publisher~~ | BE | ✅ Done | ✅ Implemented — combined GTFS-RT VehiclePositions publisher |
 
-#### LV-2.1 Additional City GTFS-RT Feeds
-**What:** Add `TRANSIT_FEEDS_JSON` entries for Jurmala (`marsruti.lv/jurmala/gtfs_realtime.pb`), Pieriga (`marsruti.lv/pieriga/gtfs_realtime.pb`), and Daugavpils (scrape from `satiksme.daugavpils.lv/transports/karte`). Each feed gets its own `FeedPoller` instance — the existing multi-feed architecture handles everything downstream.
-**Why:** Extending coverage from Riga-only to 4+ cities is the core deliverable. The poller, Redis keys, Pub/Sub channels, and WebSocket subscriber are already feed-namespaced — adding a feed is config-only for GTFS-RT sources, scrape-adapter for non-standard sources.
-**Implementation:**
-- `TRANSIT_FEEDS_JSON` — add 3 new entries with `feed_id`, `operator_name`, `rt_vehicle_positions_url`, `poll_interval_seconds` (15s for smaller feeds)
-- `app/transit/daugavpils_scraper.py` (new) — scrapes the Daugavpils map API, normalizes to `VehiclePositionData` dataclass matching GTFS-RT output, feeds into the same Redis write pipeline as `FeedPoller`
-- `app/transit/gps_text_poller.py` (new) — polls simple GPS text endpoints (Liepāja `marsruti.lv/liepaja/gps.txt`, Rēzekne, LSA), parses CSV-like format, normalizes to `VehiclePositionData`
-- Wire scraper + GPS text poller into lifespan startup alongside existing `start_pollers()`
-- Feed monitoring: emit `transit.feed.poll_success` / `transit.feed.poll_failure` structured log events with `feed_id`, `entity_count`, `duration_ms`
-- 10+ unit tests: feed config parsing (2), scraper normalization (3), GPS text parsing (3), multi-feed coexistence in Redis (2)
-**Verify:** Start dev stack with 4+ feeds. `/map` shows vehicles from Riga, Jurmala, Pieriga, Daugavpils with different feed colors. Vehicle count per feed visible in FeedHealthOverlay. Stop one feed — others unaffected.
+#### LV-2.1 Additional City GTFS-RT Feeds ✅ DONE
+**Implemented:** Pluggable feed client architecture extending VTV from Riga-only to 4+ cities. Instead of separate scraper/poller files per source type, a single `FeedClient` Protocol + factory pattern dispatches on `TransitFeedConfig.feed_type` discriminator (`"gtfs_rt"` | `"scraper"` | `"gps_text"`). All clients normalize to `VehiclePositionData` — downstream pipeline (enrich -> Redis -> TimescaleDB -> Pub/Sub) is unchanged.
+**Files created:** `app/transit/feed_client.py` (Protocol + DaugavpilsScraper + GpsTextClient + factory), `app/transit/tests/test_feed_client.py` (15 tests)
+**Files modified:** `app/core/config.py` (FeedType Literal + feed_type field), `app/transit/poller.py` (pluggable _feed_client), `docs/logging-standard.md` (5 new events)
+**Input validation (CTX-INPUT):** Latvia bounding box (55.5-58.1 N, 20.5-28.3 E), vehicle_id regex `^[\w\-.:]{1,64}$`, timestamp staleness (24h) / future (5min) bounds. Invalid vehicles skipped with warning log.
+**Plan:** `.agents/plans/lv-2-1-additional-city-feeds.md`
 
-#### LV-2.2 Train Positions via WebSocket
-**What:** Create `app/transit/train_ws_listener.py` — connects to `wss://trainmap.pv.lv/ws`, parses train position messages, normalizes to `VehiclePositionData` with `feed_id="pv_trains"`, writes to Redis + TimescaleDB via existing pipeline. Reconnects on disconnect with exponential backoff.
-**Why:** Trains are the #1 missing transport mode. PV (Pasažieru Vilciens) publishes live positions via WebSocket — no API key needed. Combining trains with buses gives dispatchers a full Latvia transit view.
-**Implementation:**
-- `app/transit/train_ws_listener.py`:
-  - `TrainWSListener` class with `connect()`, `listen()`, `_normalize(msg) -> VehiclePositionData`
-  - Reconnect with exponential backoff (1s → 2s → 4s → … → 60s max)
-  - Health: `transit.train_ws.connected`, `transit.train_ws.disconnected`, `transit.train_ws.message_received` log events
-- `app/main.py` — register `start_train_ws_listener()` in lifespan, gated by `train_ws_enabled: bool = True` config
-- `TRANSIT_FEEDS_JSON` — add `feed_id="pv_trains"` entry (no GTFS-RT URLs, just metadata for the map)
-- CMS: add train icon variant in `BusMarker` component (different icon for `route_type=2`)
-- 8+ unit tests: message parsing (3), normalization (2), reconnect backoff (2), Redis write (1)
-**Verify:** Start dev stack → trains appear on `/map` as rail icons alongside bus markers. Disconnect Wi-Fi for 10s → listener reconnects and resumes. Train positions update every 5-10s.
+#### ~~LV-2.2 Train Positions via WebSocket~~ ✅ Implemented 2026-04-13
+**What:** `app/transit/train_ws_listener.py` — WebSocket client connecting to `wss://trainmap.pv.lv/ws` (configurable via `TRAIN_WS_URL`), parses train position messages with defensive field extraction, normalizes to `EnrichedVehicle` dicts with `feed_id="pv_trains"` and `route_type=2` (Rail), writes to Redis + TimescaleDB + Pub/Sub via the same pipeline as the GTFS-RT poller. Exponential backoff reconnection (1s -> 2s -> 4s -> ... -> 60s max, configurable via `TRAIN_WS_RECONNECT_MAX_SECONDS`). CMS frontend adds green rail color (#43A047), "Train" filter option on `/map`, and route_type=2 filtering in vehicle map + full-screen map. 12 unit tests + 12 new log events in taxonomy.
+**Plan:** `.agents/plans/lv-2-2-train-ws-listener.md`
+**Files created:** `app/transit/train_ws_listener.py`, `app/transit/tests/test_train_ws_listener.py`
+**Files modified:** `app/core/config.py` (3 settings), `app/main.py` (lifespan startup/shutdown), `cms/apps/web/src/hooks/use-vehicle-positions.ts` (rail color), `cms/apps/web/src/components/map/map-filters.tsx` (train option), `cms/apps/web/src/components/map/vehicle-map.tsx` (route_type=2 filter), `cms/apps/web/src/app/[locale]/(dashboard)/map/page.tsx` (route_type=2 filter), `cms/apps/web/messages/en.json` + `lv.json` (i18n keys), `docs/logging-standard.md` (12 new events)
+**Config:** `TRAIN_WS_ENABLED` (default true), `TRAIN_WS_URL`, `TRAIN_WS_RECONNECT_MAX_SECONDS` (default 60)
 
-#### LV-2.3 Adaptive Polling + Per-Feed Circuit Breakers
-**What:** Extend `FeedPoller` with adaptive polling intervals (5s peak / 30s off-peak based on hour-of-day), and wire the existing `app/core/resilience.py` circuit breaker into each poller instance so failing feeds trip independently without affecting healthy feeds.
-**Why:** Fixed 10s polling wastes bandwidth at 3am and is too slow at rush hour. Per-feed circuit breakers prevent a single failing upstream from consuming HTTP client resources that starve other feeds.
-**Implementation:**
-- `app/transit/poller.py`:
-  - `_adaptive_interval(hour: int) -> float` — peak hours (6-9, 16-19) use `poll_interval_seconds`, off-peak doubles it, night (23-5) quadruples it
-  - Wrap `poll_once()` in `CircuitBreaker.call()` from `app/core/resilience.py` — per-`FeedPoller` instance
-  - On breaker OPEN: log `transit.feed.circuit_open`, skip poll, wait for recovery timeout
-  - Update `POLLER_LAST_TICK` Prometheus gauge per feed
-- `app/core/config.py` — `transit_adaptive_polling_enabled: bool = True`, `transit_peak_hours: str = "6-9,16-19"`
-- 10+ unit tests: adaptive interval calculation (4), circuit breaker per-feed isolation (2), breaker trip + recovery (2), Prometheus gauge update (2)
-**Verify:** Configure 2 feeds. Fail one feed's upstream → its breaker opens, other feed polls normally. Check hour 3am → poll interval is 4x configured. Check hour 8am → poll interval is 1x.
+#### LV-2.3 Adaptive Polling + Per-Feed Circuit Breakers ✅ DONE
+**Implemented:** Hour-of-day adaptive polling intervals (1x peak, 2x off-peak, 4x night) and per-feed `CircuitBreaker` from `app/core/resilience.py` wired into each `FeedPoller` instance. Failing feeds trip independently without affecting healthy feeds. Health probes updated for per-feed staleness thresholds with adaptive-aware ceilings.
+**Files created:** `app/transit/tests/test_adaptive_polling.py` (12 tests)
+**Files modified:** `app/core/config.py` (3 settings: `transit_adaptive_polling_enabled`, `transit_peak_hours`, `transit_night_hours`), `app/transit/poller.py` (`_parse_hour_ranges()`, `_adaptive_interval()`, per-feed `CircuitBreaker` in `FeedPoller.__init__`, adaptive `run()` loop, per-feed metric labels), `app/core/health.py` (per-feed staleness thresholds, per-feed GTFS-RT freshness probe), `docs/logging-standard.md` (`transit.feed.circuit_open` event)
+**Plan:** `.agents/plans/lv-2-3-adaptive-polling-circuit-breakers.md`
 
-#### LV-2.4 GTFS-RT Publisher (Combined Feed)
-**What:** Create `app/transit/gtfs_rt_publisher.py` — reads live positions from all feeds in Redis, assembles a combined GTFS-RT `FeedMessage` protobuf, and serves it at `GET /api/v1/transit/gtfs-rt/vehicle_positions.pb`. Enables third-party apps to consume VTV's combined Latvia feed.
-**Why:** VTV aggregates 5+ feeds into one unified view. Publishing a combined GTFS-RT feed turns VTV into a data provider — registrable on the Mobility Database and usable by any GTFS-RT consumer (Google Maps, Transit app, etc.).
-**Implementation:**
-- `app/transit/gtfs_rt_publisher.py`:
-  - `build_combined_feed(redis_client) -> bytes` — reads all `vehicle:{feed_id}:*` keys, builds `gtfs_realtime_pb2.FeedMessage` with one `FeedEntity` per vehicle
-  - Cached for 5s (Redis key `gtfs_rt:combined:vehicle_positions`)
-- `app/transit/routes.py` — `GET /api/v1/transit/gtfs-rt/vehicle_positions.pb` (public, no auth, rate limited 60/min, `Content-Type: application/x-protobuf`)
-- `gtfs-realtime-bindings` already installed
-- 8+ unit tests: protobuf serialization (2), multi-feed assembly (2), cache hit (1), empty-feed edge case (1), GTFS-RT validator compliance (2)
-**Verify:** `curl localhost:8123/api/v1/transit/gtfs-rt/vehicle_positions.pb | protoc --decode=... ` shows combined entities from all active feeds. Run `gtfs-rt-validator` tool — 0 errors. Cache: second request within 5s returns same bytes.
+#### LV-2.4 GTFS-RT Publisher (Combined Feed) ✅ DONE
+**Implemented:** `app/transit/gtfs_rt_publisher.py` — reads live positions from all feeds in Redis, assembles a combined GTFS-RT `FeedMessage` protobuf, and serves it at `GET /api/v1/transit/gtfs-rt/vehicle_positions.pb`. Enables third-party apps to consume VTV's combined Latvia feed.
+**Files created:** `app/transit/gtfs_rt_publisher.py` (`build_combined_feed()`, `_read_all_vehicles()`, `_status_to_enum()`), `app/transit/tests/test_gtfs_rt_publisher.py` (10 tests)
+**Files modified:** `app/transit/routes.py` (new endpoint), `typings/google/transit/gtfs_realtime_pb2.pyi` (`gtfs_realtime_version` on `FeedHeader`, `id` on `FeedEntity`), `docs/logging-standard.md` (4 new `transit.publisher.*` events)
+**Security:** Public endpoint in `PUBLIC_ALLOWLIST`, `feed_id` param validated with `max_length=50, pattern=r"^[\w\-]+$"`, no ILIKE queries.
+**Plan:** `.agents/plans/lv-2-4-gtfs-rt-publisher.md`
 
 ---
 

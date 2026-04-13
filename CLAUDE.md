@@ -39,7 +39,7 @@ make dev-fe          # Frontend only
 
 # Quality checks
 make check           # All checks (lint + types + tests)
-make test            # Unit tests (2179 tests, ~75s)
+make test            # Unit tests (2258 tests, ~75s)
 make lint            # Format + lint (ruff)
 make types           # mypy + pyright
 
@@ -131,7 +131,7 @@ VTV/
 │   ├── stops/          # Stop management (6 endpoints, PostGIS spatial queries)
 ��   ├── schedules/      # GTFS schedule management (25 endpoints, ZIP import/export, multi-feed management + daily auto-import)
 │   ├── skills/         # Agent skills system (7 endpoints)
-│   ├── transit/        # Multi-feed GTFS-RT tracking (6 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage, historical GTFS archive importer, e-ticket validation data pipeline, weather + traffic ETL for ML training, ML-2.3 ETA prediction endpoint, ML-3.3 load prediction agent tool, LV-1.1 CKAN bridge client for ATD intercity data)
+│   ├── transit/        # Multi-feed GTFS-RT tracking (7 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage, historical GTFS archive importer, e-ticket validation data pipeline, weather + traffic ETL for ML training, ML-2.3 ETA prediction endpoint, ML-3.3 load prediction agent tool, LV-1.1 CKAN bridge client for ATD intercity data, LV-2.1 pluggable feed clients for non-GTFS-RT sources: DaugavpilsScraper + GpsTextClient, LV-2.2 PV train WebSocket listener for live rail positions, LV-2.3 adaptive polling + per-feed circuit breakers, LV-2.4 combined GTFS-RT VehiclePositions publisher)
 │   ├── vehicles/       # Vehicle management (8 endpoints, fleet CRUD, maintenance, driver assignment)
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
@@ -226,7 +226,7 @@ Operational runbooks for on-call incident response and production maintenance. S
 - **Dispatcher-scoped query filters (OPS-4.2):** `RequestScope` frozen dataclass + `get_request_scope` FastAPI dependency in `app/core/auth/scope.py`. Resolves RBAC scope from user role + `dispatcher_assignments` table: admin/editor/viewer get unrestricted access (`route_ids=None`), dispatchers get `frozenset[int]` of assigned route IDs. Injected into vehicle, schedule (routes), and alert list/get endpoints. Repository layer: `VehicleRepository.list`/`count` fail-closed with `RBACConfigurationError` if scope missing; `get()` optional scope for read endpoints. `VehicleRouteQualification` junction table replaces CSV `qualified_route_ids` for queryable FK. Alert scope filters by `source_entity_type` (route/vehicle/passthrough). Admin assignment CRUD: 4 endpoints at `/api/v1/admin/assignments` (list, create, bulk replace, delete). Security: fail-closed semantics, 404 not 403 for out-of-scope, empty result for zero assignments. Migration: `p9q0r1s2t3u4`. 15 new tests + 8 updated existing tests.
 - **Authorization audit log (OPS-4.3):** `emit_auth_denial()` in `app/core/auth/audit.py` emits structured `auth.audit.denied` log events and fire-and-forget persists to `auth_audit_events` TimescaleDB hypertable. Wired into all 6 auth denial points in `app/auth/dependencies.py` (missing credentials, invalid token, revoked token, user not found, inactive account, role check failure) plus custom 429 handler in `app/core/rate_limit.py`. `AuthAuditRepository` with filtered list/count queries. Admin query API: `GET /api/v1/admin/audit/auth` (admin-only, 30/min rate limit, paginated, filters: user_id, date range, enforcement_layer). PII sanitization strips password/token/authorization from extra dict. Config: `auth_audit_enabled` (default true), `auth_audit_retention_days` (default 90). Migration: `q1r2s3t4u5v6` (hypertable with daily chunks, 7-day compression, 90-day retention). 13 tests.
 - **ER diagram (OPS-5.3):** `docs/schema/er.md` — Mermaid ER diagram auto-generated from SQLAlchemy models via `make er-diagram`. 24 tables with FK relationships. Re-run after migrations.
-- **Logging taxonomy audit (OPS-5.4):** `scripts/audit_log_taxonomy.py` compares all `logger.*` events in `app/` against `docs/logging-standard.md` taxonomy (v2.0.0, 301 documented events across 17 infrastructure domains). Supports `--verbose`, `--show-stale`, `--ignore-patterns` (crud, examples, evals, feature). CI gate via `TestLoggingTaxonomy` in `app/tests/test_ops_conventions.py` (3 tests). `make audit-log-taxonomy` to run standalone.
+- **Logging taxonomy audit (OPS-5.4):** `scripts/audit_log_taxonomy.py` compares all `logger.*` events in `app/` against `docs/logging-standard.md` taxonomy (v2.0.0, 349 documented events across 17 infrastructure domains). Supports `--verbose`, `--show-stale`, `--ignore-patterns` (crud, examples, evals, feature). CI gate via `TestLoggingTaxonomy` in `app/tests/test_ops_conventions.py` (3 tests). `make audit-log-taxonomy` to run standalone.
 
 ## Compact instructions
 

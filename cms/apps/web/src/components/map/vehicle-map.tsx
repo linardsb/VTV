@@ -103,6 +103,9 @@ export function VehicleMap({
         if (selectedRouteType === 3) {
           return v.routeType === 3 || (v.routeType >= 700 && v.routeType <= 799);
         }
+        if (selectedRouteType === 2) {
+          return v.routeType === 2 || (v.routeType >= 100 && v.routeType <= 199);
+        }
         return v.routeType === selectedRouteType;
       });
     }
