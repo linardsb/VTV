@@ -12,6 +12,7 @@ import datetime as dt
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from fastapi.responses import Response
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_role
@@ -20,7 +21,10 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
+from app.transit.models import VehiclePhoneAssignment
 from app.transit.schemas import (
+    PhoneAssignmentCreate,
+    PhoneAssignmentResponse,
     RouteDelayTrendResponse,
     TransitFeedsResponse,
     TransitFeedStatus,
@@ -255,3 +259,104 @@ async def get_gtfs_rt_vehicle_positions(
         content=pb_bytes,
         media_type="application/x-protobuf",
     )
+
+
+# ── Phone Assignment endpoints (LV-3.1) ─────────────────────────────
+
+
+@router.post(
+    "/phone-assignments",
+    response_model=PhoneAssignmentResponse,
+    status_code=201,
+)
+@limiter.limit("30/minute")
+async def create_phone_assignment(
+    request: Request,
+    body: PhoneAssignmentCreate,
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    current_user: User = Depends(  # noqa: B008
+        require_role("admin", "dispatcher")  # noqa: B008
+    ),
+) -> PhoneAssignmentResponse:
+    """Create a phone-to-vehicle assignment for OwnTracks tracking."""
+    _ = request
+    logger.info(
+        "transit.phone_assignment.create_started",
+        phone_identifier=body.phone_identifier,
+        vehicle_id=body.vehicle_id,
+    )
+
+    # Check for duplicate phone_identifier
+    existing = await db.execute(
+        select(VehiclePhoneAssignment).where(
+            VehiclePhoneAssignment.phone_identifier == body.phone_identifier,
+            VehiclePhoneAssignment.active.is_(True),
+        )
+    )
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(status_code=409, detail="Phone identifier already assigned")
+
+    assignment = VehiclePhoneAssignment(
+        phone_identifier=body.phone_identifier,
+        vehicle_id=body.vehicle_id,
+        route_id=body.route_id,
+        driver_id=body.driver_id,
+        assigned_by=current_user.email,
+        active=True,
+    )
+    db.add(assignment)
+    await db.commit()
+    await db.refresh(assignment)
+
+    logger.info(
+        "transit.phone_assignment.create_completed",
+        assignment_id=assignment.id,
+        phone_identifier=body.phone_identifier,
+    )
+    return PhoneAssignmentResponse.model_validate(assignment)
+
+
+@router.get("/phone-assignments", response_model=list[PhoneAssignmentResponse])
+@limiter.limit("30/minute")
+async def list_phone_assignments(
+    request: Request,
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _current_user: User = Depends(  # noqa: B008
+        require_role("admin", "dispatcher")  # noqa: B008
+    ),
+) -> list[PhoneAssignmentResponse]:
+    """List all active phone-to-vehicle assignments."""
+    _ = request
+    result = await db.execute(
+        select(VehiclePhoneAssignment).where(VehiclePhoneAssignment.active.is_(True))
+    )
+    rows = result.scalars().all()
+    return [PhoneAssignmentResponse.model_validate(r) for r in rows]
+
+
+@router.delete("/phone-assignments/{assignment_id}", status_code=200)
+@limiter.limit("30/minute")
+async def delete_phone_assignment(
+    request: Request,
+    assignment_id: int = Path(ge=1),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _current_user: User = Depends(require_role("admin")),  # noqa: B008
+) -> PhoneAssignmentResponse:
+    """Deactivate a phone-to-vehicle assignment (admin only)."""
+    _ = request
+    result = await db.execute(
+        select(VehiclePhoneAssignment).where(VehiclePhoneAssignment.id == assignment_id)
+    )
+    assignment = result.scalar_one_or_none()
+    if assignment is None:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    assignment.active = False
+    await db.commit()
+    await db.refresh(assignment)
+
+    logger.info(
+        "transit.phone_assignment.delete_completed",
+        assignment_id=assignment_id,
+    )
+    return PhoneAssignmentResponse.model_validate(assignment)

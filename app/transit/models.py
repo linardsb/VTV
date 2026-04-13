@@ -8,7 +8,7 @@ compression policies, and continuous aggregates.
 import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Float, Index, Integer, SmallInteger, String
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, SmallInteger, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -126,3 +126,17 @@ class EticketImport(TimestampMixin, Base):
         nullable=False,
         server_default="in_progress",
     )
+
+
+class VehiclePhoneAssignment(Base, TimestampMixin):
+    """Maps a phone (OwnTracks device) to a vehicle, route, and driver."""
+
+    __tablename__ = "vehicle_phone_assignments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    phone_identifier: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=False)
+    route_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("routes.id"), nullable=True)
+    driver_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("drivers.id"), nullable=True)
+    assigned_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

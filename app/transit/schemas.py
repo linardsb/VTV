@@ -6,9 +6,10 @@ app/core/agents/tools/transit/schemas.py, which are optimized
 for LLM consumption.
 """
 
+import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 VehicleStopStatus = Literal["IN_TRANSIT_TO", "STOPPED_AT", "INCOMING_AT"]
 
@@ -153,3 +154,31 @@ class RouteDelayTrendResponse(BaseModel):
     data_points: list[RouteDelayTrendPoint]
     from_time: str
     to_time: str
+
+
+# ── Phone Assignment schemas (LV-3.1) ───────────────────────────────
+
+
+class PhoneAssignmentCreate(BaseModel):
+    """Request body for creating a phone-to-vehicle assignment."""
+
+    phone_identifier: str = Field(..., max_length=100, pattern=r"^[\w\-.:]+$")
+    vehicle_id: int
+    route_id: int | None = None
+    driver_id: int | None = None
+
+
+class PhoneAssignmentResponse(BaseModel):
+    """Response for a phone-to-vehicle assignment."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    phone_identifier: str
+    vehicle_id: int
+    route_id: int | None
+    driver_id: int | None
+    assigned_by: str
+    active: bool
+    created_at: datetime.datetime
+    updated_at: datetime.datetime

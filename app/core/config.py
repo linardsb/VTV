@@ -121,6 +121,14 @@ class Settings(BaseSettings):
     train_ws_url: str = "wss://trainmap.pv.lv/ws"
     train_ws_reconnect_max_seconds: int = 60
 
+    # OwnTracks MQTT listener (LV-3.1)
+    owntracks_mqtt_enabled: bool = False
+    owntracks_mqtt_broker_url: str = "mqtt://localhost:1883"
+    owntracks_mqtt_username: str | None = None
+    owntracks_mqtt_password: str | None = None
+    owntracks_mqtt_topic_filter: str = "owntracks/+/+"
+    owntracks_mqtt_reconnect_max_seconds: int = 60
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def transit_feeds(self) -> list[TransitFeedConfig]:

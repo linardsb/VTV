@@ -131,7 +131,7 @@ VTV/
 │   ├── stops/          # Stop management (6 endpoints, PostGIS spatial queries)
 ��   ├── schedules/      # GTFS schedule management (25 endpoints, ZIP import/export, multi-feed management + daily auto-import)
 │   ├── skills/         # Agent skills system (7 endpoints)
-│   ├── transit/        # Multi-feed GTFS-RT tracking (7 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage, historical GTFS archive importer, e-ticket validation data pipeline, weather + traffic ETL for ML training, ML-2.3 ETA prediction endpoint, ML-3.3 load prediction agent tool, LV-1.1 CKAN bridge client for ATD intercity data, LV-2.1 pluggable feed clients for non-GTFS-RT sources: DaugavpilsScraper + GpsTextClient, LV-2.2 PV train WebSocket listener for live rail positions, LV-2.3 adaptive polling + per-feed circuit breakers, LV-2.4 combined GTFS-RT VehiclePositions publisher)
+│   ├── transit/        # Multi-feed GTFS-RT tracking (10 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage, historical GTFS archive importer, e-ticket validation data pipeline, weather + traffic ETL for ML training, ML-2.3 ETA prediction endpoint, ML-3.3 load prediction agent tool, LV-1.1 CKAN bridge client for ATD intercity data, LV-2.1 pluggable feed clients for non-GTFS-RT sources: DaugavpilsScraper + GpsTextClient, LV-2.2 PV train WebSocket listener for live rail positions, LV-2.3 adaptive polling + per-feed circuit breakers, LV-2.4 combined GTFS-RT VehiclePositions publisher, LV-3.1 OwnTracks MQTT listener for phone-based vehicle tracking + phone assignment admin CRUD)
 │   ├── vehicles/       # Vehicle management (8 endpoints, fleet CRUD, maintenance, driver assignment)
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md
@@ -158,7 +158,7 @@ LocTracker-inspired fleet management extension. Full plan: `docs/PLANNING/fleet-
 - `app/tachograph/` — Remote DDD download, EU 561/2006 driving hours calculator, compliance dashboard (~10 endpoints)
 - `app/messaging/` — Dispatcher↔driver messaging, task assignment (Phase 5)
 
-**Infrastructure:** Traccar (GPS protocol gateway, Docker sidecar), OSRM (self-hosted routing, Latvia OSM), HERE Maps API (fallback)
+**Infrastructure:** Traccar (GPS protocol gateway, Docker sidecar), Mosquitto MQTT broker (OwnTracks, Docker sidecar `--profile mqtt`), OSRM (self-hosted routing, Latvia OSM), HERE Maps API (fallback)
 
 **Phases:** 1A. Device CRUD+Telemetry (done) → 1B. Geofencing backend (done) → 1C. CMS fleet pages (done) → 2. Fuel+Analytics → 3. Tachograph → 4. Routing → 5. Mobile App. ~110 person-days remaining.
 

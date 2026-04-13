@@ -165,6 +165,12 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
         await start_train_ws_listener(settings)
 
+    # Start OwnTracks MQTT listener (LV-3.1)
+    if settings.owntracks_mqtt_enabled:
+        from app.transit.owntracks_listener import start_owntracks_listener
+
+        await start_owntracks_listener(settings)
+
     # Pre-load reranker model (avoids cold-start on first search)
     try:
         from app.knowledge.service import warm_up_reranker
@@ -266,6 +272,17 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
                 name="train_ws_listener",
                 drain_timeout_s=5.0,
                 drain=stop_train_ws_listener,
+            )
+        )
+
+    if settings.owntracks_mqtt_enabled:
+        from app.transit.owntracks_listener import stop_owntracks_listener
+
+        coordinator.register(
+            ShutdownTask(
+                name="owntracks_listener",
+                drain_timeout_s=5.0,
+                drain=stop_owntracks_listener,
             )
         )
 

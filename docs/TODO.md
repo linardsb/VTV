@@ -161,13 +161,13 @@ Everything else is independent and can run in any order.
 
 | Subtask | Type | Realistic | Parallel? |
 |---------|------|-----------|-----------|
-| LV-3.1 OwnTracks MQTT | BE + infra | ~3h | ✅ Yes — independent |
+| LV-3.1 OwnTracks MQTT | BE + infra | ~3h | ✅ **DONE** (2026-04-13) |
 | LV-3.2 Traccar bridge extension | BE | ~1.5h | ✅ Yes — independent |
 | LV-3.3 OpenTripPlanner | BE + FE + infra | ~6h | ✅ Yes — independent |
 | LV-3.4 LocShare tracking links | BE + FE | ~3h | ✅ Yes — independent |
 
-#### LV-3.1 OwnTracks MQTT Integration
-**What:** Deploy Mosquitto MQTT broker (Docker sidecar), create `app/transit/owntracks_listener.py` — subscribes to OwnTracks position topics, normalizes to `VehiclePositionData`, writes to Redis + TimescaleDB. Admin UI to assign phone → driver → vehicle → route.
+#### LV-3.1 OwnTracks MQTT Integration — **IMPLEMENTED** (2026-04-13)
+**What:** Mosquitto MQTT broker (Docker sidecar, `--profile mqtt`), `app/transit/owntracks_listener.py` — subscribes to OwnTracks position topics, normalizes to EnrichedVehicle, writes to Redis + TimescaleDB + Pub/Sub. 3 admin endpoints for phone-to-vehicle assignment CRUD. Latvia bounding box validation. In-memory assignment cache with 60s TTL.
 **Why:** Fastest path to intercity tracking — drivers install OwnTracks on their phone, zero hardware cost. Gets real positions for routes with no GTFS-RT feed. Proves the concept before investing in Teltonika hardware.
 **Implementation:**
 - `docker-compose.yml` — add `mosquitto` service (Eclipse Mosquitto, port 1883/8883, password auth)

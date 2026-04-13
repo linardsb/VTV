@@ -5,6 +5,7 @@ description = "VTV: Unified CMS and AI Agent Service for Riga City Bus Operation
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiomqtt>=2.0,<3.0",
     "alembic>=1.17.1",
     "arq>=0.26",
     "asyncpg>=0.30.0",
@@ -288,6 +289,10 @@ disallow_untyped_calls = false
 [[tool.mypy.overrides]]
 module = "app.ml.registry"
 disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = "aiomqtt.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"  # Creates new event loop per test (proper isolation)
