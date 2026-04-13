@@ -192,3 +192,105 @@ async def test_get_vehicles_transit_error(mock_get_service: MagicMock) -> None:
         response = await client.get("/api/v1/transit/vehicles")
 
     assert response.status_code == 503
+
+
+# --- ETA endpoint tests (ML-2.3) ---
+
+
+def _make_eta_result(fallback: bool = False) -> dict[str, object]:
+    """Create a mock ETA prediction result dict."""
+    return {
+        "vehicle_id": "4521",
+        "stop_id": "a0072",
+        "predicted_arrival_at": "08:35:00",
+        "delay_s": 120,
+        "confidence_lower_s": 60,
+        "confidence_upper_s": 200,
+        "scheduled_arrival_at": "08:30:00",
+        "model_version": None if fallback else "1",
+        "fallback": fallback,
+        "source": "fallback" if fallback else "model",
+    }
+
+
+@pytest.mark.asyncio
+@patch("app.transit.routes.get_transit_service")
+async def test_get_vehicle_eta_success(mock_get_service: MagicMock) -> None:
+    """GET /vehicles/{id}/eta returns 200 with ETAResponse fields."""
+    mock_service = MagicMock()
+    mock_service.get_eta = AsyncMock(return_value=_make_eta_result())
+    mock_get_service.return_value = mock_service
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/transit/vehicles/4521/eta?stop_id=a0072")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["vehicle_id"] == "4521"
+    assert data["stop_id"] == "a0072"
+    assert data["delay_s"] == 120
+    assert data["fallback"] is False
+    assert data["source"] == "model"
+
+
+@pytest.mark.asyncio
+@patch("app.transit.routes.get_transit_service")
+async def test_get_vehicle_eta_fallback(mock_get_service: MagicMock) -> None:
+    """When model unavailable, returns 200 with fallback=true."""
+    mock_service = MagicMock()
+    mock_service.get_eta = AsyncMock(return_value=_make_eta_result(fallback=True))
+    mock_get_service.return_value = mock_service
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/transit/vehicles/4521/eta?stop_id=a0072")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["fallback"] is True
+    assert data["source"] == "fallback"
+    assert data["model_version"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_vehicle_eta_requires_auth() -> None:
+    """ETA endpoint without auth returns 401."""
+    # Remove the auth override
+    app.dependency_overrides.pop(get_current_user, None)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/transit/vehicles/4521/eta?stop_id=a0072")
+
+    assert response.status_code in (401, 403)
+
+
+@pytest.mark.asyncio
+async def test_get_vehicle_eta_missing_stop_id() -> None:
+    """ETA endpoint without stop_id query param returns 422."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/transit/vehicles/4521/eta")
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_get_vehicle_eta_invalid_stop_id() -> None:
+    """ETA endpoint with invalid stop_id pattern returns 422."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/transit/vehicles/4521/eta?stop_id=" + "x" * 200)
+
+    assert response.status_code == 422

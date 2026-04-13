@@ -1,4 +1,4 @@
-# AI-7.1 transit eval cases (15 cases).
+# AI-7.1 transit eval cases (16 cases).
 # Schema enforced by app/core/agents/evals/schemas.py::EvalCase.
 # Every case must have exactly 5 quality_criteria.
 
@@ -290,3 +290,23 @@ cases:
       - name: completeness
         description: Both tools invoked - query_bus_status and get_route_schedule.
     notes: Mixed LV/EN code-switching dispatcher prompt.
+
+  - id: transit_016
+    prompt: "Kad autobuss 22-47 ieradīsies pieturā Brīvības iela?"
+    language: lv
+    expected_domain: transit
+    expected_tools:
+      - search_stops
+      - predict_eta
+    quality_criteria:
+      - name: factual_accuracy
+        description: ETA prediction traces to predict_eta tool output, not fabricated.
+      - name: language_correctness
+        description: Response in Latvian with correct diacritics (ierašanās laiks, pietura).
+      - name: actionability
+        description: Includes predicted arrival time and confidence range for dispatcher use.
+      - name: data_freshness
+        description: Notes whether ML model or fallback was used; flags stale data.
+      - name: completeness
+        description: Uses search_stops to resolve stop name, then predict_eta for ETA.
+    notes: ETA prediction query using ML-2.3 predict_eta tool.

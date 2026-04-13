@@ -26,6 +26,7 @@ from app.transit.schemas import (
     VehicleHistoryResponse,
     VehiclePositionsResponse,
 )
+from app.transit.schemas_eta import ETAResponse
 from app.transit.service import get_transit_service
 
 logger = get_logger(__name__)
@@ -139,6 +140,45 @@ async def get_vehicle_history(
 
     service = get_transit_service()
     return await service.get_history(db, vehicle_id, from_dt, to_dt, limit)
+
+
+@router.get("/vehicles/{vehicle_id}/eta", response_model=ETAResponse)
+@limiter.limit("30/minute")
+async def get_vehicle_eta(
+    request: Request,
+    vehicle_id: str = Path(max_length=100, pattern=r"^[\w\-.:]+$"),
+    stop_id: str = Query(
+        ...,
+        max_length=100,
+        pattern=r"^[\w\-.:]+$",
+        description="GTFS stop ID to predict arrival at",
+    ),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
+) -> ETAResponse:
+    """Get ML-predicted ETA for a vehicle arriving at a specific stop.
+
+    Returns predicted arrival time with confidence interval. Falls back to
+    scheduled arrival time when the ML model is unavailable.
+
+    Args:
+        request: HTTP request (rate limiting).
+        vehicle_id: Fleet vehicle identifier.
+        stop_id: GTFS stop identifier.
+        db: Async database session.
+
+    Returns:
+        ETAResponse with predicted arrival and confidence bounds.
+    """
+    _ = request
+    logger.info(
+        "transit.api.vehicle_eta_requested",
+        vehicle_id=vehicle_id,
+        stop_id=stop_id,
+    )
+    service = get_transit_service()
+    result = await service.get_eta(db, vehicle_id, stop_id)
+    return ETAResponse(**result)
 
 
 @router.get("/routes/{route_id}/delay-trend", response_model=RouteDelayTrendResponse)

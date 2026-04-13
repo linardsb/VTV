@@ -28,6 +28,7 @@ from app.core.agents.tools.transit.check_driver_availability import check_driver
 from app.core.agents.tools.transit.deps import UnifiedDeps, create_unified_deps
 from app.core.agents.tools.transit.get_adherence_report import get_adherence_report
 from app.core.agents.tools.transit.get_route_schedule import get_route_schedule
+from app.core.agents.tools.transit.predict_eta import predict_eta
 from app.core.agents.tools.transit.query_bus_status import query_bus_status
 from app.core.agents.tools.transit.search_stops import search_stops
 from app.core.agents.tools.transit.static_store import GTFSStaticStore, get_static_store
@@ -67,7 +68,7 @@ def _transit_confidence_from_warnings(warnings: list[str]) -> float:
 TRANSIT_SYSTEM_PROMPT: str = (
     "You are a transit operations assistant for Riga's municipal bus system (VTV). "
     "You help dispatchers and administrators with real-time transit queries, "
-    "schedule information, and operational insights using the 5 transit tools.\n\n"
+    "schedule information, and operational insights using the 6 transit tools.\n\n"
     #
     # --- Language rules ---
     #
@@ -90,7 +91,8 @@ TRANSIT_SYSTEM_PROMPT: str = (
     "- reiss (trip) | virziens (direction)\n"
     "- galapunkts (terminal) | starppieturu laiks (headway)\n"
     "- aktīvs/aktīvi (active) | nākošā pietura (next stop)\n"
-    "- ienākšana (arrival) | atiešana (departure)\n\n"
+    "- ienākšana (arrival) | atiešana (departure)\n"
+    "- ETA/ierašanās laiks (estimated time of arrival)\n\n"
     #
     # --- Latvian input understanding ---
     #
@@ -109,6 +111,12 @@ TRANSIT_SYSTEM_PROMPT: str = (
     #
     # --- Response format ---
     #
+    "ETA PREDICTIONS:\n"
+    "- Use predict_eta when a dispatcher asks about arrival time for a specific vehicle at a stop.\n"
+    "- Use query_bus_status(action='status') for current delay/position (no ML prediction).\n"
+    "- predict_eta returns ML confidence intervals - present these as 'expected range'.\n"
+    "- If predict_eta returns fallback=true, mention that the ML model was unavailable "
+    "and the time is based on the schedule.\n\n"
     "RESPONSE FORMAT RULES:\n"
     "- NEVER return raw JSON or tool output to the user.\n"
     "- Always synthesize tool results into clear, human-readable markdown.\n"
@@ -143,7 +151,7 @@ __all__ = [
 def _create_transit_agent() -> Agent[UnifiedDeps, str]:
     """Build the module-level Pydantic AI agent for the transit domain.
 
-    Registers ONLY the 5 read-only transit tools (no knowledge, no vault,
+    Registers ONLY the 6 read-only transit tools (no knowledge, no vault,
     no skills) to keep the per-request tool-docstring footprint small.
     """
     return Agent(
@@ -157,6 +165,7 @@ def _create_transit_agent() -> Agent[UnifiedDeps, str]:
             search_stops,
             get_adherence_report,
             check_driver_availability,
+            predict_eta,
         ],
     )
 
@@ -168,7 +177,7 @@ transit_agent: Agent[UnifiedDeps, str] = _create_transit_agent()
 class TransitAgent(BaseAgentService):
     """Transit-domain ``BaseAgentService`` subclass.
 
-    Registers only the 5 transit tools, keeps the full QA + correction
+    Registers only the 6 transit tools, keeps the full QA + correction
     pipeline (route/stop existence checks, self-correction retry, complex
     pipeline dispatch), and injects GTFS static cache into validation.
     """

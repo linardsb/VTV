@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +23,7 @@ from app.core.agents.tools.transit.static_store import get_static_store
 from app.core.config import Settings, get_settings
 from app.core.database import get_db_context
 from app.core.logging import get_logger
+from app.ml.eta_service import get_eta_service
 from app.transit.repository import (
     get_route_delay_trend,
     get_vehicle_history,
@@ -141,6 +142,39 @@ class TransitService:
             from_time=from_time.isoformat(),
             to_time=to_time.isoformat(),
         )
+
+    async def get_eta(
+        self,
+        db: AsyncSession,
+        vehicle_id: str,
+        stop_id: str,
+    ) -> dict[str, Any]:
+        """Get ETA prediction for a vehicle arriving at a stop.
+
+        Delegates to ETAService for ML inference with fallback.
+
+        Args:
+            db: Async database session.
+            vehicle_id: Fleet vehicle identifier.
+            stop_id: GTFS stop identifier.
+
+        Returns:
+            Dict with ETA prediction fields.
+        """
+        logger.info(
+            "transit.eta.requested",
+            vehicle_id=vehicle_id,
+            stop_id=stop_id,
+        )
+        eta_service = get_eta_service(self._settings)
+        result = await eta_service.predict(db, vehicle_id, stop_id)
+        logger.info(
+            "transit.eta.completed",
+            vehicle_id=vehicle_id,
+            stop_id=stop_id,
+            fallback=result.get("fallback", False),
+        )
+        return result
 
     async def get_delay_trend(
         self,

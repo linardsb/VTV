@@ -319,9 +319,10 @@ def test_parse_eval_file_loads_six_criteria_case(tmp_eval_dir: Path) -> None:
 # --- Production-suite integrity --------------------------------------------
 
 
-def test_production_transit_has_15_cases() -> None:
+def test_production_transit_has_16_cases() -> None:
+    """15 original + 1 ML-2.3 predict_eta case."""
     cases = load_eval_cases("transit")
-    assert len(cases) == 15
+    assert len(cases) == 16
 
 
 def test_production_knowledge_has_13_cases() -> None:

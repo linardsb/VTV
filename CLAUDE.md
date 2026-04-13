@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 11 tools (5 transit + 4 Obsidian vault + 1 knowledge base + 1 skills management). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. Features multi-feed GTFS-RT tracking with Redis caching for sub-ms reads, WebSocket live streaming for real-time vehicle position push, and PostGIS spatial queries for sub-ms proximity search. The platform roadmap extends to ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
+VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 12 tools (6 transit + 4 Obsidian vault + 1 knowledge base + 1 skills management). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. Features multi-feed GTFS-RT tracking with Redis caching for sub-ms reads, WebSocket live streaming for real-time vehicle position push, and PostGIS spatial queries for sub-ms proximity search. The platform roadmap extends to ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
 
 ## Core Principles
 
@@ -112,7 +112,7 @@ make audit-log-taxonomy      # Audit structured log events against docs/logging-
 VTV/
 ├── app/                # Backend features (VSA: models, schemas, routes, service, tests per feature)
 │   ├── core/           # Infrastructure (config, database, logging, middleware, health + deep probes, rate_limit + per-user bucketing, redis, metrics, shutdown coordinator, cache invalidation, durable job queue)
-│   │   ├── agents/     # AI agent module — 11 tools, see app/core/agents/CLAUDE.md
+│   │   ├── agents/     # AI agent module — 12 tools (6 transit + 4 Obsidian vault + 1 knowledge base + 1 skills management), see app/core/agents/CLAUDE.md
 │   │   ├── auth/       # RBAC scoping (OPS-4.2) + auth audit log (OPS-4.3) — RequestScope dependency, dispatcher assignments CRUD, fail-closed query filtering, authorization denial audit trail (TimescaleDB hypertable, admin query API)
 │   │   └── jobs/       # Arq-based durable job queue (OPS-3.2) — queue wrapper, worker settings, admin status API
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
@@ -122,7 +122,7 @@ VTV/
 │   ├── compliance/     # NeTEx/SIRI EU compliance exports (4 endpoints, XML generation, no DB tables)
 │   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion, Redis embedding cache, heading-aware semantic chunking, parent-child chunk hierarchy, search-time parent context expansion, heading-breadcrumb citations, one-shot rechunk migration script, synthetic QA pair generation for RAG eval, retrieval metrics computation with recall@k/MRR/completeness, RAG eval runner with LLM faithfulness judge, regression baselines with corpus checksum + CI gate)
 │   ├── memory/         # Agent memory storage (7 endpoints, pgvector similarity recall, 4 memory types, embed-on-store, duplicate detection, text-based recall, compaction, episodic-to-procedural promotion, fire-and-forget bridge auto-persists multi-tool agent episodes, memory recall injected as agent context before each run, LLM-based intent merging during compaction, daily background compaction+promotion tasks)
-│   ├── ml/             # ML pipeline — no REST endpoints (ETA feature engineering with 18-field frozen dataclass + Pandera validation + CLI, LightGBM ETA model with quantile regression + JSON model registry + training CLI, LightGBM load prediction model with dual-head output: quantile regression for passenger count + classifier for crowding bucket (empty/light/moderate/full/overcrowded) + training CLI, anomaly detection: off-route via PostGIS corridor containment, stuck-vehicle via TimescaleDB movement, GPS gap detection, background evaluator orchestrator with alerts integration)
+│   ├── ml/             # ML pipeline (ETA feature engineering with 18-field frozen dataclass + Pandera validation + CLI, LightGBM ETA model with quantile regression + JSON model registry + training CLI, ETA inference service with in-memory model cache + hot-reload + fallback, LightGBM load prediction model with dual-head output: quantile regression for passenger count + classifier for crowding bucket (empty/light/moderate/full/overcrowded) + training CLI, anomaly detection: off-route via PostGIS corridor containment, stuck-vehicle via TimescaleDB movement, GPS gap detection, background evaluator orchestrator with alerts integration)
 │   ├── public_api/     # Public Developer API (6 endpoints: 3 key management + 3 read-only transit data, API key auth with SHA-256 hashing, per-key Redis rate limiting with tiered limits, fire-and-forget usage tracking via TimescaleDB hypertable)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)
@@ -131,7 +131,7 @@ VTV/
 │   ├── stops/          # Stop management (6 endpoints, PostGIS spatial queries)
 │   ├── schedules/      # GTFS schedule management (23 endpoints, ZIP import/export)
 │   ├── skills/         # Agent skills system (7 endpoints)
-│   ├── transit/        # Multi-feed GTFS-RT tracking (5 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage, historical GTFS archive importer, e-ticket validation data pipeline, weather + traffic ETL for ML training)
+│   ├── transit/        # Multi-feed GTFS-RT tracking (6 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage, historical GTFS archive importer, e-ticket validation data pipeline, weather + traffic ETL for ML training, ML-2.3 ETA prediction endpoint)
 │   ├── vehicles/       # Vehicle management (8 endpoints, fleet CRUD, maintenance, driver assignment)
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md

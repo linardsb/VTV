@@ -17,12 +17,13 @@ VALID_LANGUAGES: Final[frozenset[str]] = frozenset({"lv", "en", "lv_diacriticles
 # app/core/agents/agents/{transit,knowledge,vault}.py
 KNOWN_TOOLS: Final[frozenset[str]] = frozenset(
     {
-        # transit (5)
+        # transit (6)
         "query_bus_status",
         "get_route_schedule",
         "search_stops",
         "get_adherence_report",
         "check_driver_availability",
+        "predict_eta",
         # knowledge (1)
         "search_knowledge_base",
         # vault (4)

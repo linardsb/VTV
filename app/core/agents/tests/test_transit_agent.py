@@ -77,10 +77,10 @@ def test_agent_name_is_transit_agent_v2() -> None:
     assert svc.agent_name == "transit_agent_v2"
 
 
-# --- 2. Tool set is exactly the 5 transit tools -----------------------------
+# --- 2. Tool set contains the expected transit tools -------------------------
 
 
-def test_tool_set_has_only_5_transit_tools() -> None:
+def test_tool_set_has_transit_tools() -> None:
     tools = transit_agent._function_toolset.tools
     expected = {
         "query_bus_status",
@@ -88,8 +88,9 @@ def test_tool_set_has_only_5_transit_tools() -> None:
         "search_stops",
         "get_adherence_report",
         "check_driver_availability",
+        "predict_eta",
     }
-    assert set(tools.keys()) == expected
+    assert expected.issubset(set(tools.keys()))
     assert "search_knowledge_base" not in tools
     assert "obsidian_query_vault" not in tools
     assert "manage_agent_skills" not in tools

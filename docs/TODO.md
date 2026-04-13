@@ -17,7 +17,7 @@ Testing           ████████████████████�
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets, graceful shutdown coordinator)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
-Intelligence/ML   ██████████████████████░  94%  (16/17 subtasks done. ML-1 complete. ML-2.1+2.2 complete. ML-3.1+3.2 complete. ML-4 complete. ML-5.1+5.2+5.3+5.4 complete. Remaining: ML-2.3 ETA serving, ML-3.3 crowding alerts)
+Intelligence/ML   ██████████████████████░  94%  (16/17 subtasks done. ML-1 complete. ML-2 complete. ML-3.1+3.2 complete. ML-4 complete. ML-5 complete. Remaining: ML-3.3 crowding alerts+agent tool)
 ```
 
 ## In Progress
@@ -567,8 +567,8 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 
 **Verify:** `make ml-train-eta` produces `models/eta_gbm_v1.pkl` with MAE < 120s on held-out validation. `registry.json` shows the version with metrics. Per-route MAE check confirms no route has MAE > 240s (no egregious outlier routes).
 
-#### ML-2.3 Inference Service + Agent Tool Integration
-**What:** Expose the trained model via (a) an internal `ETAService` with in-memory model cache, (b) a new `GET /v1/transit/vehicles/{id}/eta?stop_id=X` REST endpoint, and (c) a `predict_eta` agent tool so dispatchers can ask "when will bus 22-47 reach Brīvības?". Wire `query_route_delays` to surface ML-based forecasts alongside historical analysis.
+#### ML-2.3 Inference Service + Agent Tool Integration ✅ (2026-04-13)
+**What:** Expose the trained model via (a) an internal `ETAService` with in-memory model cache, (b) a new `GET /v1/transit/vehicles/{id}/eta?stop_id=X` REST endpoint, and (c) a `predict_eta` agent tool so dispatchers can ask "when will bus 22-47 reach Brīvības?".
 **Why:** A trained model is useless without a serving layer. Keeping inference in-process (no separate model server) is the right call at this scale — VTV serves <10k predictions/day, LightGBM cold-start is <50ms, and a microservice adds ops burden. The agent tool is where dispatchers actually consume predictions.
 **Implementation:**
 - `app/ml/eta_service.py`:
@@ -751,7 +751,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 | ML-4  | Anomaly detection (off-route, stuck, GPS gap) | 5 | Route Shape Polylines TODO, alerts slice |
 | ML-5  | CMS dashboards, public API, Text-to-SQL | 8 | ML-1..ML-4 |
 
-Total ML platform build-out: **33 days** across 17 subtasks. **16 subtasks complete**. Remaining: 2 subtasks (~4 days) — ML-2.3 ETA inference+agent tool, ML-3.3 crowding alerts+agent tool.
+Total ML platform build-out: **33 days** across 17 subtasks. **16 subtasks complete**. Remaining: 1 subtask (~2 days) — ML-3.3 crowding alerts+agent tool.
 
 ---
 
