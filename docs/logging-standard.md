@@ -244,6 +244,10 @@ agent.
 │   ├── extract_tool_returns_failed         # Tool return extraction error (fields: error)
 │   └── static_cache_unavailable            # Static validation cache miss (fields: reason)
 ├── registry.close_failed                   # Agent registry cleanup error (fields: error)
+├── predict_eta.                            # ML-2.3 ETA prediction agent tool
+│   ├── started                             # Tool invocation started (fields: vehicle_id, stop_id)
+│   ├── completed                           # Prediction returned (fields: vehicle_id, stop_id, fallback, duration_ms)
+│   └── failed                              # Tool error (fields: error, error_type, duration_ms)
 └── circuit_breaker.                        # AI-8.1 LLM provider fast-fail
     ├── half_opened                         # OPEN -> HALF_OPEN (fields: provider, elapsed_s)
     ├── closed                              # HALF_OPEN -> CLOSED (fields: provider, successful_probes)
@@ -368,6 +372,7 @@ transit.
 ├── api.
 │   ├── vehicles_requested                  # Vehicle positions API call (fields: feed_id)
 │   ├── vehicle_history_requested           # Vehicle history API call (fields: vehicle_id)
+│   ├── vehicle_eta_requested               # ML-2.3 ETA prediction API call (fields: vehicle_id, stop_id)
 │   └── route_delay_trend_requested         # Route delay trend API call (fields: route_id)
 ├── alerts.
 │   ├── fetch_completed                     # Service alerts fetched (fields: count)
@@ -381,6 +386,9 @@ transit.
 ├── vehicles.
 │   ├── fetch_started                       # Transit vehicles fetch started
 │   └── fetch_completed                     # Transit vehicles fetch completed
+├── eta.
+│   ├── requested                           # ML-2.3 ETA prediction requested (fields: vehicle_id, stop_id)
+│   └── completed                           # ML-2.3 ETA prediction completed (fields: vehicle_id, stop_id, fallback)
 ├── historical_importer.
 │   ├── backfill_started                    # Historical backfill started
 │   ├── backfill_completed                  # Historical backfill completed
@@ -542,6 +550,15 @@ rbac.
     ├── create_completed                    # RBAC assignment created (fields: user_id, scope)
     ├── delete_completed                    # RBAC assignment deleted (fields: user_id, scope)
     └── bulk_replace_completed              # RBAC assignments bulk replaced (fields: user_id, count)
+```
+
+### Auth Audit Domain
+
+```
+auth.
+└── audit.
+    ├── denied                              # WARNING — Authorization denial persisted to audit trail (fields: request_id, user_id, path, method, status_code, reason, enforcement_layer)
+    └── persist_failed                      # DEBUG — Fire-and-forget DB write failed (fields: exc_info)
 ```
 
 ### Anomaly Routing Domain

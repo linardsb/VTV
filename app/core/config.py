@@ -281,6 +281,16 @@ class Settings(BaseSettings):
     ml_gps_gap_feed_outage_pct: int = 50
     ml_anomaly_cooldown_seconds: int = 900
 
+    # ML load correlation (ML-3.1)
+    ml_load_time_window_seconds: int = 60
+    ml_load_distance_threshold_m: float = 100.0
+    ml_load_min_correlation_pct: float = 80.0
+
+    # Anomaly alert routing (ML-4.3)
+    anomaly_recent_window_hours: int = 24
+    anomaly_cooldown_critical_seconds: int = 1800
+    anomaly_cooldown_warning_seconds: int = 900
+
     # ML-5.2: Daily adherence report
     analytics_adherence_enabled: bool = True
     analytics_adherence_threshold_pct: float = 85.0
@@ -291,6 +301,11 @@ class Settings(BaseSettings):
     analytics_adherence_smtp_port: int = 587
     analytics_adherence_smtp_from: str = "vtv@example.com"
     analytics_adherence_smtp_to: str = ""  # comma-separated
+
+    # ETA Inference (ML-2.3)
+    eta_service_enabled: bool = True
+    eta_model_reload_interval_seconds: int = 300  # 5 min hot-reload check
+    eta_fallback_enabled: bool = True
 
     # Off-route anomaly detection (ML-4.1)
     anomaly_offroute_enabled: bool = True
@@ -402,6 +417,10 @@ class Settings(BaseSettings):
 
     # Deep health probes (OPS-2.2)
     health_deep_cache_ttl_seconds: float = 5.0
+
+    # Auth audit log (OPS-4.3)
+    auth_audit_enabled: bool = True
+    auth_audit_retention_days: int = 90
 
     @model_validator(mode="after")
     def _reject_default_secrets_in_production(self) -> "Settings":

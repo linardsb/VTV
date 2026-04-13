@@ -4,12 +4,23 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.auth.dependencies import clear_user_cache, get_current_user, require_role
 from app.auth.models import User
 from app.auth.token import create_access_token
+
+
+def _mock_request() -> MagicMock:
+    """Build a mock Request for get_current_user / require_role calls."""
+    mock = MagicMock(spec=Request)
+    mock.url = MagicMock()
+    mock.url.path = "/test"
+    mock.method = "GET"
+    mock.client = MagicMock()
+    mock.client.host = "127.0.0.1"
+    return mock
 
 
 class TestGetCurrentUser:
@@ -28,7 +39,9 @@ class TestGetCurrentUser:
         mock_db = AsyncMock()
         with patch("app.auth.dependencies.UserRepository") as MockRepo:
             MockRepo.return_value.find_by_id = AsyncMock(return_value=mock_user)
-            user = await get_current_user(credentials=credentials, db=mock_db)
+            user = await get_current_user(
+                request=_mock_request(), credentials=credentials, db=mock_db
+            )
 
         assert user == mock_user
 
@@ -38,7 +51,7 @@ class TestGetCurrentUser:
         mock_db = AsyncMock()
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(credentials=credentials, db=mock_db)
+            await get_current_user(request=_mock_request(), credentials=credentials, db=mock_db)
         assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
@@ -50,7 +63,7 @@ class TestGetCurrentUser:
         mock_db = AsyncMock()
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(credentials=credentials, db=mock_db)
+            await get_current_user(request=_mock_request(), credentials=credentials, db=mock_db)
         assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
@@ -62,7 +75,7 @@ class TestGetCurrentUser:
         with patch("app.auth.dependencies.UserRepository") as MockRepo:
             MockRepo.return_value.find_by_id = AsyncMock(return_value=None)
             with pytest.raises(HTTPException) as exc_info:
-                await get_current_user(credentials=credentials, db=mock_db)
+                await get_current_user(request=_mock_request(), credentials=credentials, db=mock_db)
         assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
@@ -78,7 +91,7 @@ class TestGetCurrentUser:
         with patch("app.auth.dependencies.UserRepository") as MockRepo:
             MockRepo.return_value.find_by_id = AsyncMock(return_value=mock_user)
             with pytest.raises(HTTPException) as exc_info:
-                await get_current_user(credentials=credentials, db=mock_db)
+                await get_current_user(request=_mock_request(), credentials=credentials, db=mock_db)
         assert exc_info.value.status_code == 403
 
 
@@ -91,7 +104,7 @@ class TestRequireRole:
         mock_user.is_active = True
 
         check_fn = require_role("admin", "editor")
-        result = await check_fn(current_user=mock_user)
+        result = await check_fn(request=_mock_request(), current_user=mock_user)
         assert result == mock_user
 
     @pytest.mark.asyncio
@@ -103,7 +116,7 @@ class TestRequireRole:
 
         check_fn = require_role("admin", "editor")
         with pytest.raises(HTTPException) as exc_info:
-            await check_fn(current_user=mock_user)
+            await check_fn(request=_mock_request(), current_user=mock_user)
         assert exc_info.value.status_code == 403
 
     @pytest.mark.asyncio
@@ -114,7 +127,7 @@ class TestRequireRole:
         mock_user.is_active = True
 
         check_fn = require_role("admin", "dispatcher")
-        result = await check_fn(current_user=mock_user)
+        result = await check_fn(request=_mock_request(), current_user=mock_user)
         assert result == mock_user
 
     @pytest.mark.asyncio
@@ -126,6 +139,6 @@ class TestRequireRole:
 
         check_fn = require_role("admin", "editor")
         with pytest.raises(HTTPException) as exc_info:
-            await check_fn(current_user=mock_user)
+            await check_fn(request=_mock_request(), current_user=mock_user)
         assert exc_info.value.status_code == 403
         assert exc_info.value.detail == "Insufficient permissions"

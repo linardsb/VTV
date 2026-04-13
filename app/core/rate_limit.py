@@ -13,10 +13,11 @@ import ipaddress
 from collections.abc import Awaitable, Callable
 
 from slowapi import Limiter  # pyright: ignore[reportMissingTypeStubs]
+from slowapi.errors import RateLimitExceeded  # pyright: ignore[reportMissingTypeStubs]
 from slowapi.util import get_remote_address  # pyright: ignore[reportMissingTypeStubs]
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -205,3 +206,36 @@ limiter = Limiter(
     default_limits=[_dynamic_tier_limit],
     storage_uri=_storage_uri,
 )
+
+
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """Custom 429 handler that emits an auth audit denial event.
+
+    Preserves slowapi's ``Retry-After`` header while also persisting
+    the rate-limit denial to the auth audit trail.
+    """
+    from app.core.auth.audit import emit_auth_denial
+
+    user_id_raw = getattr(request.state, "rate_limit_user_id", None)
+    user_id = int(user_id_raw) if user_id_raw is not None else None
+    user_role: str | None = getattr(request.state, "rate_limit_role", None)
+
+    await emit_auth_denial(
+        request=request,
+        user_id=user_id,
+        status_code=429,
+        reason=f"rate_limit_exceeded:{exc.detail}",
+        enforcement_layer="rate_limit",
+        user_role=user_role,
+        extra={"user_role": user_role} if user_role else None,
+    )
+
+    headers: dict[str, str] = {}
+    if hasattr(exc, "headers") and exc.headers:
+        headers.update(exc.headers)
+
+    return JSONResponse(
+        status_code=429,
+        content={"error": f"Rate limit exceeded: {exc.detail}"},
+        headers=headers,
+    )

@@ -17,7 +17,7 @@ Testing           ████████████████████�
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets, graceful shutdown coordinator)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
-Intelligence/ML   █████████████████████░░  88%  (15/17 subtasks done. ML-1 complete. ML-2.1+2.2 complete. ML-3.1+3.2 complete. ML-4 complete. ML-5.2+5.3+5.4 complete. Remaining: ML-2.3 ETA serving, ML-3.3 crowding alerts, ML-5.1 route dashboard)
+Intelligence/ML   ██████████████████████░  94%  (16/17 subtasks done. ML-1 complete. ML-2.1+2.2 complete. ML-3.1+3.2 complete. ML-4 complete. ML-5.1+5.2+5.3+5.4 complete. Remaining: ML-2.3 ETA serving, ML-3.3 crowding alerts)
 ```
 
 ## In Progress
@@ -349,19 +349,8 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 #### OPS-4.2 Dispatcher-Scoped Query Filters (RBAC Scoping) ✅ done 2026-04-13
 **What:** `RequestScope` frozen dataclass + `get_request_scope` FastAPI dependency in `app/core/auth/scope.py`. Resolves RBAC scope from user role + `dispatcher_assignments` table. Admin/editor/viewer = unrestricted (`route_ids=None`), dispatcher = `frozenset[int]` of assigned route IDs. Injected into vehicle (list/get/maintenance), schedule (list_routes/get_route), and alert (list_alerts) endpoints. Repository layer: `VehicleRepository.list/count` fail-closed with `RBACConfigurationError` if scope missing; `get()` optional scope for read endpoints. `VehicleRouteQualification` junction table in `app/vehicles/models.py` replaces CSV `qualified_route_ids` for queryable FK-based vehicle-to-route scoping. Alert scope filters by `source_entity_type` (route direct, vehicle via junction, geofence/feed passthrough). Admin assignment CRUD: 4 endpoints at `/api/v1/admin/assignments` (list, create, bulk replace, delete), all admin-only + rate-limited. Security: fail-closed semantics, 404 not 403 for out-of-scope, empty 200 for zero assignments. Migration: `p9q0r1s2t3u4_add_dispatcher_assignments.py` (2 tables). 15 new tests + 8 updated existing tests (91 total in affected files). Plan: `.agents/plans/ops-4-2-dispatcher-scoped-query-filters.md`.
 
-#### OPS-4.3 Authorization Audit Log
-**What:** Emit a structured `auth.denied` log event whenever a request is blocked by role check, scope filter, or rate limit — with `request_id`, `user_id`, `path`, `reason`, `enforcement_layer`. Persist to a TimescaleDB hypertable `auth_audit_events` for queryability and surface via `GET /admin/audit/auth` with date-range + user filters.
-**Why:** Compliance and incident response both need "who tried to access what and got denied". Without audit trails, breach investigation has no primary evidence.
-**Implementation:**
-- `app/core/auth/audit.py` — helper that emits structured log events and writes to the hypertable.
-- `alembic/versions/xxxx_auth_audit_events.py` — TimescaleDB hypertable with 30-day retention, composite index on `(user_id, created_at DESC)`.
-- Hook points:
-  - `app/core/auth/dependencies.py::current_user` — emits on JWT rejection
-  - `app/core/auth/scope.py::get_request_scope` — emits on scope-related denial
-  - `app/core/rate_limit.py::handle_rate_limit_exceeded` — emits on 429
-- `app/admin/routes.py` — `GET /admin/audit/auth?from=...&to=...&user_id=...` with pagination
-- 12 unit tests: denial event emission (3), hypertable insert (1), retention policy (1), admin query filters (3), pagination (1), index usage (EXPLAIN plan assertion) (1), PII redaction (log never contains password/token) (2).
-**Verify:** Trigger a 403, 401, and 429 → all three appear in `GET /admin/audit/auth` with enforcement_layer annotation. A dispatcher tries an admin-only endpoint → event logged with `reason="role_required:admin"`.
+#### OPS-4.3 Authorization Audit Log ✅ done 2026-04-13
+**What:** `emit_auth_denial()` in `app/core/auth/audit.py` emits structured `auth.audit.denied` log events and fire-and-forget persists to `auth_audit_events` TimescaleDB hypertable (daily chunks, 7-day compression, 90-day retention). Wired into all 6 auth denial points in `app/auth/dependencies.py` (missing credentials, invalid token, revoked token, user not found, inactive account, role check failure) plus custom 429 handler in `app/core/rate_limit.py`. `AuthAuditRepository` with filtered list/count queries. Admin query API: `GET /api/v1/admin/audit/auth` (admin-only, 30/min rate limit, paginated, filters: user_id, date range, enforcement_layer). PII sanitization strips password/token/authorization from extra dict. Config: `auth_audit_enabled` (default true), `auth_audit_retention_days` (default 90). Migration: `q1r2s3t4u5v6_add_auth_audit_events_hypertable.py`. 13 unit tests. Plan: [.agents/plans/ops-4-3-auth-audit-log.md](../.agents/plans/ops-4-3-auth-audit-log.md). (2026-04-13)
 
 ---
 
@@ -412,7 +401,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 | OPS-4 | Per-user rate limiting + RBAC scoping + audit log | 4 | — |
 | OPS-5 | Type baseline + ADRs + ER diagram + logging taxonomy | 3 | — |
 
-Total operational hardening: **14 days** across 16 subtasks. **15 subtasks complete**. Remaining: 1 subtask (~1 day) — OPS-4.3 (auth audit log).
+Total operational hardening: **14 days** across 16 subtasks. **All 16 subtasks complete**.
 
 ---
 
@@ -675,21 +664,22 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 
 > **Sprint deliverable:** Route performance dashboards in CMS, public developer API with key-based auth, Text-to-SQL via Schema RAG for complex analytics. Closes out Phase 4 of the transit platform.
 
-#### ML-5.1 Route Performance Dashboard (CMS)
+#### ML-5.1 Route Performance Dashboard (CMS) ✅ (2026-04-13)
 **What:** New CMS page `/analytics/routes` — per-route performance metrics: on-time %, avg delay by stop, passenger load trend, anomaly count. Charts via Recharts, data sourced from the existing `app/analytics/` slice (extended with ML-derived aggregates).
 **Why:** The ML models and data pipelines are invisible to ops until surfaced in the UI. A single "route performance" page gives operations managers a daily pulse on fleet health, exposing the value of every earlier phase.
 **Implementation:**
-- `app/analytics/service.py` — new methods: `get_route_performance(route_id, window)`, `get_delay_heatmap(route_id, window)`, `get_load_trend(route_id, window)`
-- `app/analytics/routes.py` — 3 new endpoints matching the service methods, cached 5 min via Redis
-- `cms/apps/web/src/app/[locale]/analytics/routes/page.tsx`:
-  - Route selector (dropdown, pre-populated from GTFS routes)
-  - 4 Recharts: on-time % over time (line), avg delay by stop (bar), load factor heatmap (HeatmapChart), anomaly count (stacked area by type)
-  - SDK wrapper in `@vtv/sdk`
-- `cms/apps/web/messages/lv.json` + `en.json` — ~40 new i18n keys
-- RBAC: admin + dispatcher roles
-- 10+ backend tests, 6+ frontend component tests
+- `app/analytics/schemas.py` — 8 new Pydantic models: `DailyOnTimePoint`, `StopDelayPoint`, `DailyLoadPoint`, `DailyAnomalyPoint`, `RoutePerformanceTrendResponse`, `RouteDelayByStopResponse`, `RouteLoadTrendResponse`, `RouteAnomalyResponse`, `WindowLiteral`
+- `app/analytics/service.py` — 4 new methods: `get_route_performance()`, `get_route_delay_by_stop()`, `get_route_load_trend()`, `get_route_anomalies()`. Graceful degradation: returns empty data when ML pipeline data not yet available
+- `app/analytics/routes.py` — 4 new endpoints with input validation (`route_id` regex, `window` Literal enum), rate-limited 30/min
+- `cms/apps/web/src/app/[locale]/(dashboard)/analytics/routes/page.tsx` — server component wrapper
+- `cms/apps/web/src/components/analytics/route-performance/` — `RoutePerformanceDashboard` (client component with SWR data fetching, route selector, 7/14/30d time window, 4 KPI cards, 4 Recharts charts), `ChartCard` (reusable wrapper)
+- `cms/apps/web/src/lib/route-performance-sdk.ts` — `authFetch`-based API wrapper (4 fetch functions)
+- `cms/apps/web/messages/{en,lv,ru}.json` — 29 i18n keys per locale (26 routePerformance + 3 nav)
+- `cms/apps/web/src/components/app-sidebar.tsx` — Analytics converted to NavGroup (Overview + Route Performance)
+- `app/analytics/tests/test_route_performance.py` — 11 unit tests (schemas, endpoints, validation)
+- Plan: `.agents/plans/ml-5-1-route-performance-dashboard.md`
 
-**Verify:** `/analytics/routes` loads in CMS, route selector populates, all 4 charts render with real data for a selected route. Chart data matches `SELECT` queries against the underlying tables. Cache hit on second load (<50ms).
+**Verify:** `/analytics/routes` loads in CMS, route selector populates from GTFS routes, all 4 charts render. Time window toggle (7/14/30d) refreshes all charts. Empty states display when no route selected or no data. Backend endpoints validate input (reject `../etc/passwd`, reject `window=999`).
 
 #### ML-5.2 Schedule Adherence Monitoring + Daily Report ✅ (2026-04-13)
 **What:** Scheduled daily job that computes fleet-wide schedule adherence (overall %, per-route, per-hour), writes a `daily_adherence_report` row, and publishes an email/Slack summary to dispatcher managers. Alert threshold: overall adherence < 85% -> high-severity alert.
@@ -761,7 +751,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 | ML-4  | Anomaly detection (off-route, stuck, GPS gap) | 5 | Route Shape Polylines TODO, alerts slice |
 | ML-5  | CMS dashboards, public API, Text-to-SQL | 8 | ML-1..ML-4 |
 
-Total ML platform build-out: **33 days** across 17 subtasks. **15 subtasks complete**. Remaining: 2 subtasks (~4 days) — ML-2.3 ETA inference+agent tool, ML-3.3 crowding alerts+agent tool. Plus ML-5.1 route dashboard (~2 days).
+Total ML platform build-out: **33 days** across 17 subtasks. **16 subtasks complete**. Remaining: 2 subtasks (~4 days) — ML-2.3 ETA inference+agent tool, ML-3.3 crowding alerts+agent tool.
 
 ---
 

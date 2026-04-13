@@ -117,7 +117,7 @@ VTV/
 │   │   └── jobs/       # Arq-based durable job queue (OPS-3.2) — queue wrapper, worker settings, admin status API
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── alerts/         # Notification/alerts system (11 endpoints, background evaluator, RBAC)
-│   ├── analytics/      # Dashboard analytics (5 endpoints, read-only aggregation over vehicles/drivers/transit, daily schedule adherence reports with DB storage + Slack/email publish + threshold alerts)
+│   ├── analytics/      # Dashboard analytics (9 endpoints, read-only aggregation over vehicles/drivers/transit, daily schedule adherence reports with DB storage + Slack/email publish + threshold alerts, per-route performance drill-down with on-time trend, delay-by-stop, load factor, and anomaly charts)
 │   ├── auth/           # JWT auth + RBAC + user management (10 endpoints)
 │   ├── compliance/     # NeTEx/SIRI EU compliance exports (4 endpoints, XML generation, no DB tables)
 │   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion, Redis embedding cache, heading-aware semantic chunking, parent-child chunk hierarchy, search-time parent context expansion, heading-breadcrumb citations, one-shot rechunk migration script, synthetic QA pair generation for RAG eval, retrieval metrics computation with recall@k/MRR/completeness, RAG eval runner with LLM faithfulness judge, regression baselines with corpus checksum + CI gate)
@@ -183,7 +183,7 @@ Turborepo monorepo under `cms/` with pnpm workspaces. **Full documentation in `c
 
 - **Stack:** Next.js 16 + React 19, Tailwind CSS v4 + semantic tokens, shadcn/ui + CVA, Auth.js v5 (4-role RBAC), next-intl (lv/en)
 - **SDK:** `@vtv/sdk` — auto-generated TypeScript client (66 endpoints, 95+ types). All 13 API domains migrated from hand-written fetch to SDK wrappers.
-- **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, Vehicles, Fleet Devices, Fleet Map, Telemetry, Geofences, GTFS, Documents, Users, Chat, Login
+- **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, Vehicles, Fleet Devices, Fleet Map, Telemetry, Geofences, Analytics, Route Performance, GTFS, Documents, Users, Chat, Login
 - **New page checklist:** page component → i18n keys (lv + en) → sidebar nav → middleware RBAC → semantic tokens only
 
 ## Development Guidelines

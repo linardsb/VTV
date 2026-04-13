@@ -18,7 +18,6 @@ from typing import Any, cast
 import sentry_sdk
 import uvicorn
 from fastapi import FastAPI
-from slowapi import _rate_limit_exceeded_handler  # pyright: ignore[reportMissingTypeStubs]
 from slowapi.errors import RateLimitExceeded  # pyright: ignore[reportMissingTypeStubs]
 
 from app.alerts.evaluator import start_evaluator, stop_evaluator
@@ -31,6 +30,7 @@ from app.core.agents.agents.registry import close_all_agents
 from app.core.agents.exceptions import setup_agent_exception_handlers
 from app.core.agents.routes import router as agent_router
 from app.core.agents.service import close_agent_service
+from app.core.auth.routes import audit_router
 from app.core.auth.routes import router as assignments_router
 from app.core.config import get_settings
 from app.core.database import engine
@@ -41,7 +41,7 @@ from app.core.jobs.routes import router as jobs_router
 from app.core.logging import get_logger, setup_logging
 from app.core.metrics_middleware import MetricsMiddleware
 from app.core.middleware import setup_middleware
-from app.core.rate_limit import RateLimitIdentityMiddleware, limiter
+from app.core.rate_limit import RateLimitIdentityMiddleware, limiter, rate_limit_exceeded_handler
 from app.core.redis import close_redis
 from app.core.shutdown import ShutdownCoordinator, ShutdownTask
 from app.drivers.routes import router as drivers_router
@@ -259,7 +259,7 @@ app = FastAPI(
 
 # Setup rate limiting
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, cast(Any, _rate_limit_exceeded_handler))
+app.add_exception_handler(RateLimitExceeded, cast(Any, rate_limit_exceeded_handler))
 
 # Setup middleware
 setup_middleware(app)
@@ -293,6 +293,7 @@ app.include_router(public_api_key_mgmt_router)
 app.include_router(public_api_router)
 app.include_router(jobs_router)
 app.include_router(assignments_router)
+app.include_router(audit_router)
 
 # Prometheus metrics endpoint (OPS-2.1)
 # Access control via nginx IP allowlist — scrapers don't carry JWTs.

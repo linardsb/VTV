@@ -5,13 +5,14 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from cachetools import TTLCache  # pyright: ignore[reportMissingTypeStubs]
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.auth.repository import UserRepository
 from app.auth.token import decode_token, is_token_revoked
+from app.core.auth.audit import emit_auth_denial
 from app.core.database import get_db
 from app.core.logging import get_logger
 
@@ -43,6 +44,7 @@ def clear_user_cache() -> None:
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),  # noqa: B008
     db: AsyncSession = Depends(get_db),  # noqa: B008
 ) -> User:
@@ -57,6 +59,13 @@ async def get_current_user(
         HTTPException(403): If user account is inactive.
     """
     if credentials is None:
+        await emit_auth_denial(
+            request=request,
+            user_id=None,
+            status_code=401,
+            reason="missing_credentials",
+            enforcement_layer="jwt",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
@@ -66,6 +75,13 @@ async def get_current_user(
     payload = decode_token(credentials.credentials)
     if payload is None or payload.type != "access":
         logger.warning("auth.token_invalid", reason="decode_failed_or_wrong_type")
+        await emit_auth_denial(
+            request=request,
+            user_id=None,
+            status_code=401,
+            reason="token_invalid_or_expired",
+            enforcement_layer="jwt",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
@@ -75,6 +91,13 @@ async def get_current_user(
     # Check token revocation denylist (always, never cached)
     if await is_token_revoked(payload.jti):
         logger.warning("auth.token_revoked", jti=payload.jti)
+        await emit_auth_denial(
+            request=request,
+            user_id=payload.sub,
+            status_code=401,
+            reason="token_revoked",
+            enforcement_layer="jwt",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has been revoked",
@@ -86,6 +109,13 @@ async def get_current_user(
     if cached is not None:
         if not cached.is_active:
             logger.warning("auth.unauthorized_access", reason="inactive_user", user_id=cached.id)
+            await emit_auth_denial(
+                request=request,
+                user_id=cached.id,
+                status_code=403,
+                reason="account_inactive",
+                enforcement_layer="jwt",
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account is inactive",
@@ -97,6 +127,13 @@ async def get_current_user(
     user = await repo.find_by_id(payload.sub)
     if user is None:
         logger.warning("auth.token_invalid", reason="user_not_found", user_id=payload.sub)
+        await emit_auth_denial(
+            request=request,
+            user_id=payload.sub,
+            status_code=401,
+            reason="user_not_found",
+            enforcement_layer="jwt",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
@@ -105,6 +142,13 @@ async def get_current_user(
 
     if not user.is_active:
         logger.warning("auth.unauthorized_access", reason="inactive_user", user_id=user.id)
+        await emit_auth_denial(
+            request=request,
+            user_id=user.id,
+            status_code=403,
+            reason="account_inactive",
+            enforcement_layer="jwt",
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is inactive",
@@ -126,6 +170,7 @@ def require_role(*roles: str) -> Callable[..., Coroutine[Any, Any, User]]:
     """
 
     async def _check_role(
+        request: Request,
         current_user: User = Depends(get_current_user),  # noqa: B008
     ) -> User:
         if current_user.role not in roles:
@@ -134,6 +179,14 @@ def require_role(*roles: str) -> Callable[..., Coroutine[Any, Any, User]]:
                 user_id=current_user.id,
                 user_role=current_user.role,
                 required_roles=list(roles),
+            )
+            await emit_auth_denial(
+                request=request,
+                user_id=current_user.id,
+                status_code=403,
+                reason=f"role_required:{','.join(roles)}",
+                enforcement_layer="role",
+                user_role=current_user.role,
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

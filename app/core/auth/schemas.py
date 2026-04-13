@@ -1,6 +1,7 @@
-"""Pydantic schemas for dispatcher assignment CRUD."""
+"""Pydantic schemas for dispatcher assignment CRUD and auth audit queries."""
 
 import datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -29,3 +30,27 @@ class AssignmentResponse(BaseModel):
     assigned_by: int | None
     created_at: datetime.datetime
     updated_at: datetime.datetime
+
+
+# --- Auth audit (OPS-4.3) ---
+
+EnforcementLayer = Literal["jwt", "role", "scope", "rate_limit"]
+
+
+class AuthAuditEventResponse(BaseModel):
+    """Single audit event in API response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    recorded_at: datetime.datetime
+    request_id: str
+    user_id: int | None
+    path: str
+    method: str
+    status_code: int
+    reason: str
+    enforcement_layer: str
+    client_ip: str | None
+    user_role: str | None
+    extra: dict[str, Any] | None
