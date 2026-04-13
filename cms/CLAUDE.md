@@ -68,6 +68,7 @@ Workflow: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` �
 |------|-------|--------|-------------|
 | Dashboard | `/[locale]/` | Live | Real API metrics (vehicles + routes, 30s polling) + real calendar events with goal tracking (`/api/v1/events`, 60s polling, goal progress badges, goal completion panel) |
 | Routes | `/[locale]/routes` | Live | Backend `/api/v1/schedules/routes` (CRUD, server pagination, search) + GTFS-RT live vehicle positions (WebSocket real-time push with HTTP polling fallback) on Leaflet map. Multi-feed support: feed selector filter, per-feed marker border colors, feed health overlay with vehicle counts, auto-fit bounds on feed change |
+| Map | `/[locale]/map` | Live | Full-screen vehicle map (all feeds, Latvia-wide zoom). WebSocket real-time positions + SWR polling fallback, MarkerClusterGroup for 500+ markers, feed toggle chips, route type filter (bus/trolleybus/tram), vehicle detail dialog on click, feed health overlay. Reuses `useVehiclePositions` hook, `FeedHealthOverlay`, `BusMarker` pattern |
 | Stops | `/[locale]/stops` | Live | Backend `/api/v1/stops` endpoints (CRUD, Leaflet map with terminus markers, direction display, GTFS copy, location_type filtering) |
 | Schedules | `/[locale]/schedules` | Live | Backend `/api/v1/schedules` (22 endpoints: calendars CRUD, trips CRUD, GTFS ZIP import, validation) |
 | Drivers | `/[locale]/drivers` | Live | Backend `/api/v1/drivers` (5 endpoints: CRUD, search, shift/status filters, agent integration) |

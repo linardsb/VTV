@@ -38,6 +38,7 @@ function isGroup(entry: NavEntry): entry is NavGroup {
 const navEntries: NavEntry[] = [
   { key: "dashboard", href: "", enabled: true },
   { key: "routes", href: "/routes", enabled: true },
+  { key: "map", href: "/map", enabled: true },
   { key: "stops", href: "/stops", enabled: true },
   { key: "schedules", href: "/schedules", enabled: true },
   { key: "drivers", href: "/drivers", enabled: true },

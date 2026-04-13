@@ -12,7 +12,7 @@ Planned features and improvements. Each item links to its detailed planning docu
 
 ```
 Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
-CMS Frontend      ███████████████████████░  99%  (17 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences)
+CMS Frontend      ███████████████████████░  99%  (18 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences, full-screen map)
 Testing           ████████████████████░░░░  90%  (2179 unit tests, 115 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets, graceful shutdown coordinator)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
@@ -28,734 +28,642 @@ Intelligence/ML   ████████████████████�
 
 ---
 
-## Agent Intelligence — Phased Implementation
-
-Techniques learned from merkle-email-hub's production multi-agent system. Full analysis: [docs/PLANNING/agent-intelligence-plan.md](PLANNING/agent-intelligence-plan.md).
-
-**Phases AI-1 through AI-7 complete ✅** — all 28 subtasks done. Detailed records: [docs/TODO-archive.md](TODO-archive.md). Active work starts at AI-8.
-
----
-
-### Phase AI-8: Circuit Breaker + LLM Provider Reliability (3 days)
-
-> **Sprint deliverable:** LLM provider calls wrapped in a state-machine circuit breaker that tracks failure rates and trips to fallback before latency spikes affect dispatchers. Per-provider health metrics exposed via admin endpoint. Independent of phases AI-1..AI-7.
-
-#### AI-8.1 Circuit Breaker State Machine ✅
-**Status:** Done — `app/core/agents/circuit_breaker.py` implements `CircuitState` enum (CLOSED / OPEN / HALF_OPEN), `@dataclass(frozen=True) BreakerConfig` with `__post_init__` validation of all 5 knobs, and `CircuitBreaker` async class with `call(fn, /, *args, **kwargs) -> T` through-caller. State reads/writes are guarded by `asyncio.Lock`; the lock is **never** held across the `fn` await (3 separate acquisitions for `_before_call` / `_record_success` / `_record_failure`, mirroring `app/core/resilience.py` semantics). Sliding-window failure rate via `collections.deque(maxlen=window_size)`; rate trigger only arms once the window is full, so 2 failures in 2 calls with `window_size=10` do NOT trip — prevents false positives on short bursts. Consecutive-failure counter resets on any success in CLOSED. `HALF_OPEN` uses a dedicated `success_threshold` probe counter; any failure during HALF_OPEN immediately returns to OPEN with `trigger="probe_failure"`. Pluggable `time_fn: Callable[[], float] = time.monotonic` for deterministic `ManualClock` tests. `CircuitBreakerOpenError(AgentError)` added to `app/core/agents/exceptions.py` and wired into `agent_exception_handler` → HTTP 503 + `setup_agent_exception_handlers`. 5 new pydantic-settings env-var-backed settings in `app/core/config.py` (`circuit_breaker_enabled/failure_threshold/recovery_timeout_s/success_threshold/failure_rate_threshold`) with defaults exactly matching the plan. 7 structured log events in the `agent.circuit_breaker.*` namespace: `opened` (CLOSED→OPEN, fields `provider`+`failure_count`+`failure_rate`+`trigger`), `half_opened` (OPEN→HALF_OPEN, `elapsed_s`), `closed` (HALF_OPEN→CLOSED, `successful_probes`), `reopened` (HALF_OPEN→OPEN probe_failure), `rejected` (blocked by OPEN breaker, `state`), `probe_success`, `probe_failure` — log fields exclude credentials, provider endpoints, and raw exception `repr()` (CTX-AGENT compliance). `docs/logging-standard.md` agent taxonomy extended with all 7 events. Agent-module-local utility (not `app/shared/`) per the three-feature rule — separate from the existing GTFS-RT breaker at `app/core/resilience.py`, which was left untouched. 19 unit tests in `app/core/agents/tests/test_circuit_breaker.py`: state transitions (6 — starts_closed, consecutive trip, sliding-window rate trip, recovery to HALF_OPEN, HALF_OPEN→CLOSED, HALF_OPEN→OPEN on probe fail), counting/reset (3), recovery-timeout boundary (2 — just-below rejection + exactly-at transition), sliding-window invariants (2), concurrency (2 — concurrent fast-fail after trip, sequential probes close), config validation (1 — all 5 invariants), exception propagation (1), structlog event assertion via `structlog.testing.capture_logs` (1), full 5-fail → OPEN → reject → recover → 2 probes → CLOSED spec scenario (1). `ManualClock` + `make_breaker_config` + `make_breaker` factories appended to `app/core/agents/tests/conftest.py`. `app/core/agents/circuit_breaker.py` + new tests report 0 pyright / 0 mypy errors; wider agent-module baseline preserved (pyright 5 / mypy 3 — all pre-existing in `tools/transit/static_store.py`, `tools/transit/client.py`, `pipeline.py`). 356 agent tests + 106 security convention tests green. **Out of scope (AI-8.2 follow-up):** wiring the breaker into `AgentService._execute()` around each `agent.run()` call and building the per-provider registry — intentionally landed as a separate, kill-switch-gated change. Plan: [.agents/plans/ai-8.1-circuit-breaker.md](../.agents/plans/ai-8.1-circuit-breaker.md). (2026-04-11)
-
-**What:** Create `app/core/agents/circuit_breaker.py` — classic 3-state breaker (`CLOSED` → `OPEN` → `HALF_OPEN` → `CLOSED`) wrapping each LLM provider invocation. Tracks consecutive failures, failure rate over a sliding window, and automatic recovery probes.
-**Why:** Current `FallbackModel` only catches hard exceptions at call-time — it cannot preempt a degrading primary provider (timeouts, 5xx spikes). A circuit breaker preempts by opening after N consecutive failures or when the sliding-window failure rate exceeds a threshold, cutting dispatcher-visible latency by 5-30s per failing request.
-**Implementation:**
-- `app/core/agents/circuit_breaker.py`:
-  - `@dataclass(frozen=True) BreakerConfig`: `failure_threshold: int = 5`, `recovery_timeout_s: float = 30.0`, `success_threshold: int = 2`, `window_size: int = 20`, `failure_rate_threshold: float = 0.5`
-  - `CircuitBreaker` class with async `call(fn, *args)` method — raises `CircuitBreakerOpenError` when open, records success/failure on each call, sliding-window deque for rate computation
-  - State transitions: `CLOSED`→`OPEN` on consecutive/rate trip; `OPEN`→`HALF_OPEN` after `recovery_timeout_s`; `HALF_OPEN`→`CLOSED` after `success_threshold` successes; `HALF_OPEN`→`OPEN` on any failure
-  - Thread-safe via `asyncio.Lock` (per-instance)
-- `app/core/config.py` — 5 new settings: `circuit_breaker_enabled: bool = True`, `circuit_breaker_failure_threshold: int = 5`, `circuit_breaker_recovery_timeout_s: float = 30.0`, `circuit_breaker_success_threshold: int = 2`, `circuit_breaker_failure_rate_threshold: float = 0.5`
-- Structured logging taxonomy: `agent.circuit_breaker.opened`, `agent.circuit_breaker.half_opened`, `agent.circuit_breaker.closed`, `agent.circuit_breaker.rejected` (request blocked by open breaker), `agent.circuit_breaker.probe_success`, `agent.circuit_breaker.probe_failure`
-- 15+ unit tests: state transitions (6), failure counting (3), recovery timeout (2), sliding-window rate (2), concurrent calls (2), config gating (1)
-
-**Verify:** Mock a provider that fails 5 times — breaker opens, 6th call raises `CircuitBreakerOpenError` without invoking the provider. Wait past `recovery_timeout_s`, breaker goes `HALF_OPEN`, 2 successful probes close it.
-
-#### AI-8.2 Per-Provider Health Metrics + Admin Endpoint ✅
-**Status:** Complete. Plan: `.agents/plans/ai-8.2-provider-health-metrics.md`. Execution report: `.agents/execution-reports/ai-8.2-provider-health-metrics.md`.
-**What:** Added `ProviderHealthTracker` singleton that records per-provider success/failure counts, p50/p95 latency, last failure/success timestamps, and current breaker state. Exposed via admin-only `GET /v1/chat/provider-health` endpoint.
-**Why:** Ops needs visibility into which LLM provider is degrading before opening incidents. Current observability is zero — failures show up only as GlitchTip errors or user-reported slow responses.
-**Shipped:**
-- `app/core/agents/provider_health.py`:
-  - `@dataclass ProviderHealth`: `provider_name`, `state: CircuitState`, `total_calls`, `total_failures`, `failure_rate`, `p50_latency_ms`, `p95_latency_ms`, `last_failure_at`, `last_success_at`, bounded 100-observation `_latencies_ms` deque
-  - `ProviderHealthTracker` singleton with `record_call(provider, *, latency_ms, success, state)`, `get_health(provider)`, `get_all()` (deep-copied + sorted), `period_start()`, `reset()`
-  - `_percentile()` gates on `<2` observations to avoid `statistics.StatisticsError`; `quantiles(method="inclusive")` matches pandas/numpy linear interpolation
-  - Lazy 00:00 UTC daily reset via `_maybe_reset()` called on every public method (mirrors `metrics.py` AI-5.3 pattern)
-  - `track_provider_call()` async context manager — wraps the 3 LLM call sites in `service.py` (complex pipeline, correction loop, fallback `agent.run`). Fail-open: `record_call` errors log `agent.provider_health.record_failed` and never block LLM results
-  - `_extract_provider_name()` helper — handles `None` → default, `str` → split on `:`, pydantic_ai.Model instance → lowercased class name with `"model"` suffix stripped
-- `app/core/agents/routes.py` — new admin-only `GET /v1/chat/provider-health` (`require_role("admin")`, `60/minute` rate limit) returning `ProviderHealthResponse` with period metadata + sorted provider snapshots
-- `app/core/agents/schemas.py` — `ProviderHealthSnapshot` + `ProviderHealthResponse` Pydantic models with `ConfigDict(strict=True)`
-- `app/core/agents/service.py` — 3 instrumentation sites wrapped in `async with track_provider_call(tier_model, get_settings().llm_provider)`
-- 19 unit tests: tracker primitives (9), provider name extraction (4), singleton lifecycle (2), endpoint 200/403 + state field (4)
-- No new env vars, no kill switch — always-on, rollback via wrapping instrumentation in `try/except`
-- **Out of scope (AI-8.3 follow-up):** wiring a per-provider `CircuitBreaker` registry into `_execute()` — until then, the `state` field always reports `"closed"`
-
-**Verify:** Admin fires a `GET /v1/chat/provider-health` request; response returns period metadata + per-provider snapshots with success/failure counts and p95 latency.
-
-#### AI-8.3 Circuit Breaker Integration with FallbackModel ✅
-**Status:** Done — `app/core/agents/llm.py` introduces a process-wide per-provider breaker registry (`get_breaker`, `get_breaker_state`, `reset_provider_breakers`) plus `invoke_provider_chain[T](call, *, settings)` — a generic async wrapper that walks `[settings.llm_provider, settings.llm_fallback_provider]` and routes the LLM call through `breaker.call(...)`. The chain catches `CircuitBreakerOpenError` (logging `agent.provider_chain.preempted`) and any other exception (logging `agent.provider_chain.fallback`) and continues to the next provider. When the chain is exhausted it logs `agent.provider_chain.exhausted` and raises `AllProvidersUnavailableError(providers_tried)`. Crucial design fix during execution: the wrapper does NOT short-circuit on a direct `breaker.state is OPEN` check — it always goes through `breaker.call`, because OPEN→HALF_OPEN recovery transitions only fire inside `_before_call`. Skipping the call would have left the breaker stuck OPEN forever after `recovery_timeout_s` elapsed. When `circuit_breaker_enabled` is False the helper flattens to a single direct call against the primary with **zero** registry writes — preserves pre-AI-8 semantics byte-for-byte and keeps Pydantic AI's `FallbackModel` as the belt-and-braces layer. New `AllProvidersUnavailableError(AgentError)` in `exceptions.py` (constructor stores `providers_tried: list[str]`) is wired into `agent_exception_handler` → HTTP 503 alongside the existing `CircuitBreakerOpenError`. `app/core/agents/service.py` was refactored: the monolithic `_execute()` is now a 3-helper dispatch (`_execute_complex_tier`, `_execute_correction_tier`, `_execute_fallback_tier`), each one wrapping its LLM call in a closure that runs through `invoke_provider_chain`; per-iteration observability is preserved by `track_provider_call(None, provider_name)` inside the closure so the chain provider name (not the tier-model class name) keys both the breaker registry and the AI-8.2 health tracker. `_execute()` catches `AllProvidersUnavailableError` and returns a static, user-safe degraded `_PipelineOutcome("All LLM providers are temporarily unavailable. Please retry in 30 seconds.", warnings=[], confidence=None, tools_used=())` — `confidence=None` is deliberate so the AI-6.5 confidence re-route gate doesn't fire a doomed retry, and `warnings=[]` skips QA + footnote rendering. Provider names never leak into the user-facing content (CTX-AGENT). `app/core/agents/provider_health.py` no longer hardcodes `state=CLOSED` in `track_provider_call`: it now does a deferred `from app.core.agents.llm import get_breaker_state` (avoids module-load circular import) and passes the live `CircuitState` into `record_call(state=...)` on both success and failure branches — the existing `state=` parameter contract from AI-8.2 was preserved, no changes to `ProviderHealth` fields. The stale AI-8.2-followup TODO in `_extract_provider_name`'s docstring is removed; the dataclass + module docstrings are refreshed to reflect that `state` is now live. New tests: `app/core/agents/tests/test_llm.py` (5 unit tests — lazy registry init, unregistered provider returns CLOSED, disabled-mode passthrough with no registry writes, primary-OPEN skips to fallback, all-exhausted raises) plus a new `TestCircuitBreakerIntegration` class in `test_service.py` (8 tests — single-provider trip routes to fallback, fallback also fails returns degraded, both open returns degraded with no LLM call, fast-fail under 200ms, two consecutive requests both fast-fail, recovery via HALF_OPEN→CLOSED after `recovery_timeout_s=0`, kill-switch off doesn't register breakers, kill-switch off propagates raw exceptions). New `_reset_provider_breakers` autouse fixture appended to `conftest.py` clears the registry around every agent test — same pattern as `_reset_skill_cache`. The pre-existing `test_chat_failure_raises_agent_execution_error` was renamed to `test_chat_failure_with_breaker_disabled_raises_agent_execution_error` and now patches `get_settings` in **both** `service` and `llm` modules to force the kill-switch path; this is the canonical regression test for the byte-for-byte preserved behavior. Validation gates: `ruff format/check` clean across 386 files; mypy 3 errors (baseline preserved — `tools/transit/static_store.py:149/150` + `pipeline.py:136`); pyright 5 errors (baseline preserved — `pipeline.py` x4 + `tools/transit/client.py:193`); 388 agent tests + 1482 unit tests + 106 security convention tests green. The single failing test (`tools/transit/tests/test_client.py::test_fetch_feed_http_error`) was verified to fail on clean `main` before any AI-8.3 changes — pre-existing test pollution from the unrelated GTFS-RT breaker singleton in `app/core/resilience.py`, not introduced here. **Open question deferred:** per-tier-model resolution per chain attempt (open question #3 in the plan) — the current wiring keeps `tier_model` constant across chain iterations and only swaps the breaker key, accepting that with `FallbackModel(primary, fallback)` configured the fail-fast benefit primarily kicks in for single-provider tier overrides. A future refinement can resolve a single-provider Model per chain attempt. Plan: [.agents/plans/ai-8-3-circuit-breaker-fallback-integration.md](../.agents/plans/ai-8-3-circuit-breaker-fallback-integration.md). Execution report: [.agents/execution-reports/ai-8.3-circuit-breaker-fallback-integration.md](../.agents/execution-reports/ai-8.3-circuit-breaker-fallback-integration.md). (2026-04-11)
-
-**Verify:** Inject a primary-provider failure that takes 30s to time out. With circuit breaker enabled, the 6th+ request fails-fast via fallback in <100ms (not 30s). Disable via `CIRCUIT_BREAKER_ENABLED=false` and confirm pre-AI-8 behavior is preserved byte-for-byte.
-
----
-
-### Phase AI-9: Prompt Injection Hardening (3 days)
-
-> **Sprint deliverable:** Current injection detection is log-only with 3 regex patterns. This phase expands detection, adds confidence-scored blocking, and adds response-side output validation to prevent data exfiltration via crafted responses.
-
-#### ✅ AI-9.1 Expanded Detection Patterns + Confidence Scoring (done 2026-04-12)
-**Implemented:** `app/core/agents/injection_detector.py` — 31 compiled regex patterns across 6 OWASP LLM01 categories (override, role_hijack, extraction, delimiter_escape, tool_misuse, encoding). EN/LV multi-language (RU excluded — not supported). Per-match `InjectionSignal(frozen=True)` with confidence scoring (P1=0.90-0.95, P2=0.60-0.70, P3=0.30-0.40). `InjectionResult` with aggregate confidence + multi-signal boost (cross-category >=2 → +0.10, same-category >=2 → +0.05, capped 0.95). Cyrillic homoglyph normalization. Module-level `detect_injection()` singleton. `BaseAgentService.chat()` Phase 2 calls detector with threshold-based log level (warning/error). Config: `prompt_injection_block_threshold=0.85`, `prompt_injection_warn_threshold=0.5`. 42 unit tests. Plan: `.agents/plans/ai-9-1-injection-detection-patterns.md`.
-
-> **RU language note:** Russian language injection patterns were deliberately excluded. AI-9.2 and AI-9.3 plans that reference RU must be updated to exclude them.
-
-#### ✅ AI-9.2 Blocking Mode for High-Confidence Injections (done 2026-04-12)
-**Implemented:** `app/core/agents/base.py` Phase 2 — mode-aware blocking gate. `prompt_injection_mode: Literal["warn","block"] = "warn"` in `app/core/config.py` (env var `PROMPT_INJECTION_MODE=block` to enable). When `mode="block"` and `aggregate_confidence >= prompt_injection_block_threshold` (0.85), raises `PromptInjectionBlockedError(AgentError)` → HTTP 400 with generic message (`"Request blocked by content safety policy"` — never echoes injection text). Below-threshold or `mode="warn"` detections log `agent.injection.detected` as before. Blocked requests log `agent.injection.blocked` at error level with `pattern_ids`, `aggregate_confidence`, `prompt_length` (never raw prompt). 12 unit tests in `test_injection_blocking.py` (exception hierarchy, HTTP 400 mapping, response body safety, block/allow threshold boundaries, warn mode passthrough, config defaults, structured log assertions). Plan: `.agents/plans/ai-9-2-injection-blocking-mode.md`.
-
-#### ✅ AI-9.3 Output-Side Data Exfiltration Validation (done 2026-04-12)
-**Implemented:** `app/core/agents/output_validator.py` — 15 compiled regex patterns across 5 categories (base64_blob, suspicious_url, system_prompt_leak, pii_leak, code_block). `OutputIssue(frozen=True)` with pattern_id, confidence (0.0-1.0), category, matched_text (truncated 100 chars). `OutputValidationResult` with aggregate confidence + multi-signal boost (cross-category >=2 → +0.10, same-category >=2 → +0.05, capped 0.95). Code fence stripping pre-processing: most patterns scan prose-only text; `code_fence_only` patterns (EX-CODE-01) fire only in transit/vault domains. Module-level `validate_output()` singleton. Config: `output_validation_enabled=True`, `output_validation_mode: Literal["warn","block"] = "warn"`, `output_validation_block_threshold=0.80`. Wired into `BaseAgentService.chat()` Phase 10b (between `_execute()` and `_post_process()`). `OutputExfiltrationBlockedError(AgentError)` → HTTP 400 with generic message. Fail-open: validator exceptions never block responses. 33 unit tests + 14 integration tests (pattern detection, confidence scoring, false positive resilience, block/warn modes, threshold boundaries, config toggles, structured log assertions, fail-open). Plan: `.agents/plans/ai-9-3-output-exfiltration-validation.md`.
-
----
-
-### Phase AI-10: Enhanced Citation Quality (2 days)
-
-> **Sprint deliverable:** Agent responses cite chunks by heading breadcrumb + section ("Emergency Procedures > Route Deviation") instead of generic "chunk 5". Dispatchers can locate source material in 2 clicks instead of scrolling.
-> **Depends on:** AI-4.2 (heading_path column already populated on chunks)
-
-#### ✅ AI-10.1 Render Heading Breadcrumbs in Agent Responses (done 2026-04-12)
-**Implemented:** Heading-breadcrumb citations wired through the knowledge search tool and both agent system prompts. `_heading_to_slug()` handles Latvian diacritics via NFKD decomposition. `_build_citation_anchor()` formats `"doc-title - Section > Subsection"`. Two new fields on `KnowledgeSearchResult`: `citation_anchor` (pre-formatted link text) and `url_fragment` (URL-safe anchor slug from last heading segment). Bug fix: `heading_path` was not propagated from `DocumentChunk` to `SearchResult` in `service.py` — now set on every result (parent-context expansion still overwrites when parent exists). Both `KNOWLEDGE_SYSTEM_PROMPT` and unified `SYSTEM_PROMPT` updated with breadcrumb-aware citation format and examples. Legacy chunks (null `heading_path`) fall back to filename-only citation. Frontend anchor landing (`#section-foo` scroll) deferred to a separate FE task. 11 new tests (3 slug generation incl. Latvian diacritics, 4 citation anchor builder, 3 full-flow integration, 1 prompt content assertion). Plan: `.agents/plans/ai-10.1-heading-breadcrumb-citations.md`.
-
-#### ✅ AI-10.2 Agent-Side Citation Format Regression Test (done 2026-04-12)
-**Implemented:** 3 new eval cases (knowledge_011-013) added to `knowledge.yaml` with a 6th `citation_format_correct` quality criterion. Case 011 asserts heading-breadcrumb path is present in citation. Case 012 asserts section anchor fragment matches `url_fragment` from tool returns. Case 013 tests legacy-doc fallback when `heading_path` is null — citation must gracefully use filename-only format without fabricating breadcrumbs. `REQUIRED_CRITERIA_COUNT = 5` replaced with `MIN_CRITERIA_COUNT = 5` / `MAX_CRITERIA_COUNT = 6` range validation in `EvalCase.__post_init__`. 8 new/updated tests: 6-criteria acceptance, too-many rejection (now 7), production count (10→13), criteria range validation, AI-10.2-specific assertions, YAML round-trip for 6-criteria cases. Plan: `.agents/plans/ai-10.2-citation-format-regression-tests.md`.
-
----
-
-### Phase AI-11: RAG Retrieval Eval Pipeline (4 days)
-
-> **Sprint deliverable:** Retrieval quality measured independently of agent response quality. Synthetic QA pairs generated from existing documents, then replayed through `KnowledgeService.search()` to measure faithfulness, relevance, and completeness. `make rag-eval` runs the full retrieval evaluation suite.
-> **Depends on:** Phase AI-4 (parent-child chunking), Phase AI-7 (eval framework patterns)
-> **Distinct from AI-7:** AI-7 evaluates end-to-end agent responses. AI-11 isolates the retrieval layer (pgvector hybrid search + RRF + rerank + parent expansion) so retrieval regressions can be diagnosed without confounding from LLM behavior.
-
-#### AI-11.1 Synthetic QA Pair Generation from Documents ✅ (2026-04-12)
-**What:** Create `app/knowledge/evals/qa_generator.py` — sampler that picks N chunks from the indexed corpus, uses a fast-tier LLM to generate a plausible question for each (in the chunk's language), and records `(question, source_chunk_id, source_heading_path, language)` as the ground-truth set.
-**Why:** Hand-writing retrieval test cases doesn't scale and can't cover corpus drift. Generating synthetic QA pairs from the actual corpus guarantees the ground truth references real documents and stays in sync as the KB grows.
-**Implemented:**
-- `app/knowledge/evals/schemas.py` — `QAPair`, `RetrievalMetrics`, `EvalReport` frozen dataclasses
-- `app/knowledge/evals/qa_generator.py` — chunk sampler (stratified by language, filters short/list/table chunks, prefers heading_path), LLM question generation via `pydantic_ai.Agent` (fast tier, same pattern as HyDE), path-sandboxed JSONL writer, CLI with `--count`/`--output-dir`/`--lv-ratio`
-- `app/knowledge/evals/__main__.py` — `python -m app.knowledge.evals` entry point
-- `Makefile` — `make rag-eval-generate COUNT=100`
-- JSONL output git-ignored under `evals/rag/`
-- 12 unit tests: schema immutability/serialization (2), chunk filtering (3), LLM success/failure (2), JSONL output + path sandboxing (3), end-to-end pipeline (1), CLI (1)
-- Plan: `.agents/plans/ai-11-1-synthetic-qa-generation.md`
-
-**Verify:** `make rag-eval-generate COUNT=20` produces 20 QA pairs in `evals/rag/qa_pairs_{timestamp}.jsonl`. Manual spot-check: 18/20 questions are plausible dispatcher queries whose source chunk is the correct answer.
-
-#### AI-11.2 Retrieval Metrics — Faithfulness, Relevance, Completeness ✅ (2026-04-12)
-**What:** Create `app/knowledge/evals/metrics.py` — computes three metrics per QA pair after replaying the question through `KnowledgeService.search()`:
-1. **Relevance** — binary: was the source chunk in the top-k results? (recall@k)
-2. **Position** — what rank did the source chunk receive? (MRR contribution)
-3. **Completeness** — did retrieval surface all chunks that cover the answer, or just one? (for multi-chunk ground truth)
-**Why:** These three metrics decompose retrieval quality. Relevance catches "retrieval missed the right doc". Position catches "right doc is at rank 8, user sees top 3". Completeness catches "retrieval found one section but missed a cross-reference".
-**Implementation:**
-- `app/knowledge/evals/metrics.py`:
-  - `compute_metrics(qa_pair: QAPair, search_results: list[SearchResult]) -> RetrievalMetrics`
-  - `@dataclass(frozen=True) RetrievalMetrics`: `relevance_hit: bool`, `rank: int | None`, `mrr_contribution: float`, `completeness: float` (0.0-1.0)
-  - `aggregate_metrics(per_pair: list[RetrievalMetrics]) -> AggregateReport` — recall@1, recall@3, recall@10, MRR, mean completeness
-  - Completeness computation: for each QA pair, ground truth is all chunks sharing the same `parent_chunk_id` or `heading_path` as the source; completeness = matched / total
-- Faithfulness handled in AI-11.3 (needs LLM judge, not just rank-based math)
-- 12+ unit tests: relevance hit/miss (2), rank extraction (2), MRR math (2), completeness with parent groups (3), aggregate math (2), edge-cases (no results, single result) (1)
-
-**Verify:** Replay 20 QA pairs through the retrieval layer. Report recall@3 ≥ 0.85 on the current system. If below, that's the retrieval regression signal worth acting on.
-
-#### AI-11.3 RAG Eval Runner + Faithfulness Judge ✅ (2026-04-12)
-**What:** Create `app/knowledge/evals/runner.py` — runs QA pairs through `KnowledgeService.search()`, computes AI-11.2 metrics, plus an LLM-judged **faithfulness** score: given the retrieved chunks as context, does a fast-tier LLM answer the QA pair's question correctly? (Binary pass/fail).
-**Why:** Rank-based metrics miss semantic correctness. A chunk can be rank 1 but still be the wrong answer due to ambiguity. LLM-judged faithfulness validates that the retrieved context actually supports answering the question.
-**Implementation:**
-- `app/knowledge/evals/runner.py`:
-  - `RAGEvalRunner.run(qa_pairs: list[QAPair]) -> EvalReport`
-  - For each pair: call `KnowledgeService.search(question)`, compute metrics via AI-11.2, call `FaithfulnessJudge.judge(question, top_k_results, source_chunk_content)`
-  - `FaithfulnessJudge` uses `resolve_tier_model("fast")` with a 3-criterion prompt: grounded (answer derivable from chunks), accurate (matches source_chunk_content), complete (no key info missing)
-  - Fail-open on any LLM error: mark faithfulness as `error`, continue; never crash the runner
-  - Path-sandboxed output via `Path.resolve().is_relative_to()` (same pattern as AI-7.2)
-  - Never logs raw chunk content or question text — only IDs, scores, latencies
-- Output: `evals/rag/report_{timestamp}.json` with per-pair + aggregate metrics
-- CLI: `python -m app.knowledge.evals.runner --qa-pairs evals/rag/qa_pairs_*.jsonl --output evals/rag/`
-- `Makefile` — `make rag-eval` (generate + run), `make rag-eval-report` (run on existing QA set)
-- 14+ unit tests: runner happy path (2), faithfulness judge success/failure fallback (2), metrics integration (2), path sandboxing (2), CLI arg parsing (2), output schema (2), 0-pair edge case (1), error trace format (1)
-
-**Verify:** `make rag-eval` generates 100 QA pairs, runs them through retrieval, produces a report with recall@3, MRR, mean faithfulness. Report should show current-system numbers ≥ baseline targets (recall@3 ≥ 0.85, faithfulness ≥ 0.80). If below, file a retrieval-quality ticket.
-
-#### AI-11.4 RAG Regression Baselines + CI Integration ✅ (2026-04-12)
-**What:** Generate initial retrieval baselines from first `make rag-eval` run. Future runs compare and flag regressions > 3 percentage points on any metric. Add `make rag-eval-check` as CI gate.
-**Why:** Retrieval layer has many moving parts (chunker version, reranker model, RRF weights, embedding provider, HyDE toggle). Any of these can silently regress retrieval quality. Baselines + CI gate prevent deploying a regression.
-**Implementation:**
-- `app/knowledge/evals/regression.py`:
-  - `generate_baseline(report: EvalReport) -> RAGBaseline`
-  - `check_regression(current: EvalReport, baseline: RAGBaseline, tolerance: float = 0.03) -> list[Regression]`
-  - Baseline fields: `recall_at_1`, `recall_at_3`, `recall_at_10`, `mrr`, `mean_completeness`, `mean_faithfulness`, `generated_at`, `corpus_checksum` (sha256 of all chunk ids + hashes — invalidates baseline when corpus changes materially)
-  - Baseline JSON: `evals/rag/baseline.json` (committed to git, unlike traces which are git-ignored)
-- `Makefile` — `make rag-eval-check` (runs full pipeline, exits 1 on regression), `make rag-eval-update-baseline` (regenerates baseline after intentional changes)
-- Optional CI wiring deferred: add `rag-eval-check` to CI pipeline gated behind a `RUN_RAG_EVAL` env var so it only runs on explicit opt-in (it's expensive — LLM calls per pair)
-- 10+ unit tests: baseline generation (2), regression detection per metric (4), tolerance math (1), corpus checksum mismatch triggers warning (1), update-baseline flow (1), report format (1)
-
-**Verify:** Run `make rag-eval` to establish baseline. Deliberately weaken the reranker (e.g., disable it via config). Run `make rag-eval-check` — exits 1 with a report showing recall@3 dropped from 0.88 → 0.81, MRR dropped accordingly. Re-enable reranker, rerun, exits 0.
-
----
-
-### Additional Agent Improvements — Summary
-
-| Phase | Focus | Days | Depends on |
-|-------|-------|------|------------|
-| AI-8  | Circuit breaker + provider health | 3 | — |
-| AI-9  | Prompt injection hardening | 3 | AI-9.1/9.2/9.3 done (2026-04-12) |
-| AI-10 | Heading-breadcrumb citations | 2 | AI-4.2, AI-7.1 | Complete (2026-04-12) |
-| AI-11 | RAG retrieval eval pipeline | 4 | AI-4, AI-7 | Complete (2026-04-12) |
-
-Total remaining agent hardening: **0 days**. All phases complete (AI-8, AI-9, AI-10, AI-11).
-
----
-
-## Operations & Platform Hardening — Phased Implementation
-
-Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipline, application metrics, durable background work, per-user authorization, and documentation infrastructure. These phases are independent of AI-8..AI-11 and can be executed in parallel by a second track.
-
-> **Not duplicated from elsewhere:** `CRUD E2E Tests` is already tracked in § In Progress. Circuit breaker + provider health is AI-8. Prompt injection blocking is AI-9. RAG regression guard is AI-11.4. The phases below cover gaps NOT already in another section.
->
-> **Starting-state note:** `.env` is currently git-ignored and NOT tracked in git history (verified via `git ls-files .env`). OPS-1 is forward-looking hardening — preventing the next accidental commit, not purging an existing one. Pre-existing agent-module baseline: pyright 5 / mypy 3 errors in `tools/transit/static_store.py`, `tools/transit/client.py`, `pipeline.py` (per AI-8.1 completion note) — **cleared by OPS-5.1** (protobuf type stubs + generic `_CacheEntry`).
-
----
-
-### Phase OPS-1: Secrets Discipline & Credential Lifecycle (1 day)
-
-> **Sprint deliverable:** Pre-commit secrets scanning is installed in the local dev loop (not just CI), structured logs never leak credentials even when exceptions bubble through, and operators have a documented runbook for rotating every secret the platform holds.
-
-#### OPS-1.1 Commit `.pre-commit-config.yaml` at Repo Root ✅ (2026-04-12)
-**What:** Add `.pre-commit-config.yaml` at the repository root with hooks for ruff-format, ruff-check, mypy, detect-secrets, and trailing-whitespace/end-of-file fixes. Wire `pre-commit install` into a `make bootstrap` target so first-time contributors get hooks automatically on clone.
-**Delivered:** `.pre-commit-config.yaml` (5 hook sources: ruff-pre-commit v0.14.2, pre-commit-hooks v5.0.0, detect-secrets v1.5.0, mypy local pre-push, vtv-security local), `.secrets.baseline`, `docs/CONTRIBUTING.md`, `make bootstrap` + updated `make install-hooks`, CI `pre-commit run --all-files` step in `ci.yml`, 2 new security convention tests (`test_precommit_framework_config_exists`, `test_secrets_baseline_exists`). All 12 SDLC security gate tests pass. Plan: `.agents/plans/ops-1-1-pre-commit-config.md`.
-
-#### OPS-1.2 Structured-Log Secret Sanitization Filter ✅ (2026-04-12)
-**What:** Add a `structlog` processor that redacts known-sensitive field names from every log event before JSON serialization, plus a regex scrubber for `exc_info` stack frames.
-**Delivered:** `app/core/logging.py` — `SENSITIVE_KEYS` frozenset (13 keys), `_redact_value()` recursive dict/list redactor, `_redact_exc_text()` regex scrubber (env vars, Bearer tokens, JWTs), `redact_sensitive()` processor wired between `format_exc_info` and `JSONRenderer`. 9 unit tests in `app/core/tests/test_logging.py`, 2 security convention tests (`TestLogSecretSanitization`) in `app/tests/test_security.py` + added to `REQUIRED_TEST_CLASSES`. All 110 security tests pass. Plan: `.agents/plans/ops-1-2-log-secret-sanitization.md`.
-
-#### OPS-1.3 Credential Rotation Runbook ✅ (2026-04-12)
-**Status:** Done — `docs/runbooks/credential-rotation.md` covers all 15 secrets across 11 sections (JWT, AUTH_SECRET, PostgreSQL, Redis, 3 LLM API keys, Embedding, Sentry DSN, Hetzner SSH, Traccar webhook, SSL certs, GitHub Actions). Each section: Location, Rotation Command, Downtime, Verification, Rollback. Emergency full-rotation procedure for compromise scenarios. `docs/runbooks/README.md` runbook index created. `CLAUDE.md` § Operations cross-link added. Plan: [.agents/plans/ops-1-3-credential-rotation-runbook.md](../.agents/plans/ops-1-3-credential-rotation-runbook.md).
-
-**What:** Write `docs/runbooks/credential-rotation.md` with step-by-step procedures for rotating every secret VTV holds (JWT secret key, GROQ, Google, Jina, Sentry DSN, Redis password, PostgreSQL password, Hetzner SSH key, GitHub Actions secrets). Each secret has: location, rotation command, impact/downtime, verification, rollback.
-**Why:** On-call has zero playbook for an actual credential incident. A compromised GROQ key at 2am today means googling the dashboard and hoping.
-**Implementation:**
-- `docs/runbooks/credential-rotation.md` — one section per secret: **Location** (env var name, where it is set in prod), **Rotation command**, **Downtime** (zero / brief / rolling restart), **Verification** (how to confirm new key works), **Rollback**.
-- `docs/runbooks/README.md` — runbook index (creates a runbook home that OPS-5.3 and later phases can extend).
-- Cross-link from `CLAUDE.md` § Operations.
-- Dry-run the runbook against a staging environment for each secret to capture the actual command output as a reference block inside the doc.
-**Verify:** A new on-call engineer can take `docs/runbooks/credential-rotation.md` cold, rotate the GROQ key from scratch, and verify the fallback chain is working without reading any other document.
-
----
-
-### Phase OPS-2: Application Metrics & Deep Health Checks (3 days)
-
-> **Sprint deliverable:** `GET /metrics` exposes Prometheus-format request latency histograms, cache hit/miss counters, agent tool execution time, circuit breaker state, database pool utilization, and background poller liveness. `GET /health` probes every critical dependency in parallel and returns a structured per-dependency status object, not just a 200.
-
-#### OPS-2.1 Prometheus `/metrics` Endpoint ✅ (2026-04-12)
-**What:** Add `prometheus-client` dependency and expose a `/metrics` endpoint on the main FastAPI app. Register core counters, histograms, and gauges for HTTP requests, DB pool, Redis cache, agent execution, circuit breaker state (wiring the AI-8.1 breaker's state transitions to a gauge), and background-poller liveness.
-**Why:** Sentry/GlitchTip tracks errors but gives zero visibility into latency percentiles, cache hit rates, provider health over time, or rate of "slow but not failing" requests. Ops is blind to degradation until the error rate spikes — that is a 15-minute lag minimum.
-**Implementation:**
-- `pyproject.toml` — add `prometheus-client ^0.21`.
-- `app/core/metrics.py` (new):
-  - `REQUEST_LATENCY = Histogram("vtv_http_request_duration_seconds", "HTTP request latency", ["method", "path", "status"], buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0))`
-  - `DB_POOL_IN_USE = Gauge("vtv_db_pool_in_use", "SQLAlchemy connections in use")` + `DB_POOL_SIZE`, `DB_POOL_OVERFLOW`
-  - `REDIS_CACHE_HITS = Counter("vtv_redis_cache_hits_total", "Redis cache hit count", ["cache_name"])` + parallel `_misses_total`
-  - `AGENT_TOOL_DURATION = Histogram("vtv_agent_tool_duration_seconds", "Agent tool invocation latency", ["tool_name", "status"])`
-  - `CIRCUIT_BREAKER_STATE = Gauge("vtv_circuit_breaker_state", "0=closed 1=half_open 2=open", ["provider"])`
-  - `POLLER_LAST_TICK = Gauge("vtv_poller_last_tick_seconds", "Seconds since the poller last ticked", ["poller_name"])`
-- `app/main.py` — mount `prometheus_client.make_asgi_app()` at `/metrics`. Access control via IP allowlist at the reverse-proxy layer (scrapers do not carry JWTs).
-- `app/core/metrics_middleware.py` — async middleware that wraps request handling and records `REQUEST_LATENCY.labels(method, path_template, status).observe(duration)`. Path templates come from FastAPI's route resolver, NOT the raw URL, to keep cardinality finite.
-- Wire observations at call sites:
-  - `app/core/rate_limit.py` — Redis hit/miss counters
-  - `app/core/agents/circuit_breaker.py` — update `CIRCUIT_BREAKER_STATE` gauge inside `_transition_to_*` hooks (reuses the existing AI-8.1 state machine)
-  - Agent tool layer — wrap tool calls with a histogram observation decorator
-  - Background pollers (`app/gtfs_rt/poller.py`, WebSocket subscriber, memory lifecycle workers) — update `POLLER_LAST_TICK` gauge on each tick
-- Cardinality guard: document max label combinations per metric in `app/core/metrics.py` docstring. Never label with `user_id` or `vehicle_id` (unbounded).
-- 12 unit tests: middleware path templating (2), histogram bucket correctness (1), counter monotonicity (1), gauge transitions (2), label cardinality guard (1), `/metrics` endpoint returns prometheus format (1), 404 cardinality collapse (path_template = `__not_found__`) (1), disabled-metrics feature flag (2), circuit-breaker gauge wiring (1).
-**Verify:** `curl localhost:8000/metrics` returns prometheus text format. Hit the vehicles endpoint 100 times — `vtv_http_request_duration_seconds_bucket{le="0.5",path="/v1/vehicles"}` increments. Trip the AI-8.1 circuit breaker — `vtv_circuit_breaker_state{provider="groq"}` flips 0 → 2.
-
-#### OPS-2.2 Deep `/health` Endpoint with Dependency Probes ✅ (2026-04-12)
-**What:** Added `GET /health/deep` admin-only endpoint that probes every critical dependency (PostgreSQL, Redis, reranker model, GTFS-RT feeds, background pollers, LLM providers) in parallel and returns a structured `HealthReport` JSON. Upgraded `GET /health/ready` to use concurrent probes via `asyncio.gather`. Preserved all existing endpoints (`/health`, `/health/db`, `/health/redis`, `/health/ready`) with backward-compatible response formats.
-**Implementation:**
-- `app/core/health.py` (rewritten):
-  - `ProbeResult(BaseModel, frozen=True)`: `name`, `status: Literal["ok", "degraded", "down"]`, `latency_ms`, `detail`, `critical`
-  - `HealthReport(BaseModel, frozen=True)`: `status`, `version`, `probes: list[ProbeResult]`, `timestamp` (ISO 8601)
-  - `_run_probe(name, coro, timeout_s=2.0)` — timeout wrapper returning synthetic "down" on timeout
-  - `_aggregate_status()` — ok (all critical ok), degraded (non-critical failed), down (any critical failed)
-  - `_poller_staleness_thresholds()` — per-poller expected intervals (daily crons get 25h grace)
-  - 6 probes: `probe_postgres()` (SELECT 1 + pg_stat_activity), `probe_redis()` (PING), `probe_reranker()` (model loaded check), `probe_pollers()` (POLLER_LAST_TICK gauge), `probe_gtfs_rt_feeds()` (transit_feed staleness), `probe_llm_providers()` (circuit breaker state)
-  - `GET /health/deep` — admin-only via `require_role("admin")`, rate limited 60/min, TTL-cached (5s default via `health_deep_cache_ttl_seconds`). Returns 200 with status in body (even degraded), 503 only when critical probes down
-- `app/core/config.py`: Added `health_deep_cache_ttl_seconds: float = 5.0`
-- 26 unit tests: 7 backward-compat, 12 probe unit (6 success + 6 failure), 3 aggregation, 4 endpoint/integration (full report, 503, timeout, concurrency)
-**Verify:** Stop Redis → `/health/ready` returns 503 with `redis: unavailable`. `/health/deep` returns full JSON with all 6 probe categories. All probes complete in under 500ms even when one times out.
-
-#### OPS-2.3 SLO Definitions + Prometheus Alert Rules ✅ (2026-04-12)
-**What:** SLO definitions in `docs/slos.md` with targets, error budgets, and rationale for all OPS-2.1 metrics. Prometheus alert rules in `ops/prometheus/alerts.yml` — 7 rules across 5 groups (latency p95/p99, error rate, DB pool exhaustion, circuit breaker open, poller staleness, agent tool slowness). 5 runbooks in `docs/runbooks/` (high-latency, high-error-rate, circuit-breaker-open, poller-stale, db-pool-exhaustion) with consistent Alert/Impact/Investigation/Remediation/Escalation structure. 24 convention tests in `app/tests/test_ops_conventions.py` validate YAML structure, runbook existence, and cross-references. `make validate-alerts` Makefile target for quick YAML validation.
-**Deliverables:**
-- `docs/slos.md` — SLO table: API latency (p95 < 500ms, p99 < 2s), error rate (< 1%), DB pool (< 80%), circuit breaker (closed), poller liveness (< 4x interval).
-- `ops/prometheus/alerts.yml` — 7 Prometheus alerting rules keyed to OPS-2.1 metric names. Each rule has severity label, summary/description annotations with `{{ $value }}` templates, and `runbook_url` pointing to existing runbook files.
-- `ops/prometheus/README.md` — setup instructions for loading rules into Prometheus.
-- `docs/runbooks/` — 5 new runbooks with investigation steps and remediation procedures.
-- `app/tests/test_ops_conventions.py` — 24 convention tests (YAML structure, alert field validation, runbook cross-references, SLO doc existence).
-- `Makefile` — `validate-alerts` target.
-**Verify:** `make validate-alerts` exits 0. `uv run pytest app/tests/test_ops_conventions.py -v` — 24/24 pass. Plan: `.agents/plans/ops-2.3-slo-definitions-alerts.md`.
-
----
-
-### Phase OPS-3: Durable Background Jobs & Graceful Shutdown (3 days)
-
-> **Sprint deliverable:** Background work (memory compaction, episodic-to-procedural promotion, GTFS-RT polling, WebSocket pub/sub) survives Gunicorn restarts without data loss, respects a coordinated shutdown sequence, and exposes completion status via metrics + a small admin API.
-
-#### OPS-3.1 Shutdown Coordinator for Lifespan Tasks ✅
-**Status:** Done — `app/core/shutdown.py` implements `ShutdownCoordinator` with LIFO drain order, per-task `asyncio.wait_for` timeouts, and structured `ShutdownReport`. `ShutdownTask` dataclass (`frozen=True`) holds `name`, `drain_timeout_s`, and `drain: Callable[[], Awaitable[None]]`. `ShutdownReport` tracks `tasks_drained`, `tasks_timed_out`, `tasks_failed`, and `total_duration_ms`. Idempotent `register()` — duplicate names silently ignored. `app/main.py` lifespan refactored: all 8 lazy imports moved to top-level; 12 tasks registered (5 infrastructure singletons: database/redis/agent_clients/agent_service/transit_service + 7 background tasks: transit_pollers/websocket/alert_evaluator/geofence_evaluator/weather_etl/traffic_etl/memory_tasks) with per-task drain budgets (2-5s each, 36s worst-case sum). Shutdown block replaced with `coordinator.shutdown()` + `shutdown.report` log. `close_ws_manager()` (sync) wrapped in async `_close_ws()` alongside `stop_ws_subscriber()`. Gunicorn `--graceful-timeout` bumped from 30 to 45s (36s budget + 9s safety margin). 7 structured log events: `shutdown.task.registered` (debug), `shutdown.coordinator.no_tasks`, `shutdown.coordinator.started`, `shutdown.task.drained`, `shutdown.task.timeout`, `shutdown.task.failed`, `shutdown.coordinator.completed`. 10 unit tests: LIFO drain order, timeout enforcement, fast task unaffected, failure continues next task, report aggregation, empty coordinator noop, idempotent registration, structured log events, partial drain, total_duration_ms populated. Plan: `.agents/plans/ops-3-1-shutdown-coordinator.md`. (2026-04-12)
-
-**What:** Replace the ad-hoc cancel loop in `app/main.py` lifespan with a `ShutdownCoordinator` that tracks every long-running task, honors per-task drain timeouts, and logs a structured shutdown report before the process exits.
-**Why:** Gunicorn's default graceful-timeout is 30s. If memory compaction (in `app/memory/lifecycle.py`) is mid-run, it gets SIGKILL'd and can leave the embedding cache inconsistent. Coordinated shutdown with explicit per-task budgets gives each background job a chance to reach a stable checkpoint.
-**Verify:** Start VTV, begin a long-running memory compaction, issue `docker stop vtv-api`. Shutdown report logs each task drained in order; none are killed by Gunicorn's timeout. Memory cache remains consistent on next startup.
-
-#### OPS-3.2 Durable Job Queue for Memory Lifecycle ✅
-**What:** Move `app/memory/lifecycle.py`'s async-task-based compaction and episodic-to-procedural promotion onto a persistent job queue (Arq on Redis, chosen for async-native integration + minimal surface area). Jobs survive process restarts and can be retried.
-**Why:** Bare `asyncio.create_task()` dies with the process. If Gunicorn restarts during a 4-hour compaction run, the job is gone and procedural promotion never catches up, silently degrading agent memory quality over time. A durable queue gives at-least-once semantics with retry on transient failure.
-**Implementation:**
-- `pyproject.toml` — add `arq ^0.26` (picked over Celery for async-first simplicity; RQ would also work but is sync).
-- `app/core/jobs/queue.py` (new) — wraps `arq.create_pool()`; exposes `enqueue(task_name: str, *args, _defer_until: datetime | None = None, _job_id: str | None = None)`.
-- `app/core/jobs/worker.py` — Arq `WorkerSettings`: Redis conn from settings, cron entries for scheduled compaction (every 6h) and promotion (daily 03:00 UTC).
-- `app/memory/lifecycle.py`:
-  - Extract compaction logic into `async def run_compaction(ctx: dict[str, Any]) -> CompactionResult`
-  - Extract promotion logic into `async def run_promotion(ctx: dict[str, Any]) -> PromotionResult`
-  - Delete the `asyncio.create_task()` scheduling — the worker cron handles it
-- `docker-compose.yml` — add `vtv-worker` service running `arq app.core.jobs.worker.WorkerSettings`
-- `docker-compose.prod.yml` — same, with resource limits matching `vtv-api`
-- Admin API: `GET /admin/jobs/status` returns last run, next run, failure count for each scheduled job (reuses existing admin auth stack)
-- Feature flag: `BACKGROUND_QUEUE_ENABLED` (default `false` during rollout so existing behavior is preserved byte-for-byte)
-- 14 integration tests: enqueue + execute (2), scheduled cron trigger (1), retry on failure (2), job idempotency via `_job_id` (1), worker survives Redis reconnect (1), compaction result persisted (1), promotion result persisted (1), admin status API (2), feature-flag gating (2), shutdown coordinator integration (1).
-**Verify:** Start worker, kill it mid-compaction, restart. The job re-enqueues from cron within 6h and completes successfully. Admin status API shows `last_run`, `next_run`, `last_result`.
-
-#### OPS-3.3 Redis Cache Invalidation Strategy ✅
-**What:** Add explicit cache invalidation hooks for entities whose mutation should invalidate cached reads: stops (position cache), routes (route cache), vehicles (position cache), geofences (spatial cache). Wire into the repository layer so mutations auto-invalidate without per-call-site boilerplate.
-**Why:** Redis caches vehicle positions (120s TTL) and other entities but there is no bulk invalidation when upstream data changes. A stop moving via a GTFS re-import leaves stale lat/lon cached for up to 120s, which breaks geofence detection and proximity search during migration windows.
-**Implementation:**
-- `app/core/cache/invalidation.py` (new):
-  - `CacheInvalidator` — keyed namespaces (`stops:*`, `routes:*`, `vehicles:position:*`, `geofences:spatial:*`)
-  - `async invalidate(namespace: str, *keys: str) -> int` — `DEL` for exact keys; `SCAN` + `DEL` for wildcard on namespace
-  - `async invalidate_pattern(pattern: str, *, batch_size: int = 100) -> int` — scan in batches to avoid blocking Redis
-- Repository layer:
-  - `app/stops/repository.py` — invalidate `stops:{stop_id}` on create/update/delete
-  - `app/schedules/service.py` — invalidate `stops:*` + `routes:*` after GTFS import commit
-  - `app/geofences/repository.py` — invalidate `geofences:spatial:*` on create/update/delete
-- Convenience functions: `invalidate_stop_cache()`, `invalidate_geofence_cache()`, `invalidate_vehicle_position_cache()`, `invalidate_route_cache()`
-- Observability: `cache.invalidation.performed` / `cache.invalidation.failed` structured log events. `vtv_redis_cache_invalidations_total` Prometheus counter.
-- 11 unit tests: exact-key invalidation (1), pattern invalidation with batching (2), empty-result handling (2), repository-hook auto-invalidation (4), metric emission (1), Redis failure swallowed (1).
-**Verify:** Cache a vehicle position, update its stop via CMS → next read returns fresh data. GTFS re-import → all stop caches cleared within 1s. Invalidation never calls `FLUSHDB`.
-
----
-
-### Phase OPS-4: Per-User Rate Limiting & RBAC Scoping (4 days)
-
-> **Sprint deliverable:** Rate limits are enforced per authenticated user (not global), dispatcher queries are scoped to their assigned routes/depots via a repository-layer filter, and every denied authorization check is audit-logged for compliance review.
-
-#### OPS-4.1 Per-User Rate Limit Bucketing ✅ done 2026-04-13
-**What:** `RateLimitIdentityMiddleware` in `app/core/rate_limit.py` decodes JWT (HMAC-only, no DB) to populate `request.state.rate_limit_user_id/role`. `_user_or_ip_key` returns `user:{id}:{role}` or `ip:{ip}:anonymous`. Role-based tier default limits via `_dynamic_tier_limit` callable (admin 1000/min, dispatcher 300/min, editor 100/min, viewer 50/min, anonymous 30/min). Sub-bucket keys for chat (10/min per user) and analytics export (5/hour per user). Config: `RATE_LIMIT_TIER_{ROLE}`, `RATE_LIMIT_AGENT_CHAT`, `RATE_LIMIT_ANALYTICS_EXPORT`. 20 unit tests + 3 convention tests. Plan: `.agents/plans/ops-4-1-per-user-rate-limit-bucketing.md`.
-
-#### OPS-4.2 Dispatcher-Scoped Query Filters (RBAC Scoping) ✅ done 2026-04-13
-**What:** `RequestScope` frozen dataclass + `get_request_scope` FastAPI dependency in `app/core/auth/scope.py`. Resolves RBAC scope from user role + `dispatcher_assignments` table. Admin/editor/viewer = unrestricted (`route_ids=None`), dispatcher = `frozenset[int]` of assigned route IDs. Injected into vehicle (list/get/maintenance), schedule (list_routes/get_route), and alert (list_alerts) endpoints. Repository layer: `VehicleRepository.list/count` fail-closed with `RBACConfigurationError` if scope missing; `get()` optional scope for read endpoints. `VehicleRouteQualification` junction table in `app/vehicles/models.py` replaces CSV `qualified_route_ids` for queryable FK-based vehicle-to-route scoping. Alert scope filters by `source_entity_type` (route direct, vehicle via junction, geofence/feed passthrough). Admin assignment CRUD: 4 endpoints at `/api/v1/admin/assignments` (list, create, bulk replace, delete), all admin-only + rate-limited. Security: fail-closed semantics, 404 not 403 for out-of-scope, empty 200 for zero assignments. Migration: `p9q0r1s2t3u4_add_dispatcher_assignments.py` (2 tables). 15 new tests + 8 updated existing tests (91 total in affected files). Plan: `.agents/plans/ops-4-2-dispatcher-scoped-query-filters.md`.
-
-#### OPS-4.3 Authorization Audit Log ✅ done 2026-04-13
-**What:** `emit_auth_denial()` in `app/core/auth/audit.py` emits structured `auth.audit.denied` log events and fire-and-forget persists to `auth_audit_events` TimescaleDB hypertable (daily chunks, 7-day compression, 90-day retention). Wired into all 6 auth denial points in `app/auth/dependencies.py` (missing credentials, invalid token, revoked token, user not found, inactive account, role check failure) plus custom 429 handler in `app/core/rate_limit.py`. `AuthAuditRepository` with filtered list/count queries. Admin query API: `GET /api/v1/admin/audit/auth` (admin-only, 30/min rate limit, paginated, filters: user_id, date range, enforcement_layer). PII sanitization strips password/token/authorization from extra dict. Config: `auth_audit_enabled` (default true), `auth_audit_retention_days` (default 90). Migration: `q1r2s3t4u5v6_add_auth_audit_events_hypertable.py`. 13 unit tests. Plan: [.agents/plans/ops-4-3-auth-audit-log.md](../.agents/plans/ops-4-3-auth-audit-log.md). (2026-04-13)
-
----
-
-### Phase OPS-5: DX & Documentation Hardening (3 days)
-
-> **Sprint deliverable:** Baseline type errors cleared, four core ADRs committed, database ER diagram auto-generated from SQLAlchemy models, and the logging event taxonomy is exhaustive enough to power GlitchTip dashboards without reverse-engineering the code.
-
-#### OPS-5.1 Clear Baseline Type Errors in Agent Tools + Pipeline -- DONE (2026-04-12)
-**What:** Fix the 8 pre-existing type errors (5 pyright, 3 mypy) called out in the AI-8.1 completion note: `app/core/agents/tools/transit/client.py`, `app/core/agents/tools/transit/static_store.py`, `app/core/agents/pipeline.py`. No suppressions — fix the underlying types.
-**Why:** "Strict type safety" is contradicted by 8 known errors that CI has been told to ignore. These will quietly multiply as the agent surface grows. Clearing them now resets the baseline to zero and lets CI fail on any regression.
-**Implementation:**
-- Created `typings/google/transit/gtfs_realtime_pb2.pyi` — protobuf type stubs covering all attributes `client.py` accesses (FeedMessage, FeedEntity, VehiclePosition, TripUpdate, Alert, etc.). Classes inherit `google.protobuf.message.Message` for `HasField()` typing.
-- Made `_CacheEntry` generic using PEP 695 syntax (`class _CacheEntry[T]`) — each cache field now stores a precisely typed `list[T]`, eliminating the 6 `# type: ignore[return-value]` comments from union-typed `.data` returns.
-- Removed all 3 pyright file-level suppression directives (`reportUnknownVariableType`, `reportUnknownMemberType`, `reportUnknownParameterType`, `reportUnknownArgumentType`, `reportAttributeAccessIssue`).
-- Updated test file with `_CacheEntry[object]` type annotations for mypy `var-annotated` compliance.
-- `static_store.py` and `pipeline.py` confirmed clean (0 errors, 0 suppressions) — no changes needed.
-**Verify:** `uv run mypy app/` → 0 errors (375 files). `uv run pyright app/` → 0 errors. All 104 transit tool tests + 500 agent tests pass.
-
-#### OPS-5.2 Architecture Decision Records -- DONE (2026-04-12)
-**What:** Write 4 short ADRs capturing the non-obvious architectural choices already in the codebase: (1) Vertical Slice Architecture, (2) Pydantic AI over LangChain, (3) Redis for embedding + position cache, (4) slowapi vs reverse-proxy rate limiting. ADR template: status, context, decision, consequences.
-**Why:** Onboarding currently requires archaeology. New contributors re-propose LangChain, re-propose per-feature `shared/` folders, re-propose reverse-proxy rate limits — all already decided and rejected for reasons nobody wrote down. ADRs block the time-sink.
-**Implementation:**
-- `docs/adr/0001-vertical-slice-architecture.md`
-- `docs/adr/0002-pydantic-ai-over-langchain.md`
-- `docs/adr/0003-redis-for-cache-layer.md`
-- `docs/adr/0004-slowapi-rate-limiting.md`
-- `docs/adr/README.md` — index + Nygard ADR template (status / context / decision / consequences)
-- Cross-link from `CLAUDE.md` § Operations and main `README.md` § Key References.
-**Verify:** Each ADR reads self-contained: a new contributor can read ADR-0002 cold and understand why Pydantic AI won over LangChain without reading any code.
-
-#### OPS-5.3 Database ER Diagram from SQLAlchemy Models ✅
-**Status:** Implemented. `make er-diagram` generates 24-table Mermaid ER diagram with FK relationships. Convention tests in `TestERDiagram`. Also fixed 4 missing model imports in `alembic/env.py` (alerts, fleet, geofences, memory). Pre-commit hook for migration sync not added (deferred — low priority given deterministic regeneration).
-**Files:** `scripts/generate_er_diagram.py`, `docs/schema/er.md`, `Makefile`, `alembic/env.py`, `app/tests/test_security.py`.
-
-#### OPS-5.4 Logging Taxonomy Audit + Backfill ✅
-**Status:** Implemented. `scripts/audit_log_taxonomy.py` scans all `logger.*` calls in `app/` (multiline-aware regex, excludes tests/), parses tree-structured taxonomy from `docs/logging-standard.md`, and reports undocumented events. `docs/logging-standard.md` updated to v2.0.0 with 301 documented events across 17 infrastructure domains (agent, transit, shutdown, jobs, memory, cache, redis, health, rbac, anomaly, etc.). Feature-domain CRUD events covered by documented standard pattern. Ignore flags: `--ignore-patterns crud,examples,evals,feature`. CI gate via `TestLoggingTaxonomy` (3 tests) in `app/tests/test_ops_conventions.py`. `make audit-log-taxonomy` runs standalone.
-**Files:** `scripts/audit_log_taxonomy.py`, `docs/logging-standard.md`, `app/tests/test_ops_conventions.py`, `Makefile`. Plan: [.agents/plans/ops-5.4-logging-taxonomy-audit.md](../.agents/plans/ops-5.4-logging-taxonomy-audit.md). (2026-04-13)
-
----
-
-### Operations & Platform Hardening — Summary
-
-| Phase | Focus | Days | Depends on |
-|-------|-------|------|------------|
-| OPS-1 | Secrets discipline + rotation runbook | 1 | — |
-| OPS-2 | Prometheus /metrics + deep /health + alerts | 3 | AI-8.1 (for breaker gauge) |
-| OPS-3 | Graceful shutdown + durable job queue + cache invalidation | 3 | — |
-| OPS-4 | Per-user rate limiting + RBAC scoping + audit log | 4 | — |
-| OPS-5 | Type baseline + ADRs + ER diagram + logging taxonomy | 3 | — |
-
-Total operational hardening: **14 days** across 16 subtasks. **All 16 subtasks complete**.
+## Completed Tracks — Archived
+
+**Agent Intelligence** (AI-1 through AI-11) — all 40 subtasks complete. See [TODO-archive.md](TODO-archive.md).
+**Operations & Platform Hardening** (OPS-1 through OPS-5) — all 16 subtasks complete. See [TODO-archive.md](TODO-archive.md).
+**Intelligence/ML** (ML-1 through ML-5) — all 17 subtasks complete. See [TODO-archive.md](TODO-archive.md).
 
 ---
 
 ## Planned Features
 
-### Full Latvia Transit Platform
+> Plan: [docs/PLANNING/Implementation-Plan.md](PLANNING/Implementation-Plan.md) | [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) | [docs/PLANNING/rag-improvements.md](PLANNING/rag-improvements.md) | [docs/PLANNING/sop-file-automation.md](PLANNING/sop-file-automation.md)
 
-- [ ] **Phase 1: Foundation** - Database extensions (TimescaleDB), GTFS static importer for all Latvia, CKAN data.gov.lv bridge for immediate ATD data, full-screen transit map in CMS. ~3 weeks remaining effort. *Largely done: GTFS import, Redis cache, REST endpoints, GTFS-RT poller, PostGIS spatial queries (GeoAlchemy2 + GIST index), WebSocket live streaming (backend Pub/Sub + frontend real-time push with HTTP fallback), persistent GTFS storage (DB-backed static data for agent tools), and TimescaleDB historical position storage (hypertable, compression, 90-day retention, vehicle history + delay trend endpoints) are complete. Remaining: multi-city GTFS, CKAN bridge, full-screen map.*
-  - Plan: [docs/PLANNING/Implementation-Plan.md](PLANNING/Implementation-Plan.md) (Phase 1)
+### Master Summary — 34 subtasks remaining
 
-- [ ] **Phase 2: Full Latvia Coverage** - Additional city feeds (Daugavpils, Jurmala, Pieriga), train positions via WebSocket, Valhalla route matching, ETA calculator, adaptive polling, circuit breakers, TimescaleDB compression, GTFS-RT publisher. ~4 weeks effort.
-  - Plan: [docs/PLANNING/Implementation-Plan.md](PLANNING/Implementation-Plan.md) (Phase 2)
+| Track | Subtasks | BE | FE | Mobile | Infra | Realistic Total |
+|-------|----------|----|----|--------|-------|-----------------|
+| Latvia Phase 1 | 2 | 2 | 0 | — | — | ~3h |
+| Latvia Phase 2 | 4 | 4 | — | — | — | ~1.5 days |
+| Latvia Phase 3 | 4 | 3 | 1 | — | 2 | ~2 days |
+| Knowledge Base | 5 | 5 | 0.5 | — | — | ~6h |
+| SOP Automation | 5 | 5 | 0.5 | — | — | ~1 day |
+| Fleet Phase 2 | 3 | 2 | 1 | — | — | ~2 days |
+| Fleet Phase 3 | 3 | 2 | 1 | — | — | ~2.5 days |
+| Fleet Phase 4 | 2 | 1 | 1 | — | 1 | ~1 day |
+| Fleet Phase 5 | 2 | 1 | — | 1 | — | ~2 days |
+| CMS Features | 1 | 0.5 | 0.5 | — | — | ~30min |
+| **Totals** | **34** | **25.5** | **5.5** | **1** | **3** | **~13 days serial** |
 
-- [ ] **Phase 3: Intercity Gap-Fill** - OwnTracks integration for phone-based tracking, Traccar integration for hardware GPS (Teltonika FMB920), OpenTripPlanner for journey planning, shareable tracking links, historical analytics. ~8 weeks effort.
-  - Plan: [docs/PLANNING/Implementation-Plan.md](PLANNING/Implementation-Plan.md) (Phase 3)
+### Max Parallel Schedule (~5 days with 3 sessions)
 
-- [ ] **Phase 4: Intelligence** — Detailed breakdown in [§ Intelligence/ML — Phased Implementation](#intelligenceml--phased-implementation) below (ML-1..ML-5, ~33 days across 17 subtasks).
-  - Plan: [docs/PLANNING/Implementation-Plan.md](PLANNING/Implementation-Plan.md) (Phase 4)
+```
+Day 1:  Session A: LV-1.1 + LV-1.2 (BE)    | Session B: CMS-1 (FE)               | Session C: KB-1..KB-5 (BE)
+Day 2:  Session A: LV-2.1 + LV-2.2 (BE)     | Session B: SOP-1..SOP-3 + SOP-5 (BE)| Session C: FLEET-2.1 + FLEET-2.2 (BE)
+Day 3:  Session A: LV-2.3 + LV-2.4 (BE)     | Session B: LV-3.1 + LV-3.2 (BE)    | Session C: TACHO-1 (BE)
+Day 4:  Session A: LV-3.3 (BE+FE)            | Session B: LV-3.4 + FLEET-2.3 (BE) | Session C: TACHO-2 + TACHO-3 (BE+FE)
+Day 5:  Session A: ROUTE-1 + ROUTE-2 (BE+FE) | Session B: MSG-1 (BE)               | Session C: SOP-4 + MSG-2 (BE+Mobile)
+```
 
-### Fleet Management & Vehicle Tracking (LocTracker-inspired)
+### Cross-Track Dependencies
 
-- [ ] **Phase 2: Fuel + Analytics + LocShare** — Fuel monitoring (refueling/drain detection from OBD), fuel consumption analytics, fleet distance/drive time reports, idle time detection, LocPoints dwell time, LocShare (JWT expiring public tracking links), PDF/CSV report export, speed/device-offline alerts. CMS: fuel dashboard, analytics pages, LocShare management. ~27 days effort.
-  - Plan: [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) (Phase 2)
+```
+~~LV-1.2 (multi-city GTFS)~~ ✅ ──→ SOP-4 (GTFS schedule sync) — unblocked
+LV-3.4 (LocShare) ──────────→ FLEET-2.3 (fleet LocShare)
+TACHO-1 (DDD parser) ───────→ TACHO-2 (driving hours) ──→ TACHO-3 (dashboard)
+ROUTE-1 (OSRM backend) ────→ ROUTE-2 (planning UI)
+MSG-1 (messaging API) ──────→ MSG-2 (mobile app)
+Everything else is independent and can run in any order.
+```
 
-- [ ] **Phase 3: Tachograph + Driving Hours Compliance** — `app/tachograph/` vertical slice: remote DDD file download (Teltonika Web Tacho + flespi), DDD binary parser, EU 561/2006 driving hours calculator (daily 9/10h, weekly 56h, biweekly 90h, monthly 160h), compliance status endpoints, infringement detection, driving hours alerts. CMS: compliance dashboard, activity timeline, DDD management, violation reports. ~36 days effort.
-  - Plan: [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) (Phase 3)
+---
 
-- [ ] **Phase 4: Routing + Maps Fallback** — OSRM self-hosted (Latvia OSM extract) as Docker sidecar, HERE Fleet Telematics API fallback, route optimization for service vehicles. CMS: route planning UI with map waypoints. ~15 days effort.
-  - Plan: [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) (Phase 4)
+### Latvia Transit — Phase 1 Remaining (~3 hours)
 
-- [ ] **Phase 5: Driver Mobile App + Messaging** — `app/messaging/` vertical slice (dispatcher↔driver messaging, task assignment), React Native mobile app (live map, alerts, messaging, tasks), push notifications (FCM/APNs). ~28 days effort.
-  - Plan: [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) (Phase 5)
+> **Sprint deliverable:** Extend Riga-only coverage to all Latvia via CKAN bridge (day-zero intercity data) + multi-city GTFS import. Full-screen `/map` CMS page is done (LV-1.3). Architecture is already multi-feed (TRANSIT_FEEDS_JSON, per-feed pollers, namespaced Redis keys, pattern-subscribe WS) — this phase fills in the data.
 
-### Knowledge Base
+| Subtask | Type | Realistic | Parallel? |
+|---------|------|-----------|-----------|
+| LV-1.1 CKAN bridge | BE | ~1.5h | ✅ Yes — independent |
+| ~~LV-1.2 Multi-city GTFS~~ | BE | ✅ Done | Implemented 2026-04-13 — plan: `.agents/plans/lv-1-2-multi-city-gtfs-import.md` |
+| ~~LV-1.3 Full-screen `/map`~~ | FE | ✅ Done | Implemented 2026-04-13 — plan: `.agents/plans/fe-full-screen-map.md` |
 
-- [ ] **RAG Knowledge Base Improvements** — Remaining scope after AI-1..AI-7: PPTX extractor, Latvian UDPipe lemmatizer for BM25 stemming, document versioning with diff-aware search, search feedback loop (thumbs-up/down → RRF weight tuning), and entity/knowledge-graph overlay. ~9.5 days effort, ~$0.55/month added cost. _Parent-child chunking, temporal metadata, auto-domain tagging, cross-lingual search, and Excel/CSV are already shipped — see plan doc for status. HTML support dropped as not needed._
-  - Plan: [docs/PLANNING/rag-improvements.md](PLANNING/rag-improvements.md)
+#### LV-1.1 CKAN data.gov.lv Bridge Client
+**What:** Create `app/transit/ckan_client.py` — async client wrapping the CKAN Datastore SQL API at `data.gov.lv`. Provides `query_sql(resource_id, sql)` with response caching (5 min TTL via Redis), error handling, and pagination for >32K row results. Register 2 new agent tools: `search_intercity_stops`, `search_intercity_routes`.
+**Why:** ATD intercity GTFS is queryable via CKAN SQL API — zero infrastructure needed. Gives the agent immediate intercity data access (10K stops, all regional routes) while the full GTFS importer is extended for multi-city. CKAN becomes fallback after local DB is primary.
+**Implementation:**
+- `app/transit/ckan_client.py`:
+  - `CKANClient` class with `query_sql(resource_id: str, sql: str) -> list[dict]` — uses existing `httpx.AsyncClient`
+  - `CKAN_RESOURCES` dict mapping table names to resource IDs (stops, routes, trips, stop_times, shapes, calendar, calendar_dates, fare_attributes, fare_rules, agency)
+  - Response caching: Redis key `ckan:{sha256(sql)}` with 300s TTL
+  - Pagination: auto-detect 32K limit, fetch remaining via OFFSET
+  - Rate limiting: 1 req/s to avoid hammering data.gov.lv
+- `app/core/agents/tools/transit/search_intercity.py`:
+  - `search_intercity_stops(query: str, lat: float | None, lon: float | None, limit: int)` — name LIKE search or Haversine proximity via CKAN SQL
+  - `search_intercity_routes(query: str, stop_name: str | None)` — route search with optional stop filter
+- `app/core/config.py` — `ckan_base_url: str = "https://data.gov.lv/dati/eng/api/action/datastore_search_sql"`, `ckan_cache_ttl_s: int = 300`
+- 12+ unit tests: SQL query execution (2), caching hit/miss (2), pagination (2), rate limiting (1), agent tool integration (3), error handling (2)
+**Verify:** Agent query "Which intercity buses stop in Liepāja?" → `search_intercity_routes` fires, returns ATD routes via CKAN SQL API. Response cached — second query returns in <10ms. `search_intercity_stops(lat=56.95, lon=24.11, limit=5)` returns 5 nearest ATD stops.
 
-- [ ] **SOP & File Automation** - Automated document ingestion (folder watcher, email monitor, web scraper, GTFS sync) and LLM-powered SOP generation (incident-to-SOP pipeline, regulation change detection, shift handover notes, template scaffolding). ~13 days total effort, ~$4.50/month LLM cost, saves ~47 hrs/month human time.
-  - Plan: [docs/PLANNING/sop-file-automation.md](PLANNING/sop-file-automation.md)
+#### ~~LV-1.2 Multi-City GTFS Static Import~~ ✅ Done (2026-04-13)
+**What:** Extend `app/schedules/gtfs_import.py` to support multiple GTFS feeds by namespacing all parsed entities with `feed_id`. Add GTFS feed management endpoints and a scheduled background task that re-imports each feed daily.
+**Why:** Current importer overwrites all data on each run — fine for single-feed Riga, breaks with multiple cities. Feed-scoped imports let Riga, Jurmala, Pieriga, and ATD coexist in the same DB tables. The `Shape` model already carries `feed_id`; other models need the same treatment.
+**Implementation:**
+- `alembic/versions/xxx_add_feed_id_to_gtfs_tables.py` — add `feed_id` column (default `"riga"`) + composite unique constraints to `routes`, `trips`, `stop_times`, `calendar`, `calendar_dates`, `agencies`. Backfill existing rows with `"riga"`.
+- `app/schedules/gtfs_import.py` — `GTFSImporter.__init__(feed_id: str)` propagates `feed_id` to all parsed entities. `GTFSParseResult` includes `feed_id`.
+- `app/schedules/service.py` — `import_feed(feed_id, url)` downloads ZIP, delegates to importer, upserts (delete old feed rows + insert new in a transaction)
+- `app/schedules/routes.py` — `POST /v1/schedules/feeds/{feed_id}/import` (admin-only), `GET /v1/schedules/feeds` (list configured feeds + last import timestamp)
+- `app/main.py` — background task: daily at 03:00 UTC, loop `settings.transit_feeds`, re-import static GTFS for each feed with a valid `static_url`
+- `TRANSIT_FEEDS_JSON` — add entries for ATD (`https://atd.lv/sites/default/files/GTFS/gtfs-latvia-lv.zip`), Jurmala, Pieriga
+- 15+ unit tests: feed-scoped parsing (3), upsert idempotency (2), composite unique constraints (2), multi-feed coexistence (2), background task scheduling (2), endpoint auth (2), migration rollback (2)
+**Verify:** Import Riga + ATD feeds. `SELECT feed_id, COUNT(*) FROM routes GROUP BY 1` shows two rows. Re-import Riga — ATD routes untouched. Agent tools query routes across feeds. GTFS export still works for single-feed download.
+
+#### LV-1.3 Full-Screen `/map` CMS Page
+**What:** New CMS page at `/map` — full-viewport Leaflet map showing all live vehicles from all feeds, with operator/route/vehicle-type filters, click-to-inspect panel, and WebSocket real-time updates. Builds on existing `RouteMap` component which already supports multi-feed markers and feed health overlay.
+**Why:** Current map is a 60/40 split panel on the routes page — too small for dispatchers monitoring all Latvia. A dedicated full-screen page is the primary operational view for multi-city coverage.
+**Implementation:**
+- `cms/apps/web/src/app/[locale]/(dashboard)/map/page.tsx`:
+  - Full viewport `MapContainer` (no sidebar split)
+  - Feed selector chips (toggle Riga/ATD/Jurmala/Pieriga on/off)
+  - Route type filter (bus/trolleybus/tram/train)
+  - `leaflet.markercluster` for zoom-out with 500+ markers
+  - Click vehicle → side drawer with route, speed, next stop, ETA (from ML-2.3 `predict_eta`)
+  - Click stop → upcoming departures panel
+  - WebSocket connection via existing `useVehiclePositions` hook with `connectionMode: "websocket"`
+- `cms/apps/web/messages/lv.json` + `en.json` — ~30 new i18n keys
+- Sidebar nav entry: "Karte" / "Map" with map icon, visible to all roles
+- Middleware RBAC: viewer+ access
+- SDK: reuse existing `getVehicles()` + WebSocket hooks
+- 6+ component tests
+**Verify:** `/map` loads full-screen. Feed chips toggle Riga/ATD markers. Clicking a vehicle opens the detail drawer. WebSocket pushes update markers in real-time. Zoom out to all-Latvia → markercluster groups dense areas. Performance: 500+ markers render at 60fps.
+
+---
+
+### Latvia Transit — Phase 2: Full Latvia Coverage (~1.5 days)
+
+> **Sprint deliverable:** All available Latvian real-time feeds live on the map, trains visible alongside buses, ML-based ETA integrated into stop departures, circuit breakers per feed, and a published GTFS-RT combined feed for third parties.
+
+| Subtask | Type | Realistic | Parallel? |
+|---------|------|-----------|-----------|
+| LV-2.1 Additional city feeds | BE | ~3h | ✅ Yes — independent |
+| LV-2.2 Train WebSocket | BE | ~3h | ✅ Yes — independent |
+| LV-2.3 Adaptive polling + breakers | BE | ~2h | ✅ Yes — independent |
+| LV-2.4 GTFS-RT publisher | BE | ~2h | ✅ Yes — independent |
+
+#### LV-2.1 Additional City GTFS-RT Feeds
+**What:** Add `TRANSIT_FEEDS_JSON` entries for Jurmala (`marsruti.lv/jurmala/gtfs_realtime.pb`), Pieriga (`marsruti.lv/pieriga/gtfs_realtime.pb`), and Daugavpils (scrape from `satiksme.daugavpils.lv/transports/karte`). Each feed gets its own `FeedPoller` instance — the existing multi-feed architecture handles everything downstream.
+**Why:** Extending coverage from Riga-only to 4+ cities is the core deliverable. The poller, Redis keys, Pub/Sub channels, and WebSocket subscriber are already feed-namespaced — adding a feed is config-only for GTFS-RT sources, scrape-adapter for non-standard sources.
+**Implementation:**
+- `TRANSIT_FEEDS_JSON` — add 3 new entries with `feed_id`, `operator_name`, `rt_vehicle_positions_url`, `poll_interval_seconds` (15s for smaller feeds)
+- `app/transit/daugavpils_scraper.py` (new) — scrapes the Daugavpils map API, normalizes to `VehiclePositionData` dataclass matching GTFS-RT output, feeds into the same Redis write pipeline as `FeedPoller`
+- `app/transit/gps_text_poller.py` (new) — polls simple GPS text endpoints (Liepāja `marsruti.lv/liepaja/gps.txt`, Rēzekne, LSA), parses CSV-like format, normalizes to `VehiclePositionData`
+- Wire scraper + GPS text poller into lifespan startup alongside existing `start_pollers()`
+- Feed monitoring: emit `transit.feed.poll_success` / `transit.feed.poll_failure` structured log events with `feed_id`, `entity_count`, `duration_ms`
+- 10+ unit tests: feed config parsing (2), scraper normalization (3), GPS text parsing (3), multi-feed coexistence in Redis (2)
+**Verify:** Start dev stack with 4+ feeds. `/map` shows vehicles from Riga, Jurmala, Pieriga, Daugavpils with different feed colors. Vehicle count per feed visible in FeedHealthOverlay. Stop one feed — others unaffected.
+
+#### LV-2.2 Train Positions via WebSocket
+**What:** Create `app/transit/train_ws_listener.py` — connects to `wss://trainmap.pv.lv/ws`, parses train position messages, normalizes to `VehiclePositionData` with `feed_id="pv_trains"`, writes to Redis + TimescaleDB via existing pipeline. Reconnects on disconnect with exponential backoff.
+**Why:** Trains are the #1 missing transport mode. PV (Pasažieru Vilciens) publishes live positions via WebSocket — no API key needed. Combining trains with buses gives dispatchers a full Latvia transit view.
+**Implementation:**
+- `app/transit/train_ws_listener.py`:
+  - `TrainWSListener` class with `connect()`, `listen()`, `_normalize(msg) -> VehiclePositionData`
+  - Reconnect with exponential backoff (1s → 2s → 4s → … → 60s max)
+  - Health: `transit.train_ws.connected`, `transit.train_ws.disconnected`, `transit.train_ws.message_received` log events
+- `app/main.py` — register `start_train_ws_listener()` in lifespan, gated by `train_ws_enabled: bool = True` config
+- `TRANSIT_FEEDS_JSON` — add `feed_id="pv_trains"` entry (no GTFS-RT URLs, just metadata for the map)
+- CMS: add train icon variant in `BusMarker` component (different icon for `route_type=2`)
+- 8+ unit tests: message parsing (3), normalization (2), reconnect backoff (2), Redis write (1)
+**Verify:** Start dev stack → trains appear on `/map` as rail icons alongside bus markers. Disconnect Wi-Fi for 10s → listener reconnects and resumes. Train positions update every 5-10s.
+
+#### LV-2.3 Adaptive Polling + Per-Feed Circuit Breakers
+**What:** Extend `FeedPoller` with adaptive polling intervals (5s peak / 30s off-peak based on hour-of-day), and wire the existing `app/core/resilience.py` circuit breaker into each poller instance so failing feeds trip independently without affecting healthy feeds.
+**Why:** Fixed 10s polling wastes bandwidth at 3am and is too slow at rush hour. Per-feed circuit breakers prevent a single failing upstream from consuming HTTP client resources that starve other feeds.
+**Implementation:**
+- `app/transit/poller.py`:
+  - `_adaptive_interval(hour: int) -> float` — peak hours (6-9, 16-19) use `poll_interval_seconds`, off-peak doubles it, night (23-5) quadruples it
+  - Wrap `poll_once()` in `CircuitBreaker.call()` from `app/core/resilience.py` — per-`FeedPoller` instance
+  - On breaker OPEN: log `transit.feed.circuit_open`, skip poll, wait for recovery timeout
+  - Update `POLLER_LAST_TICK` Prometheus gauge per feed
+- `app/core/config.py` — `transit_adaptive_polling_enabled: bool = True`, `transit_peak_hours: str = "6-9,16-19"`
+- 10+ unit tests: adaptive interval calculation (4), circuit breaker per-feed isolation (2), breaker trip + recovery (2), Prometheus gauge update (2)
+**Verify:** Configure 2 feeds. Fail one feed's upstream → its breaker opens, other feed polls normally. Check hour 3am → poll interval is 4x configured. Check hour 8am → poll interval is 1x.
+
+#### LV-2.4 GTFS-RT Publisher (Combined Feed)
+**What:** Create `app/transit/gtfs_rt_publisher.py` — reads live positions from all feeds in Redis, assembles a combined GTFS-RT `FeedMessage` protobuf, and serves it at `GET /api/v1/transit/gtfs-rt/vehicle_positions.pb`. Enables third-party apps to consume VTV's combined Latvia feed.
+**Why:** VTV aggregates 5+ feeds into one unified view. Publishing a combined GTFS-RT feed turns VTV into a data provider — registrable on the Mobility Database and usable by any GTFS-RT consumer (Google Maps, Transit app, etc.).
+**Implementation:**
+- `app/transit/gtfs_rt_publisher.py`:
+  - `build_combined_feed(redis_client) -> bytes` — reads all `vehicle:{feed_id}:*` keys, builds `gtfs_realtime_pb2.FeedMessage` with one `FeedEntity` per vehicle
+  - Cached for 5s (Redis key `gtfs_rt:combined:vehicle_positions`)
+- `app/transit/routes.py` — `GET /api/v1/transit/gtfs-rt/vehicle_positions.pb` (public, no auth, rate limited 60/min, `Content-Type: application/x-protobuf`)
+- `gtfs-realtime-bindings` already installed
+- 8+ unit tests: protobuf serialization (2), multi-feed assembly (2), cache hit (1), empty-feed edge case (1), GTFS-RT validator compliance (2)
+**Verify:** `curl localhost:8123/api/v1/transit/gtfs-rt/vehicle_positions.pb | protoc --decode=... ` shows combined entities from all active feeds. Run `gtfs-rt-validator` tool — 0 errors. Cache: second request within 5s returns same bytes.
+
+---
+
+### Latvia Transit — Phase 3: Intercity Gap-Fill (~2 days)
+
+> **Sprint deliverable:** Intercity buses tracked via phone-based (OwnTracks) and hardware (Traccar) GPS, multi-modal journey planning via OpenTripPlanner, and shareable public tracking links.
+
+| Subtask | Type | Realistic | Parallel? |
+|---------|------|-----------|-----------|
+| LV-3.1 OwnTracks MQTT | BE + infra | ~3h | ✅ Yes — independent |
+| LV-3.2 Traccar bridge extension | BE | ~1.5h | ✅ Yes — independent |
+| LV-3.3 OpenTripPlanner | BE + FE + infra | ~6h | ✅ Yes — independent |
+| LV-3.4 LocShare tracking links | BE + FE | ~3h | ✅ Yes — independent |
+
+#### LV-3.1 OwnTracks MQTT Integration
+**What:** Deploy Mosquitto MQTT broker (Docker sidecar), create `app/transit/owntracks_listener.py` — subscribes to OwnTracks position topics, normalizes to `VehiclePositionData`, writes to Redis + TimescaleDB. Admin UI to assign phone → driver → vehicle → route.
+**Why:** Fastest path to intercity tracking — drivers install OwnTracks on their phone, zero hardware cost. Gets real positions for routes with no GTFS-RT feed. Proves the concept before investing in Teltonika hardware.
+**Implementation:**
+- `docker-compose.yml` — add `mosquitto` service (Eclipse Mosquitto, port 1883/8883, password auth)
+- `app/transit/owntracks_listener.py`:
+  - `OwnTracksListener` class — `asyncio-mqtt` subscribe to `owntracks/+/+`, parse JSON, normalize lat/lon/speed/bearing/timestamp
+  - Lookup: `phone_id → vehicle_assignment` from new `vehicle_phone_assignments` table
+  - Write pipeline: same as `FeedPoller` (Redis + TimescaleDB + Pub/Sub)
+- `alembic/versions/xxx_vehicle_phone_assignments.py` — `vehicle_phone_assignments(id, phone_identifier, vehicle_id FK, route_id FK, driver_id FK, assigned_by, assigned_at, active)`
+- `app/transit/routes.py` — 3 new admin endpoints: `POST /v1/transit/phone-assignments`, `GET /v1/transit/phone-assignments`, `DELETE /v1/transit/phone-assignments/{id}`
+- `app/core/config.py` — `mqtt_broker_url: str | None = None`, `mqtt_username`, `mqtt_password`, `owntracks_enabled: bool = False`
+- 12+ unit tests: MQTT message parsing (3), vehicle assignment lookup (2), normalization (2), Redis write (2), missing assignment handling (1), endpoint auth (2)
+**Verify:** Start Mosquitto + app. Publish OwnTracks test message via `mosquitto_pub`. Vehicle appears on `/map` with `source="owntracks"`. Assign phone to vehicle+route via admin API → marker shows route label.
+
+#### LV-3.2 Traccar Hardware GPS Bridge Extension
+**What:** Extend existing `app/fleet/bridge.py` Traccar webhook integration to also write transit-compatible positions for fleet devices assigned to transit routes. This bridges hardware GPS (Teltonika FMB920) into the transit map alongside GTFS-RT and OwnTracks sources.
+**Why:** Traccar integration already exists for fleet telemetry (Phase 1A). This phase extends it so fleet-tracked intercity buses appear on the transit map — same vehicle, dual purpose. No new infrastructure needed.
+**Implementation:**
+- `app/fleet/bridge.py` — after writing to `vehicle_positions` with `source="traccar"`, also publish to Redis Pub/Sub channel `transit:vehicles:fleet` if the device's vehicle has an active route assignment
+- `vehicle_phone_assignments` table reused (or new `vehicle_transit_assignments` if semantics differ)
+- CMS `/map` — fleet-sourced vehicles appear alongside GTFS-RT vehicles, distinguished by source icon
+- 6+ unit tests: transit publish for route-assigned devices (2), no publish for non-transit devices (1), dual-write consistency (2), map rendering (1)
+**Verify:** Assign a Traccar device to a transit route. Simulated webhook → vehicle appears on `/map` with fleet icon + route label. GTFS-RT vehicles from same route show alongside.
+
+#### LV-3.3 OpenTripPlanner Journey Planning
+**What:** Deploy OpenTripPlanner (Docker sidecar) with Latvia GTFS + OSM data. Create `app/transit/journey_planner.py` — proxies OTP's `/plan` API, enriches with VTV's real-time delay data (GTFS-RT trip updates), and exposes as `GET /api/v1/transit/plan`. CMS journey planner UI.
+**Why:** Multi-modal journey planning ("walk → bus → train → walk") is the killer feature for a unified transit platform. OTP is the industry standard — self-hosted, open-source, handles GTFS natively.
+**Implementation:**
+- `docker-compose.yml` — add `otp` service (OpenTripPlanner 2.x, Java 17, Latvia GTFS + OSM extract, port 8080)
+- `scripts/build_otp_graph.sh` — downloads Latvia OSM extract + all GTFS ZIPs, builds OTP graph
+- `app/transit/journey_planner.py`:
+  - `plan_journey(from_lat, from_lon, to_lat, to_lon, depart_at, arrive_by, modes) -> JourneyPlan`
+  - Proxies to OTP `/otp/routers/default/plan`, maps response to VTV schema
+  - Enriches legs with VTV delay data: for each transit leg, look up current delay from Redis
+  - Caches plan results for 60s (same origin/dest/time)
+- `app/transit/routes.py` — `GET /api/v1/transit/plan?from=56.95,24.11&to=56.85,24.30&depart=...`
+- `app/transit/schemas.py` — `JourneyPlan`, `JourneyLeg`, `JourneyStep` Pydantic models
+- CMS: `cms/apps/web/src/app/[locale]/(dashboard)/planner/page.tsx` — origin/destination inputs (geocoded), time picker, results list with map polylines per leg
+- 15+ unit tests: OTP proxy (3), delay enrichment (3), caching (2), schema mapping (2), error handling (2), CMS component tests (3)
+**Verify:** `GET /api/v1/transit/plan?from=56.9496,24.1052&to=56.5047,21.0109` (Riga→Liepāja) returns multi-modal plan with bus + possible train legs. Delay enrichment shows actual vs scheduled times. CMS planner page renders route on map with colored legs per transport mode.
+
+#### LV-3.4 Shareable Tracking Links (LocShare)
+**What:** Create `app/transit/locshare.py` — generates signed JWT tracking links that show a single vehicle's live position on a public page. No auth required to view. Configurable expiry (1h-24h). QR code generation for physical posting at stops.
+**Why:** Passengers and operations staff need to share "where is my bus?" without VTV accounts. LocShare links are the public-facing equivalent of the internal `/map` — lightweight, embeddable, expiring.
+**Implementation:**
+- `app/transit/locshare.py`:
+  - `create_share_link(vehicle_id, route_id, expires_in_hours) -> ShareLink` — signs JWT with `vehicle_id` + expiry, stores in `share_links` table
+  - `resolve_share_link(token) -> ShareLinkData | None` — validates JWT, returns vehicle_id + route_id
+- `alembic/versions/xxx_share_links.py` — `share_links(id, token_hash, vehicle_id, route_id, created_by, expires_at, view_count)`
+- `app/transit/routes.py`:
+  - `POST /v1/transit/share` (auth required) — create link
+  - `GET /v1/transit/share/{token}` (public, no auth) — returns vehicle position JSON
+- CMS: `/share/{token}` public page — minimal Leaflet map showing single vehicle, auto-refreshing
+- QR code: `qrcode` library, generated on share creation, returned as base64 PNG
+- 10+ unit tests: JWT signing/validation (3), expiry enforcement (2), view count increment (1), public access (2), QR generation (2)
+**Verify:** Create share link via API. Open `/share/{token}` in incognito — vehicle visible on minimal map, updating live. Wait past expiry — returns 410 Gone. QR code scans to the same URL.
+
+---
+
+### Knowledge Base Improvements (~6 hours)
+
+> **Sprint deliverable:** PPTX extraction, Latvian-aware BM25 stemming, document versioning, search feedback loop, and knowledge graph overlay. Completes the RAG pipeline with full document format coverage and language-aware retrieval.
+> Plan: [docs/PLANNING/rag-improvements.md](PLANNING/rag-improvements.md)
+
+| Subtask | Type | Realistic | Parallel? |
+|---------|------|-----------|-----------|
+| KB-1 PPTX extractor | BE | ~30min | ✅ Yes — independent |
+| KB-2 Latvian lemmatizer | BE | ~1.5h | ✅ Yes — independent |
+| KB-3 Document versioning | BE | ~1.5h | ✅ Yes — independent |
+| KB-4 Search feedback loop | BE + FE | ~1.5h | ✅ Yes — independent |
+| KB-5 Entity/knowledge graph | BE | ~1.5h | ✅ Yes — independent |
+
+#### KB-1 PPTX Extractor
+**What:** Add PowerPoint support to `app/knowledge/processing.py` — extract text from slides (titles, body, notes, tables, grouped shapes) preserving slide order and heading structure for the semantic chunker.
+**Why:** Operations teams share SOPs and training materials as PPTX. Currently these must be manually converted to PDF/DOCX before upload. PPTX is the last major office format missing (PDF, DOCX, XLSX, CSV, email, images already supported).
+**Implementation:**
+- `pyproject.toml` — add `python-pptx ^1.0`
+- `app/knowledge/processing.py`:
+  - New `_extract_pptx(file_path) -> str` function — iterates slides, extracts `slide.shapes` text (title + body + table cells + notes), formats as markdown with `# Slide N: {title}` headings
+  - Register `"pptx"` in `SUPPORTED_TYPES` and MIME type mapping
+  - `asyncio.to_thread()` wrapper (same pattern as other extractors)
+- `app/knowledge/routes.py` — add `application/vnd.openxmlformats-officedocument.presentationml.presentation` to allowed MIME types
+- 8+ unit tests: basic extraction (1), tables in slides (1), notes extraction (1), grouped shapes (1), empty slides (1), heading structure (1), MIME type acceptance (1), round-trip with chunker (1)
+**Verify:** Upload a 20-slide PPTX with mixed content (titles, bullet lists, tables, speaker notes). Extracted text preserves slide order with markdown headings. Chunks have `heading_path` like "Slide 3: Safety Procedures > Evacuation Protocol". Search finds content from slide body text.
+
+#### KB-2 Latvian UDPipe Lemmatizer for BM25
+**What:** Integrate UDPipe Latvian model into fulltext search to enable proper BM25 stemming. Current `to_tsvector('simple', ...)` treats Latvian as unstemmed tokens — "autobuss", "autobusam", "autobusu" are 3 separate terms. Lemmatization collapses them to "autobuss".
+**Why:** Latvian is a highly inflected language (7 noun cases, 6 verb conjugations). Without lemmatization, BM25 recall is ~40% lower than English on equivalent queries. This is the single highest-impact retrieval improvement remaining after HyDE.
+**Implementation:**
+- `pyproject.toml` — add `ufal.udpipe ^1.3` (C++ bindings, ~50MB model)
+- `app/knowledge/lemmatizer.py` (new):
+  - `LemmaTokenizer` class — loads UDPipe Latvian model on init, exposes `lemmatize(text: str) -> list[str]`
+  - Language detection: if text is Latvian (from document `language` field), use UDPipe; else fall back to `simple` tsvector
+  - Singleton with lazy model loading (same pattern as reranker warm-up)
+- `app/knowledge/repository.py`:
+  - `_build_tsvector()` — for Latvian documents, pre-lemmatize the text and use the lemmatized tokens with `to_tsvector('simple', lemmatized_text)` instead of raw text
+  - `_build_tsquery()` — lemmatize the query terms before building `plainto_tsquery`
+- `alembic/versions/xxx_add_lemmatized_tsvector.py` — add `lemmatized_content` column on `document_chunks` (populated during chunking, updated on re-chunk)
+- `app/knowledge/chunking.py` — compute `lemmatized_content` during chunk creation
+- `app/core/config.py` — `latvian_lemmatizer_enabled: bool = True`, `udpipe_model_path: str = "models/latvian-ud-2.5.udpipe"`
+- 12+ unit tests: lemmatization accuracy (4 — noun cases, verb conjugations, compound words, mixed LV/EN), tsvector generation (2), search recall improvement (2), fallback for non-Latvian (2), model loading (2)
+**Verify:** Index a Latvian SOP document. Search "autobusu apkope" (bus maintenance) — matches document containing "autobuss" and "apkopē". Compare recall@3 with/without lemmatizer on 20 Latvian QA pairs — expect 15-20% improvement.
+
+#### KB-3 Document Versioning with Diff-Aware Search
+**What:** Add version tracking to documents — re-uploading a document with the same title creates a new version rather than overwriting. Search results annotate which version matched. Diff view shows what changed between versions.
+**Why:** SOPs and regulations are updated periodically. Currently re-upload overwrites — the old version is lost. Dispatchers need to know "was this procedure updated recently?" and "what changed?".
+**Implementation:**
+- `alembic/versions/xxx_document_versions.py` — add `version: int = 1` and `parent_document_id: int | None` (FK to self) to `documents` table. New index on `(title, version DESC)`.
+- `app/knowledge/service.py`:
+  - `ingest_document()` — detect same-title document, increment version, set `parent_document_id`, re-chunk new version, mark old version as `superseded` (keep chunks for historical search)
+  - `get_document_versions(document_id) -> list[DocumentVersion]` — version history
+  - `get_document_diff(doc_id, version_a, version_b) -> DocumentDiff` — difflib unified diff of extracted text
+- `app/knowledge/routes.py` — `GET /v1/documents/{id}/versions`, `GET /v1/documents/{id}/diff?v1=1&v2=2`
+- Search results: annotate with `version` and `is_latest` flag. By default search only latest versions; `include_superseded=true` param for historical search.
+- 10+ unit tests: version creation (2), superseded marking (1), diff generation (2), search latest-only (2), search with superseded (1), version history endpoint (2)
+**Verify:** Upload "SOP-001.pdf" v1. Upload updated "SOP-001.pdf" — creates v2, v1 marked superseded. Search returns v2 by default. `GET /v1/documents/{id}/diff?v1=1&v2=2` shows unified diff. `GET /v1/documents/{id}/versions` lists both.
+
+#### KB-4 Search Feedback Loop
+**What:** Add thumbs-up/down feedback on search results. Aggregate feedback to auto-tune RRF weights per query type (keyword/semantic/mixed) — queries where users consistently prefer vector results shift weight toward vector, and vice versa.
+**Why:** RRF weights are currently static (configured in AI-1.3). Real usage patterns differ from assumptions — keyword-heavy queries may need more fulltext weight than the default. Feedback-driven tuning closes the loop without manual A/B testing.
+**Implementation:**
+- `alembic/versions/xxx_search_feedback.py` — `search_feedback(id, query_hash, chunk_id, relevant: bool, query_type, created_at)`
+- `app/knowledge/routes.py` — `POST /v1/knowledge/search/{query_hash}/feedback` with `{chunk_id, relevant: bool}`
+- `app/knowledge/feedback.py` (new):
+  - `record_feedback(query_hash, chunk_id, relevant)` — store + aggregate
+  - `get_tuned_weights(query_type) -> RRFWeights` — compute from last 30 days of feedback: if vector results get more thumbs-up for `keyword` queries, shift `fulltext_weight` down and `vector_weight` up
+  - Background task: recompute weights daily, store in Redis `rrf:weights:{query_type}`
+- `app/knowledge/service.py` — read tuned weights from Redis before each search (fallback to config defaults)
+- CMS chat UI: add small 👍/👎 buttons next to cited sources in agent responses
+- 10+ unit tests: feedback storage (2), weight computation (3), fallback to defaults (1), daily recompute (2), CMS feedback submission (2)
+**Verify:** Submit 20 feedback signals (mostly thumbs-up on vector results for keyword queries). Run weight recompute → `vector_weight` for keyword queries increases. Next search uses tuned weights. Reset feedback → falls back to config defaults.
+
+#### KB-5 Entity/Knowledge-Graph Overlay
+**What:** Extract named entities (routes, stops, people, regulations) from documents during chunking, store as a lightweight knowledge graph (`entities` + `entity_mentions` tables), and use entity co-occurrence to boost search results that share entities with the query.
+**Why:** Transit documents heavily reference shared entities — "Route 22", "Brīvības iela", "EU Regulation 561/2006". When a dispatcher asks about Route 22, chunks mentioning Route 22 should rank higher even if the embedding similarity is moderate. Entity-aware retrieval bridges the semantic gap.
+**Implementation:**
+- `alembic/versions/xxx_entities.py` — `entities(id, name, entity_type, normalized_name)`, `entity_mentions(id, entity_id FK, chunk_id FK, mention_count)`. Index on `(entity_type, normalized_name)`.
+- `app/knowledge/entity_extractor.py` (new):
+  - `extract_entities(text: str, language: str) -> list[EntityMention]` — regex-based for routes (`maršrut\w*\s+\d+`), stops (known stop names from GTFS), regulations (`EU\s+\d+/\d+`), plus spaCy NER for people/organizations if `spacy` available (optional dependency)
+  - Normalize: "Route 22" = "route_22", "maršruts 22" = "route_22"
+- `app/knowledge/chunking.py` — call entity extractor during chunk creation, store mentions
+- `app/knowledge/repository.py` — entity co-occurrence boost in hybrid search: if query mentions entity X, chunks with `entity_mentions` for X get a score boost (configurable multiplier)
+- `app/core/config.py` — `entity_boost_enabled: bool = True`, `entity_boost_multiplier: float = 1.3`
+- 12+ unit tests: route extraction (3), stop name extraction (2), regulation extraction (2), normalization (2), search boost (2), no-entity fallback (1)
+**Verify:** Index a document mentioning "Route 22" and "Brīvības iela". Search "Route 22 delays" → chunks mentioning Route 22 boosted above generic delay chunks. Entity table shows extracted entities with mention counts. Disable boost → ranking reverts to pure RRF.
+
+---
+
+### SOP & File Automation (~1 day)
+
+> **Sprint deliverable:** Automated document ingestion from folders, email, and web sources. LLM-powered SOP generation from operational data. Saves ~47 hrs/month human time.
+> Plan: [docs/PLANNING/sop-file-automation.md](PLANNING/sop-file-automation.md)
+
+| Subtask | Type | Realistic | Parallel? |
+|---------|------|-----------|-----------|
+| SOP-1 Folder watcher | BE | ~1.5h | ✅ Yes — independent |
+| SOP-2 Email monitor | BE | ~1.5h | ✅ Yes — independent |
+| SOP-3 Web scraper | BE | ~1.5h | ✅ Yes — independent |
+| SOP-4 GTFS schedule sync | BE | ~1.5h | ✅ Yes — LV-1.2 done, unblocked |
+| SOP-5 LLM SOP generation | BE + FE | ~2h | ✅ Yes — independent |
+
+#### SOP-1 Folder Watcher (Auto-Ingest)
+**What:** Background task that monitors `/data/knowledge-inbox/{domain}/` directories. New files are auto-ingested into the knowledge base with domain inferred from folder name, language auto-detected, and duplicate detection via file hash.
+**Why:** Current ingestion requires manual upload via CMS or API. Operations staff drop files into shared folders — a watcher bridges the gap with zero workflow change.
+**Implementation:**
+- `app/knowledge/watcher.py` (new):
+  - `FolderWatcher` class — polls configured inbox paths every 60s via `pathlib.Path.iterdir()`
+  - On new file: compute SHA-256, check against `documents.file_hash` to skip duplicates, call `KnowledgeService.ingest_document()`, move file to `processed/` subfolder
+  - Domain: derived from folder name (`/data/knowledge-inbox/operations/` → `domain="operations"`)
+  - Language: auto-detect via existing `langdetect` or simple heuristic (Latvian diacritics → `lv`, else `en`)
+- `app/core/config.py` — `knowledge_inbox_path: str = "/data/knowledge-inbox"`, `knowledge_watcher_enabled: bool = False`, `knowledge_watcher_interval_s: int = 60`
+- `app/main.py` — register `start_folder_watcher()` in lifespan, gated by config
+- `docker-compose.yml` — mount `document_data` volume to include inbox path
+- 10+ unit tests: file detection (2), domain inference (2), duplicate skip (2), move to processed (1), language detection (1), error handling (2)
+**Verify:** Drop a PDF into `/data/knowledge-inbox/operations/`. Within 60s, document appears in knowledge base with `domain="operations"`. Drop same file again — skipped (duplicate hash). File moved to `processed/` subfolder.
+
+#### SOP-2 Email Inbox Monitor
+**What:** Background task that polls `documents@vtv.lv` via IMAP, downloads attachments, and auto-ingests them into the knowledge base. Subject line parsed for domain tags (`[operations]`, `[maintenance]`).
+**Why:** Staff forward documents via email. An inbox monitor captures these without requiring them to learn the CMS upload workflow.
+**Implementation:**
+- `app/knowledge/email_monitor.py` (new):
+  - `EmailMonitor` class — `aioimaplib` IMAP connection, polls every 5 min, fetches UNSEEN messages
+  - For each message: extract attachments, parse subject for `[domain]` tag, call `KnowledgeService.ingest_document()` per attachment
+  - Mark processed messages as SEEN; on failure, mark as FLAGGED for manual review
+  - Structured logging: `knowledge.email.ingested`, `knowledge.email.failed`, `knowledge.email.skipped_no_attachment`
+- `app/core/config.py` — `knowledge_email_enabled: bool = False`, `knowledge_email_imap_host`, `knowledge_email_imap_user`, `knowledge_email_imap_password`, `knowledge_email_poll_interval_s: int = 300`
+- 8+ unit tests: IMAP message parsing (2), attachment extraction (2), domain tag parsing (2), duplicate handling (1), error recovery (1)
+**Verify:** Send email with PDF attachment to `documents@vtv.lv` with subject `[operations] New SOP`. Within 5 min, document appears in knowledge base with `domain="operations"`. Send email without attachment — logged as skipped.
+
+#### SOP-3 Web Scraper for Transit Regulations
+**What:** Scheduled scraper that monitors key transit regulation pages (ATD, MK noteikumi, EU regulations) for changes. On change, downloads updated content, extracts text, and ingests as a new document version (using KB-3 versioning).
+**Why:** Transit regulations change without notification. Dispatchers need current versions in the knowledge base without manually checking government websites.
+**Implementation:**
+- `app/knowledge/web_scraper.py` (new):
+  - `RegulationScraper` class — configured list of `(url, selector, domain, title)` tuples
+  - Fetches page, extracts text via CSS selector, computes content hash, compares with last ingested version
+  - On change: create new document version via `KnowledgeService.ingest_document()`
+- `app/core/config.py` — `knowledge_scraper_enabled: bool = False`, `knowledge_scraper_targets_json: str = "[]"`
+- Background task: daily at 06:00 UTC
+- 8+ unit tests: content extraction (2), change detection (2), version creation (2), no-change skip (1), HTTP error handling (1)
+**Verify:** Configure scraper target for a test URL. Change page content → next run creates new document version. No change → skip logged. Version history shows both versions.
+
+#### SOP-4 GTFS Schedule Sync
+**What:** Auto-ingest GTFS schedule changes as knowledge base documents when the daily GTFS import detects route/stop changes. Generates a human-readable changelog ("Route 22: 3 new stops added, frequency increased weekdays 7-9") that dispatchers can search.
+**Why:** Schedule changes are the #1 source of dispatcher questions. Currently they must manually read GTFS diffs. Auto-generated changelogs make schedule updates searchable via the agent.
+**Implementation:**
+- `app/knowledge/gtfs_sync.py` (new):
+  - `generate_schedule_changelog(old_feed, new_feed) -> str` — diffs routes, stops, frequencies between GTFS versions
+  - Produces markdown with sections per changed route
+  - Calls `KnowledgeService.ingest_document(title=f"Schedule Update {date}", domain="schedules")`
+- Wire into `app/schedules/service.py::import_feed()` — after successful import, generate changelog if changes detected
+- 8+ unit tests: route addition detection (2), stop removal detection (2), frequency change detection (2), no-change skip (1), markdown format (1)
+**Verify:** Import a GTFS feed. Modify a route's stop list in the feed. Re-import → changelog document created. Agent query "What changed in the schedule today?" → returns the changelog.
+
+#### SOP-5 LLM-Powered SOP Generation
+**What:** Pipeline that takes operational incident reports (from alerts) and generates draft SOPs. Dispatcher reviews and approves before publishing to the knowledge base. Uses fast-tier LLM with transit-domain prompting.
+**Why:** After each incident, operations staff should write an SOP to prevent recurrence. In practice, 80% of incidents never get an SOP because writing them takes 30-60 minutes. LLM generation reduces this to 5 minutes of review.
+**Implementation:**
+- `app/knowledge/sop_generator.py` (new):
+  - `generate_sop_draft(incident_description: str, alert_data: dict | None) -> SOPDraft` — LLM generates structured SOP (title, scope, procedure steps, responsible roles, related routes/stops)
+  - Uses `resolve_tier_model("fast")` — cheap, 500-800 tokens per SOP
+  - Returns `SOPDraft(title, content_markdown, domain, suggested_tags)` for human review
+- `app/knowledge/routes.py` — `POST /v1/knowledge/generate-sop` (admin/dispatcher), `POST /v1/knowledge/publish-sop` (admin, publishes draft to KB)
+- CMS: "Generate SOP" button in alerts detail view → opens editor with pre-filled draft → "Publish" saves to KB
+- 8+ unit tests: generation with alert context (2), generation without alert (1), structured output validation (2), publish flow (2), LLM error fallback (1)
+**Verify:** Trigger a test alert. Click "Generate SOP" in CMS → LLM generates draft SOP with procedure steps. Edit title → click Publish → document appears in knowledge base. Agent query about the procedure → returns the SOP.
+
+---
+
+### Fleet Management — Phase 2: Fuel + Analytics (~2 days)
+
+> **Sprint deliverable:** Fuel monitoring with refueling/drain detection from OBD-II, fleet analytics (distance, drive time, idle time), LocShare public tracking links, and PDF/CSV report export. CMS: fuel dashboard + analytics pages.
+> Plan: [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) (Phase 2)
+
+| Subtask | Type | Realistic | Parallel? |
+|---------|------|-----------|-----------|
+| FLEET-2.1 Fuel monitoring | BE | ~4h | ✅ Yes — independent |
+| FLEET-2.2 Fleet analytics | BE + FE | ~5h | ✅ Yes — independent |
+| FLEET-2.3 LocShare fleet | BE + FE | ~3h | ⚠️ After LV-3.4 (reuses LocShare infra) |
+
+#### FLEET-2.1 Fuel Monitoring + Refueling/Drain Detection
+**What:** Create `app/fleet/fuel.py` — processes `fuel_level_pct` from OBD-II telemetry (already parsed in `bridge.py`), detects refueling events (>10% jump in 5 min), fuel drain events (>5% drop without engine running), and stores fuel log entries. Threshold-based alerts via existing alerts system.
+**Why:** Fuel is the #1 fleet operating cost. Detecting unauthorized drains saves money; tracking consumption per vehicle identifies maintenance issues. The OBD data already flows through `bridge.py` — this phase adds interpretation.
+**Implementation:**
+- `alembic/versions/xxx_fuel_logs.py` — `fuel_logs(id, vehicle_id FK, recorded_at, fuel_level_pct, event_type ["reading","refuel","drain","consumption"], delta_pct, odometer_km, location GEOGRAPHY(POINT))`
+- `app/fleet/fuel.py`:
+  - `FuelMonitor` class — maintains per-vehicle fuel state in Redis (`fleet:fuel:{vehicle_id}`)
+  - `process_fuel_reading(vehicle_id, fuel_pct, speed, odometer, lat, lon)` — called from `bridge.py` on each Traccar webhook
+  - Refuel detection: `delta > 10%` within 5 min window + vehicle stopped
+  - Drain detection: `delta < -5%` + engine off (speed=0, RPM=0)
+  - Consumption tracking: `delta < 0` + engine on → normal consumption entry
+- `app/fleet/routes.py` — `GET /v1/fleet/vehicles/{id}/fuel-log?from=&to=`, `GET /v1/fleet/vehicles/{id}/fuel-summary` (total consumed, avg consumption L/100km, refuel count, drain alerts)
+- Alert integration: `"fuel_drain"` alert type registered with existing `AlertRuleType`
+- 15+ unit tests: refuel detection (3), drain detection (3), consumption tracking (2), Redis state management (2), alert integration (2), edge cases (no prior reading, stale data) (3)
+**Verify:** Simulate Traccar webhook sequence: 50% → 50% → 48% → 45% → 90% (refuel) → 88% → 30% (drain). Fuel log shows consumption entries, 1 refuel event, 1 drain alert fired. `GET /v1/fleet/vehicles/{id}/fuel-summary` returns accurate totals.
+
+#### FLEET-2.2 Fleet Analytics (Distance, Drive Time, Idle Time)
+**What:** Create `app/fleet/analytics.py` — computes per-vehicle and fleet-wide metrics from `vehicle_positions` TimescaleDB data: total distance (Haversine sum), drive time (speed > 3 km/h), idle time (engine on + speed < 3), trip count, and country mileage (PostGIS country polygon intersection for cross-border tracking).
+**Why:** Fleet managers need daily/weekly/monthly KPIs per vehicle and fleet-wide. These metrics drive maintenance scheduling (high-mileage vehicles), driver performance review (excessive idle time), and billing (country mileage for international routes).
+**Implementation:**
+- `app/fleet/analytics.py`:
+  - `compute_vehicle_analytics(vehicle_id, from_ts, to_ts) -> VehicleAnalytics` — TimescaleDB window queries over `vehicle_positions`
+  - `compute_fleet_analytics(from_ts, to_ts) -> FleetAnalytics` — aggregate across all fleet vehicles
+  - Distance: `SUM(ST_Distance(lag(pos), pos))` window function
+  - Drive time: `SUM(CASE WHEN speed_kmh > 3 THEN interval ELSE 0 END)`
+  - Idle time: `SUM(CASE WHEN speed_kmh < 3 AND obd_data->>'rpm' > '0' THEN interval ELSE 0 END)`
+- `app/fleet/routes.py` — `GET /v1/fleet/analytics?from=&to=&vehicle_id=` (admin/dispatcher)
+- CMS: `cms/apps/web/src/app/[locale]/(dashboard)/fleet/analytics/page.tsx` — fleet KPI cards + per-vehicle table + Recharts time series
+- PDF/CSV export: `GET /v1/fleet/analytics/export?format=pdf|csv&from=&to=` — generates report via `reportlab` (PDF) or stdlib `csv`
+- 15+ unit tests: distance calculation (3), drive/idle time (3), fleet aggregation (2), export format (2), TimescaleDB query (2), CMS component tests (3)
+**Verify:** With 7 days of test position data, `GET /v1/fleet/analytics` returns per-vehicle distance, drive time, idle time. Export as PDF — opens with correct tables and charts. Fleet summary matches sum of individual vehicles.
+
+#### FLEET-2.3 LocShare Public Tracking Links
+**What:** Extend LV-3.4 LocShare pattern for fleet vehicles — create time-limited public tracking links for fleet devices. Adds fleet-specific metadata (device IMEI, OBD telemetry overlay) and dwell time tracking at LocPoints (geofence-based).
+**Why:** Fleet operators need to share vehicle tracking with clients ("your delivery vehicle is here") without giving them VTV access. Reuses the LV-3.4 LocShare infrastructure but adds fleet-specific OBD overlay and dwell tracking.
+**Implementation:**
+- Extend `app/transit/locshare.py` with `source="fleet"` variant
+- Fleet share links include OBD telemetry overlay (speed, fuel level, engine status) if `include_telemetry=true`
+- `app/fleet/routes.py` — `POST /v1/fleet/vehicles/{id}/share` (creates fleet LocShare link)
+- Dwell tracking: when a shared vehicle enters a geofence (LocPoint), record `dwell_start` time; display dwell duration on the public share page
+- CMS: share link management page under `/fleet` with copy-to-clipboard and QR code
+- 8+ unit tests: fleet share creation (2), telemetry overlay (2), dwell tracking (2), expiry (1), QR code (1)
+**Verify:** Create fleet share link. Public page shows vehicle + OBD gauges (speed, fuel). Vehicle enters a geofence → dwell timer starts on share page. Link expires → 410 Gone.
+
+---
+
+### Fleet Management — Phase 3: Tachograph + Driving Hours (~2.5 days)
+
+> **Sprint deliverable:** `app/tachograph/` vertical slice with remote DDD file download, binary parser, EU 561/2006 driving hours calculator, infringement detection, and compliance dashboard.
+> Plan: [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) (Phase 3)
+
+| Subtask | Type | Realistic | Parallel? |
+|---------|------|-----------|-----------|
+| TACHO-1 DDD download + parser | BE | ~6h | ✅ Yes — independent |
+| TACHO-2 EU 561 driving hours | BE | ~5h | ⚠️ After TACHO-1 (needs parsed activities) |
+| TACHO-3 Compliance dashboard | FE | ~4h | ⚠️ After TACHO-2 (needs compliance API) |
+
+#### TACHO-1 DDD File Download + Parser
+**What:** Create `app/tachograph/` vertical slice. `ddd_downloader.py` fetches DDD files from Teltonika Web Tacho or flespi API. `ddd_parser.py` parses the binary DDD format (EU regulation 3821/85 Annex 1B) into structured activity records (driving, rest, work, availability) with driver card data.
+**Why:** EU regulation requires digital tachograph data download every 28 days (driver card) and 90 days (vehicle unit). Manual download requires physical presence at each vehicle. Remote download via Teltonika Web Tacho automates this.
+**Implementation:**
+- `app/tachograph/` — full VSA: `models.py`, `schemas.py`, `repository.py`, `service.py`, `routes.py`, `tests/`
+- `app/tachograph/ddd_downloader.py` — `download_ddd(device_imei, period) -> bytes` via Teltonika Web Tacho REST API or flespi DDD API
+- `app/tachograph/ddd_parser.py` — binary parser for DDD format: `parse_ddd(raw: bytes) -> TachographData` with `driver_activities: list[Activity]`, `driver_card: DriverCardData`, `vehicle_data: VehicleData`
+- `alembic/versions/xxx_tachograph.py` — `tachograph_downloads(id, device_id FK, driver_id FK, downloaded_at, period_start, period_end, file_hash, file_path)`, `driver_activities(id, download_id FK, activity_type, started_at, ended_at, duration_minutes, location)`
+- `app/tachograph/routes.py` — `POST /v1/tachograph/download/{device_id}` (trigger download), `GET /v1/tachograph/downloads` (list), `GET /v1/tachograph/downloads/{id}/activities` (parsed activities)
+- `app/core/config.py` — `tachograph_enabled: bool = False`, `tachograph_provider: Literal["teltonika_web_tacho", "flespi"]`, API credentials
+- 20+ unit tests: DDD binary parsing (8), API download mock (3), activity extraction (4), schema validation (3), endpoint auth (2)
+**Verify:** Mock DDD file from Teltonika. `POST /v1/tachograph/download/{device_id}` triggers download, parses binary, stores activities. `GET /v1/tachograph/downloads/{id}/activities` returns structured driving/rest periods with timestamps.
+
+#### TACHO-2 EU 561/2006 Driving Hours Calculator
+**What:** Create `app/tachograph/compliance.py` — implements the EU 561/2006 driving hours rules: daily driving max 9h (extendable to 10h twice/week), weekly max 56h, biweekly max 90h, daily rest min 11h (reducible to 9h three times between rests), weekly rest min 45h. Detects infringements with severity classification.
+**Why:** Non-compliance results in fines (€500-€5000 per infringement in Latvia) and insurance invalidation. Automated calculation replaces manual spreadsheet tracking and catches violations before they happen.
+**Implementation:**
+- `app/tachograph/compliance.py`:
+  - `DrivingHoursCalculator` class — takes `list[Activity]`, computes running totals against EU 561/2006 thresholds
+  - `check_compliance(driver_id, date_range) -> ComplianceReport` — returns current status + list of infringements + remaining allowances
+  - `Infringement(frozen=True)` — `type` (daily_driving_exceeded, weekly_exceeded, biweekly_exceeded, insufficient_daily_rest, insufficient_weekly_rest), `severity` (minor/serious/very_serious per EU classification), `actual_value`, `limit_value`, `occurred_at`
+  - `RemainingAllowance(frozen=True)` — `daily_driving_remaining_minutes`, `weekly_driving_remaining_minutes`, `next_required_rest_at`
+- `app/tachograph/routes.py` — `GET /v1/tachograph/compliance/{driver_id}` (current status), `GET /v1/tachograph/compliance/{driver_id}/infringements?from=&to=`
+- Alert integration: `"driving_hours_exceeded"` alert type, fires when remaining allowance < 30 min
+- 25+ unit tests: each EU rule (8), edge cases (split rest, reduced daily rest counting) (5), infringement severity classification (4), remaining allowance calculation (3), multi-week rolling window (3), alert trigger (2)
+**Verify:** Create driver activities: 9h driving + 11h rest + 9h driving + 11h rest + 10h driving (3rd day exceeds without extension). Calculator detects `daily_driving_exceeded` infringement. Check weekly totals after 56h → `weekly_exceeded` detected. Remaining allowance shows correct minutes.
+
+#### TACHO-3 Compliance Dashboard (CMS)
+**What:** CMS page at `/tachograph` — driver compliance overview (traffic light status per driver), activity timeline (Gantt-style per day), DDD download management, and infringement report with severity badges.
+**Why:** Fleet managers need at-a-glance compliance visibility. Current process is per-driver manual checking. A dashboard with red/amber/green status per driver and drill-down to activities replaces this.
+**Implementation:**
+- `cms/apps/web/src/app/[locale]/(dashboard)/tachograph/page.tsx`:
+  - Driver compliance table: name, today's driving hours, weekly total, status (green/amber/red), next required rest
+  - Click driver → activity timeline (Recharts Gantt: driving=blue, rest=green, work=orange, availability=grey)
+  - DDD downloads tab: list downloads, trigger new download, view parsed activities
+  - Infringement report: filterable by driver/date/severity, exportable as PDF
+- SDK: `@vtv/sdk` wrappers for tachograph endpoints
+- `cms/apps/web/messages/lv.json` + `en.json` — ~60 new i18n keys
+- RBAC: admin + dispatcher roles
+- 10+ component tests
+**Verify:** `/tachograph` loads with driver list showing compliance status. Click a driver → activity timeline renders correctly. Trigger DDD download → progress indicator → activities appear. Export infringement report as PDF.
+
+---
+
+### Fleet Management — Phase 4: Routing (~1 day)
+
+> **Sprint deliverable:** Self-hosted OSRM with Latvia OSM data for fast routing, HERE Maps API fallback for truck-specific routing, and a CMS route planning UI.
+> Plan: [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) (Phase 4)
+
+| Subtask | Type | Realistic | Parallel? |
+|---------|------|-----------|-----------|
+| ROUTE-1 OSRM + HERE fallback | BE + infra | ~4h | ✅ Yes — independent |
+| ROUTE-2 Route planning UI | FE | ~3h | ⚠️ After ROUTE-1 (needs routing API) |
+
+#### ROUTE-1 OSRM Self-Hosted + HERE Fallback
+**What:** Deploy OSRM (Open Source Routing Machine) as Docker sidecar with pre-built Latvia OSM graph. Create `app/fleet/routing.py` — routing service that tries OSRM first, falls back to HERE Fleet Telematics API for truck-specific routing (height/weight restrictions, toll costs).
+**Why:** Routing is needed for fleet analytics (actual vs shortest distance), trip optimization, and ETA calculation. OSRM is fast (sub-10ms) and free for car routing; HERE adds truck restrictions and toll data at API cost.
+**Implementation:**
+- `docker-compose.yml` — add `osrm` service (osrm/osrm-backend, port 5000, pre-built Latvia graph)
+- `scripts/build_osrm_graph.sh` — downloads Latvia OSM extract from Geofabrik, runs `osrm-extract` + `osrm-contract`
+- `app/fleet/routing.py`:
+  - `RoutingService` class — `route(origin, destination, vehicle_type) -> RouteResult`
+  - OSRM path: `GET /route/v1/driving/{lon1},{lat1};{lon2},{lat2}` → parse distance, duration, polyline
+  - HERE fallback: `GET /v8/routes?origin=...&destination=...&transportMode=truck` with `truck[height/weight/length]` params
+  - `RouteResult(frozen=True)` — `distance_km`, `duration_minutes`, `polyline`, `toll_cost_eur` (HERE only), `source: "osrm"|"here"`
+- `app/fleet/routes.py` — `POST /v1/fleet/route` with origin/destination/vehicle_type
+- `app/core/config.py` — `osrm_url: str = "http://osrm:5000"`, `here_api_key: str | None = None`, `routing_fallback_to_here: bool = True`
+- 12+ unit tests: OSRM routing (3), HERE fallback (2), polyline parsing (2), toll cost (1), vehicle type selection (2), error handling (2)
+**Verify:** `POST /v1/fleet/route` with Riga→Liepāja → returns OSRM route with distance + polyline. Set `vehicle_type=truck` with HERE key configured → returns truck route with toll cost. Kill OSRM → falls back to HERE seamlessly.
+
+#### ROUTE-2 CMS Route Planning UI
+**What:** CMS page at `/fleet/planner` — map-based route planner with drag-and-drop waypoints, vehicle type selector, and optimization toggle (shortest vs fastest). Renders route polyline on Leaflet map with distance/time/toll summary.
+**Why:** Dispatchers plan service vehicle routes daily. Currently done via Google Maps or paper. An integrated planner with fleet-specific truck routing saves time and accounts for vehicle restrictions.
+**Implementation:**
+- `cms/apps/web/src/app/[locale]/(dashboard)/fleet/planner/page.tsx`:
+  - Leaflet map with click-to-add waypoints (origin, destination, intermediate stops)
+  - Drag-and-drop waypoint reordering
+  - Vehicle type selector (car/truck/bus) — truck shows height/weight inputs
+  - "Optimize" button calls routing API, renders polyline + summary card
+  - Save route for later use (optional)
+- SDK: wrapper for `POST /v1/fleet/route`
+- ~30 i18n keys
+- 6+ component tests
+**Verify:** Click two points on map → route polyline renders with distance/time. Add intermediate waypoint → route recalculates. Select truck type → route avoids low bridges (if HERE is configured). Summary shows total distance + duration.
+
+---
+
+### Fleet Management — Phase 5: Mobile App + Messaging (~2 days)
+
+> **Sprint deliverable:** Dispatcher↔driver messaging system and React Native mobile app for drivers with live map, alerts, messaging, and task management.
+> Plan: [docs/PLANNING/fleet-management-tracking.md](PLANNING/fleet-management-tracking.md) (Phase 5)
+
+| Subtask | Type | Realistic | Parallel? |
+|---------|------|-----------|-----------|
+| MSG-1 Messaging vertical slice | BE | ~5h | ✅ Yes — independent |
+| MSG-2 React Native mobile app | Mobile | ~8h | ⚠️ After MSG-1 (needs messaging API) |
+
+#### MSG-1 Messaging Vertical Slice
+**What:** Create `app/messaging/` vertical slice — real-time dispatcher↔driver messaging with message persistence, read receipts, and task assignment. WebSocket delivery with offline queue for drivers with intermittent connectivity.
+**Why:** Dispatchers currently communicate with drivers via phone calls or personal WhatsApp — no audit trail, no task tracking, no integration with the fleet system. Structured messaging enables task assignment with acknowledgment.
+**Implementation:**
+- `app/messaging/` — full VSA: `models.py`, `schemas.py`, `repository.py`, `service.py`, `routes.py`, `tests/`
+- `alembic/versions/xxx_messaging.py`:
+  - `conversations(id, type ["direct","group","broadcast"], title, created_by FK, created_at)`
+  - `conversation_members(conversation_id FK, user_id FK, role ["admin","member"], joined_at)`
+  - `messages(id, conversation_id FK, sender_id FK, content, message_type ["text","task","alert","system"], task_data JSONB, sent_at, edited_at)`
+  - `message_read_receipts(message_id FK, user_id FK, read_at)`
+- `app/messaging/ws_handler.py` — WebSocket endpoint `WS /v1/messaging/ws` with JWT auth, delivers new messages in real-time, handles typing indicators
+- `app/messaging/routes.py` — 8 REST endpoints: list conversations, create conversation, send message, get messages (paginated), mark read, create task message, get unread count, search messages
+- `app/messaging/task_service.py` — task messages with status tracking (assigned → acknowledged → in_progress → completed)
+- Push queue: messages to offline users stored in `message_queue` table, delivered on next WS connect
+- 20+ unit tests: CRUD (5), WebSocket delivery (3), read receipts (2), task lifecycle (4), offline queue (2), auth (2), pagination (2)
+**Verify:** Dispatcher sends message to driver via CMS. Driver (on mobile/test WS client) receives in real-time. Driver reads → read receipt appears for dispatcher. Dispatcher creates task → driver acknowledges → status updates to "acknowledged". Driver goes offline → message queued → delivered on reconnect.
+
+#### MSG-2 React Native Mobile App
+**What:** React Native mobile app for drivers — live fleet map, alerts feed, messaging inbox, task list, and OwnTracks-compatible position reporting. Authentication via VTV JWT (same as CMS).
+**Why:** Drivers need a mobile interface for messaging, alerts, and tasks. The mobile app also replaces OwnTracks for position reporting — one app for communication and tracking instead of two separate apps.
+**Implementation:**
+- `mobile/` — new directory at repo root, React Native (Expo) project
+- Screens: Login, Map (live vehicle positions), Alerts (push notifications feed), Messages (conversation list + chat), Tasks (assigned tasks with status), Settings
+- GPS reporting: background location service publishing to VTV API (replaces OwnTracks for drivers who install the app)
+- Push notifications: Firebase Cloud Messaging (FCM) for Android, APNs for iOS
+- `app/messaging/push.py` — `PushService` class — sends FCM/APNs push for new messages and alerts
+- `app/core/config.py` — `fcm_server_key`, `apns_key_path`, `push_enabled: bool = False`
+- Auth: reuse VTV JWT — `POST /v1/auth/login` from mobile, token stored in secure storage
+- Offline support: SQLite local cache for messages, sync on reconnect
+- 15+ unit tests (backend push service): FCM send (3), APNs send (2), token management (2), offline queue integration (3), GPS position ingestion (3), auth (2)
+**Verify:** Install app on test device. Login with driver credentials. Map shows fleet vehicles. Dispatcher sends message → push notification + in-app message. Driver taps task → acknowledges. GPS position appears on dispatcher's `/map`. Kill app → message arrives as push notification.
+
+---
 
 ### CMS Features
 
-- [ ] **Route Shape Polylines** - Display route geometry on map from GTFS `shapes.txt`. Requires polyline layer in react-leaflet, shape import during GTFS ZIP processing, and route-shape association. Enhances route visualization significantly.
+| Subtask | Type | Realistic | Parallel? |
+|---------|------|-----------|-----------|
+| CMS-1 Route shape polylines | BE + FE | ~30min | ✅ Yes — anytime |
 
----
-
-## Intelligence/ML — Phased Implementation
-
-Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML models on TimescaleDB vehicle history plus public Latvia datasets (e-ticket validations, weather, traffic, accidents) and wires them into the agent as context-aware tools.
-
-> Platform plan: [docs/PLANNING/Implementation-Plan.md § Phase 4](PLANNING/Implementation-Plan.md)
-> ML data inventory: 64 monthly GTFS archives + 67 monthly e-ticket archives (~6.5 GB) + weather + traffic, 2018–present, all CC0. Full table at [§ Complete ML Data Inventory](PLANNING/Implementation-Plan.md).
-> **Depends on:** Full Latvia Phase 1 (TimescaleDB, GTFS DB tables, Redis) and Phase 2 (multi-feed coverage + 90 days of historical positions accumulated).
-
-### Phase ML-1: Data Ingestion Foundation (6 days)
-
-> **Sprint deliverable:** All 4 historical public datasets imported as queryable tables in Postgres. Foundation for every later phase — no model training possible without this.
-> **Depends on:** Full Latvia Phase 1 (Postgres, TimescaleDB, GTFS importer)
-
-#### ML-1.1 Historical GTFS Archive Importer ✅ (2026-04-12)
-**What:** Create `app/transit/historical_gtfs_importer.py` — CLI + background task that downloads all 64 monthly Rīgas Satiksme GTFS snapshots from data.gov.lv, de-duplicates against already-imported snapshots, and stores each one in a new `gtfs_snapshots` table (one row per snapshot → link to snapshot-scoped copies of trips/stop_times/calendar).
-**Why:** Current GTFS importer only ingests the "latest" feed — overwriting prior data on every run. ML training needs the full temporal history to learn seasonal variations (summer vs winter routes, school vs holiday calendars). A single weekend scripted backfill seeds the entire ML training corpus.
+#### CMS-1 Route Shape Polylines
+**What:** Render GTFS route geometries (`shapes.txt`) as colored polylines on the route map and full-screen `/map` page. Shapes are already imported in `app/schedules/models.py::Shape` — this task adds the API endpoint and frontend rendering layer.
+**Why:** Currently the map shows only vehicle markers with no route context. Polylines show where routes run, helping dispatchers visually identify coverage gaps and route deviations.
 **Implementation:**
-- `alembic/versions/h1i2j3k4l5m6_gtfs_snapshots.py` — new tables:
-  - `gtfs_snapshots` (id, feed_name, snapshot_date, resource_id, sha256, row_counts_json, imported_at)
-  - `gtfs_snapshot_trips`, `gtfs_snapshot_stop_times`, `gtfs_snapshot_calendar` — snapshot-scoped shadow tables with `snapshot_id` FK (TimescaleDB compressed after 30 days)
-- `app/transit/historical_gtfs_importer.py`:
-  - `list_available_snapshots() -> list[SnapshotMeta]` — fetches dataset resource list from data.gov.lv API, returns sorted by date
-  - `import_snapshot(resource_id, snapshot_date)` — downloads ZIP, computes sha256, skips if already imported, parses via existing `gtfs_importer.py` helpers, writes to snapshot-scoped tables
-  - `backfill_all(since_date, until_date)` — loops snapshots, respects 1 req/s rate limit, resumable (checkpoint via `gtfs_snapshots.imported_at`)
-- `scripts/backfill_gtfs_history.py` — CLI entrypoint with `--since 2018-05` / `--dry-run` flags
-- `Makefile` — `make gtfs-backfill SINCE=2018-05`
-- Storage impact: ~64 snapshots × ~50MB compressed = ~3.2 GB Postgres (TimescaleDB compression expected to reduce by 5-10×)
-- 10+ unit tests: snapshot metadata parsing, duplicate detection (2), rate limiting, resumability (2), corrupt ZIP fallback, end-to-end with fixture ZIPs (2)
-
-**Verify:** `make gtfs-backfill SINCE=2025-10` imports last 3 months without duplicates. Query `SELECT COUNT(*), MIN(snapshot_date), MAX(snapshot_date) FROM gtfs_snapshots;` returns expected rows. Re-run: no new rows (idempotent). Disk usage within projected range.
-
-#### ML-1.2 E-Ticket Validation Data Pipeline ✅ (2026-04-12)
-**What:** Create `app/transit/eticket_importer.py` — downloads monthly e-ticket validation archives (~100MB compressed each, 67 total), parses TXT files, writes to `eticket_validations` TimescaleDB hypertable partitioned on `validated_at`. Enables passenger load prediction training.
-**Why:** E-ticket data is the most valuable ML dataset in the platform — every tap-on since 2018 mapped to vehicle + route + direction + time. Combined with GPS positions, it predicts bus crowding. The dataset is too large (~45 GB uncompressed) to load on-demand; needs a staged backfill with compression from day one.
-**Implementation:**
-- `alembic/versions/i2j3k4l5m6n7_eticket_validations.py` — TimescaleDB hypertable:
-  - `eticket_validations` (id, record_id, depot, transport_type, vehicle_number, route_name, route_code, direction, validation_id, validated_at TIMESTAMPTZ)
-  - `SELECT create_hypertable('eticket_validations', 'validated_at', chunk_time_interval => INTERVAL '7 days')`
-  - Compression policy: compress chunks older than 30 days, retention 5 years
-  - Index: `(route_code, validated_at DESC)`, `(vehicle_number, validated_at DESC)`
-- `app/transit/eticket_importer.py`:
-  - `parse_eticket_txt(path) -> Iterator[EticketRecord]` — streaming TXT parser (line-by-line, no full-file load, field encoding Latin-1→UTF-8)
-  - `import_monthly_archive(url, archive_date)` — downloads ZIP to temp, extracts, streams each daily TXT, bulk-inserts via `asyncpg.copy_records_to_table` (10-100x faster than SQLAlchemy), deletes temp
-  - `backfill_all()` — loops monthly archives oldest-first, resumable via `eticket_imports` tracking table
-- `scripts/backfill_eticket_data.py` — CLI with `--month 2026-01`, `--all`, `--dry-run`
-- `Makefile` — `make eticket-backfill MONTH=2026-01`
-- Resource budget: ~45 GB uncompressed → ~5-8 GB after TimescaleDB compression. Alert ops before running full backfill.
-- 12+ unit tests: TXT parsing with Latin-1 quirks (3), bulk copy integration (1), duplicate detection (1), resume semantics (2), schema validation (2), compression policy assertion (1), storage budget guardrail (2)
-
-**Verify:** `make eticket-backfill MONTH=2026-01` imports January 2026 (~100MB). `SELECT route_code, COUNT(*) FROM eticket_validations WHERE validated_at >= '2026-01-01' GROUP BY route_code ORDER BY 2 DESC LIMIT 10` shows realistic ridership (route 22 & 6 should top the list). Compression policy active via `SELECT * FROM timescaledb_information.compression_settings`.
-
-#### ML-1.3 Weather + Traffic Observations ETL ✅ (2026-04-12)
-**What:** Create `app/transit/weather_etl.py` and `app/transit/traffic_etl.py` — scheduled pullers for data.gov.lv weather (meteo + road conditions) and traffic count / accident datasets. Writes to dedicated tables with spatial columns for later join against stops/routes.
-**Why:** ETA models need weather context (rain +15% delay, snow +40% delay). Traffic counts + accident hotspots feed congestion factors. These datasets update at different cadences (weather hourly, traffic daily, accidents annually) — each needs its own scheduler and idempotent upsert logic.
-**Implementation:**
-- `alembic/versions/j3k4l5m6n7o8_weather_traffic.py` — 4 new tables:
-  - `weather_observations` (station_id, observed_at TIMESTAMPTZ, temp_c, wind_mps, precip_mm, phenomena JSONB, location GEOGRAPHY(POINT)) — TimescaleDB hypertable on `observed_at`
-  - `weather_stations` (station_id, name, location GEOGRAPHY(POINT))
-  - `traffic_counts` (point_id, period_start, period_end, avg_count_per_day, vehicle_class, location GEOGRAPHY(POINT)) — non-hypertable (low cardinality)
-  - `traffic_accidents` (id, occurred_at, severity, fatalities, injuries, location GEOGRAPHY(POINT))
-- `app/transit/weather_etl.py`:
-  - `pull_meteo_operativie_dati()` — fetches `meteo_operativie_dati.csv` (last 48h), upserts, runs hourly via background task
-  - `pull_meteo_arhiva_dati()` — one-shot backfill of last 365 days
-  - `pull_laika_operativie_dati()` — weather phenomena (fog, ice, storm) — JSONB merged into `weather_observations.phenomena`
-- `app/transit/traffic_etl.py`:
-  - `pull_traffic_counts()` — daily pull from `data.lvceli.lv`
-  - `pull_traffic_accidents()` — annual one-shot from CAIS dataset (CSV)
-- `app/main.py` — schedule `pull_meteo_operativie_dati` every 60 min, `pull_traffic_counts` daily at 04:00 UTC (reuse lifecycle pattern from memory tasks)
-- `Makefile` — `make weather-backfill`, `make traffic-backfill`
-- PostGIS spatial join usage documented in ML-2.3
-- 15+ unit tests: CSV parsing (3), upsert idempotency (2), PostGIS location encoding (2), phenomena JSONB merge (2), scheduled task gating (2), resume semantics (2), HTTP failure retry (2)
-
-**Verify:** Run `make weather-backfill`. Query `SELECT ST_Distance(location, ST_MakePoint(24.105, 56.95)::geography), temp_c FROM weather_observations w JOIN weather_stations s ON w.station_id = s.station_id ORDER BY observed_at DESC LIMIT 5` — returns recent observations near Riga. Hourly background task logs `transit.weather.pulled {count, duration_ms}`.
-
----
-
-### Phase ML-2: ETA Prediction Model (8 days)
-
-> **Sprint deliverable:** ML-based ETA accurate within ±2 minutes on commuter routes vs the ±5-minute scheduled baseline. Served via `predict_eta()` agent tool and exposed as `GET /v1/transit/vehicles/{id}/eta`.
-> **Depends on:** ML-1, Full Latvia Phase 2 (90+ days of TimescaleDB history accumulated)
-
-#### ML-2.1 Feature Engineering Pipeline ✅
-**Status:** Done — `app/ml/features/` implements `ETAFeatures` frozen dataclass (18 fields), `extract_features()` online path, `extract_features_batch()` offline batch path, `classify_weather()` bucket classifier, `parse_gtfs_time()` GTFS time parser. `queries.py` holds 10 parameterized SQL constants (vehicle delay, historical avg, weather, traffic, accidents via ST_DWithin, headway, prev stop delay, batch extraction with LATERAL join). `validation.py` provides Pandera `DataFrameSchema` with range/type checks + `detect_outliers()` 3-sigma detector. `__main__.py` CLI: `python -m app.ml.features --from --to [--out] [--dry-run] [--validate]`. Dependencies: pandas, pandera, pyarrow (+ pandas-stubs dev). Missing data uses safe defaults (0.0) — never raises. Materialized view deferred (Python extraction is source of truth). 34 unit tests: time parsing (4), weather classification (9), dataclass immutability (2), online extraction with mocked DB (8), batch extraction (2), Pandera validation (6), outlier detection (3). Plan: [.agents/plans/ml-2-1-eta-feature-engineering.md](../.agents/plans/ml-2-1-eta-feature-engineering.md). (2026-04-12)
-
-**What:** Create `app/ml/features/eta_features.py` — deterministic feature extraction job that joins `vehicle_positions` (TimescaleDB) with `gtfs_stop_times` + `weather_observations` to produce a training matrix. One row per (trip_id, stop_sequence) with features like scheduled_arrival, time_of_day, day_of_week, historical_avg_delay, weather_bucket, prev_stop_delay.
-**Why:** ML training data quality dominates model quality. Centralising feature engineering in one module (vs. ad-hoc notebooks) means the training set, online inference, and eval all use the same feature code — no train/serve skew.
-**Implementation:**
-- `app/ml/features/eta_features.py`:
-  - `@dataclass(frozen=True) ETAFeatures`: 18 fields total (8 categorical, 10 numeric)
-  - `extract_features(trip_id, stop_sequence, observed_at) -> ETAFeatures` — online path, used by inference
-  - `extract_features_batch(from_ts, to_ts) -> pd.DataFrame` — offline path, used by training
-  - Categorical: `day_of_week`, `month`, `is_school_day` (from gtfs calendar), `is_holiday`, `weather_bucket` (clear/rain/snow/fog), `route_type`, `direction`, `operator`
-  - Numeric: `time_of_day_hour`, `scheduled_headway_s`, `historical_avg_delay_at_stop_s`, `prev_stop_actual_delay_s`, `trip_elapsed_pct`, `temp_c`, `wind_mps`, `precip_mm_last_hr`, `traffic_count_rolling_7d`, `accident_count_within_500m`
-- Feature store: materialized view `ml_eta_features_v1` refreshed nightly via `REFRESH MATERIALIZED VIEW CONCURRENTLY`
-- `app/ml/features/validation.py` — schema validation (pandera), outlier detection
-- 12+ unit tests: each feature extraction (8), missing-data fallbacks (2), train/serve parity regression (1), batch vs online equivalence (1)
-
-**Verify:** Run `python -m app.ml.features.eta_features --from 2026-03-01 --to 2026-03-31 --out /tmp/features.parquet`. Resulting parquet has ~200K rows (1 month × ~6000 trips × ~30 stops per trip). Spot-check 10 random rows against source data.
-
-#### ML-2.2 Baseline Gradient Boosting Model ✅
-**What:** Train a LightGBM regression model predicting `actual_arrival_delay_seconds` from ML-2.1 features. Target MAE < 120s (vs ~300s for the naive "scheduled time" baseline). Track versions, metrics, and artifacts via a lightweight in-repo registry.
-**Why:** LightGBM is the right first model: fast to train on tabular data, handles categorical features natively, interpretable via SHAP. Deep-learning alternatives (LSTM, graph nets) add complexity without proven lift on this kind of schedule-adherence problem.
-**Implementation:**
-- `app/ml/models/eta_gbm.py`:
-  - `train(features_df, target_col, val_split=0.2) -> ETAModel` — sklearn pipeline (LightGBM + ColumnTransformer), 5-fold CV, early stopping
-  - `ETAModel.predict(features: ETAFeatures) -> ETAPrediction` — returns `(predicted_delay_s, confidence_lower, confidence_upper)` via quantile regression heads (0.1 / 0.5 / 0.9)
-  - Model artifact: pickled LightGBM booster + feature transformer → `models/eta_gbm_v{N}.pkl` (git-ignored, tracked via `models/registry.json`)
-- `app/ml/registry.py`:
-  - `ModelRegistry` class: stores model metadata (version, trained_at, training_window, metrics, feature_version) in `models/registry.json` (committed)
-  - `load_latest(model_name) -> LoadedModel` with in-memory cache
-  - `promote(model_name, version)` — sets "production" pointer
-- `scripts/train_eta_model.py` — CLI with `--training-window 60d`, `--target-mae 120`, `--promote` flags
-- `Makefile` — `make ml-train-eta`
-- Metrics logged + persisted: MAE, RMSE, 90th-percentile error, per-route MAE (fairness check)
-- 15+ unit tests: training smoke (1), prediction smoke (1), quantile interval coverage (2), registry promote/rollback (3), reproducibility (fixed seed) (2), feature version mismatch error (1), model versioning (2), SHAP integration (1), end-to-end fixture training (2)
-
-**Verify:** `make ml-train-eta` produces `models/eta_gbm_v1.pkl` with MAE < 120s on held-out validation. `registry.json` shows the version with metrics. Per-route MAE check confirms no route has MAE > 240s (no egregious outlier routes).
-
-#### ML-2.3 Inference Service + Agent Tool Integration ✅ (2026-04-13)
-**What:** Expose the trained model via (a) an internal `ETAService` with in-memory model cache, (b) a new `GET /v1/transit/vehicles/{id}/eta?stop_id=X` REST endpoint, and (c) a `predict_eta` agent tool so dispatchers can ask "when will bus 22-47 reach Brīvības?".
-**Why:** A trained model is useless without a serving layer. Keeping inference in-process (no separate model server) is the right call at this scale — VTV serves <10k predictions/day, LightGBM cold-start is <50ms, and a microservice adds ops burden. The agent tool is where dispatchers actually consume predictions.
-**Implementation:**
-- `app/ml/eta_service.py`:
-  - `ETAService` singleton with `predict(trip_id, stop_id, observed_at) -> ETAPrediction`
-  - Calls `eta_features.extract_features(...)` then `model.predict(...)`, formats output
-  - Hot-reloads model when `registry.json` version pointer changes (checked every 5 min)
-  - Falls back to scheduled time + historical_avg_delay if model load fails (never blocks the endpoint)
-- `app/transit/routes.py` — `GET /v1/transit/vehicles/{vehicle_id}/eta?stop_id=X` — returns predicted arrival, confidence interval, fallback flag
-- `app/core/agents/tools/transit/predict_eta.py` — new agent tool, signature `predict_eta(vehicle_id: str, stop_id: str) -> ETAResponse`, added to `TransitAgent` tool list (and unified agent fallback)
-- Update `query_route_delays` (existing) to optionally include ML forecasts via `include_forecast: bool = False` param
-- `app/core/agents/agents/transit.py` — extend `TRANSIT_SYSTEM_PROMPT` with a short "When to use `predict_eta`" section
-- Structured logging: `transit.eta.predicted {vehicle_id, stop_id, predicted_delay_s, model_version, latency_ms, fallback}`
-- 18+ unit tests: happy-path predict (2), fallback on model load failure (2), hot-reload on version change (2), agent tool integration (3), REST endpoint auth + rate limit (3), edge cases (trip already past stop, no schedule) (3), model-version drift log (1), latency budget assertion <100ms p95 (2)
-
-**Verify:** `GET /v1/transit/vehicles/22-47/eta?stop_id=1234` returns `{predicted_arrival_at, delay_s, confidence_interval, model_version: "eta_gbm_v1"}`. Agent query "when does bus 22-47 reach Brīvības?" triggers `predict_eta` tool, returns user-facing ETA. Force fallback (`models/registry.json` pointing to nonexistent version) — endpoint still responds with scheduled time + `fallback: true`.
-
----
-
-### Phase ML-3: Passenger Load Prediction (6 days)
-
-> **Sprint deliverable:** Crowding predictions ("bus 22 at 08:15 on Monday typically has 47 passengers by Brīvības") exposed to dispatchers via new agent tool. Over-capacity alerts fire 10+ minutes before the vehicle arrives.
-> **Depends on:** ML-1.2 (e-ticket data), ML-2 (feature pipeline patterns)
-
-#### ML-3.1 E-Ticket ↔ GTFS-RT Correlation Pipeline ✅ (2026-04-13)
-**What:** Create `app/ml/features/load_features.py` — joins `eticket_validations` with `vehicle_positions` to reconstruct per-stop tap-on counts. Output: time series of passenger counts per (trip, stop_sequence, date).
-**Why:** E-ticket records lack an explicit stop_id — they only record `(vehicle_number, validated_at)`. Reconstructing "which stop was this tap-on at?" requires joining against the vehicle's GPS trace at that timestamp, then nearest-stop lookup via PostGIS. This correlation is the bridge between raw data and a trainable dataset.
-**Implementation:**
-- `app/ml/features/load_features.py`:
-  - `correlate_taps_to_stops(from_ts, to_ts) -> pd.DataFrame` — spatial-temporal join: for each validation, find the vehicle_position row closest in time (±60s window) and nearest stop (`ST_DWithin`, 100m radius)
-  - `extract_load_features(...)` — per (trip_id, stop_sequence, date): tap-on count, cumulative load from start of trip, seat capacity (from vehicle_type), load factor %
-- Materialized view `ml_load_features_v1` refreshed nightly, backed by ML-1.2 hypertable compression
-- `app/ml/features/vehicle_capacity.py` — capacity lookup table (bus = 60, articulated bus = 100, tram = 200, trolleybus = 80) + overrides from fleet records
-- Validation: ensure ≥80% of e-ticket records correlate to a stop within tolerance; flag uncorrelated records for investigation
-- 12+ unit tests: spatial-temporal join correctness (3), capacity lookup (2), load factor math (2), unmatched record handling (2), feature determinism (1), per-vehicle override resolution (2)
-
-**Verify:** Run correlation over 1 week of January 2026 data. `SELECT route_code, AVG(load_factor_pct) FROM ml_load_features_v1 WHERE date_trunc('day', validated_at) = '2026-01-15' GROUP BY 1 ORDER BY 2 DESC LIMIT 5` — route 22, 6, 11 should top the chart (main commuter lines). Correlation rate ≥ 80%.
-
-#### ML-3.2 Load Prediction Model ✅ (2026-04-13)
-**What:** Train a gradient-boosted model predicting `expected_passenger_count` at (trip_id, stop_sequence) from features like route, direction, time_of_day, day_of_week, weather, school_calendar, historical_avg_load. Output includes crowding bucket (empty/light/moderate/full/overcrowded).
-**Why:** Same model architecture as ML-2.2 (LightGBM regressor) but different target + features. Re-using the registry + training infrastructure from ML-2 means ~2 days of the 6-day budget goes to model-specific work, not plumbing.
-**Implementation:**
-- `app/ml/models/load_gbm.py` — mirror of `eta_gbm.py` but with load-specific features and a classification head for crowding bucket
-- `crowding_bucket(load_factor_pct) -> Literal["empty","light","moderate","full","overcrowded"]` — thresholds: <20%, 20-40%, 40-70%, 70-95%, >95%
-- Two-head output: regression (passenger count) + classification (bucket). Separate metrics per head: MAE for count, F1-macro for bucket.
-- Reuse `app/ml/registry.py` — register as `load_gbm_v1`
-- `scripts/train_load_model.py` CLI + `make ml-train-load`
-- 12+ unit tests: training smoke, bucket boundaries, per-route fairness (route 22 ≠ rural lines), reproducibility, registry integration
-
-**Verify:** `make ml-train-load` produces `load_gbm_v1.pkl` with count MAE < 12 passengers and bucket F1 > 0.75. Per-route breakdown confirms no systematic bias toward any route.
-
-#### ML-3.3 Crowding Alerts + Agent Tool ✅ (2026-04-13)
-**What:** Add `predict_passenger_load(vehicle_id, stop_id)` agent tool and a background evaluator (`app/alerts/crowding_evaluator.py`) that flags buses predicted to exceed 95% capacity. Wire into existing alerts system.
-**Why:** Predictions without action are dashboards. Dispatchers need proactive alerts so they can deploy overflow vehicles. Reuse the alerts service from the fleet/geofences work (`app/alerts/`) rather than building a parallel notification system.
-**Implementation:**
-- `app/ml/load_service.py` — `LoadPredictionService` singleton mirroring ETAService: in-memory model cache, hot-reload from registry, fallback when model unavailable
-- `app/core/agents/tools/transit/predict_passenger_load.py` — agent tool (Tool 7), 5-principle docstring, reads from `LoadPredictionService` singleton
-- `app/alerts/crowding_evaluator.py` — background task (2 min cycle): scans vehicle positions from Redis, runs load prediction for each, fires `crowding_prediction` alert if `crowding_bucket == "overcrowded"` with dedup check
-- `app/alerts/schemas.py` + `models.py` — added `"crowding_prediction"` to `AlertRuleType` Literal and CHECK constraint
-- `alembic/versions/r2s3t4u5v6w7` — migration: drop/recreate `ck_alert_rules_rule_type` CHECK constraint
-- `app/core/config.py` — `alerts_crowding_enabled`, `alerts_crowding_check_interval_seconds` (120s), `alerts_crowding_dedup_minutes` (30)
-- `app/main.py` — register crowding_evaluator in lifespan startup + shutdown coordinator
-- `app/core/agents/agent.py` + `agents/transit.py` — register `predict_passenger_load` (13 tools total, 7 transit)
-- `docs/logging-standard.md` — 3 new agent tool log events documented
-- 18 unit tests: load service (6), crowding evaluator (7), agent tool (5). Plan: [.agents/plans/ml-3-3-crowding-alerts-agent-tool.md](../.agents/plans/ml-3-3-crowding-alerts-agent-tool.md). (62395b3)
-
-**Verify:** Start dev stack with ML-1.2 + ML-3.2 complete. Agent query "How full is bus 4521 at stop a0072?" returns JSON with predicted_passenger_count, crowding_bucket, and confidence interval. Force overcrowded prediction in test, confirm crowding alert fires within 2 min cycle.
-
----
-
-### Phase ML-4: Anomaly Detection (5 days)
-
-> **Sprint deliverable:** Three real-time anomaly detectors (off-route, stuck, GPS gap) catching fleet issues within 2 minutes of occurrence. Alerts routed to dispatchers via existing alerts system.
-
-#### ML-4.1 Off-Route Detection ✅
-**Status:** Done — `app/ml/anomaly/off_route.py` implements background off-route evaluator (60s cycle, configurable). Builds PostGIS corridor geometry per route via `ST_Buffer(ST_MakeLine(shape_points ORDER BY sequence)::geography, buffer_m)::geometry` with `ST_Union` for multi-shape routes (outbound + inbound). Corridor cache at module level (cleared on stop). Vehicle containment via `ST_Contains`. Consecutive out-of-corridor tracking in Redis (`off_route_state:<vehicle_id>`, 5min TTL). Fires `"off_route"` alert via `AlertInstanceRepository` at threshold (default 3 consecutive hits). Custom dedup query on `alert_type + source_entity_id + status` (does NOT use `find_active_duplicate` — avoids FK assumption). Config: `anomaly_offroute_enabled=True`, `anomaly_offroute_check_interval_seconds=60`, `anomaly_offroute_buffer_meters=50`, `anomaly_offroute_consecutive_hits=3`. Registered in `app/main.py` lifespan + `ShutdownCoordinator`. `"off_route"` added to `AlertRuleType` Literal and CHECK constraint (migration `n7o8p9q0r1s2`). 12 unit tests: corridor/containment (2), consecutive tracking (2), threshold firing (1), reset on re-entry (1), dedup (1), no vehicles/no route/no shape edge cases (3), caching (2), lifecycle (2). Plan: `.agents/plans/ml-4-1-off-route-detection.md`. (2026-04-12, af675bf)
-
-#### ML-4.2 Stuck Vehicle + GPS Gap Detection ✅
-**Status:** Done — `app/ml/anomaly/stuck.py` implements `StuckVehicleEvaluator` class querying TimescaleDB `vehicle_positions` for movement in configurable time window (`ml_stuck_time_window_minutes=10`), haversine distance check against threshold (`ml_stuck_distance_threshold_m=20.0`), layover/terminal stop exclusion via GTFS stop_times cross-reference. `app/ml/anomaly/gps_gap.py` implements `GPSGapEvaluator` class comparing `MAX(observed_at)` vs current time with threshold (`ml_gps_gap_threshold_minutes=5`), feed-wide gap detection fires `feed_outage` when `ml_gps_gap_feed_outage_pct=50`% of feed vehicles gap simultaneously. Both return `list[AlertInstanceCreate]` consumed by `app/ml/anomaly/evaluator.py` orchestrator (60s cycle, `ml_anomaly_evaluator_enabled` config). `"stuck_vehicle"`, `"gps_gap"`, `"feed_outage"` added to `AlertRuleType`. Redis cooldown (`ml_anomaly_cooldown_seconds=900`) prevents alert spam. 25 tests across `test_stuck.py`, `test_gps_gap.py`, `test_evaluator.py`. Plan: `.agents/plans/ml-4-2-stuck-gps-gap-detection.md`. (2026-04-12, af675bf)
-
-#### ML-4.3 Anomaly Detection Routing + Deduplication ✅ (2026-04-13)
-**What:** Central `AnomalyAlertRouter` that routes each anomaly type to the right alert channel (dispatcher dashboard, SMS for critical, Slack for ops), enforces per-vehicle cooldowns, and exposes `GET /v1/anomalies/recent` endpoint for the CMS.
-**Why:** Three detectors × naive alerting = alert fatigue. Routing + cooldowns + severity mapping are cross-cutting concerns that should live once, in one place, not duplicated into each evaluator.
-**Implementation:**
-- `app/ml/anomaly/router.py`:
-  - `AnomalyAlertRouter.route(anomaly: AnomalyEvent)` — looks up severity + channel from config, checks Redis cooldown, calls `AlertService`
-  - Cooldown keys: `anomaly:cooldown:{type}:{vehicle_id}` with TTL per severity (critical=5min, warning=30min)
-  - Channel matrix in config: `off_route → dashboard+slack`, `stuck → dashboard+slack+sms(critical)`, `gps_gap → dashboard`, `feed_outage → slack+pager`
-- `app/transit/routes.py` — `GET /v1/anomalies/recent?limit=50` returns last N anomalies from a new `anomalies` table (or Redis stream if ephemeral is acceptable)
-- `cms/apps/web/src/app/[locale]/anomalies/page.tsx` — minimal dashboard page (separate FE task; tracked as a follow-up)
-- 12+ unit tests: router dispatches per type (3), cooldown enforcement (2), severity escalation (2), channel selection (2), endpoint auth (1), cooldown reset on resolve (1), alert payload schema (1)
-
-**Verify:** Trigger all 3 anomaly types for the same vehicle in quick succession. Exactly 3 alerts created (one per type), no duplicates. Trigger same anomaly 30s later — suppressed by cooldown. `GET /v1/anomalies/recent` returns the 3 events in reverse-chronological order.
-
----
-
-### Phase ML-5: Dashboards + Public API + Text-to-SQL (8 days)
-
-> **Sprint deliverable:** Route performance dashboards in CMS, public developer API with key-based auth, Text-to-SQL via Schema RAG for complex analytics. Closes out Phase 4 of the transit platform.
-
-#### ML-5.1 Route Performance Dashboard (CMS) ✅ (2026-04-13)
-**What:** New CMS page `/analytics/routes` — per-route performance metrics: on-time %, avg delay by stop, passenger load trend, anomaly count. Charts via Recharts, data sourced from the existing `app/analytics/` slice (extended with ML-derived aggregates).
-**Why:** The ML models and data pipelines are invisible to ops until surfaced in the UI. A single "route performance" page gives operations managers a daily pulse on fleet health, exposing the value of every earlier phase.
-**Implementation:**
-- `app/analytics/schemas.py` — 8 new Pydantic models: `DailyOnTimePoint`, `StopDelayPoint`, `DailyLoadPoint`, `DailyAnomalyPoint`, `RoutePerformanceTrendResponse`, `RouteDelayByStopResponse`, `RouteLoadTrendResponse`, `RouteAnomalyResponse`, `WindowLiteral`
-- `app/analytics/service.py` — 4 new methods: `get_route_performance()`, `get_route_delay_by_stop()`, `get_route_load_trend()`, `get_route_anomalies()`. Graceful degradation: returns empty data when ML pipeline data not yet available
-- `app/analytics/routes.py` — 4 new endpoints with input validation (`route_id` regex, `window` Literal enum), rate-limited 30/min
-- `cms/apps/web/src/app/[locale]/(dashboard)/analytics/routes/page.tsx` — server component wrapper
-- `cms/apps/web/src/components/analytics/route-performance/` — `RoutePerformanceDashboard` (client component with SWR data fetching, route selector, 7/14/30d time window, 4 KPI cards, 4 Recharts charts), `ChartCard` (reusable wrapper)
-- `cms/apps/web/src/lib/route-performance-sdk.ts` — `authFetch`-based API wrapper (4 fetch functions)
-- `cms/apps/web/messages/{en,lv,ru}.json` — 29 i18n keys per locale (26 routePerformance + 3 nav)
-- `cms/apps/web/src/components/app-sidebar.tsx` — Analytics converted to NavGroup (Overview + Route Performance)
-- `app/analytics/tests/test_route_performance.py` — 11 unit tests (schemas, endpoints, validation)
-- Plan: `.agents/plans/ml-5-1-route-performance-dashboard.md`
-
-**Verify:** `/analytics/routes` loads in CMS, route selector populates from GTFS routes, all 4 charts render. Time window toggle (7/14/30d) refreshes all charts. Empty states display when no route selected or no data. Backend endpoints validate input (reject `../etc/passwd`, reject `window=999`).
-
-#### ML-5.2 Schedule Adherence Monitoring + Daily Report ✅ (2026-04-13)
-**What:** Scheduled daily job that computes fleet-wide schedule adherence (overall %, per-route, per-hour), writes a `daily_adherence_report` row, and publishes an email/Slack summary to dispatcher managers. Alert threshold: overall adherence < 85% -> high-severity alert.
-**Why:** Dispatchers see real-time delays; managers need daily trend reports to decide on schedule revisions, driver training, or vehicle re-assignment. Automating the report removes the current manual spreadsheet process.
-**Implementation:**
-- `alembic/versions/o8p9q0r1s2t3_daily_adherence_reports.py` -- `daily_adherence_reports` table (date, overall_pct, per_route_json, per_hour_json, anomaly_count, alert_triggered) + `schedule_adherence` alert type CHECK
-- `app/analytics/models.py` -- `DailyAdherenceReport` SQLAlchemy model with `TimestampMixin`
-- `app/analytics/daily_adherence.py`:
-  - `compute_daily_report(target_date, db)` -- compute + upsert + threshold alert
-  - `publish_report(report)` -- Slack webhook + SMTP email (fail-open)
-  - `get_daily_reports(db, date_from, date_to)` -- date-range query
-  - `start_adherence_task()` / `stop_adherence_task()` -- background lifecycle
-- `app/analytics/routes.py` -- `GET /api/v1/analytics/adherence/daily?date_from=&date_to=` (auth + rate limited)
-- `app/analytics/schemas.py` -- `DailyAdherenceReportResponse`, `PerRouteAdherence`, `PerHourAdherence`
-- `app/core/config.py` -- 10 settings (threshold, Slack webhook, SMTP)
-- `app/core/jobs/worker.py` -- `run_daily_adherence` arq cron job
-- `app/alerts/schemas.py` + `app/alerts/models.py` -- added `schedule_adherence` to `AlertRuleType`
-- `app/main.py` -- lifespan registration (startup + shutdown coordinator)
-- 13 unit tests: computation (2), publish fail-open (3), threshold alerting (2), date-range query (1), lifecycle (1), route endpoint (4)
-- Plan: [.agents/plans/ml-5-2-daily-adherence-report.md](../.agents/plans/ml-5-2-daily-adherence-report.md)
-
-**Verify:** Manually invoke `compute_daily_report(date(2026, 04, 10))` -- produces report row, prints summary. Simulate adherence < 85%, confirm high-severity alert created. `GET /api/v1/analytics/adherence/daily?date_from=2026-04-01&date_to=2026-04-10` returns stored rows.
-
-#### ML-5.3 Public Developer API with API Key Auth ✅ (2026-04-12)
-**What:** New `app/public_api/` vertical slice — read-only subset of transit endpoints (`/public/v1/routes`, `/public/v1/stops`, `/public/v1/vehicles`) gated behind API keys. Per-key rate limiting (default 60/min, configurable per tier). Developer portal landing page in CMS (`/developers`) with self-serve key generation.
-**Why:** Third-party app developers (rider apps, transit researchers, journalists) repeatedly ask for direct data access. A dedicated public API is much safer than opening internal endpoints — it lets us rate-limit, version, revoke, and monitor usage independently without touching internal APIs.
-**Implementation:**
-- `alembic/versions/l5m6n7o8p9q0_api_keys.py` — `api_keys` (id, owner_user_id, key_hash, name, tier, created_at, last_used_at, revoked_at), `api_key_usage` TimescaleDB hypertable
-- `app/public_api/`:
-  - `models.py`, `schemas.py`, `repository.py`, `service.py` — standard VSA layout
-  - `auth.py` — `APIKeyAuth` dependency: reads `X-API-Key` header, hashes, looks up, enforces rate limit via Redis token bucket
-  - `routes.py` — 3 endpoints (routes / stops / vehicles), read-only, CORS-enabled, `Cache-Control: public, max-age=30`
-- `cms/apps/web/src/app/[locale]/developers/page.tsx`:
-  - Landing page with API docs link, key generation form, key list with revoke button
-  - Only authenticated users with `editor` role or above can create keys
-- `docs/api/public-v1.md` — OpenAPI reference + usage examples (curl + Python)
-- Documentation: publish to `data.gov.lv` per CC0 commitment
-- 20+ tests: key generation, hash verification (bcrypt same as password), rate limit enforcement, revocation, per-tier limits (60 / 300 / 1000 req/min), CORS headers, CMS key-management UI
-
-**Verify:** Generate a key via CMS. `curl -H "X-API-Key: <key>" https://vtv.lv/public/v1/vehicles` returns live vehicles. Hammer endpoint > 60 req/min → 429. Revoke key → 401. Key usage shows up in `api_key_usage` hypertable.
-
-#### ML-5.4 Text-to-SQL with Schema RAG ✅ (2026-04-12)
-**What:** New agent tool `run_analytics_sql(natural_language_question)` that uses pgvector Schema RAG (retrieve 5 similar example queries) + LLM to generate a SELECT statement, validates against a whitelist (SELECT-only, no DDL/DML, query plan cost < 10k), executes, and returns results. Seeded with 200-500 curated examples.
-**Why:** Completes Phase 4 of the platform plan. Dispatchers and analysts ask questions the existing tools don't cover ("how many buses were late by > 15 min on route 22 during rain in the last 30 days?"). Text-to-SQL with schema RAG is the pattern that scales without endless manual tool additions. Safety relies on: retrieval-constrained prompting (LLM sees only example SELECTs), SQL parser whitelist, and query-plan cost gate.
-**Implementation:**
-- `alembic/versions/m6n7o8p9q0r1_schema_examples.py` — `schema_examples` table (id, question_text, question_embedding VECTOR(1024), sql_query TEXT, description, validated_at, tags)
-- `app/core/agents/tools/transit/run_analytics_sql.py`:
-  - Retrieval: embed `question`, `ORDER BY embedding <=> $1 LIMIT 5` → example queries
-  - Prompt: "Given these 5 example queries on the VTV schema, write a SELECT for: {question}. Use only tables: {schema_whitelist}. SELECT only."
-  - Validation: `sqlparse` → reject anything that isn't SELECT, no `UPDATE`/`DELETE`/`DROP`/`GRANT`/`COPY`/`;--`
-  - Cost check: `EXPLAIN (FORMAT JSON) <query>` → reject if `Total Cost > 10000`
-  - Execution: read-only DB user (new role `vtv_readonly_agent` created in migration), 5s statement timeout
-- `scripts/seed_schema_examples.py` — loads a hand-curated YAML file into `schema_examples` table with embeddings
-- `app/core/agents/agents/transit.py` — add tool to `TransitAgent.tools` and `UnifiedAgent.tools`
-- Security (CTX-AGENT, CTX-INPUT): three-layer defense — prompt constraint, parser whitelist, read-only DB role with statement timeout. Explicit test cases for each injection attempt.
-- 25+ unit tests: retrieval (3), prompt assembly (2), parser whitelist (8 injection attempts including stacked queries, comment obfuscation, UNION, encoded chars, schema introspection, role escalation, DoS via CROSS JOIN, write attempts), cost gate (3), read-only role enforcement (2), result truncation at 100 rows (2), telemetry log (2), seed script idempotency (2), agent tool integration (1)
-
-**Verify:** Seed 50 example queries. Agent query: "How many buses were > 10 minutes late on route 22 yesterday?" → generates valid SELECT, executes, returns count. Try injection: "'; DROP TABLE documents; --" → parser rejects. Try expensive query "select count(*) from vehicle_positions cross join vehicle_positions" → cost gate rejects. Try write: "update vehicles set active=false" → rejected at parser AND read-only role level (defense in depth).
-
----
-
-### Intelligence/ML — Summary
-
-| Phase | Focus | Days | Depends on |
-|-------|-------|------|------------|
-| ML-1  | Data ingestion (GTFS archive, e-ticket, weather, traffic) | 6 | Full Latvia Phase 1 |
-| ML-2  | ETA prediction model (LightGBM + weather) | 8 | ML-1, 90d TimescaleDB history |
-| ML-3  | Passenger load prediction + crowding alerts | 6 | ML-1.2, ML-2 |
-| ML-4  | Anomaly detection (off-route, stuck, GPS gap) | 5 | Route Shape Polylines TODO, alerts slice |
-| ML-5  | CMS dashboards, public API, Text-to-SQL | 8 | ML-1..ML-4 |
-
-Total ML platform build-out: **33 days** across 17 subtasks. **All 17 subtasks complete** ✅.
+- `app/schedules/routes.py` — `GET /v1/schedules/routes/{route_id}/shape` — returns GeoJSON `LineString` assembled from `Shape` points ordered by `shape_pt_sequence`
+- `app/schedules/service.py` — `get_route_shape(route_id, feed_id) -> GeoJSON` — query `Shape` table, group by `gtfs_shape_id`, build coordinate array
+- CMS `route-map.tsx`:
+  - Add `Polyline` layer from `react-leaflet` — renders route shape behind vehicle markers
+  - Color: per-feed color from `feedColors` prop, with 50% opacity
+  - Toggle: "Show routes" checkbox in map controls
+  - Selected route: full opacity + thicker line when `selectedRouteId` is set
+- SDK: `getRouteShape(routeId)` wrapper
+- 6+ unit tests: GeoJSON assembly (2), multi-shape routes (1), empty shape handling (1), CMS rendering (2)
+**Verify:** Open routes page → toggle "Show routes" → polylines appear for all routes. Click a route → its polyline highlights. `/map` page shows polylines for all visible feeds. Zoom out → polylines visible across all Latvia.
 
 ---
 

@@ -29,6 +29,7 @@ src/
 │   │   ├── fleet/map/page.tsx  # Fleet map (Leaflet device markers, 15s refresh, device sidebar)
 │   │   ├── fleet/telemetry/page.tsx  # Telemetry dashboard (6 Recharts gauges, device selector, time range)
 │   │   ├── geofences/page.tsx  # Geofences (CRUD, polygon map editor, events, dwell reports, split layout)
+│   │   ├── map/page.tsx        # Full-screen vehicle map (all feeds, clustering, feed/type filters, vehicle detail dialog)
 │   │   └── {page}/page.tsx     # Future feature pages
 │   ├── login/page.tsx          # Login (public)
 │   └── unauthorized/page.tsx   # Unauthorized redirect
@@ -40,6 +41,7 @@ src/
 │   ├── app-sidebar.tsx         # Responsive sidebar (desktop: w-60 aside; mobile: hamburger + Sheet — only remaining Sheet usage)
 │   ├── dashboard/              # Dashboard components (metric-card, calendar-grid, calendar-panel, dashboard-content, driver-roster, driver-drop-dialog, goals-form, goal-progress-badge, event-goal-panel, week-view, month-view, three-month-view, year-view, live-timeline)
 │   ├── documents/              # Document management (table, filters, upload-form, detail, delete-dialog)
+│   ├── map/                    # Full-screen map (vehicle-map with MarkerClusterGroup, map-filters feed/type chips, vehicle-detail-dialog)
 │   ├── routes/                 # Route management (table, filters, form, detail, type-badge, map, bus-marker, feed-health-overlay)
 │   ├── schedules/              # Schedule management (calendar-table/dialog/form/detail/month-grid/search/status-badge, trip-table/form/detail/filters/search, gtfs-import, delete dialogs)
 │   ├── stops/                  # Stop management (table, filters, form, detail, delete-dialog, map with draggable markers)

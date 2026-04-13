@@ -29,6 +29,7 @@
     "fleetMap": "Tiešraide",
     "geofences": "Geozonas",
     "telemetry": "Telemetrija",
+    "map": "Karte",
     "menu": "Izvēlne"
   },
   "dashboard": {
@@ -1571,6 +1572,40 @@
       "showFilters": "Filtri",
       "showMap": "Rādīt karti",
       "showList": "Rādīt sarakstu"
+    }
+  },
+  "map": {
+    "title": "Transportlīdzekļu karte",
+    "description": "Reāllaika transportlīdzekļu izsekošana visos maršrutos",
+    "vehicles": "{count, plural, one {{count} transportlīdzeklis} other {{count} transportlīdzekļi}}",
+    "filters": {
+      "allFeeds": "Visi operatori",
+      "allTypes": "Visi veidi",
+      "bus": "Autobuss",
+      "trolleybus": "Trolejbuss",
+      "tram": "Tramvajs"
+    },
+    "liveStream": "Tiešraide",
+    "pollingFallback": "Aptauja (WS kļūda)",
+    "wsConnecting": "Savienojums...",
+    "noData": "Nav pieejamu transportlīdzekļu",
+    "detail": {
+      "route": "Maršruts",
+      "operator": "Operators",
+      "delay": "Kavēšanās",
+      "bearing": "Virziens",
+      "nextStop": "Nākamā pietura",
+      "status": "Statuss",
+      "inTransit": "Ceļā",
+      "stopped": "Pieturā",
+      "incoming": "Tuvojas",
+      "onTime": "Laikā",
+      "early": "Priekšlaicīgi",
+      "late": "Kavējas",
+      "minutes": "min"
+    },
+    "cluster": {
+      "vehicles": "{count} transportlīdzekļi"
     }
   }
 }

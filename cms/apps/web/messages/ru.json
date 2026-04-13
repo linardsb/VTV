@@ -29,6 +29,7 @@
     "fleetMap": "Карта",
     "geofences": "Геозоны",
     "telemetry": "Телеметрия",
+    "map": "Карта",
     "menu": "Меню"
   },
   "dashboard": {
@@ -1571,6 +1572,40 @@
       "showFilters": "Фильтры",
       "showMap": "Показать карту",
       "showList": "Показать список"
+    }
+  },
+  "map": {
+    "title": "Vehicle Map",
+    "description": "Real-time vehicle tracking across all feeds",
+    "vehicles": "{count, plural, one {{count} vehicle} other {{count} vehicles}}",
+    "filters": {
+      "allFeeds": "All operators",
+      "allTypes": "All types",
+      "bus": "Bus",
+      "trolleybus": "Trolleybus",
+      "tram": "Tram"
+    },
+    "liveStream": "Live stream",
+    "pollingFallback": "Polling (WS failed)",
+    "wsConnecting": "Connecting...",
+    "noData": "No vehicles available",
+    "detail": {
+      "route": "Route",
+      "operator": "Operator",
+      "bearing": "Bearing",
+      "delay": "Delay",
+      "nextStop": "Next stop",
+      "status": "Status",
+      "inTransit": "In transit",
+      "stopped": "At stop",
+      "incoming": "Incoming",
+      "onTime": "On time",
+      "early": "Early",
+      "late": "Late",
+      "minutes": "min"
+    },
+    "cluster": {
+      "vehicles": "{count} vehicles"
     }
   }
 }

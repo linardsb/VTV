@@ -29,6 +29,7 @@
     "fleetMap": "Live Map",
     "geofences": "Geofences",
     "telemetry": "Telemetry",
+    "map": "Map",
     "menu": "Menu"
   },
   "dashboard": {
@@ -1571,6 +1572,40 @@
       "showFilters": "Filters",
       "showMap": "Show Map",
       "showList": "Show List"
+    }
+  },
+  "map": {
+    "title": "Vehicle Map",
+    "description": "Real-time vehicle tracking across all feeds",
+    "vehicles": "{count, plural, one {{count} vehicle} other {{count} vehicles}}",
+    "filters": {
+      "allFeeds": "All operators",
+      "allTypes": "All types",
+      "bus": "Bus",
+      "trolleybus": "Trolleybus",
+      "tram": "Tram"
+    },
+    "liveStream": "Live stream",
+    "pollingFallback": "Polling (WS failed)",
+    "wsConnecting": "Connecting...",
+    "noData": "No vehicles available",
+    "detail": {
+      "route": "Route",
+      "operator": "Operator",
+      "delay": "Delay",
+      "bearing": "Bearing",
+      "nextStop": "Next stop",
+      "status": "Status",
+      "inTransit": "In transit",
+      "stopped": "At stop",
+      "incoming": "Incoming",
+      "onTime": "On time",
+      "early": "Early",
+      "late": "Late",
+      "minutes": "min"
+    },
+    "cluster": {
+      "vehicles": "{count} vehicles"
     }
   }
 }

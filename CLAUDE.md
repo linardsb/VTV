@@ -129,7 +129,7 @@ VTV/
 │   ├── fleet/          # Fleet device management (6 endpoints, Traccar GPS bridge, OBD-II telemetry)
 │   ├── geofences/      # Geofence zone monitoring (8 endpoints, PostGIS polygons, background evaluator, dwell tracking)
 │   ├── stops/          # Stop management (6 endpoints, PostGIS spatial queries)
-│   ├── schedules/      # GTFS schedule management (23 endpoints, ZIP import/export)
+��   ├── schedules/      # GTFS schedule management (25 endpoints, ZIP import/export, multi-feed management + daily auto-import)
 │   ├── skills/         # Agent skills system (7 endpoints)
 │   ├── transit/        # Multi-feed GTFS-RT tracking (6 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage, historical GTFS archive importer, e-ticket validation data pipeline, weather + traffic ETL for ML training, ML-2.3 ETA prediction endpoint, ML-3.3 load prediction agent tool)
 │   ├── vehicles/       # Vehicle management (8 endpoints, fleet CRUD, maintenance, driver assignment)
@@ -183,7 +183,7 @@ Turborepo monorepo under `cms/` with pnpm workspaces. **Full documentation in `c
 
 - **Stack:** Next.js 16 + React 19, Tailwind CSS v4 + semantic tokens, shadcn/ui + CVA, Auth.js v5 (4-role RBAC), next-intl (lv/en)
 - **SDK:** `@vtv/sdk` — auto-generated TypeScript client (66 endpoints, 95+ types). All 13 API domains migrated from hand-written fetch to SDK wrappers.
-- **Pages:** Dashboard, Routes, Stops, Schedules, Drivers, Vehicles, Fleet Devices, Fleet Map, Telemetry, Geofences, Analytics, Route Performance, GTFS, Documents, Users, Chat, Login
+- **Pages:** Dashboard, Routes, Map, Stops, Schedules, Drivers, Vehicles, Fleet Devices, Fleet Map, Telemetry, Geofences, Analytics, Route Performance, GTFS, Documents, Users, Chat, Login
 - **New page checklist:** page component → i18n keys (lv + en) → sidebar nav → middleware RBAC → semantic tokens only
 
 ## Development Guidelines

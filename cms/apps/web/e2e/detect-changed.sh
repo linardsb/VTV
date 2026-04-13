@@ -54,6 +54,8 @@ while IFS= read -r file; do
       add_test "dashboard.spec.ts" ;;
     *hooks/use-calendar-events*|*lib/events-client*|*types/event.ts)
       add_test "dashboard.spec.ts" ;;
+    *components/map/*|*app/*/map/*)
+      add_test "map.spec.ts" ;;
 
     # Auth and login
     *auth.ts|*app/*/login/*)
@@ -72,7 +74,8 @@ while IFS= read -r file; do
       add_test "documents.spec.ts"
       add_test "drivers.spec.ts"
       add_test "dashboard.spec.ts"
-      add_test "navigation.spec.ts" ;;
+      add_test "navigation.spec.ts"
+      add_test "map.spec.ts" ;;
 
     # i18n changes affect everything
     *messages/*.json)
@@ -82,7 +85,8 @@ while IFS= read -r file; do
       add_test "documents.spec.ts"
       add_test "drivers.spec.ts"
       add_test "dashboard.spec.ts"
-      add_test "navigation.spec.ts" ;;
+      add_test "navigation.spec.ts"
+      add_test "map.spec.ts" ;;
   esac
 done <<< "$CMS_CHANGED"
 
