@@ -30,7 +30,7 @@ from app.core.agents.schemas import (
 )
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.core.rate_limit import _get_client_ip, limiter
+from app.core.rate_limit import _chat_subbucket_key, _get_client_ip, limiter
 
 logger = get_logger(__name__)
 
@@ -38,7 +38,7 @@ router = APIRouter(prefix="/v1", tags=["agent"])
 
 
 @router.post("/chat/completions", response_model=ChatCompletionResponse)
-@limiter.limit("10/minute")
+@limiter.limit("10/minute", key_func=_chat_subbucket_key)
 async def chat_completions(
     request: Request,
     body: ChatCompletionRequest,

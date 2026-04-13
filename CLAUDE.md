@@ -106,7 +106,7 @@ make validate-alerts         # Validate Prometheus alert rules YAML structure
 ```
 VTV/
 ├── app/                # Backend features (VSA: models, schemas, routes, service, tests per feature)
-│   ├── core/           # Infrastructure (config, database, logging, middleware, health + deep probes, rate_limit, redis, metrics, shutdown coordinator, cache invalidation, durable job queue)
+│   ├── core/           # Infrastructure (config, database, logging, middleware, health + deep probes, rate_limit + per-user bucketing, redis, metrics, shutdown coordinator, cache invalidation, durable job queue)
 │   │   ├── agents/     # AI agent module — 11 tools, see app/core/agents/CLAUDE.md
 │   │   └── jobs/       # Arq-based durable job queue (OPS-3.2) — queue wrapper, worker settings, admin status API
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
@@ -215,6 +215,7 @@ Operational runbooks for on-call incident response and production maintenance. S
 - **Graceful shutdown (OPS-3.1):** `ShutdownCoordinator` in `app/core/shutdown.py` replaces ad-hoc sequential cancel loop in lifespan. Registers 12 tasks (8 background + 4 singletons) with per-task drain timeouts, drains in LIFO order, logs structured `shutdown.report`. Gunicorn `--graceful-timeout` bumped to 45s (36s worst-case budget + 9s safety margin). 10 tests.
 - **Durable job queue (OPS-3.2):** Arq-based Redis job queue in `app/core/jobs/`. Feature-flagged via `background_queue_enabled` (default `false`). When enabled, memory compaction (every 6h) and promotion (daily 03:00 UTC) run as durable arq cron jobs instead of bare `asyncio.create_task()`. `GET /admin/jobs/status` (admin-only, rate-limited) returns per-job last run, result, failure count. Docker worker service: `docker compose --profile worker up vtv-worker`. 19 tests.
 - **Cache invalidation (OPS-3.3):** `CacheInvalidator` in `app/core/cache/invalidation.py` provides namespaced key deletion and SCAN-based pattern invalidation. Wired into repository layer: stops (create/update/delete), geofences (create/update/delete), schedules (GTFS import). Convenience functions: `invalidate_stop_cache()`, `invalidate_geofence_cache()`, `invalidate_vehicle_position_cache()`, `invalidate_route_cache()`. Fire-and-forget safe (errors logged, never raised). Prometheus counter: `vtv_redis_cache_invalidations_total`. 11 tests.
+- **Per-user rate limit bucketing (OPS-4.1):** `RateLimitIdentityMiddleware` in `app/core/rate_limit.py` decodes JWT (HMAC-only, no DB) to populate `request.state.rate_limit_user_id` and `request.state.rate_limit_role`. `_user_or_ip_key` replaces `_get_client_ip` as the limiter key function — authenticated users get `user:{id}:{role}` buckets, anonymous fall back to `ip:{ip}:anonymous`. Role-based tier default limits via `_dynamic_tier_limit` callable (admin 1000/min, dispatcher 300/min, editor 100/min, viewer 50/min, anonymous 30/min). Sub-bucket keys for chat (10/min) and analytics export (5/hour) endpoints. Config: `rate_limit_tier_{role}`, `rate_limit_agent_chat`, `rate_limit_analytics_export`. 20 unit tests + 3 convention tests.
 - **ER diagram (OPS-5.3):** `docs/schema/er.md` — Mermaid ER diagram auto-generated from SQLAlchemy models via `make er-diagram`. 24 tables with FK relationships. Re-run after migrations.
 
 ## Compact instructions

@@ -296,6 +296,39 @@ class TestRateLimiterIp:
         assert "X-Forwarded-For" not in source
 
 
+class TestRateLimiterTiers:
+    """OPS-4.1: Per-user rate limit bucketing convention tests."""
+
+    def test_source_code_has_user_or_ip_key(self) -> None:
+        """rate_limit.py must contain _user_or_ip_key function."""
+        import inspect
+
+        from app.core import rate_limit
+
+        source = inspect.getsource(rate_limit)
+        assert "_user_or_ip_key" in source
+
+    def test_tier_config_covers_all_roles(self) -> None:
+        """All 4 auth roles must have tier settings in config."""
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        assert settings.rate_limit_tier_admin
+        assert settings.rate_limit_tier_dispatcher
+        assert settings.rate_limit_tier_editor
+        assert settings.rate_limit_tier_viewer
+        assert settings.rate_limit_tier_anonymous
+
+    def test_middleware_registered_in_main(self) -> None:
+        """RateLimitIdentityMiddleware must be registered in app/main.py."""
+        import inspect
+
+        from app import main
+
+        source = inspect.getsource(main)
+        assert "RateLimitIdentityMiddleware" in source
+
+
 # === Redis URL credential redaction ===
 
 

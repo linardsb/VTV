@@ -39,7 +39,7 @@ from app.core.jobs.routes import router as jobs_router
 from app.core.logging import get_logger, setup_logging
 from app.core.metrics_middleware import MetricsMiddleware
 from app.core.middleware import setup_middleware
-from app.core.rate_limit import limiter
+from app.core.rate_limit import RateLimitIdentityMiddleware, limiter
 from app.core.redis import close_redis
 from app.core.shutdown import ShutdownCoordinator, ShutdownTask
 from app.drivers.routes import router as drivers_router
@@ -256,6 +256,7 @@ app.add_exception_handler(RateLimitExceeded, cast(Any, _rate_limit_exceeded_hand
 # Setup middleware
 setup_middleware(app)
 app.add_middleware(MetricsMiddleware)
+app.add_middleware(RateLimitIdentityMiddleware)  # OPS-4.1: populate user identity for rate limiting
 
 # Setup exception handlers
 setup_exception_handlers(app)

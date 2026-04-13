@@ -13,18 +13,22 @@ import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.analytics.daily_adherence import get_daily_reports
 from app.analytics.schemas import (
     AnalyticsOverviewResponse,
+    DailyAdherenceReportResponse,
     DriverSummaryResponse,
     FleetSummaryResponse,
     OnTimePerformanceResponse,
+    PerHourAdherence,
+    PerRouteAdherence,
 )
 from app.analytics.service import AnalyticsService
 from app.auth.dependencies import get_current_user
 from app.auth.models import User
 from app.core.database import get_db
 from app.core.logging import get_logger
-from app.core.rate_limit import limiter
+from app.core.rate_limit import _analytics_subbucket_key, limiter
 
 logger = get_logger(__name__)
 
@@ -76,7 +80,7 @@ async def get_driver_summary(
 
 
 @router.get("/on-time-performance", response_model=OnTimePerformanceResponse)
-@limiter.limit("10/minute")
+@limiter.limit("5/hour", key_func=_analytics_subbucket_key)
 async def get_on_time_performance(
     request: Request,
     route_id: str | None = Query(None, max_length=100, pattern=r"^[\w\-.:]+$"),

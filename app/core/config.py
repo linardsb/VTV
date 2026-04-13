@@ -139,6 +139,15 @@ class Settings(BaseSettings):
     rate_limit_health: str = "60/minute"
     rate_limit_default: str = "120/minute"
 
+    # Per-user rate limit tiers (OPS-4.1)
+    rate_limit_tier_admin: str = "1000/minute"
+    rate_limit_tier_dispatcher: str = "300/minute"
+    rate_limit_tier_editor: str = "100/minute"
+    rate_limit_tier_viewer: str = "50/minute"
+    rate_limit_tier_anonymous: str = "30/minute"
+    rate_limit_agent_chat: str = "10/minute"
+    rate_limit_analytics_export: str = "5/hour"
+
     # Poller leader election (multi-worker safe)
     poller_leader_lock_ttl: int = 60
 
@@ -271,6 +280,17 @@ class Settings(BaseSettings):
     ml_gps_gap_threshold_minutes: int = 5
     ml_gps_gap_feed_outage_pct: int = 50
     ml_anomaly_cooldown_seconds: int = 900
+
+    # ML-5.2: Daily adherence report
+    analytics_adherence_enabled: bool = True
+    analytics_adherence_threshold_pct: float = 85.0
+    analytics_adherence_cron_hour: int = 6  # 06:00 UTC
+    analytics_adherence_slack_webhook: str | None = None
+    analytics_adherence_smtp_enabled: bool = False
+    analytics_adherence_smtp_host: str = "localhost"
+    analytics_adherence_smtp_port: int = 587
+    analytics_adherence_smtp_from: str = "vtv@example.com"
+    analytics_adherence_smtp_to: str = ""  # comma-separated
 
     # Off-route anomaly detection (ML-4.1)
     anomaly_offroute_enabled: bool = True

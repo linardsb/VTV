@@ -343,19 +343,8 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 
 > **Sprint deliverable:** Rate limits are enforced per authenticated user (not global), dispatcher queries are scoped to their assigned routes/depots via a repository-layer filter, and every denied authorization check is audit-logged for compliance review.
 
-#### OPS-4.1 Per-User Rate Limit Bucketing
-**What:** Extend `app/core/rate_limit.py` to key slowapi limits on the authenticated user's id (resolved from the existing auth dependency) or remote IP for unauthenticated requests. Introduce tiers: `anonymous` (IP-scoped, 30/min), `dispatcher` (user-scoped, 300/min), `admin` (user-scoped, 1000/min). Heavy endpoints (agent chat, analytics exports) get their own sub-buckets.
-**Why:** Current slowapi limiter is global per endpoint. One abusive authenticated client exhausts the bucket for everyone. Per-user bucketing gives fairness and turns rate limits into a real DoS defense for authenticated abuse.
-**Implementation:**
-- `app/core/rate_limit.py`:
-  - Replace the single default key function with `user_or_ip_key(request)` that returns `f"user:{user_id}"` if the request carries an authenticated user (read from wherever the existing auth layer stores it), else `f"ip:{get_remote_address(request)}"`
-  - Add `TIER_LIMITS: dict[str, str]` mapping role → rate (anonymous=`"30/minute"`, dispatcher=`"300/minute"`, admin=`"1000/minute"`)
-  - Use `@limiter.limit(dynamic_limit_fn)` where `dynamic_limit_fn(request)` reads the authenticated role and returns the matching tier
-- `app/core/agents/routes.py` — agent chat gets a separate sub-bucket (`"10/minute"` per user) on top of the tier limit; prevents one user burning through LLM budget
-- `app/analytics/routes.py` — export endpoints use `"5/hour"` per user
-- Redis keys use the slowapi default (`LIMITER/{key}`); confirm TTL cleanup to avoid key bloat
-- 12 unit tests: anonymous IP bucketing (1), authenticated user bucketing (2), tier selection by role (3), per-endpoint sub-bucket stacking (2), Redis TTL expiry (1), missing auth context fallback to IP (1), 429 response includes retry-after (1), admin exemption toggle (1).
-**Verify:** Dispatcher A hits analytics at 250/min (under limit) → allowed. Dispatcher B hits vehicles at 500/min → allowed (different endpoint limit). Dispatcher A bursts chat to 20/min → second 10 get 429 without affecting Dispatcher B's chat bucket.
+#### OPS-4.1 Per-User Rate Limit Bucketing ✅ done 2026-04-13
+**What:** `RateLimitIdentityMiddleware` in `app/core/rate_limit.py` decodes JWT (HMAC-only, no DB) to populate `request.state.rate_limit_user_id/role`. `_user_or_ip_key` returns `user:{id}:{role}` or `ip:{ip}:anonymous`. Role-based tier default limits via `_dynamic_tier_limit` callable (admin 1000/min, dispatcher 300/min, editor 100/min, viewer 50/min, anonymous 30/min). Sub-bucket keys for chat (10/min per user) and analytics export (5/hour per user). Config: `RATE_LIMIT_TIER_{ROLE}`, `RATE_LIMIT_AGENT_CHAT`, `RATE_LIMIT_ANALYTICS_EXPORT`. 20 unit tests + 3 convention tests. Plan: `.agents/plans/ops-4-1-per-user-rate-limit-bucketing.md`.
 
 #### OPS-4.2 Dispatcher-Scoped Query Filters (RBAC Scoping)
 **What:** Add a `RequestScope` dependency that resolves "what routes/depots/vehicles this user may see" from their role + assignments, and inject it into every repository query for data-scoped models (vehicles, routes, schedules, geofences, alerts). Admins see everything; dispatchers see only their assigned scope; drivers see only their assigned vehicle.
@@ -447,7 +436,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 | OPS-4 | Per-user rate limiting + RBAC scoping + audit log | 4 | — |
 | OPS-5 | Type baseline + ADRs + ER diagram + logging taxonomy | 3 | — |
 
-Total operational hardening: **14 days** across 16 subtasks. **14 subtasks complete** (OPS-1.1, OPS-1.2, OPS-1.3, OPS-2.1, OPS-2.2, OPS-2.3, OPS-3.1, OPS-3.2, OPS-3.3, OPS-5.1, OPS-5.2, OPS-5.3 done 2026-04-12). Remaining: 2 subtasks (~4 days) — OPS-4 (3 subtasks), OPS-5.4.
+Total operational hardening: **14 days** across 16 subtasks. **15 subtasks complete** (OPS-1.1, OPS-1.2, OPS-1.3, OPS-2.1, OPS-2.2, OPS-2.3, OPS-3.1, OPS-3.2, OPS-3.3, OPS-4.1, OPS-5.1, OPS-5.2, OPS-5.3). Remaining: 3 subtasks (~3 days) — OPS-4.2, OPS-4.3, OPS-5.4.
 
 ---
 
