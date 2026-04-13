@@ -17,7 +17,7 @@ Testing           ████████████████████�
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets, graceful shutdown coordinator)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
-Intelligence/ML   ████████████████████░░░  82%  (14/17 subtasks done. ML-1 complete. ML-2.1+2.2 complete. ML-3.1 complete. ML-4 complete. ML-5.2+5.3+5.4 complete. Remaining: ML-2.3 ETA serving, ML-3.2 load model, ML-3.3 crowding alerts, ML-5.1 route dashboard)
+Intelligence/ML   █████████████████████░░  88%  (15/17 subtasks done. ML-1 complete. ML-2.1+2.2 complete. ML-3.1+3.2 complete. ML-4 complete. ML-5.2+5.3+5.4 complete. Remaining: ML-2.3 ETA serving, ML-3.3 crowding alerts, ML-5.1 route dashboard)
 ```
 
 ## In Progress
@@ -617,7 +617,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 
 **Verify:** Run correlation over 1 week of January 2026 data. `SELECT route_code, AVG(load_factor_pct) FROM ml_load_features_v1 WHERE date_trunc('day', validated_at) = '2026-01-15' GROUP BY 1 ORDER BY 2 DESC LIMIT 5` — route 22, 6, 11 should top the chart (main commuter lines). Correlation rate ≥ 80%.
 
-#### ML-3.2 Load Prediction Model
+#### ML-3.2 Load Prediction Model ✅ (2026-04-13)
 **What:** Train a gradient-boosted model predicting `expected_passenger_count` at (trip_id, stop_sequence) from features like route, direction, time_of_day, day_of_week, weather, school_calendar, historical_avg_load. Output includes crowding bucket (empty/light/moderate/full/overcrowded).
 **Why:** Same model architecture as ML-2.2 (LightGBM regressor) but different target + features. Re-using the registry + training infrastructure from ML-2 means ~2 days of the 6-day budget goes to model-specific work, not plumbing.
 **Implementation:**
@@ -761,7 +761,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 | ML-4  | Anomaly detection (off-route, stuck, GPS gap) | 5 | Route Shape Polylines TODO, alerts slice |
 | ML-5  | CMS dashboards, public API, Text-to-SQL | 8 | ML-1..ML-4 |
 
-Total ML platform build-out: **33 days** across 17 subtasks. **14 subtasks complete**. Remaining: 3 subtasks (~6 days) — ML-2.3 ETA inference+agent tool, ML-3.2 load prediction model, ML-3.3 crowding alerts+agent tool. Plus ML-5.1 route dashboard (~2 days).
+Total ML platform build-out: **33 days** across 17 subtasks. **15 subtasks complete**. Remaining: 2 subtasks (~4 days) — ML-2.3 ETA inference+agent tool, ML-3.3 crowding alerts+agent tool. Plus ML-5.1 route dashboard (~2 days).
 
 ---
 

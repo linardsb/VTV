@@ -1,8 +1,9 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportMissingTypeStubs=false, reportMissingParameterType=false, reportUnknownParameterType=false
-"""Test fixtures for ETA GBM model (ML-2.2)."""
+"""Test fixtures for ML GBM models (ML-2.2 ETA, ML-3.2 Load)."""
 
 from __future__ import annotations
 
+import datetime
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,8 @@ import pytest
 
 from app.ml.features.tests.conftest import make_eta_features_df
 from app.ml.models.eta_gbm import ETAModel, train
+from app.ml.models.load_gbm import LoadModel
+from app.ml.models.load_gbm import train as train_load
 from app.ml.registry import ModelRegistry
 
 
@@ -73,3 +76,60 @@ def registered_model(
     )
     tmp_registry.register("eta_gbm", 1, metadata, artifact_path)
     return tmp_registry, trained_model, artifact_path, {"metadata": metadata}
+
+
+# --- Load model fixtures (ML-3.2) ---
+
+
+def make_load_training_df(n: int = 200) -> pd.DataFrame:
+    """Generate n rows of load feature data + target for training.
+
+    Args:
+        n: Number of rows.
+
+    Returns:
+        DataFrame with load feature columns and cumulative_load target.
+    """
+    rng = np.random.default_rng(42)
+    route_codes: list[str] = ["1", "3", "22", "47"]
+    transport_types: list[str] = ["bus", "tram"]
+
+    data: dict[str, Any] = {
+        "gtfs_trip_id": [f"trip_{i}" for i in range(n)],
+        "stop_sequence": rng.integers(1, 30, size=n).astype(float),
+        "stop_id": rng.integers(1000, 9999, size=n).astype(float),
+        "date": [
+            datetime.date(2026, 1, 1) + datetime.timedelta(days=int(d))
+            for d in rng.integers(0, 60, size=n)
+        ],
+        "hour": rng.integers(0, 24, size=n),
+        "route_code": rng.choice(route_codes, size=n),
+        "transport_type": rng.choice(transport_types, size=n),
+        "tap_count": rng.integers(1, 15, size=n),
+        "capacity": rng.choice([60, 80, 100, 200], size=n),
+    }
+
+    # Derive cumulative_load from tap_count with noise
+    base_load = data["tap_count"] * rng.integers(1, 4, size=n)
+    data["cumulative_load"] = np.clip(base_load, 1, None).astype(int)
+
+    # load_factor_pct = (cumulative_load / capacity) * 100, capped at 100
+    data["load_factor_pct"] = np.clip(
+        (data["cumulative_load"] / data["capacity"]) * 100.0, 0.0, 100.0
+    )
+
+    return pd.DataFrame(data)
+
+
+@pytest.fixture()
+def sample_load_training_df() -> pd.DataFrame:
+    """200-row DataFrame with load features + target column."""
+    return make_load_training_df(200)
+
+
+@pytest.fixture(scope="session")
+def trained_load_model() -> LoadModel:
+    """Pre-trained LoadModel on sample data (session-scoped for speed)."""
+    df = make_load_training_df(200)
+    model, _metrics = train_load(df, n_estimators=10, early_stopping_rounds=5)
+    return model

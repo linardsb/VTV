@@ -1,4 +1,4 @@
-.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run weather-backfill traffic-backfill er-diagram gtfs-backfill seed-schema-examples ml-train-eta
+.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run weather-backfill traffic-backfill er-diagram gtfs-backfill seed-schema-examples ml-train-eta ml-train-load
 
 # === Local Development (terminals) ===
 
@@ -133,6 +133,9 @@ seed-schema-examples: ## Seed schema_examples table from YAML (ML-5.4)
 
 ml-train-eta: ## Train ETA model (usage: make ml-train-eta WINDOW=60)
 	uv run python scripts/train_eta_model.py --training-window $(or $(WINDOW),60) --target-mae $(or $(TARGET_MAE),120)
+
+ml-train-load: ## Train load prediction model (usage: make ml-train-load WINDOW=60)
+	uv run python scripts/train_load_model.py --training-window $(or $(WINDOW),60) --target-mae $(or $(TARGET_MAE),12) --target-f1 $(or $(TARGET_F1),0.75)
 
 # === Agent evals (AI-7.x) ===
 # Traces are written to evals/traces/*.jsonl (git-ignored, may contain PII).
