@@ -20,6 +20,7 @@ from app.core.agents.tools.transit.deps import UnifiedDeps
 from app.core.agents.tools.transit.get_adherence_report import get_adherence_report
 from app.core.agents.tools.transit.get_route_schedule import get_route_schedule
 from app.core.agents.tools.transit.predict_eta import predict_eta
+from app.core.agents.tools.transit.predict_passenger_load import predict_passenger_load
 from app.core.agents.tools.transit.query_bus_status import query_bus_status
 from app.core.agents.tools.transit.run_analytics_sql import run_analytics_sql
 from app.core.agents.tools.transit.search_stops import search_stops
@@ -132,13 +133,14 @@ def create_agent(model: str | Model | None = None) -> Agent[UnifiedDeps, str]:
         output_type=str,
         system_prompt=SYSTEM_PROMPT,
         tools=[
-            # Transit (6 read-only + 1 analytics)
+            # Transit (7 read-only + 1 analytics)
             query_bus_status,
             get_route_schedule,
             search_stops,
             get_adherence_report,
             check_driver_availability,
             predict_eta,
+            predict_passenger_load,
             run_analytics_sql,
             # Obsidian vault (4)
             obsidian_query_vault,

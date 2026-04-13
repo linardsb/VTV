@@ -253,6 +253,11 @@ class Settings(BaseSettings):
     alerts_enabled: bool = True
     alerts_check_interval_seconds: int = 60
 
+    # ML-3.3: Crowding prediction alerts
+    alerts_crowding_enabled: bool = True
+    alerts_crowding_check_interval_seconds: int = 120  # 2 min cycle
+    alerts_crowding_dedup_minutes: int = 30
+
     # Fleet management / Traccar GPS gateway
     traccar_enabled: bool = False
     traccar_base_url: str = "http://traccar:8082"

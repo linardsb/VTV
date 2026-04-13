@@ -20,6 +20,7 @@ import uvicorn
 from fastapi import FastAPI
 from slowapi.errors import RateLimitExceeded  # pyright: ignore[reportMissingTypeStubs]
 
+from app.alerts.crowding_evaluator import start_crowding_evaluator, stop_crowding_evaluator
 from app.alerts.evaluator import start_evaluator, stop_evaluator
 from app.alerts.routes import router as alerts_router
 from app.analytics.daily_adherence import start_adherence_task, stop_adherence_task
@@ -128,6 +129,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Start geofence evaluator background task
     await start_geofence_evaluator(settings)
 
+    # Start crowding prediction evaluator (ML-3.3)
+    await start_crowding_evaluator(settings)
+
     # Start anomaly detection evaluator (ML-4.2)
     await start_anomaly_evaluator(settings)
 
@@ -201,6 +205,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             name="geofence_evaluator",
             drain_timeout_s=3.0,
             drain=stop_geofence_evaluator,
+        )
+    )
+    coordinator.register(
+        ShutdownTask(
+            name="crowding_evaluator",
+            drain_timeout_s=3.0,
+            drain=stop_crowding_evaluator,
         )
     )
     coordinator.register(

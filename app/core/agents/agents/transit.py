@@ -29,6 +29,7 @@ from app.core.agents.tools.transit.deps import UnifiedDeps, create_unified_deps
 from app.core.agents.tools.transit.get_adherence_report import get_adherence_report
 from app.core.agents.tools.transit.get_route_schedule import get_route_schedule
 from app.core.agents.tools.transit.predict_eta import predict_eta
+from app.core.agents.tools.transit.predict_passenger_load import predict_passenger_load
 from app.core.agents.tools.transit.query_bus_status import query_bus_status
 from app.core.agents.tools.transit.search_stops import search_stops
 from app.core.agents.tools.transit.static_store import GTFSStaticStore, get_static_store
@@ -151,7 +152,7 @@ __all__ = [
 def _create_transit_agent() -> Agent[UnifiedDeps, str]:
     """Build the module-level Pydantic AI agent for the transit domain.
 
-    Registers ONLY the 6 read-only transit tools (no knowledge, no vault,
+    Registers ONLY the 7 read-only transit tools (no knowledge, no vault,
     no skills) to keep the per-request tool-docstring footprint small.
     """
     return Agent(
@@ -166,6 +167,7 @@ def _create_transit_agent() -> Agent[UnifiedDeps, str]:
             get_adherence_report,
             check_driver_availability,
             predict_eta,
+            predict_passenger_load,
         ],
     )
 

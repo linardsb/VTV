@@ -21,6 +21,7 @@ AlertRuleType = Literal[
     "feed_outage",
     "off_route",
     "schedule_adherence",
+    "crowding_prediction",
 ]
 SourceEntityType = Literal["vehicle", "route", "driver"]
 

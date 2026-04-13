@@ -248,6 +248,10 @@ agent.
 │   ├── started                             # Tool invocation started (fields: vehicle_id, stop_id)
 │   ├── completed                           # Prediction returned (fields: vehicle_id, stop_id, fallback, duration_ms)
 │   └── failed                              # Tool error (fields: error, error_type, duration_ms)
+├── predict_passenger_load.                 # ML-3.3 load prediction agent tool
+│   ├── started                             # Tool invocation started (fields: vehicle_id, stop_id)
+│   ├── completed                           # Prediction returned (fields: vehicle_id, stop_id, fallback, duration_ms)
+│   └── failed                              # Tool error (fields: error, error_type, duration_ms)
 └── circuit_breaker.                        # AI-8.1 LLM provider fast-fail
     ├── half_opened                         # OPEN -> HALF_OPEN (fields: provider, elapsed_s)
     ├── closed                              # HALF_OPEN -> CLOSED (fields: provider, successful_probes)

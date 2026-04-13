@@ -68,7 +68,9 @@ def upgrade() -> None:
     )
     op.execute("GRANT USAGE ON SCHEMA public TO vtv_analytics_readonly")
     op.execute("GRANT SELECT ON ALL TABLES IN SCHEMA public TO vtv_analytics_readonly")
-    op.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO vtv_analytics_readonly")
+    op.execute(
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO vtv_analytics_readonly"
+    )
 
 
 def downgrade() -> None:
