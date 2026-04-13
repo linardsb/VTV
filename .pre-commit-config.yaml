@@ -8,34 +8,43 @@ repos:
     rev: v0.14.2
     hooks:
       - id: ruff-format
+        stages: [pre-commit]
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+        stages: [pre-commit]
 
   # Standard pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        stages: [pre-commit]
       - id: end-of-file-fixer
+        stages: [pre-commit]
       - id: check-yaml
         args: [--unsafe]
+        stages: [pre-commit]
       - id: check-added-large-files
         args: [--maxkb=1000]
+        stages: [pre-commit]
 
-  # Secrets detection
+  # Secrets detection (commit-only — must not run on push where baseline
+  # timestamp drift causes spurious failures)
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
     hooks:
       - id: detect-secrets
         args: [--baseline, .secrets.baseline]
         exclude: (\.env\.example|\.env\.production\.example|uv\.lock|pnpm-lock\.yaml)$
+        stages: [pre-commit]
 
-  # MyPy — strict type checking (local hook to use project's venv + config)
+  # MyPy — strict type checking on push (tracked files only, so untracked
+  # WIP doesn't block pushes of unrelated commits)
   - repo: local
     hooks:
       - id: mypy
         name: mypy
-        entry: uv run mypy app/
+        entry: bash -c 'uv run mypy $(git ls-files "app/*.py" "app/**/*.py")'
         language: system
         types: [python]
         pass_filenames: false
@@ -49,3 +58,4 @@ repos:
         entry: scripts/pre-commit
         language: script
         pass_filenames: false
+        stages: [pre-commit]

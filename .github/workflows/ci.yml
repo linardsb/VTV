@@ -57,11 +57,6 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Update secrets baseline line numbers
-        run: |
-          uv run detect-secrets scan --baseline .secrets.baseline
-          git add .secrets.baseline
-
       - name: Pre-commit checks
         run: |
           uv run pre-commit run --all-files --show-diff-on-failure
