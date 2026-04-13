@@ -8,7 +8,16 @@ import httpx
 import pytest
 
 from app.core.agents.exceptions import TransitDataError
-from app.core.agents.tools.transit.client import GTFSRealtimeClient, _CacheEntry
+from app.core.agents.tools.transit.client import GTFSRealtimeClient, _CacheEntry, _feed_breaker
+from app.core.resilience import CircuitState
+
+
+@pytest.fixture(autouse=True)
+def _reset_feed_breaker() -> None:
+    """Reset the module-level circuit breaker between tests."""
+    _feed_breaker._state = CircuitState.CLOSED
+    _feed_breaker._failure_count = 0
+    _feed_breaker._last_failure_time = 0.0
 
 
 def _make_settings() -> MagicMock:
