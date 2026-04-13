@@ -13,11 +13,11 @@ Planned features and improvements. Each item links to its detailed planning docu
 ```
 Backend API       ██████████████████████░░  99%  (12/12 features + analytics + compliance exports + multi-feed GTFS-RT + WebSocket live streaming + alerts + fleet + geofences)
 CMS Frontend      ███████████████████████░  99%  (17 pages live, real API on all, WebSocket real-time, multi-feed support, EU compliance exports, analytics dashboard, fleet devices/map/telemetry, geofences)
-Testing           ████████████████████░░░░  90%  (1945 unit tests, 112 security tests, 81 e2e tests, CI pipeline live with security gates)
+Testing           ████████████████████░░░░  90%  (2179 unit tests, 115 security tests, 81 e2e tests, CI pipeline live with security gates)
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets, graceful shutdown coordinator)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
-Intelligence/ML   ██████████████████████░  94%  (16/17 subtasks done. ML-1 complete. ML-2 complete. ML-3.1+3.2 complete. ML-4 complete. ML-5 complete. Remaining: ML-3.3 crowding alerts+agent tool)
+Intelligence/ML   ████████████████████████ 100%  (17/17 subtasks done. ML-1 complete. ML-2 complete. ML-3 complete. ML-4 complete. ML-5 complete.)
 ```
 
 ## In Progress
@@ -619,18 +619,22 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 
 **Verify:** `make ml-train-load` produces `load_gbm_v1.pkl` with count MAE < 12 passengers and bucket F1 > 0.75. Per-route breakdown confirms no systematic bias toward any route.
 
-#### ML-3.3 Crowding Alerts + Agent Tool
-**What:** Add `predict_passenger_load(route_id, direction, time_window)` agent tool and a background evaluator (`app/alerts/crowding_evaluator.py`) that flags buses predicted to exceed 95% capacity 10+ minutes before arrival. Wire into existing alerts system from Phase 1B.
+#### ML-3.3 Crowding Alerts + Agent Tool ✅ (2026-04-13)
+**What:** Add `predict_passenger_load(vehicle_id, stop_id)` agent tool and a background evaluator (`app/alerts/crowding_evaluator.py`) that flags buses predicted to exceed 95% capacity. Wire into existing alerts system.
 **Why:** Predictions without action are dashboards. Dispatchers need proactive alerts so they can deploy overflow vehicles. Reuse the alerts service from the fleet/geofences work (`app/alerts/`) rather than building a parallel notification system.
 **Implementation:**
-- `app/core/agents/tools/transit/predict_passenger_load.py` — agent tool, reads from `ETAService`-style singleton (`LoadPredictionService`)
-- `app/alerts/crowding_evaluator.py` — background task (2 min cycle): for each active trip, predict load at next 3 stops, fire alert if `crowding_bucket == "overcrowded"` and no duplicate alert within last 30 min
-- Alert payload includes: `route_id`, `vehicle_id`, `next_stop`, `predicted_load_factor`, `predicted_arrival_at`
-- `app/main.py` — register crowding_evaluator in lifespan, gate via `alerts_crowding_enabled: bool = True`
-- Agent tool + evaluator share a single `LoadPredictionService` singleton (avoid double-loading model)
-- 14+ unit tests: agent tool (3), evaluator duplicate suppression (2), alert payload schema (2), lifespan registration (1), model hot-reload on registry change (2), crowding bucket → alert severity map (2), fail-open when model missing (2)
+- `app/ml/load_service.py` — `LoadPredictionService` singleton mirroring ETAService: in-memory model cache, hot-reload from registry, fallback when model unavailable
+- `app/core/agents/tools/transit/predict_passenger_load.py` — agent tool (Tool 7), 5-principle docstring, reads from `LoadPredictionService` singleton
+- `app/alerts/crowding_evaluator.py` — background task (2 min cycle): scans vehicle positions from Redis, runs load prediction for each, fires `crowding_prediction` alert if `crowding_bucket == "overcrowded"` with dedup check
+- `app/alerts/schemas.py` + `models.py` — added `"crowding_prediction"` to `AlertRuleType` Literal and CHECK constraint
+- `alembic/versions/r2s3t4u5v6w7` — migration: drop/recreate `ck_alert_rules_rule_type` CHECK constraint
+- `app/core/config.py` — `alerts_crowding_enabled`, `alerts_crowding_check_interval_seconds` (120s), `alerts_crowding_dedup_minutes` (30)
+- `app/main.py` — register crowding_evaluator in lifespan startup + shutdown coordinator
+- `app/core/agents/agent.py` + `agents/transit.py` — register `predict_passenger_load` (13 tools total, 7 transit)
+- `docs/logging-standard.md` — 3 new agent tool log events documented
+- 18 unit tests: load service (6), crowding evaluator (7), agent tool (5). Plan: [.agents/plans/ml-3-3-crowding-alerts-agent-tool.md](../.agents/plans/ml-3-3-crowding-alerts-agent-tool.md). (62395b3)
 
-**Verify:** Start dev stack with ML-1.2 + ML-3.2 complete. Agent query "Which buses on route 22 will be crowded at 08:30 tomorrow?" returns a list with predicted load factors. Force a high-demand scenario in a test DB, confirm crowding alert fires within 2 min cycle.
+**Verify:** Start dev stack with ML-1.2 + ML-3.2 complete. Agent query "How full is bus 4521 at stop a0072?" returns JSON with predicted_passenger_count, crowding_bucket, and confidence interval. Force overcrowded prediction in test, confirm crowding alert fires within 2 min cycle.
 
 ---
 
@@ -751,7 +755,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 | ML-4  | Anomaly detection (off-route, stuck, GPS gap) | 5 | Route Shape Polylines TODO, alerts slice |
 | ML-5  | CMS dashboards, public API, Text-to-SQL | 8 | ML-1..ML-4 |
 
-Total ML platform build-out: **33 days** across 17 subtasks. **16 subtasks complete**. Remaining: 1 subtask (~2 days) — ML-3.3 crowding alerts+agent tool.
+Total ML platform build-out: **33 days** across 17 subtasks. **All 17 subtasks complete** ✅.
 
 ---
 
