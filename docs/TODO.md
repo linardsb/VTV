@@ -346,27 +346,8 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 #### OPS-4.1 Per-User Rate Limit Bucketing ✅ done 2026-04-13
 **What:** `RateLimitIdentityMiddleware` in `app/core/rate_limit.py` decodes JWT (HMAC-only, no DB) to populate `request.state.rate_limit_user_id/role`. `_user_or_ip_key` returns `user:{id}:{role}` or `ip:{ip}:anonymous`. Role-based tier default limits via `_dynamic_tier_limit` callable (admin 1000/min, dispatcher 300/min, editor 100/min, viewer 50/min, anonymous 30/min). Sub-bucket keys for chat (10/min per user) and analytics export (5/hour per user). Config: `RATE_LIMIT_TIER_{ROLE}`, `RATE_LIMIT_AGENT_CHAT`, `RATE_LIMIT_ANALYTICS_EXPORT`. 20 unit tests + 3 convention tests. Plan: `.agents/plans/ops-4-1-per-user-rate-limit-bucketing.md`.
 
-#### OPS-4.2 Dispatcher-Scoped Query Filters (RBAC Scoping) ✅ (2026-04-13)
-**What:** Add a `RequestScope` dependency that resolves "what routes/depots/vehicles this user may see" from their role + assignments, and inject it into every repository query for data-scoped models (vehicles, routes, schedules, geofences, alerts). Admins see everything; dispatchers see only their assigned scope; drivers see only their assigned vehicle.
-**Why:** Auth has 4 roles but queries are role-checked at the route level only. A dispatcher with scope "routes 1-10" can still read data for routes 11-50 by calling the same endpoint with a different query parameter. This is the biggest authorization gap in the platform.
-**Implementation:**
-- Data model:
-  - `alembic/versions/xxxx_add_dispatcher_assignments.py` — new table `dispatcher_assignments(user_id, route_id, depot_id, assigned_at, assigned_by)`
-  - CMS admin page to manage assignments (backend API first; frontend is a follow-up)
-- `app/core/auth/scope.py` (new):
-  - `@dataclass(frozen=True) RequestScope`: `user_id`, `role`, `route_ids: frozenset[int] | None` (None = unrestricted for admin), `depot_ids: frozenset[int] | None`
-  - `async get_request_scope(user = Depends(current_user)) -> RequestScope` — admin → `(None, None)`; dispatcher → loads from assignments table; driver → only their assigned vehicle; viewer → `(None, None)` (read-only everything)
-- Repository layer — every repository method returning scoped data takes `scope: RequestScope` and applies:
-  ```python
-  if scope.route_ids is not None:
-      stmt = stmt.where(Route.id.in_(scope.route_ids))
-  ```
-  Covers `RouteRepository`, `VehicleRepository`, `ScheduleRepository`, `GeofenceRepository`, `AlertRepository`.
-- Route handlers inject `scope: RequestScope = Depends(get_request_scope)` and pass to the repository.
-- Fail-closed default: if a route forgets to pass `scope`, the repository raises `RBACConfigurationError` at request time (caught by unit tests; never reaches prod).
-- Audit logging: emit `rbac.scope.resolved` + `rbac.scope.denied` via structlog.
-- 20 unit tests: admin sees all (1), dispatcher scope filter (3), driver single-vehicle scope (2), viewer unrestricted read (1), repository without scope fails (1), dispatcher with empty assignments (1), fail-closed enforcement (2), scope caching in request state (1), RBAC audit log fields (2), assignments CRUD (3), scope invalidation on assignment change (2), HTTP 403 vs empty-result semantics (1).
-**Verify:** Dispatcher A (scope routes 1-10) calls `GET /v1/vehicles?route_id=15` → 200 with empty result (not 403, to avoid info leak). Dispatcher A calls `GET /v1/vehicles` → returns only vehicles on routes 1-10. Admin sees everything. Forgetting `scope` on a new endpoint → unit test fails with `RBACConfigurationError`.
+#### OPS-4.2 Dispatcher-Scoped Query Filters (RBAC Scoping) ✅ done 2026-04-13
+**What:** `RequestScope` frozen dataclass + `get_request_scope` FastAPI dependency in `app/core/auth/scope.py`. Resolves RBAC scope from user role + `dispatcher_assignments` table. Admin/editor/viewer = unrestricted (`route_ids=None`), dispatcher = `frozenset[int]` of assigned route IDs. Injected into vehicle (list/get/maintenance), schedule (list_routes/get_route), and alert (list_alerts) endpoints. Repository layer: `VehicleRepository.list/count` fail-closed with `RBACConfigurationError` if scope missing; `get()` optional scope for read endpoints. `VehicleRouteQualification` junction table in `app/vehicles/models.py` replaces CSV `qualified_route_ids` for queryable FK-based vehicle-to-route scoping. Alert scope filters by `source_entity_type` (route direct, vehicle via junction, geofence/feed passthrough). Admin assignment CRUD: 4 endpoints at `/api/v1/admin/assignments` (list, create, bulk replace, delete), all admin-only + rate-limited. Security: fail-closed semantics, 404 not 403 for out-of-scope, empty 200 for zero assignments. Migration: `p9q0r1s2t3u4_add_dispatcher_assignments.py` (2 tables). 15 new tests + 8 updated existing tests (91 total in affected files). Plan: `.agents/plans/ops-4-2-dispatcher-scoped-query-filters.md`.
 
 #### OPS-4.3 Authorization Audit Log
 **What:** Emit a structured `auth.denied` log event whenever a request is blocked by role check, scope filter, or rate limit — with `request_id`, `user_id`, `path`, `reason`, `enforcement_layer`. Persist to a TimescaleDB hypertable `auth_audit_events` for queryability and surface via `GET /admin/audit/auth` with date-range + user filters.
