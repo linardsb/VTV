@@ -140,7 +140,11 @@ health.
 ├── readiness_check_passed     # Readiness check passed
 ├── readiness_check_failed     # Readiness check failed
 ├── liveness_check_passed      # Liveness check passed
-└── liveness_check_failed      # Liveness check failed
+├── liveness_check_failed      # Liveness check failed
+└── deep.
+    ├── check_completed        # Deep health check completed (fields: status, duration_ms)
+    ├── probe_completed        # Individual probe completed (fields: probe, status, latency_ms)
+    └── probe_failed           # Individual probe failed (fields: probe, error)
 ```
 
 **Examples:**
@@ -156,85 +160,410 @@ logger.error("health.readiness_check_failed",
             exc_info=True)
 ```
 
-### Agent Domain (For Future AI Agent Features)
+### Agent Domain
 
-Agent operations, planning, and tool execution.
+AI agent operations, chat pipeline, tools, and resilience.
 
 ```
 agent.
-├── lifecycle.initialized      # Agent initialized
-├── lifecycle.started          # Agent execution started
-├── lifecycle.stopped          # Agent execution stopped
-├── planning.initiated         # Planning phase started
-├── planning.step_completed    # Planning step completed
-├── planning.completed         # Planning completed
-├── planning.failed            # Planning failed
-├── tool.
-│   ├── selection_started      # Tool selection initiated
-│   ├── selection_evaluated    # Tool evaluated for suitability
-│   ├── selection_chosen       # Tool chosen
-│   ├── validation_checking    # Validating tool inputs
-│   ├── validation_passed      # Tool inputs valid
-│   ├── validation_failed      # Tool inputs invalid
-│   ├── execution_started      # Tool execution began
-│   ├── execution_progress     # Tool execution progress update
-│   ├── execution_completed    # Tool finished successfully
-│   ├── execution_failed       # Tool execution failed
-│   ├── result_parsing         # Parsing tool output
-│   ├── result_validated       # Output validated
-│   └── result_stored          # Result saved to context
-├── llm.
-│   ├── call_started           # LLM API call initiated
-│   ├── streaming_started      # Streaming response started
-│   ├── chunk_received         # Stream chunk received
-│   ├── streaming_completed    # Streaming finished
-│   ├── call_completed         # LLM call completed
-│   ├── call_failed            # LLM call failed
-│   ├── token_usage_recorded   # Token usage tracked
-│   └── rate_limit_exceeded    # Rate limit hit
+├── create_completed                        # Agent instance created (fields: model)
+├── error                                   # Unhandled agent error (fields: error, error_type)
+├── chat_started                            # Chat pipeline begun (fields: run_id, provider)
+├── chat_completed                          # Chat pipeline completed (fields: run_id, duration_ms)
+├── chat_failed                             # Chat pipeline error (fields: run_id, error, error_type)
+├── chat.selected                           # Agent selected for chat (fields: agent_type)
+├── chat.confidence_reroute                 # Confidence-based reroute (fields: from_agent, to_agent)
+├── chat.confidence_reroute_failed          # Reroute failed (fields: error)
+├── injection.blocked                       # Input blocked by injection filter (fields: pattern)
+├── output_validation.blocked               # Output blocked by safety filter (fields: violation_type)
+├── output_validation.validator_error       # Validator itself errored (fields: error)
+├── response_validation_warning             # Response validation issue (fields: warning)
+├── quota_exceeded                          # Daily query quota exceeded (fields: client_ip)
+├── quota_exceeded_http                     # Quota exceeded on HTTP request (fields: client_ip, remaining)
+├── rag_routing                             # RAG vs direct decision (fields: decision, score)
+├── router.decision                         # Multi-agent routing decision (fields: prompt_hash, chosen_agent)
+├── correction.
+│   ├── triggered                           # Self-correction loop started (fields: run_id, reason)
+│   ├── resolved                            # Correction succeeded (fields: run_id, attempt)
+│   ├── exhausted                           # Max correction attempts reached (fields: run_id, attempts)
+│   ├── failed                              # Correction loop errored (fields: run_id, error)
+│   └── metric                              # Correction metrics recorded (fields: provider, attempts)
+├── pipeline.
+│   ├── run_started                         # Pipeline run started (fields: run_id)
+│   ├── run_completed                       # Pipeline run completed (fields: run_id, duration_ms)
+│   ├── stopped                             # Pipeline stopped early (fields: run_id, reason)
+│   ├── phase_started                       # Pipeline phase started (fields: phase)
+│   ├── phase_completed                     # Pipeline phase completed (fields: phase, duration_ms)
+│   ├── phase_failed                        # Pipeline phase failed (fields: phase, error)
+│   └── summary                             # End-of-pipeline summary (fields: phases, duration_ms)
+├── provider_chain.
+│   ├── preempted                           # Provider preempted by health check (fields: provider)
+│   ├── fallback                            # Falling back to next provider (fields: from_provider, to_provider)
+│   └── exhausted                           # All providers failed (fields: providers_tried)
+├── provider_health.record_failed           # Health recording error (fields: provider, error)
+├── config.
+│   ├── model_configured                    # Model provider configured (fields: tier, model)
+│   ├── anthropic_api_key_missing           # Anthropic key not set
+│   ├── google_api_key_missing              # Google key not set
+│   ├── groq_api_key_missing               # Groq key not set
+│   └── tier_api_key_missing               # Tier-specific key not set (fields: tier, provider)
 ├── memory.
-│   ├── storage_written        # Data written to memory
-│   ├── storage_read           # Data read from memory
-│   ├── storage_cleared        # Memory cleared
-│   ├── retrieval_queried      # Memory query initiated
-│   ├── retrieval_found        # Memory item found
-│   └── retrieval_not_found    # Memory item not found
-├── self_correction.
-│   ├── initiated              # Self-correction started
-│   ├── strategy_selected      # Correction strategy chosen
-│   ├── retry_attempted        # Retry attempt
-│   ├── completed              # Self-correction successful
-│   └── failed                 # Self-correction failed
-└── circuit_breaker.           # AI-8.1 LLM provider fast-fail
-    ├── opened                 # CLOSED → OPEN (fields: provider, failure_count, failure_rate, trigger)
-    ├── half_opened            # OPEN → HALF_OPEN (fields: provider, elapsed_s)
-    ├── closed                 # HALF_OPEN → CLOSED (fields: provider, successful_probes)
-    ├── reopened               # HALF_OPEN → OPEN on probe failure (fields: provider, trigger)
-    ├── rejected               # call blocked by OPEN breaker (fields: provider, state)
-    ├── probe_success          # successful probe in HALF_OPEN (fields: provider, consecutive_successes)
-    └── probe_failure          # failed probe in HALF_OPEN (fields: provider)
+│   ├── recall_injected                     # Memories injected into context (fields: count, types)
+│   └── recall_failed                       # Memory recall error (fields: error)
+├── knowledge.
+│   ├── search_started                      # Knowledge search begun (fields: query)
+│   ├── search_completed                    # Knowledge search completed (fields: result_count)
+│   ├── search_failed                       # Knowledge search error (fields: error)
+│   └── search_skipped                      # Knowledge search skipped (fields: reason)
+├── skills_load_failed                      # Skills loading error (fields: error)
+├── l3_skills_load_failed                   # L3 skills loading error (fields: error)
+├── skills.
+│   ├── manage_started                      # Skill management tool invoked (fields: action)
+│   ├── manage_failed                       # Skill management failed (fields: error)
+│   ├── list_completed                      # Skill listing completed (fields: count)
+│   └── create_completed                    # Skill created via agent (fields: skill_id)
+├── skill_loader.
+│   ├── loaded                              # Skill file loaded (fields: path)
+│   ├── read_failed                         # Skill file read error (fields: path)
+│   ├── missing_front_matter                # Skill missing YAML front matter (fields: path)
+│   ├── unterminated_front_matter           # Skill front matter not terminated (fields: path)
+│   ├── yaml_parse_failed_or_not_mapping    # YAML parse error (fields: path)
+│   ├── invalid_priority_type               # Invalid priority type (fields: path)
+│   ├── invalid_priority_value              # Invalid priority value (fields: path)
+│   ├── path_escaped                        # Path escaped allowed directory (fields: path)
+│   ├── resolve_failed                      # Skill resolution failed (fields: path)
+│   └── discover_failed                     # Skill discovery error (fields: domain)
+├── analytics_sql.
+│   ├── started                             # SQL analytics query started (fields: query_hash)
+│   ├── completed                           # SQL analytics query completed (fields: duration_ms)
+│   ├── failed                              # SQL analytics query failed (fields: error)
+│   ├── cost_exceeded                       # Query cost exceeds limit (fields: estimated_cost)
+│   ├── validation_failed                   # SQL validation failed (fields: reason)
+│   └── validation_rejected                 # SQL rejected by validator (fields: reason)
+├── validation.
+│   ├── extract_tool_returns_failed         # Tool return extraction error (fields: error)
+│   └── static_cache_unavailable            # Static validation cache miss (fields: reason)
+├── registry.close_failed                   # Agent registry cleanup error (fields: error)
+└── circuit_breaker.                        # AI-8.1 LLM provider fast-fail
+    ├── half_opened                         # OPEN -> HALF_OPEN (fields: provider, elapsed_s)
+    ├── closed                              # HALF_OPEN -> CLOSED (fields: provider, successful_probes)
+    ├── rejected                            # Call blocked by OPEN breaker (fields: provider, state)
+    ├── probe_success                       # Successful probe in HALF_OPEN (fields: provider)
+    └── probe_failure                       # Failed probe in HALF_OPEN (fields: provider)
 ```
 
 **Examples:**
 ```python
-logger.info("agent.tool.execution_started",
-           tool="web_search",
-           query="AI observability patterns",
-           timeout=30)
+logger.info("agent.chat_started",
+           run_id=run_id,
+           provider="anthropic")
 
-logger.info("agent.llm.call_completed",
-           model="claude-3-opus",
-           tokens_prompt=1500,
-           tokens_completion=800,
-           cost_usd=0.0345,
+logger.info("agent.pipeline.summary",
+           phases=["routing", "recall", "chat"],
            duration_ms=2341)
 
-logger.error("agent.tool.execution_failed",
-            tool="web_search",
-            error="API rate limit exceeded",
-            retry_count=2,
-            retryable=True,
+logger.error("agent.correction.failed",
+            run_id=run_id,
             exc_info=True)
+```
+
+### Transit Domain
+
+Multi-feed GTFS-RT polling, weather/traffic ETL, WebSocket streaming, and anomaly detection.
+
+```
+transit.
+├── poller.
+│   ├── lifecycle_started                   # Poller system started
+│   ├── started                             # Single feed poll cycle (fields: feed_id, interval_seconds)
+│   ├── all_started                         # All pollers launched (fields: feed_count)
+│   ├── all_stopped                         # All pollers stopped
+│   ├── cycle_completed                     # Feed poll cycle completed (fields: feed_id, vehicles)
+│   ├── fetch_failed                        # Feed fetch error (fields: feed_id, error)
+│   ├── leader_elected                      # Redis leader lock acquired (fields: worker_id)
+│   ├── leader_election_failed              # Leader election error (fields: error)
+│   ├── leader_refresh_failed               # Leader lock refresh error (fields: error)
+│   ├── leader_refresh_setup_failed         # Leader refresh setup error (fields: error)
+│   ├── leader_refresh_cleanup_error        # Leader refresh cleanup error
+│   ├── leader_release_failed               # Leader lock release error
+│   ├── not_leader                          # Worker is not leader, skipping
+│   ├── disabled                            # Polling disabled by config
+│   ├── feed_registered                     # Feed registered for polling (fields: feed_id)
+│   ├── history_write_completed             # Historical positions written (fields: count)
+│   ├── history_write_failed                # Historical write error (fields: error)
+│   ├── redis_write_failed                  # Redis cache write error (fields: error)
+│   ├── redis_unavailable                   # Redis not available for caching
+│   ├── pubsub_publish_failed               # Pub/Sub publish error (fields: error)
+│   └── task_cleanup_error                  # Task cleanup error
+├── weather.
+│   ├── lifecycle_started                   # Weather ETL started
+│   ├── lifecycle_stopped                   # Weather ETL stopped
+│   ├── lifecycle_disabled                  # Weather ETL disabled by config
+│   ├── cycle_completed                     # Weather poll cycle completed
+│   ├── cycle_failed                        # Weather poll cycle failed (fields: error)
+│   ├── leader_acquired                     # Weather leader lock acquired (fields: worker_id)
+│   ├── not_leader                          # Not weather leader, skipping
+│   ├── leader_refresh_failed               # Weather leader lock refresh error
+│   ├── leader_release_failed               # Weather leader lock release error
+│   ├── backfill_started                    # Weather backfill started (fields: days)
+│   ├── backfill_completed                  # Weather backfill completed
+│   ├── backfill_skipped                    # Weather backfill skipped (fields: reason)
+│   ├── pull_completed                      # Weather data pull completed
+│   ├── phenomena_fetch_failed              # Weather phenomena fetch error
+│   ├── row_skipped                         # Weather row skipped (invalid data)
+│   ├── response_too_large                  # Weather API response too large
+│   └── circuit_open                        # Weather circuit breaker open
+├── traffic.
+│   ├── lifecycle_started                   # Traffic ETL started
+│   ├── lifecycle_stopped                   # Traffic ETL stopped
+│   ├── lifecycle_disabled                  # Traffic ETL disabled by config
+│   ├── cycle_completed                     # Traffic poll cycle completed
+│   ├── cycle_failed                        # Traffic poll cycle failed (fields: error)
+│   ├── leader_acquired                     # Traffic leader lock acquired (fields: worker_id)
+│   ├── not_leader                          # Not traffic leader, skipping
+│   ├── leader_refresh_failed               # Traffic leader lock refresh error
+│   ├── leader_release_failed               # Traffic leader lock release error
+│   ├── next_run                            # Next traffic run scheduled (fields: delay_s)
+│   ├── counts_pull_completed               # Traffic counts pull completed
+│   ├── counts_response_too_large           # Traffic counts response too large
+│   ├── count_row_skipped                   # Traffic count row skipped
+│   ├── accidents_pull_completed            # Traffic accidents pull completed
+│   ├── accidents_response_too_large        # Traffic accidents response too large
+│   ├── accident_row_skipped                # Traffic accident row skipped
+│   ├── backfill_counts_started             # Traffic counts backfill started
+│   ├── backfill_counts_completed           # Traffic counts backfill completed
+│   ├── backfill_counts_skipped             # Traffic counts backfill skipped
+│   ├── backfill_accidents_started          # Traffic accidents backfill started
+│   ├── backfill_accidents_completed        # Traffic accidents backfill completed
+│   ├── backfill_accidents_skipped          # Traffic accidents backfill skipped
+│   └── circuit_open                        # Traffic circuit breaker open
+├── ws.
+│   ├── connected                           # WebSocket client connected (fields: user_id, active_count)
+│   ├── disconnected                        # WebSocket client disconnected (fields: user_id)
+│   ├── auth_failed                         # WebSocket auth rejected (fields: reason)
+│   ├── connection_limit_reached            # Max connections reached (fields: limit)
+│   ├── subscriber_started                  # Pub/Sub subscriber started
+│   ├── subscriber_stopped                  # Pub/Sub subscriber stopped
+│   ├── subscriber_stop_error               # Subscriber stop error
+│   ├── subscriber_cleanup_error            # Subscriber cleanup error
+│   ├── subscriber_reconnecting             # Subscriber reconnecting
+│   ├── subscriber_message_parse_failed     # Subscriber message parse error
+│   ├── subscribe_updated                   # Client subscription updated (fields: feeds)
+│   ├── subscribe_validation_failed         # Subscription validation failed
+│   ├── broadcast_completed                 # Broadcast completed (fields: client_count)
+│   ├── broadcast_client_disconnected       # Client disconnected during broadcast
+│   ├── broadcast_client_error              # Client error during broadcast
+│   └── unexpected_error                    # Unexpected WebSocket error
+├── anomaly.off_route.
+│   ├── lifecycle_started                   # Off-route evaluator started
+│   ├── lifecycle_stopped                   # Off-route evaluator stopped
+│   ├── lifecycle_skipped                   # Off-route evaluator skipped (fields: reason)
+│   ├── shutdown_error                      # Off-route evaluator shutdown error
+│   ├── cycle_completed                     # Off-route check cycle completed
+│   ├── cycle_failed                        # Off-route check cycle failed
+│   ├── candidate                           # Off-route candidate detected (fields: vehicle_id)
+│   ├── fired                               # Off-route anomaly confirmed (fields: vehicle_id)
+│   ├── no_corridor                         # No corridor for route (fields: route_id)
+│   └── reset                               # Off-route state reset (fields: vehicle_id)
+├── api.
+│   ├── vehicles_requested                  # Vehicle positions API call (fields: feed_id)
+│   ├── vehicle_history_requested           # Vehicle history API call (fields: vehicle_id)
+│   └── route_delay_trend_requested         # Route delay trend API call (fields: route_id)
+├── alerts.
+│   ├── fetch_completed                     # Service alerts fetched (fields: count)
+│   └── serving_stale_cache                 # Serving stale alert cache
+├── trip_updates.
+│   ├── fetch_completed                     # Trip updates fetched (fields: count)
+│   └── serving_stale_cache                 # Serving stale trip update cache
+├── vehicle_positions.
+│   ├── fetch_completed                     # Vehicle positions fetched (fields: count)
+│   └── serving_stale_cache                 # Serving stale vehicle position cache
+├── vehicles.
+│   ├── fetch_started                       # Transit vehicles fetch started
+│   └── fetch_completed                     # Transit vehicles fetch completed
+├── historical_importer.
+│   ├── backfill_started                    # Historical backfill started
+│   ├── backfill_completed                  # Historical backfill completed
+│   ├── backfill_dry_run                    # Backfill dry run (fields: snapshot_count)
+│   ├── list_snapshots_started              # Listing available snapshots
+│   ├── list_snapshots_completed            # Snapshot listing completed (fields: count)
+│   ├── snapshot_download_started           # Snapshot download started (fields: url)
+│   ├── snapshot_download_completed         # Snapshot download completed
+│   ├── snapshot_import_completed           # Snapshot import completed
+│   └── snapshot_skipped_duplicate          # Snapshot skipped (already imported)
+├── static_store.
+│   ├── load_started                        # Static GTFS store loading
+│   ├── load_completed                      # Static store loaded (fields: routes, stops, trips)
+│   └── load_failed                         # Static store load error (fields: error)
+├── static_cache.load_completed             # Static cache loaded
+├── check_driver_availability.
+│   ├── started                             # Driver availability check started
+│   ├── completed                           # Driver availability check completed
+│   └── failed                              # Driver availability check failed
+├── get_route_schedule.
+│   ├── started                             # Route schedule query started
+│   ├── completed                           # Route schedule query completed
+│   └── failed                              # Route schedule query failed
+├── get_adherence_report.
+│   ├── started                             # Adherence report started
+│   ├── completed                           # Adherence report completed
+│   └── failed                              # Adherence report failed
+├── query_bus_status.
+│   ├── started                             # Bus status query started
+│   ├── completed                           # Bus status query completed
+│   └── failed                              # Bus status query failed
+├── search_stops.
+│   ├── started                             # Stop search started
+│   ├── completed                           # Stop search completed
+│   └── failed                              # Stop search failed
+└── driver_data.db_fallback                 # Fell back to DB for driver data
+```
+
+### Shutdown Domain
+
+Graceful shutdown coordinator (OPS-3.1).
+
+```
+shutdown.
+├── coordinator.
+│   ├── no_tasks                            # No tasks registered for shutdown
+│   ├── started                             # Graceful shutdown initiated (fields: task_count)
+│   └── completed                           # All tasks drained (fields: duration_ms)
+├── task.
+│   ├── registered                          # Task registered for shutdown (fields: name, timeout_s)
+│   ├── drained                             # Task drained successfully (fields: name, duration_ms)
+│   ├── timeout                             # Task drain timed out (fields: name, timeout_s)
+│   └── failed                              # Task drain error (fields: name, error)
+└── report                                  # Final shutdown report (fields: total_tasks, duration_ms)
+```
+
+### Jobs Domain
+
+Arq-based durable job queue (OPS-3.2).
+
+```
+jobs.
+├── worker.
+│   ├── started                             # Arq worker started
+│   ├── stopped                             # Arq worker stopped
+│   ├── compaction_failed                   # Memory compaction job failed (fields: error)
+│   ├── promotion_failed                    # Memory promotion job failed (fields: error)
+│   └── daily_adherence_failed              # Daily adherence job failed (fields: error)
+└── queue.
+    ├── lifecycle_started                   # Queue system initialized
+    ├── pool_initialized                    # Redis pool created (fields: pool_size)
+    ├── pool_closed                         # Redis pool closed
+    ├── job_enqueued                        # Job enqueued (fields: job_name)
+    └── enqueue_skipped                     # Job enqueue skipped (fields: reason)
+```
+
+### Memory Domain
+
+Agent memory storage, compaction, and promotion.
+
+```
+memory.
+├── lifecycle.
+│   ├── tasks_started                       # Background memory tasks started
+│   ├── tasks_stopped                       # Background memory tasks stopped
+│   ├── promotion_completed                 # Episodic-to-procedural promotion done (fields: promoted_count)
+│   ├── compaction_completed                # Memory compaction completed (fields: compacted_count)
+│   ├── disabled                            # Memory system disabled by config
+│   └── deferred_to_queue                   # Task deferred to durable queue (fields: task)
+├── bridge.
+│   ├── episode_persisting                  # Episode being persisted (fields: run_id)
+│   ├── episode_stored                      # Episode persisted (fields: run_id)
+│   └── storage_failed                      # Fire-and-forget storage error (fields: error)
+├── service.
+│   ├── store_completed                     # Memory stored (fields: memory_id)
+│   ├── store_duplicate_skipped             # Duplicate memory skipped (fields: content_hash)
+│   ├── recall_completed                    # Memory recall completed (fields: count)
+│   ├── recall_by_query_completed           # Query-based recall completed (fields: count)
+│   ├── compact_completed                   # Service-level compaction completed
+│   ├── promote_completed                   # Service-level promotion completed
+│   ├── delete_decayed_completed            # Decayed memories cleaned (fields: count)
+│   ├── llm_merge_completed                 # LLM-based intent merge completed
+│   └── llm_merge_failed                    # LLM merge failed (fields: error)
+└── repository.
+    ├── apply_decay_completed               # Decay applied to memories (fields: count)
+    ├── delete_decayed_completed            # Decayed entries deleted (fields: count)
+    └── merge_entries_completed             # Memory entries merged (fields: count)
+```
+
+### Cache Domain
+
+Cache invalidation (OPS-3.3).
+
+```
+cache.
+├── invalidation.performed                  # Cache keys invalidated (fields: namespace, count)
+└── invalidation.failed                     # Cache invalidation error (fields: namespace, error)
+```
+
+### Redis Domain
+
+Redis connection lifecycle.
+
+```
+redis.
+├── connection_initialized                  # Redis connection established (fields: redis_url)
+├── connection_closed                       # Redis connection closed
+└── health_check_failed                     # Redis health check failed (fields: error)
+```
+
+### Application Domain (Extended)
+
+Application-level lifecycle events (actual events in code).
+
+```
+application.
+├── lifecycle_started                       # Application started (fields: app_name)
+└── lifecycle_stopped                       # Application stopped (fields: app_name)
+
+app.
+└── error                                   # Unhandled application error (fields: error)
+```
+
+### Rate Limiting Domain
+
+```
+rate_limit.
+├── redis_unavailable                       # Redis unavailable for rate limiting
+└── identity.decode_failed                  # Rate limit identity decode error
+```
+
+### RBAC Domain
+
+```
+rbac.
+├── scope.resolved                          # RBAC scope resolved (fields: user_id, scope)
+├── scope.denied                            # RBAC scope denied (fields: user_id, scope)
+└── assignment.
+    ├── create_completed                    # RBAC assignment created (fields: user_id, scope)
+    ├── delete_completed                    # RBAC assignment deleted (fields: user_id, scope)
+    └── bulk_replace_completed              # RBAC assignments bulk replaced (fields: user_id, count)
+```
+
+### Anomaly Routing Domain
+
+```
+anomaly.
+├── router.alert_created                    # Anomaly alert created (fields: anomaly_type)
+└── router.cooldown_suppressed              # Alert suppressed by cooldown (fields: anomaly_type)
+```
+
+### Security Domain
+
+```
+security.
+└── cors_wildcard_with_credentials          # CORS wildcard with credentials detected
+```
+
+### Resilience Domain
+
+```
+resilience.
+└── circuit_breaker.state_changed           # Circuit breaker state transition (fields: provider, state)
 ```
 
 ### External Domain
@@ -268,36 +597,25 @@ logger.error("external.api.call_failed",
             exc_info=True)
 ```
 
-### Feature Domains (Examples)
+### Feature Domains (Standard CRUD Pattern)
 
-For feature-specific logging, use the feature name as domain.
+Feature domains follow a standard `{domain}.{entity}.{action}_{state}` pattern.
+Not every event is listed individually -- the pattern itself is the specification.
+Domain-specific events beyond CRUD are listed in subsections below.
 
+**Standard CRUD actions** (apply to all feature domains):
 ```
-user.
-├── registration_started       # User registration initiated
-├── registration_completed     # User registered successfully
-├── registration_failed        # Registration failed
-├── login_started              # Login attempt
-├── login_completed            # Login successful
-├── login_failed               # Login failed
-├── password_reset_requested   # Password reset requested
-└── account_deleted            # Account deletion completed
-
-product.
-├── create_started             # Product creation started
-├── create_completed           # Product created
-├── create_failed              # Product creation failed
-├── update_started             # Product update started
-├── update_completed           # Product updated
-└── delete_completed           # Product deleted
-
-order.
-├── process_started            # Order processing started
-├── payment_completed          # Payment processed
-├── fulfillment_started        # Fulfillment initiated
-├── process_completed          # Order completed
-└── process_failed             # Order processing failed
+{domain}.{entity}.
+├── fetch_started / fetch_completed / fetch_failed
+├── list_started / list_completed
+├── create_started / create_completed / create_failed
+├── update_started / update_completed / update_failed
+└── delete_started / delete_completed / delete_failed
 ```
+
+**Domains following this pattern:**
+alerts, analytics, auth, compliance, drivers, eticket, events, fleet,
+geofences, knowledge, ml, obsidian, public_api, schedules, skills, stops, vehicles
 
 ## Standard States
 
@@ -578,5 +896,5 @@ def test_logging_event_format(capsys: pytest.CaptureFixture[str]) -> None:
 
 ---
 
-**Last Updated:** 2025-10-29
-**Version:** 1.0.0
+**Last Updated:** 2026-04-13
+**Version:** 2.0.0

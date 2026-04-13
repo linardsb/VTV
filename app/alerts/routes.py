@@ -16,6 +16,7 @@ from app.alerts.schemas import (
 from app.alerts.service import AlertService
 from app.auth.dependencies import require_role
 from app.auth.models import User
+from app.core.auth.scope import RequestScope, get_request_scope
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.shared.schemas import PaginatedResponse, PaginationParams
@@ -114,6 +115,7 @@ async def list_alerts(
     source_entity_id: str | None = Query(None, max_length=100),
     service: AlertService = Depends(get_service),  # noqa: B008
     _current_user: User = Depends(require_role("admin", "dispatcher")),  # noqa: B008
+    scope: RequestScope = Depends(get_request_scope),  # noqa: B008
 ) -> PaginatedResponse[AlertInstanceResponse]:
     """List alert instances with optional filters."""
     _ = request
@@ -124,6 +126,7 @@ async def list_alerts(
         alert_type=alert_type,
         source_entity_type=source_entity_type,
         source_entity_id=source_entity_id,
+        scope=scope,
     )
 
 

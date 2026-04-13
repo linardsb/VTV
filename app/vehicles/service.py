@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth.scope import RequestScope
 from app.core.logging import get_logger
 from app.drivers.repository import DriverRepository
 from app.shared.schemas import PaginatedResponse, PaginationParams
@@ -37,11 +38,12 @@ class VehicleService:
         self.vehicle_repo = VehicleRepository(db)
         self.maintenance_repo = MaintenanceRecordRepository(db)
 
-    async def get_vehicle(self, vehicle_id: int) -> VehicleResponse:
+    async def get_vehicle(self, vehicle_id: int, scope: RequestScope) -> VehicleResponse:
         """Get a vehicle by ID.
 
         Args:
             vehicle_id: The vehicle's database ID.
+            scope: Request scope for access control.
 
         Returns:
             VehicleResponse for the found vehicle.
@@ -51,7 +53,7 @@ class VehicleService:
         """
         logger.info("vehicles.fetch_started", vehicle_id=vehicle_id)
 
-        vehicle = await self.vehicle_repo.get(vehicle_id)
+        vehicle = await self.vehicle_repo.get(vehicle_id, scope=scope)
         if not vehicle:
             logger.warning("vehicles.fetch_failed", vehicle_id=vehicle_id, reason="not_found")
             raise VehicleNotFoundError(vehicle_id)
@@ -63,6 +65,7 @@ class VehicleService:
         self,
         pagination: PaginationParams,
         *,
+        scope: RequestScope,
         search: str | None = None,
         vehicle_type: str | None = None,
         status: str | None = None,
@@ -72,6 +75,7 @@ class VehicleService:
 
         Args:
             pagination: Page and page_size parameters.
+            scope: Request scope for access control.
             search: Case-insensitive search on fleet_number, license_plate, manufacturer, model_name.
             vehicle_type: Filter by vehicle type.
             status: Filter by vehicle status.
@@ -96,12 +100,14 @@ class VehicleService:
             vehicle_type=vehicle_type,
             status=status,
             active_only=active_only,
+            scope=scope,
         )
         total = await self.vehicle_repo.count(
             search=search,
             vehicle_type=vehicle_type,
             status=status,
             active_only=active_only,
+            scope=scope,
         )
 
         items = [VehicleResponse.model_validate(v) for v in vehicles]
@@ -295,13 +301,14 @@ class VehicleService:
         return MaintenanceRecordResponse.model_validate(record)
 
     async def get_maintenance_history(
-        self, vehicle_id: int, pagination: PaginationParams
+        self, vehicle_id: int, pagination: PaginationParams, scope: RequestScope
     ) -> PaginatedResponse[MaintenanceRecordResponse]:
         """Get maintenance history for a vehicle.
 
         Args:
             vehicle_id: The vehicle's database ID.
             pagination: Page and page_size parameters.
+            scope: Request scope for access control.
 
         Returns:
             Paginated list of MaintenanceRecordResponse items.
@@ -311,7 +318,7 @@ class VehicleService:
         """
         logger.info("vehicles.maintenance_list_started", vehicle_id=vehicle_id)
 
-        vehicle = await self.vehicle_repo.get(vehicle_id)
+        vehicle = await self.vehicle_repo.get(vehicle_id, scope=scope)
         if not vehicle:
             logger.warning(
                 "vehicles.maintenance_list_failed",

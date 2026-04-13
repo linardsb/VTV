@@ -4,12 +4,17 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth.scope import RequestScope
+from app.core.exceptions import RBACConfigurationError
+from app.core.logging import get_logger
 from app.shared.utils import escape_like
-from app.vehicles.models import MaintenanceRecord, Vehicle
+from app.vehicles.models import MaintenanceRecord, Vehicle, VehicleRouteQualification
 from app.vehicles.schemas import MaintenanceRecordCreate, VehicleCreate, VehicleUpdate
+
+logger = get_logger(__name__)
 
 
 class VehicleRepository:
@@ -23,16 +28,40 @@ class VehicleRepository:
         """
         self.db = db
 
-    async def get(self, vehicle_id: int) -> Vehicle | None:
+    def _apply_scope(
+        self, query: Select[tuple[Vehicle]], scope: RequestScope
+    ) -> Select[tuple[Vehicle]]:
+        if scope.is_unrestricted:
+            return query
+        subq = (
+            select(VehicleRouteQualification.vehicle_id)
+            .where(VehicleRouteQualification.route_id.in_(scope.route_ids or frozenset()))
+            .scalar_subquery()
+        )
+        return query.where(Vehicle.id.in_(subq))
+
+    async def get(self, vehicle_id: int, *, scope: RequestScope | None = None) -> Vehicle | None:
         """Get a vehicle by primary key ID.
 
         Args:
             vehicle_id: The vehicle's database ID.
+            scope: Optional RBAC scope to filter by.
 
         Returns:
             Vehicle instance or None if not found.
         """
-        result = await self.db.execute(select(Vehicle).where(Vehicle.id == vehicle_id))
+        query = select(Vehicle).where(Vehicle.id == vehicle_id)
+        if scope is not None and not scope.is_unrestricted:
+            subq = (
+                select(VehicleRouteQualification.vehicle_id)
+                .where(
+                    VehicleRouteQualification.vehicle_id == vehicle_id,
+                    VehicleRouteQualification.route_id.in_(scope.route_ids or frozenset()),
+                )
+                .scalar_subquery()
+            )
+            query = query.where(Vehicle.id.in_(subq))
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
     async def get_by_fleet_number(self, fleet_number: str) -> Vehicle | None:
@@ -56,6 +85,7 @@ class VehicleRepository:
         vehicle_type: str | None = None,
         status: str | None = None,
         active_only: bool = True,
+        scope: RequestScope | None = None,
     ) -> list[Vehicle]:
         """List vehicles with pagination and filtering.
 
@@ -66,11 +96,18 @@ class VehicleRepository:
             vehicle_type: Filter by vehicle type.
             status: Filter by vehicle status.
             active_only: If True, only return active vehicles.
+            scope: RBAC scope for filtering. Required (fail-closed).
 
         Returns:
             List of Vehicle instances.
+
+        Raises:
+            RBACConfigurationError: If scope is None (programming error).
         """
+        if scope is None:
+            raise RBACConfigurationError("RequestScope required for vehicle list queries")
         query = select(Vehicle)
+        query = self._apply_scope(query, scope)
         if active_only:
             query = query.where(Vehicle.is_active.is_(True))
         if search:
@@ -98,6 +135,7 @@ class VehicleRepository:
         vehicle_type: str | None = None,
         status: str | None = None,
         active_only: bool = True,
+        scope: RequestScope | None = None,
     ) -> int:
         """Count vehicles matching the given filters.
 
@@ -106,11 +144,24 @@ class VehicleRepository:
             vehicle_type: Filter by vehicle type.
             status: Filter by vehicle status.
             active_only: If True, only count active vehicles.
+            scope: RBAC scope for filtering. Required (fail-closed).
 
         Returns:
             Total number of matching vehicles.
+
+        Raises:
+            RBACConfigurationError: If scope is None (programming error).
         """
+        if scope is None:
+            raise RBACConfigurationError("RequestScope required for vehicle count queries")
         query = select(func.count()).select_from(Vehicle)
+        if not scope.is_unrestricted:
+            subq = (
+                select(VehicleRouteQualification.vehicle_id)
+                .where(VehicleRouteQualification.route_id.in_(scope.route_ids or frozenset()))
+                .scalar_subquery()
+            )
+            query = query.where(Vehicle.id.in_(subq))
         if active_only:
             query = query.where(Vehicle.is_active.is_(True))
         if search:

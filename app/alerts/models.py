@@ -26,7 +26,7 @@ class AlertRule(Base, TimestampMixin):
 
     __table_args__ = (
         CheckConstraint(
-            "rule_type IN ('delay_threshold', 'maintenance_due', 'registration_expiry', 'manual', 'geofence_enter', 'geofence_exit', 'geofence_dwell', 'stuck_vehicle', 'gps_gap', 'feed_outage', 'off_route')",
+            "rule_type IN ('delay_threshold', 'maintenance_due', 'registration_expiry', 'manual', 'geofence_enter', 'geofence_exit', 'geofence_dwell', 'stuck_vehicle', 'gps_gap', 'feed_outage', 'off_route', 'schedule_adherence')",
             name="ck_alert_rules_rule_type",
         ),
         CheckConstraint(

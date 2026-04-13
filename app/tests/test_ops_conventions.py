@@ -4,9 +4,10 @@
 """OPS convention tests.
 
 Validates that operational artifacts (SLO definitions, Prometheus alert rules,
-runbooks) exist and have the correct structure.
+runbooks, logging taxonomy) exist and have the correct structure.
 """
 
+import subprocess
 from pathlib import Path
 from typing import ClassVar
 
@@ -17,6 +18,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 ALERTS_FILE = PROJECT_ROOT / "ops" / "prometheus" / "alerts.yml"
 SLOS_FILE = PROJECT_ROOT / "docs" / "slos.md"
 RUNBOOKS_DIR = PROJECT_ROOT / "docs" / "runbooks"
+LOGGING_STANDARD_FILE = PROJECT_ROOT / "docs" / "logging-standard.md"
+AUDIT_SCRIPT = PROJECT_ROOT / "scripts" / "audit_log_taxonomy.py"
 
 
 class TestPrometheusAlertRules:
@@ -150,3 +153,26 @@ class TestRunbooks:
         readme = (RUNBOOKS_DIR / "README.md").read_text()
         for runbook in self.EXPECTED_RUNBOOKS:
             assert runbook in readme, f"Runbook '{runbook}' not listed in README.md"
+
+
+class TestLoggingTaxonomy:
+    """Validate logging taxonomy completeness (OPS-5.4)."""
+
+    def test_logging_standard_exists(self) -> None:
+        assert LOGGING_STANDARD_FILE.exists()
+
+    def test_audit_script_exists(self) -> None:
+        assert AUDIT_SCRIPT.exists()
+
+    def test_no_undocumented_log_events(self) -> None:
+        """Run audit script and assert zero undocumented events."""
+        result = subprocess.run(  # noqa: S603
+            ["uv", "run", "python", str(AUDIT_SCRIPT)],  # noqa: S607
+            capture_output=True,
+            text=True,
+            cwd=str(PROJECT_ROOT),
+            timeout=30,
+        )
+        assert result.returncode == 0, (
+            f"Logging taxonomy audit found undocumented events:\n{result.stdout}\n{result.stderr}"
+        )

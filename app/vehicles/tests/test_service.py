@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from app.core.auth.scope import RequestScope
 from app.vehicles.exceptions import (
     DriverAssignmentError,
     VehicleAlreadyExistsError,
@@ -14,6 +15,10 @@ from app.vehicles.schemas import MaintenanceRecordCreate, VehicleCreate, Vehicle
 from app.vehicles.service import VehicleService
 
 from .conftest import make_maintenance_record, make_vehicle
+
+_ADMIN_SCOPE = RequestScope(user_id=1, role="admin", route_ids=None)
+_DISPATCHER_SCOPE = RequestScope(user_id=2, role="dispatcher", route_ids=frozenset({1, 2, 3}))
+_EMPTY_SCOPE = RequestScope(user_id=3, role="dispatcher", route_ids=frozenset())
 
 
 @pytest.fixture
@@ -29,17 +34,17 @@ async def test_get_vehicle_success(service):
     vehicle = make_vehicle(id=1, fleet_number="4521")
     service.vehicle_repo.get = AsyncMock(return_value=vehicle)
 
-    result = await service.get_vehicle(1)
+    result = await service.get_vehicle(1, _ADMIN_SCOPE)
     assert result.id == 1
     assert result.fleet_number == "4521"
-    service.vehicle_repo.get.assert_awaited_once_with(1)
+    service.vehicle_repo.get.assert_awaited_once_with(1, scope=_ADMIN_SCOPE)
 
 
 async def test_get_vehicle_not_found(service):
     service.vehicle_repo.get = AsyncMock(return_value=None)
 
     with pytest.raises(VehicleNotFoundError):
-        await service.get_vehicle(999)
+        await service.get_vehicle(999, _ADMIN_SCOPE)
 
 
 async def test_list_vehicles_with_pagination(service):
@@ -53,7 +58,7 @@ async def test_list_vehicles_with_pagination(service):
     service.vehicle_repo.count = AsyncMock(return_value=2)
 
     pagination = PaginationParams(page=1, page_size=20)
-    result = await service.list_vehicles(pagination)
+    result = await service.list_vehicles(pagination, scope=_ADMIN_SCOPE)
 
     assert len(result.items) == 2
     assert result.total == 2
@@ -67,7 +72,7 @@ async def test_list_vehicles_with_search(service):
     service.vehicle_repo.count = AsyncMock(return_value=0)
 
     pagination = PaginationParams(page=1, page_size=20)
-    await service.list_vehicles(pagination, search="Solaris")
+    await service.list_vehicles(pagination, scope=_ADMIN_SCOPE, search="Solaris")
 
     service.vehicle_repo.list.assert_awaited_once()
     call_kwargs = service.vehicle_repo.list.call_args[1]
@@ -234,3 +239,48 @@ async def test_add_maintenance_record_vehicle_not_found(service):
 
     with pytest.raises(VehicleNotFoundError):
         await service.add_maintenance_record(999, data)
+
+
+# --- RBAC scope tests ---
+
+
+async def test_list_vehicles_admin_sees_all(service):
+    from app.shared.schemas import PaginationParams
+
+    vehicles = [make_vehicle(id=1), make_vehicle(id=2)]
+    service.vehicle_repo.list = AsyncMock(return_value=vehicles)
+    service.vehicle_repo.count = AsyncMock(return_value=2)
+
+    result = await service.list_vehicles(PaginationParams(page=1, page_size=20), scope=_ADMIN_SCOPE)
+    assert len(result.items) == 2
+    call_kwargs = service.vehicle_repo.list.call_args[1]
+    assert call_kwargs["scope"] == _ADMIN_SCOPE
+
+
+async def test_list_vehicles_dispatcher_passes_scope(service):
+    service.vehicle_repo.list = AsyncMock(return_value=[])
+    service.vehicle_repo.count = AsyncMock(return_value=0)
+
+    from app.shared.schemas import PaginationParams
+
+    await service.list_vehicles(PaginationParams(page=1, page_size=20), scope=_DISPATCHER_SCOPE)
+    call_kwargs = service.vehicle_repo.list.call_args[1]
+    assert call_kwargs["scope"] == _DISPATCHER_SCOPE
+
+
+async def test_get_vehicle_outside_scope_returns_not_found(service):
+    service.vehicle_repo.get = AsyncMock(return_value=None)
+
+    with pytest.raises(VehicleNotFoundError):
+        await service.get_vehicle(5, _DISPATCHER_SCOPE)
+    service.vehicle_repo.get.assert_awaited_once_with(5, scope=_DISPATCHER_SCOPE)
+
+
+async def test_list_vehicles_dispatcher_empty_scope(service):
+    from app.shared.schemas import PaginationParams
+
+    service.vehicle_repo.list = AsyncMock(return_value=[])
+    service.vehicle_repo.count = AsyncMock(return_value=0)
+
+    result = await service.list_vehicles(PaginationParams(page=1, page_size=20), scope=_EMPTY_SCOPE)
+    assert len(result.items) == 0

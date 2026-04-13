@@ -171,9 +171,7 @@ class TestMiddlewareIdentity:
         middleware = RateLimitIdentityMiddleware(mock_app)
 
         async def fake_call_next(request: Request) -> MagicMock:
-            captured_state["user_id"] = getattr(
-                request.state, "rate_limit_user_id", None
-            )
+            captured_state["user_id"] = getattr(request.state, "rate_limit_user_id", None)
             captured_state["role"] = getattr(request.state, "rate_limit_role", None)
             return MagicMock()
 
@@ -202,9 +200,7 @@ class TestMiddlewareIdentity:
         state_before: dict[str, bool] = {}
 
         async def fake_call_next(request: Request) -> MagicMock:
-            state_before["has_user_id"] = hasattr(
-                request.state, "rate_limit_user_id"
-            )
+            state_before["has_user_id"] = hasattr(request.state, "rate_limit_user_id")
             return MagicMock()
 
         req = MagicMock(spec=Request)

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
+from app.core.auth.scope import RequestScope
 from app.schedules.models import (
     Agency,
     Calendar,
@@ -139,16 +140,20 @@ class ScheduleRepository:
         await self.db.refresh(route)
         return route
 
-    async def get_route(self, route_id: int) -> Route | None:
+    async def get_route(self, route_id: int, scope: RequestScope | None = None) -> Route | None:
         """Get a route by primary key.
 
         Args:
             route_id: The route's database ID.
+            scope: Optional request scope for access control.
 
         Returns:
             Route instance or None.
         """
-        result = await self.db.execute(select(Route).where(Route.id == route_id))
+        query = select(Route).where(Route.id == route_id)
+        if scope is not None and not scope.is_unrestricted:
+            query = query.where(Route.id.in_(scope.route_ids or frozenset()))
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
     async def get_route_by_gtfs_id(self, gtfs_route_id: str) -> Route | None:
@@ -173,6 +178,7 @@ class ScheduleRepository:
         agency_id: int | None = None,
         is_active: bool | None = None,
         feed_id: str | None = None,
+        scope: RequestScope | None = None,
     ) -> list[Route]:
         """List routes with pagination and filtering.
 
@@ -183,11 +189,14 @@ class ScheduleRepository:
             route_type: GTFS route_type filter.
             agency_id: Filter by agency.
             is_active: Filter by active status.
+            scope: Optional request scope for access control.
 
         Returns:
             List of Route instances.
         """
         query = select(Route)
+        if scope is not None and not scope.is_unrestricted:
+            query = query.where(Route.id.in_(scope.route_ids or frozenset()))
         if search:
             pattern = f"%{escape_like(search)}%"
             query = query.where(
@@ -213,6 +222,7 @@ class ScheduleRepository:
         agency_id: int | None = None,
         is_active: bool | None = None,
         feed_id: str | None = None,
+        scope: RequestScope | None = None,
     ) -> int:
         """Count routes matching filters.
 
@@ -221,11 +231,14 @@ class ScheduleRepository:
             route_type: GTFS route_type filter.
             agency_id: Filter by agency.
             is_active: Filter by active status.
+            scope: Optional request scope for access control.
 
         Returns:
             Total count of matching routes.
         """
         query = select(func.count()).select_from(Route)
+        if scope is not None and not scope.is_unrestricted:
+            query = query.where(Route.id.in_(scope.route_ids or frozenset()))
         if search:
             pattern = f"%{escape_like(search)}%"
             query = query.where(

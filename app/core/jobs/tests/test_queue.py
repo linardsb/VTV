@@ -13,7 +13,7 @@ def test_parse_redis_settings_full_url() -> None:
     rs = _parse_redis_settings("redis://:secret@myhost:6380/2")
     assert rs.host == "myhost"
     assert rs.port == 6380
-    assert rs.password == "secret"
+    assert rs.password == "secret"  # pragma: allowlist secret
     assert rs.database == 2
 
 

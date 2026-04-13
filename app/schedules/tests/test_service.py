@@ -669,3 +669,32 @@ async def test_import_gtfs_failure_path(service):
 
             with pytest.raises(GTFSImportError, match="Corrupt ZIP"):
                 await service.import_gtfs(b"bad_zip")
+
+
+# --- RBAC scope tests ---
+
+
+@pytest.mark.asyncio
+async def test_list_routes_dispatcher_sees_scoped(service):
+    from app.core.auth.scope import RequestScope
+
+    scope = RequestScope(user_id=2, role="dispatcher", route_ids=frozenset({1, 2}))
+    scoped_routes = [make_route(id=1), make_route(id=2, gtfs_route_id="r_2")]
+    service.repository.list_routes = AsyncMock(return_value=scoped_routes)
+    service.repository.count_routes = AsyncMock(return_value=2)
+
+    result = await service.list_routes(PaginationParams(page=1, page_size=20), scope=scope)
+    assert result.total == 2
+    call_kwargs = service.repository.list_routes.call_args[1]
+    assert call_kwargs["scope"] == scope
+
+
+@pytest.mark.asyncio
+async def test_get_route_outside_scope_returns_not_found(service):
+    from app.core.auth.scope import RequestScope
+
+    scope = RequestScope(user_id=2, role="dispatcher", route_ids=frozenset({1, 2}))
+    service.repository.get_route = AsyncMock(return_value=None)
+
+    with pytest.raises(RouteNotFoundError):
+        await service.get_route(5, scope=scope)

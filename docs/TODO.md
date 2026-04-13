@@ -17,7 +17,7 @@ Testing           ████████████████████�
 Infrastructure    ██████████████████████░░  97%  (Docker, nginx+Brotli, Gunicorn multi-worker, Redis rate limiting, Makefile, 25 slash commands, CI/CD, 6 security audits, SDLC security framework, context-triggered security SDC, pre-commit framework + detect-secrets, graceful shutdown coordinator)
 Latvia Platform   ████████░░░░░░░░░░░░░░░  35%  (Riga GTFS + PostGIS + WebSocket + multi-feed GTFS-RT + TimescaleDB historical storage, no multi-city yet)
 Agent Intelligence ████████████████████████ 100%  (Phases AI-1 through AI-11 complete — see docs/TODO-archive.md. AI-8 complete: circuit-breaker + provider health + chain integration. AI-9 complete: injection detection + blocking + output validation. AI-10 complete: heading-breadcrumb citations + regression tests. AI-11 complete: AI-11.1 synthetic QA generation + AI-11.2 retrieval metrics + AI-11.3 eval runner + faithfulness judge + AI-11.4 regression baselines + CI gate.)
-Intelligence/ML   ███████████████░░░░░░░░  65%  (ML-1 complete: GTFS archive + e-ticket + weather/traffic ETL. ML-2.1 feature engineering + ML-2.2 LightGBM ETA model complete. ML-4.1 off-route + ML-4.2 stuck/GPS gap detection complete. ML-5.3 public API + ML-5.4 Text-to-SQL complete. 11/17 subtasks done. Remaining: ML-2.3-2.4 ETA serving, ML-3 load, ML-4.3 anomaly routing, ML-5.1 dashboard, ML-5.2 adherence)
+Intelligence/ML   ████████████████████░░░  82%  (14/17 subtasks done. ML-1 complete. ML-2.1+2.2 complete. ML-3.1 complete. ML-4 complete. ML-5.2+5.3+5.4 complete. Remaining: ML-2.3 ETA serving, ML-3.2 load model, ML-3.3 crowding alerts, ML-5.1 route dashboard)
 ```
 
 ## In Progress
@@ -346,7 +346,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 #### OPS-4.1 Per-User Rate Limit Bucketing ✅ done 2026-04-13
 **What:** `RateLimitIdentityMiddleware` in `app/core/rate_limit.py` decodes JWT (HMAC-only, no DB) to populate `request.state.rate_limit_user_id/role`. `_user_or_ip_key` returns `user:{id}:{role}` or `ip:{ip}:anonymous`. Role-based tier default limits via `_dynamic_tier_limit` callable (admin 1000/min, dispatcher 300/min, editor 100/min, viewer 50/min, anonymous 30/min). Sub-bucket keys for chat (10/min per user) and analytics export (5/hour per user). Config: `RATE_LIMIT_TIER_{ROLE}`, `RATE_LIMIT_AGENT_CHAT`, `RATE_LIMIT_ANALYTICS_EXPORT`. 20 unit tests + 3 convention tests. Plan: `.agents/plans/ops-4-1-per-user-rate-limit-bucketing.md`.
 
-#### OPS-4.2 Dispatcher-Scoped Query Filters (RBAC Scoping)
+#### OPS-4.2 Dispatcher-Scoped Query Filters (RBAC Scoping) ✅ (2026-04-13)
 **What:** Add a `RequestScope` dependency that resolves "what routes/depots/vehicles this user may see" from their role + assignments, and inject it into every repository query for data-scoped models (vehicles, routes, schedules, geofences, alerts). Admins see everything; dispatchers see only their assigned scope; drivers see only their assigned vehicle.
 **Why:** Auth has 4 roles but queries are role-checked at the route level only. A dispatcher with scope "routes 1-10" can still read data for routes 11-50 by calling the same endpoint with a different query parameter. This is the biggest authorization gap in the platform.
 **Implementation:**
@@ -415,14 +415,9 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 **Status:** Implemented. `make er-diagram` generates 24-table Mermaid ER diagram with FK relationships. Convention tests in `TestERDiagram`. Also fixed 4 missing model imports in `alembic/env.py` (alerts, fleet, geofences, memory). Pre-commit hook for migration sync not added (deferred — low priority given deterministic regeneration).
 **Files:** `scripts/generate_er_diagram.py`, `docs/schema/er.md`, `Makefile`, `alembic/env.py`, `app/tests/test_security.py`.
 
-#### OPS-5.4 Logging Taxonomy Audit + Backfill
-**What:** Audit `app/core/agents/circuit_breaker.py` (added in AI-8.1), background pollers, and the agent tool layer for structured log events missing from `docs/logging-standard.md`. Add every missing event to the taxonomy with fields + severity + example.
-**Why:** AI-8.1 added 7 new `agent.circuit_breaker.*` events and the taxonomy doc is not yet caught up. Dashboard builders in GlitchTip hit "what is this event?" dead ends every time a new subsystem logs.
-**Implementation:**
-- `scripts/audit_log_taxonomy.py` — greps the code for `structlog.get_logger().*(event=...)` calls, extracts event names, compares against `docs/logging-standard.md`, prints deltas.
-- Backfill `docs/logging-standard.md` with missing entries. Target: zero untracked events.
-- Add a CI step (optional) that runs the audit script and fails if new events land without doc entries.
-**Verify:** `python scripts/audit_log_taxonomy.py` reports 0 missing entries. Every event emitted by the code is documented with fields + severity + example.
+#### OPS-5.4 Logging Taxonomy Audit + Backfill ✅
+**Status:** Implemented. `scripts/audit_log_taxonomy.py` scans all `logger.*` calls in `app/` (multiline-aware regex, excludes tests/), parses tree-structured taxonomy from `docs/logging-standard.md`, and reports undocumented events. `docs/logging-standard.md` updated to v2.0.0 with 301 documented events across 17 infrastructure domains (agent, transit, shutdown, jobs, memory, cache, redis, health, rbac, anomaly, etc.). Feature-domain CRUD events covered by documented standard pattern. Ignore flags: `--ignore-patterns crud,examples,evals,feature`. CI gate via `TestLoggingTaxonomy` (3 tests) in `app/tests/test_ops_conventions.py`. `make audit-log-taxonomy` runs standalone.
+**Files:** `scripts/audit_log_taxonomy.py`, `docs/logging-standard.md`, `app/tests/test_ops_conventions.py`, `Makefile`. Plan: [.agents/plans/ops-5.4-logging-taxonomy-audit.md](../.agents/plans/ops-5.4-logging-taxonomy-audit.md). (2026-04-13)
 
 ---
 
@@ -436,7 +431,7 @@ Operational maturity work distinct from the AI/ML tracks. Focus: secrets discipl
 | OPS-4 | Per-user rate limiting + RBAC scoping + audit log | 4 | — |
 | OPS-5 | Type baseline + ADRs + ER diagram + logging taxonomy | 3 | — |
 
-Total operational hardening: **14 days** across 16 subtasks. **15 subtasks complete** (OPS-1.1, OPS-1.2, OPS-1.3, OPS-2.1, OPS-2.2, OPS-2.3, OPS-3.1, OPS-3.2, OPS-3.3, OPS-4.1, OPS-5.1, OPS-5.2, OPS-5.3). Remaining: 3 subtasks (~3 days) — OPS-4.2, OPS-4.3, OPS-5.4.
+Total operational hardening: **14 days** across 16 subtasks. **15 subtasks complete**. Remaining: 1 subtask (~1 day) — OPS-4.3 (auth audit log).
 
 ---
 
@@ -627,7 +622,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 > **Sprint deliverable:** Crowding predictions ("bus 22 at 08:15 on Monday typically has 47 passengers by Brīvības") exposed to dispatchers via new agent tool. Over-capacity alerts fire 10+ minutes before the vehicle arrives.
 > **Depends on:** ML-1.2 (e-ticket data), ML-2 (feature pipeline patterns)
 
-#### ML-3.1 E-Ticket ↔ GTFS-RT Correlation Pipeline
+#### ML-3.1 E-Ticket ↔ GTFS-RT Correlation Pipeline ✅ (2026-04-13)
 **What:** Create `app/ml/features/load_features.py` — joins `eticket_validations` with `vehicle_positions` to reconstruct per-stop tap-on counts. Output: time series of passenger counts per (trip, stop_sequence, date).
 **Why:** E-ticket records lack an explicit stop_id — they only record `(vehicle_number, validated_at)`. Reconstructing "which stop was this tap-on at?" requires joining against the vehicle's GPS trace at that timestamp, then nearest-stop lookup via PostGIS. This correlation is the bridge between raw data and a trainable dataset.
 **Implementation:**
@@ -679,7 +674,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 #### ML-4.2 Stuck Vehicle + GPS Gap Detection ✅
 **Status:** Done — `app/ml/anomaly/stuck.py` implements `StuckVehicleEvaluator` class querying TimescaleDB `vehicle_positions` for movement in configurable time window (`ml_stuck_time_window_minutes=10`), haversine distance check against threshold (`ml_stuck_distance_threshold_m=20.0`), layover/terminal stop exclusion via GTFS stop_times cross-reference. `app/ml/anomaly/gps_gap.py` implements `GPSGapEvaluator` class comparing `MAX(observed_at)` vs current time with threshold (`ml_gps_gap_threshold_minutes=5`), feed-wide gap detection fires `feed_outage` when `ml_gps_gap_feed_outage_pct=50`% of feed vehicles gap simultaneously. Both return `list[AlertInstanceCreate]` consumed by `app/ml/anomaly/evaluator.py` orchestrator (60s cycle, `ml_anomaly_evaluator_enabled` config). `"stuck_vehicle"`, `"gps_gap"`, `"feed_outage"` added to `AlertRuleType`. Redis cooldown (`ml_anomaly_cooldown_seconds=900`) prevents alert spam. 25 tests across `test_stuck.py`, `test_gps_gap.py`, `test_evaluator.py`. Plan: `.agents/plans/ml-4-2-stuck-gps-gap-detection.md`. (2026-04-12, af675bf)
 
-#### ML-4.3 Anomaly Detection Routing + Deduplication
+#### ML-4.3 Anomaly Detection Routing + Deduplication ✅ (2026-04-13)
 **What:** Central `AnomalyAlertRouter` that routes each anomaly type to the right alert channel (dispatcher dashboard, SMS for critical, Slack for ops), enforces per-vehicle cooldowns, and exposes `GET /v1/anomalies/recent` endpoint for the CMS.
 **Why:** Three detectors × naive alerting = alert fatigue. Routing + cooldowns + severity mapping are cross-cutting concerns that should live once, in one place, not duplicated into each evaluator.
 **Implementation:**
@@ -715,21 +710,27 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 
 **Verify:** `/analytics/routes` loads in CMS, route selector populates, all 4 charts render with real data for a selected route. Chart data matches `SELECT` queries against the underlying tables. Cache hit on second load (<50ms).
 
-#### ML-5.2 Schedule Adherence Monitoring + Daily Report
-**What:** Scheduled daily job that computes fleet-wide schedule adherence (overall %, per-route, per-hour), writes a `daily_adherence_report` row, and publishes an email/Slack summary to dispatcher managers. Alert threshold: overall adherence < 85% → high-severity alert.
+#### ML-5.2 Schedule Adherence Monitoring + Daily Report ✅ (2026-04-13)
+**What:** Scheduled daily job that computes fleet-wide schedule adherence (overall %, per-route, per-hour), writes a `daily_adherence_report` row, and publishes an email/Slack summary to dispatcher managers. Alert threshold: overall adherence < 85% -> high-severity alert.
 **Why:** Dispatchers see real-time delays; managers need daily trend reports to decide on schedule revisions, driver training, or vehicle re-assignment. Automating the report removes the current manual spreadsheet process.
 **Implementation:**
-- `alembic/versions/k4l5m6n7o8p9_daily_adherence.py` — `daily_adherence_reports` table (date, overall_pct, per_route_json, per_hour_json, anomaly_counts_json, generated_at)
+- `alembic/versions/o8p9q0r1s2t3_daily_adherence_reports.py` -- `daily_adherence_reports` table (date, overall_pct, per_route_json, per_hour_json, anomaly_count, alert_triggered) + `schedule_adherence` alert type CHECK
+- `app/analytics/models.py` -- `DailyAdherenceReport` SQLAlchemy model with `TimestampMixin`
 - `app/analytics/daily_adherence.py`:
-  - `compute_daily_report(date: date) -> DailyAdherenceReport`
-  - `publish_report(report)` — sends to Slack webhook + email (SMTP)
-  - Alert threshold check: fires high-severity alert when overall adherence < config threshold
-- `app/main.py` — register daily task at 06:00 UTC (after overnight data settles)
-- `app/analytics/routes.py` — `GET /v1/analytics/adherence/daily?from=&to=` returns stored reports
-- `app/core/config.py` — `analytics_adherence_threshold_pct: float = 85.0`, `analytics_adherence_slack_webhook: str | None = None`
-- 10+ unit tests: report computation (3), publish fail-open (2), threshold alerting (2), schedule registration (1), date-range query (2)
+  - `compute_daily_report(target_date, db)` -- compute + upsert + threshold alert
+  - `publish_report(report)` -- Slack webhook + SMTP email (fail-open)
+  - `get_daily_reports(db, date_from, date_to)` -- date-range query
+  - `start_adherence_task()` / `stop_adherence_task()` -- background lifecycle
+- `app/analytics/routes.py` -- `GET /api/v1/analytics/adherence/daily?date_from=&date_to=` (auth + rate limited)
+- `app/analytics/schemas.py` -- `DailyAdherenceReportResponse`, `PerRouteAdherence`, `PerHourAdherence`
+- `app/core/config.py` -- 10 settings (threshold, Slack webhook, SMTP)
+- `app/core/jobs/worker.py` -- `run_daily_adherence` arq cron job
+- `app/alerts/schemas.py` + `app/alerts/models.py` -- added `schedule_adherence` to `AlertRuleType`
+- `app/main.py` -- lifespan registration (startup + shutdown coordinator)
+- 13 unit tests: computation (2), publish fail-open (3), threshold alerting (2), date-range query (1), lifecycle (1), route endpoint (4)
+- Plan: [.agents/plans/ml-5-2-daily-adherence-report.md](../.agents/plans/ml-5-2-daily-adherence-report.md)
 
-**Verify:** Manually invoke `compute_daily_report(date(2026, 04, 10))` — produces report row, prints summary. Simulate adherence < 85%, confirm high-severity alert created. `GET /v1/analytics/adherence/daily?from=2026-04-01&to=2026-04-10` returns stored rows.
+**Verify:** Manually invoke `compute_daily_report(date(2026, 04, 10))` -- produces report row, prints summary. Simulate adherence < 85%, confirm high-severity alert created. `GET /api/v1/analytics/adherence/daily?date_from=2026-04-01&date_to=2026-04-10` returns stored rows.
 
 #### ML-5.3 Public Developer API with API Key Auth ✅ (2026-04-12)
 **What:** New `app/public_api/` vertical slice — read-only subset of transit endpoints (`/public/v1/routes`, `/public/v1/stops`, `/public/v1/vehicles`) gated behind API keys. Per-key rate limiting (default 60/min, configurable per tier). Developer portal landing page in CMS (`/developers`) with self-serve key generation.
@@ -779,7 +780,7 @@ Phase 4 of the Full Latvia Transit Platform — detailed breakdown. Trains ML mo
 | ML-4  | Anomaly detection (off-route, stuck, GPS gap) | 5 | Route Shape Polylines TODO, alerts slice |
 | ML-5  | CMS dashboards, public API, Text-to-SQL | 8 | ML-1..ML-4 |
 
-Total ML platform build-out: **33 days** across 17 subtasks. **10 subtasks complete** (ML-1.1, ML-1.2, ML-1.3, ML-2.1, ML-4.1, ML-4.2, ML-5.3, ML-5.4). ML-2/ML-3 are unblocked by ML-1 completion. ML-4.3 (anomaly routing) remaining. Remaining: 7 subtasks, ~15 days.
+Total ML platform build-out: **33 days** across 17 subtasks. **14 subtasks complete**. Remaining: 3 subtasks (~6 days) — ML-2.3 ETA inference+agent tool, ML-3.2 load prediction model, ML-3.3 crowding alerts+agent tool. Plus ML-5.1 route dashboard (~2 days).
 
 ---
 

@@ -8,6 +8,7 @@ from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth.scope import RequestScope
 from app.core.cache.invalidation import invalidate_route_cache, invalidate_stop_cache
 from app.core.exceptions import NotFoundError
 from app.core.logging import get_logger
@@ -117,11 +118,12 @@ class ScheduleService:
 
     # --- Route ---
 
-    async def get_route(self, route_id: int) -> RouteResponse:
+    async def get_route(self, route_id: int, scope: RequestScope | None = None) -> RouteResponse:
         """Get a route by ID.
 
         Args:
             route_id: The route's database ID.
+            scope: Optional request scope for access control.
 
         Returns:
             RouteResponse for the found route.
@@ -129,7 +131,7 @@ class ScheduleService:
         Raises:
             RouteNotFoundError: If route does not exist.
         """
-        route = await self.repository.get_route(route_id)
+        route = await self.repository.get_route(route_id, scope=scope)
         if not route:
             raise RouteNotFoundError(f"Route {route_id} not found")
         return RouteResponse.model_validate(route)
@@ -142,6 +144,7 @@ class ScheduleService:
         agency_id: int | None = None,
         is_active: bool | None = None,
         feed_id: str | None = None,
+        scope: RequestScope | None = None,
     ) -> PaginatedResponse[RouteResponse]:
         """List routes with pagination and filtering.
 
@@ -151,6 +154,7 @@ class ScheduleService:
             route_type: GTFS route_type filter.
             agency_id: Filter by agency.
             is_active: Filter by active status.
+            scope: Optional request scope for access control.
 
         Returns:
             Paginated list of RouteResponse items.
@@ -170,6 +174,7 @@ class ScheduleService:
             agency_id=agency_id,
             is_active=is_active,
             feed_id=feed_id,
+            scope=scope,
         )
         total = await self.repository.count_routes(
             search=search,
@@ -177,6 +182,7 @@ class ScheduleService:
             agency_id=agency_id,
             is_active=is_active,
             feed_id=feed_id,
+            scope=scope,
         )
         items = [RouteResponse.model_validate(r) for r in routes]
         logger.info("schedules.route.list_completed", total=total, result_count=len(items))

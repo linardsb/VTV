@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import builtins
 
-from sqlalchemy import case, func, select
+import sqlalchemy as sa
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.alerts.models import AlertInstance, AlertRule
 from app.alerts.schemas import AlertInstanceCreate, AlertRuleCreate, AlertRuleUpdate
+from app.core.auth.scope import RequestScope
 from app.shared.models import utcnow
 
 
@@ -71,6 +73,38 @@ class AlertInstanceRepository:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
+    def _apply_scope(
+        self, query: sa.Select[tuple[AlertInstance]], scope: RequestScope
+    ) -> sa.Select[tuple[AlertInstance]]:
+        """Filter alerts by RBAC scope based on source entity type."""
+        if scope.is_unrestricted:
+            return query
+        from app.vehicles.models import VehicleRouteQualification
+
+        route_ids = scope.route_ids or frozenset()
+        vehicle_subq = (
+            select(sa.cast(VehicleRouteQualification.vehicle_id, sa.String))
+            .where(VehicleRouteQualification.route_id.in_(route_ids))
+            .scalar_subquery()
+        )
+        return query.where(
+            or_(
+                # Route alerts in scope
+                sa.and_(
+                    AlertInstance.source_entity_type == "route",
+                    sa.cast(AlertInstance.source_entity_id, sa.Integer).in_(route_ids),
+                ),
+                # Vehicle alerts where vehicle is on a scoped route
+                sa.and_(
+                    AlertInstance.source_entity_type == "vehicle",
+                    AlertInstance.source_entity_id.in_(vehicle_subq),
+                ),
+                # Other source types (geofence, feed, etc.) — pass through
+                AlertInstance.source_entity_type.not_in(["route", "vehicle"]),
+                AlertInstance.source_entity_type.is_(None),
+            )
+        )
+
     async def get(self, alert_id: int) -> AlertInstance | None:
         result = await self.db.execute(select(AlertInstance).where(AlertInstance.id == alert_id))
         return result.scalar_one_or_none()
@@ -85,8 +119,11 @@ class AlertInstanceRepository:
         alert_type: str | None = None,
         source_entity_type: str | None = None,
         source_entity_id: str | None = None,
+        scope: RequestScope | None = None,
     ) -> list[AlertInstance]:
         query = select(AlertInstance)
+        if scope is not None:
+            query = self._apply_scope(query, scope)
         if status is not None:
             query = query.where(AlertInstance.status == status)
         if severity is not None:
@@ -123,8 +160,32 @@ class AlertInstanceRepository:
         alert_type: str | None = None,
         source_entity_type: str | None = None,
         source_entity_id: str | None = None,
+        scope: RequestScope | None = None,
     ) -> int:
         query = select(func.count()).select_from(AlertInstance)
+        if scope is not None and not scope.is_unrestricted:
+            from app.vehicles.models import VehicleRouteQualification
+
+            route_ids = scope.route_ids or frozenset()
+            vehicle_subq = (
+                select(sa.cast(VehicleRouteQualification.vehicle_id, sa.String))
+                .where(VehicleRouteQualification.route_id.in_(route_ids))
+                .scalar_subquery()
+            )
+            query = query.where(
+                or_(
+                    sa.and_(
+                        AlertInstance.source_entity_type == "route",
+                        sa.cast(AlertInstance.source_entity_id, sa.Integer).in_(route_ids),
+                    ),
+                    sa.and_(
+                        AlertInstance.source_entity_type == "vehicle",
+                        AlertInstance.source_entity_id.in_(vehicle_subq),
+                    ),
+                    AlertInstance.source_entity_type.not_in(["route", "vehicle"]),
+                    AlertInstance.source_entity_type.is_(None),
+                )
+            )
         if status is not None:
             query = query.where(AlertInstance.status == status)
         if severity is not None:

@@ -29,6 +29,16 @@ class DomainValidationError(AppError):
     pass
 
 
+class RBACConfigurationError(AppError):
+    """Raised when a repository query is executed without required RBAC scope.
+
+    This indicates a programming error - a route handler forgot to inject and
+    pass RequestScope to a scoped repository method. Maps to HTTP 500.
+    """
+
+    pass
+
+
 # Global exception handlers
 async def app_exception_handler(request: Request, exc: AppError) -> JSONResponse:
     """Handle application exceptions globally.

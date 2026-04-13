@@ -41,7 +41,7 @@ async def get_job_status(
     all_results = await pool.all_job_results()
     jobs: list[JobStatusEntry] = []
 
-    for job_name in ("run_compaction", "run_promotion"):
+    for job_name in ("run_compaction", "run_promotion", "run_daily_adherence"):
         matching = [r for r in all_results if r.function == job_name]
         latest = matching[-1] if matching else None
 

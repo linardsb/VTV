@@ -20,6 +20,7 @@ AlertRuleType = Literal[
     "gps_gap",
     "feed_outage",
     "off_route",
+    "schedule_adherence",
 ]
 SourceEntityType = Literal["vehicle", "route", "driver"]
 

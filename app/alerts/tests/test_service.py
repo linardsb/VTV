@@ -188,3 +188,32 @@ async def test_get_summary(service):
     assert isinstance(result, AlertSummaryResponse)
     assert result.total_active == 5
     assert result.critical == 2
+
+
+# --- RBAC scope tests ---
+
+
+async def test_list_alerts_dispatcher_passes_scope(service):
+    from app.core.auth.scope import RequestScope
+
+    scope = RequestScope(user_id=2, role="dispatcher", route_ids=frozenset({1, 2}))
+    alerts_list = [make_alert_instance(id=1)]
+    service.instance_repository.list = AsyncMock(return_value=alerts_list)
+    service.instance_repository.count = AsyncMock(return_value=1)
+
+    result = await service.list_alerts(PaginationParams(page=1, page_size=20), scope=scope)
+    assert len(result.items) == 1
+    call_kwargs = service.instance_repository.list.call_args[1]
+    assert call_kwargs["scope"] == scope
+
+
+async def test_list_alerts_admin_scope_unrestricted(service):
+    from app.core.auth.scope import RequestScope
+
+    scope = RequestScope(user_id=1, role="admin", route_ids=None)
+    alerts_list = [make_alert_instance(id=1), make_alert_instance(id=2)]
+    service.instance_repository.list = AsyncMock(return_value=alerts_list)
+    service.instance_repository.count = AsyncMock(return_value=2)
+
+    result = await service.list_alerts(PaginationParams(page=1, page_size=20), scope=scope)
+    assert len(result.items) == 2

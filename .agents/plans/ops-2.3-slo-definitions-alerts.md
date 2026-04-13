@@ -236,8 +236,8 @@ validate-alerts: ## Validate Prometheus alert rules YAML structure
 
 | SLO | Target | Rationale |
 |-----|--------|-----------|
-| p95 latency < 500ms | Standard for internal APIs serving a CMS dashboard | 
-| p99 latency < 2s | Agent tool calls and GTFS imports can be slow; 2s accommodates | 
+| p95 latency < 500ms | Standard for internal APIs serving a CMS dashboard |
+| p99 latency < 2s | Agent tool calls and GTFS imports can be slow; 2s accommodates |
 | Error rate < 1% | Conservative first pass; tighten after 30d baseline data |
 | DB pool < 80% | pool_size=3 + max_overflow=5 = 8 total; 80% = 6.4 connections as warning threshold |
 | Circuit breaker closed | Any open breaker means degraded LLM functionality |

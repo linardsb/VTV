@@ -107,6 +107,51 @@ class OnTimePerformanceResponse(BaseModel):
     generated_at: datetime.datetime
 
 
+class PerRouteAdherence(BaseModel):
+    """Per-route adherence breakdown for a daily report."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    route_id: str
+    route_short_name: str
+    total_trips: int
+    on_time_trips: int
+    late_trips: int
+    early_trips: int
+    on_time_pct: float
+    avg_delay_seconds: float
+
+
+class PerHourAdherence(BaseModel):
+    """Per-hour adherence breakdown for a daily report."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    hour: int  # 0-23
+    total_trips: int
+    on_time_trips: int
+    on_time_pct: float
+
+
+class DailyAdherenceReportResponse(BaseModel):
+    """Response schema for daily schedule adherence reports (ML-5.2)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    report_date: datetime.date
+    overall_pct: float
+    total_trips: int
+    on_time_trips: int
+    late_trips: int
+    early_trips: int
+    per_route: list[PerRouteAdherence]
+    per_hour: list[PerHourAdherence]
+    anomaly_count: int
+    alert_triggered: bool
+    created_at: datetime.datetime
+
+
 class AnalyticsOverviewResponse(BaseModel):
     """Combined dashboard summary with fleet, driver, and on-time data."""
 

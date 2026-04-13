@@ -61,6 +61,26 @@ async def run_promotion(ctx: dict[str, Any]) -> dict[str, str]:
         raise
 
 
+async def run_daily_adherence(ctx: dict[str, Any]) -> dict[str, str]:
+    """Execute one daily adherence report cycle via arq.
+
+    Args:
+        ctx: Arq worker context dict.
+
+    Returns:
+        Dict with execution status.
+    """
+    _ = ctx
+    try:
+        from app.analytics.daily_adherence import _run_daily_adherence
+
+        await _run_daily_adherence()
+        return {"status": "completed"}
+    except Exception:
+        logger.error("jobs.worker.daily_adherence_failed", exc_info=True)
+        raise
+
+
 async def on_startup(ctx: dict[str, Any]) -> None:
     """Worker startup hook - initialize logging."""
     _ = ctx
@@ -82,6 +102,8 @@ def _build_cron_jobs() -> list[CronJob]:
     compaction_hours = set(range(0, 24, interval))
     promotion_hour = {settings.arq_promotion_cron_hour}
 
+    adherence_hour = {settings.analytics_adherence_cron_hour}
+
     return [
         cron(
             run_compaction,
@@ -94,6 +116,14 @@ def _build_cron_jobs() -> list[CronJob]:
         cron(
             run_promotion,
             hour=promotion_hour,
+            minute={0},
+            second={0},
+            run_at_startup=False,
+            unique=True,
+        ),
+        cron(
+            run_daily_adherence,
+            hour=adherence_hour,
             minute={0},
             second={0},
             run_at_startup=False,
@@ -116,7 +146,11 @@ class WorkerSettings:
         arq app.core.jobs.worker.WorkerSettings
     """
 
-    functions: ClassVar[Sequence[WorkerCoroutine | Function]] = [run_compaction, run_promotion]
+    functions: ClassVar[Sequence[WorkerCoroutine | Function]] = [
+        run_compaction,
+        run_promotion,
+        run_daily_adherence,
+    ]
     cron_jobs: ClassVar[Sequence[CronJob]] = _build_cron_jobs()
     redis_settings: ClassVar[RedisSettings] = _build_redis_settings()
     max_jobs: ClassVar[int] = get_settings().arq_max_jobs

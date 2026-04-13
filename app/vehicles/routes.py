@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, require_role
+from app.auth.dependencies import require_role
 from app.auth.models import User
+from app.core.auth.scope import RequestScope, get_request_scope
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.shared.schemas import PaginatedResponse, PaginationParams
@@ -39,12 +40,13 @@ async def list_vehicles(
     vehicle_status: VehicleStatus | None = Query(None, alias="status"),  # noqa: B008
     active_only: bool = Query(default=True),
     service: VehicleService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    scope: RequestScope = Depends(get_request_scope),  # noqa: B008
 ) -> PaginatedResponse[VehicleResponse]:
     """List vehicles with pagination and optional filters."""
     _ = request
     return await service.list_vehicles(
         pagination,
+        scope=scope,
         search=search,
         vehicle_type=vehicle_type,
         status=vehicle_status,
@@ -58,11 +60,11 @@ async def get_vehicle(
     request: Request,
     vehicle_id: int,
     service: VehicleService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    scope: RequestScope = Depends(get_request_scope),  # noqa: B008
 ) -> VehicleResponse:
     """Get a vehicle by database ID."""
     _ = request
-    return await service.get_vehicle(vehicle_id)
+    return await service.get_vehicle(vehicle_id, scope)
 
 
 @router.post("/", response_model=VehicleResponse, status_code=status.HTTP_201_CREATED)
@@ -147,8 +149,8 @@ async def get_maintenance_history(
     vehicle_id: int,
     pagination: PaginationParams = Depends(),  # noqa: B008
     service: VehicleService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    scope: RequestScope = Depends(get_request_scope),  # noqa: B008
 ) -> PaginatedResponse[MaintenanceRecordResponse]:
     """Get maintenance history for a vehicle."""
     _ = request
-    return await service.get_maintenance_history(vehicle_id, pagination)
+    return await service.get_maintenance_history(vehicle_id, pagination, scope)

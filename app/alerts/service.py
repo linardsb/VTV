@@ -14,6 +14,7 @@ from app.alerts.schemas import (
     AlertRuleUpdate,
     AlertSummaryResponse,
 )
+from app.core.auth.scope import RequestScope
 from app.core.logging import get_logger
 from app.shared.schemas import PaginatedResponse, PaginationParams
 
@@ -104,6 +105,7 @@ class AlertService:
         alert_type: str | None = None,
         source_entity_type: str | None = None,
         source_entity_id: str | None = None,
+        scope: RequestScope | None = None,
     ) -> PaginatedResponse[AlertInstanceResponse]:
         logger.info("alerts.instance.list_started", page=pagination.page)
         alerts = await self.instance_repository.list(
@@ -114,6 +116,7 @@ class AlertService:
             alert_type=alert_type,
             source_entity_type=source_entity_type,
             source_entity_id=source_entity_id,
+            scope=scope,
         )
         total = await self.instance_repository.count(
             status=status,
@@ -121,6 +124,7 @@ class AlertService:
             alert_type=alert_type,
             source_entity_type=source_entity_type,
             source_entity_id=source_entity_id,
+            scope=scope,
         )
         items = [AlertInstanceResponse.model_validate(a) for a in alerts]
         logger.info("alerts.instance.list_completed", result_count=len(items), total=total)

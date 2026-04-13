@@ -6,16 +6,17 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.core.jobs.worker import WorkerSettings, run_compaction, run_promotion
+from app.core.jobs.worker import WorkerSettings, run_compaction, run_daily_adherence, run_promotion
 
 
 def test_worker_has_cron_jobs() -> None:
-    assert len(WorkerSettings.cron_jobs) == 2
+    assert len(WorkerSettings.cron_jobs) == 3
 
 
 def test_worker_has_functions() -> None:
     assert run_compaction in WorkerSettings.functions
     assert run_promotion in WorkerSettings.functions
+    assert run_daily_adherence in WorkerSettings.functions
 
 
 @pytest.mark.asyncio

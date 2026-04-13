@@ -134,6 +134,68 @@ async def get_on_time_performance(
         ) from e
 
 
+@router.get("/adherence/daily", response_model=list[DailyAdherenceReportResponse])
+@limiter.limit("30/minute")
+async def get_daily_adherence_reports(
+    request: Request,
+    date_from: str = Query(..., max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    date_to: str = Query(..., max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
+) -> list[DailyAdherenceReportResponse]:
+    """Get daily schedule adherence reports for a date range.
+
+    Args:
+        request: The incoming HTTP request (used for rate limiting).
+        date_from: Start date as YYYY-MM-DD.
+        date_to: End date as YYYY-MM-DD.
+        db: Async database session.
+
+    Returns:
+        List of daily adherence reports.
+    """
+    _ = request
+    try:
+        parsed_from = datetime.date.fromisoformat(date_from)
+        parsed_to = datetime.date.fromisoformat(date_to)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid date format") from e
+
+    if parsed_from > parsed_to:
+        raise HTTPException(status_code=400, detail="date_from must be <= date_to")
+
+    if (parsed_to - parsed_from).days > 90:
+        raise HTTPException(status_code=400, detail="Date range must not exceed 90 days")
+
+    logger.info(
+        "analytics.api.adherence_daily_requested",
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    reports = await get_daily_reports(db, parsed_from, parsed_to)
+
+    result: list[DailyAdherenceReportResponse] = []
+    for r in reports:
+        result.append(
+            DailyAdherenceReportResponse(
+                id=r.id,
+                report_date=r.report_date,
+                overall_pct=r.overall_pct,
+                total_trips=r.total_trips,
+                on_time_trips=r.on_time_trips,
+                late_trips=r.late_trips,
+                early_trips=r.early_trips,
+                per_route=[PerRouteAdherence.model_validate(item) for item in r.per_route_json],
+                per_hour=[PerHourAdherence.model_validate(item) for item in r.per_hour_json],
+                anomaly_count=r.anomaly_count,
+                alert_triggered=r.alert_triggered,
+                created_at=r.created_at,  # pyright: ignore[reportArgumentType]
+            )
+        )
+    return result
+
+
 @router.get("/overview", response_model=AnalyticsOverviewResponse)
 @limiter.limit("10/minute")
 async def get_overview(

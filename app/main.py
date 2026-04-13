@@ -23,6 +23,7 @@ from slowapi.errors import RateLimitExceeded  # pyright: ignore[reportMissingTyp
 
 from app.alerts.evaluator import start_evaluator, stop_evaluator
 from app.alerts.routes import router as alerts_router
+from app.analytics.daily_adherence import start_adherence_task, stop_adherence_task
 from app.analytics.routes import router as analytics_router
 from app.auth.routes import router as auth_router
 from app.compliance.routes import router as compliance_router
@@ -30,6 +31,7 @@ from app.core.agents.agents.registry import close_all_agents
 from app.core.agents.exceptions import setup_agent_exception_handlers
 from app.core.agents.routes import router as agent_router
 from app.core.agents.service import close_agent_service
+from app.core.auth.routes import router as assignments_router
 from app.core.config import get_settings
 from app.core.database import engine
 from app.core.exceptions import setup_exception_handlers
@@ -132,6 +134,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Start off-route anomaly evaluator (ML-4.1)
     await start_off_route_evaluator(settings)
 
+    # Start daily adherence report background task (ML-5.2)
+    await start_adherence_task()
+
     # Start memory background tasks (compaction + promotion)
     await start_memory_tasks()
 
@@ -221,6 +226,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     coordinator.register(
         ShutdownTask(name="memory_tasks", drain_timeout_s=5.0, drain=stop_memory_tasks)
     )
+    coordinator.register(
+        ShutdownTask(name="adherence_task", drain_timeout_s=3.0, drain=stop_adherence_task)
+    )
 
     yield
 
@@ -284,6 +292,7 @@ app.include_router(geofences_router)
 app.include_router(public_api_key_mgmt_router)
 app.include_router(public_api_router)
 app.include_router(jobs_router)
+app.include_router(assignments_router)
 
 # Prometheus metrics endpoint (OPS-2.1)
 # Access control via nginx IP allowlist — scrapers don't carry JWTs.

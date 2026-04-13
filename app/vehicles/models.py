@@ -6,7 +6,17 @@ and maintenance history records.
 
 import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, Date, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -50,6 +60,31 @@ class Vehicle(Base, TimestampMixin):
     next_maintenance_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class VehicleRouteQualification(Base, TimestampMixin):
+    """Junction table mapping vehicles to qualified routes.
+
+    Replaces the CSV qualified_route_ids field for queryable FK-based
+    route qualification used by RBAC scope filtering.
+    """
+
+    __tablename__ = "vehicle_route_qualifications"
+    __table_args__ = (UniqueConstraint("vehicle_id", "route_id", name="uq_vehicle_route_qual"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    vehicle_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("vehicles.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    route_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("routes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
 
 class MaintenanceRecord(Base, TimestampMixin):

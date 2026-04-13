@@ -100,6 +100,7 @@ make ml-train-eta                          # Train ETA model (usage: make ml-tra
 
 # Ops
 make validate-alerts         # Validate Prometheus alert rules YAML structure
+make audit-log-taxonomy      # Audit structured log events against docs/logging-standard.md
 ```
 
 ## Architecture
@@ -114,7 +115,7 @@ VTV/
 │   │   └── jobs/       # Arq-based durable job queue (OPS-3.2) — queue wrapper, worker settings, admin status API
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
 │   ├── alerts/         # Notification/alerts system (11 endpoints, background evaluator, RBAC)
-│   ├── analytics/      # Dashboard analytics (4 endpoints, read-only aggregation over vehicles/drivers/transit)
+│   ├── analytics/      # Dashboard analytics (5 endpoints, read-only aggregation over vehicles/drivers/transit, daily schedule adherence reports with DB storage + Slack/email publish + threshold alerts)
 │   ├── auth/           # JWT auth + RBAC + user management (10 endpoints)
 │   ├── compliance/     # NeTEx/SIRI EU compliance exports (4 endpoints, XML generation, no DB tables)
 │   ├── knowledge/      # RAG knowledge base + DMS (14 endpoints, pgvector, tags, OCR, query router, markdown extraction, HyDE query expansion, Redis embedding cache, heading-aware semantic chunking, parent-child chunk hierarchy, search-time parent context expansion, heading-breadcrumb citations, one-shot rechunk migration script, synthetic QA pair generation for RAG eval, retrieval metrics computation with recall@k/MRR/completeness, RAG eval runner with LLM faithfulness judge, regression baselines with corpus checksum + CI gate)
@@ -217,10 +218,11 @@ Operational runbooks for on-call incident response and production maintenance. S
 - **SLO definitions + alerts (OPS-2.3):** `docs/slos.md` defines SLO targets (p95 < 500ms, p99 < 2s, error rate < 1%, DB pool < 80%, circuit breaker closed, poller liveness < 4x interval). `ops/prometheus/alerts.yml` has 7 Prometheus alert rules across 5 groups. 5 runbooks in `docs/runbooks/` (high-latency, high-error-rate, circuit-breaker-open, poller-stale, db-pool-exhaustion). `make validate-alerts` for YAML validation. 24 convention tests in `app/tests/test_ops_conventions.py`.
 - **Architecture decisions:** `docs/adr/README.md` — 4 ADRs documenting non-obvious choices (VSA, Pydantic AI, Redis cache, slowapi rate limiting). Nygard template: status, context, decision, consequences.
 - **Graceful shutdown (OPS-3.1):** `ShutdownCoordinator` in `app/core/shutdown.py` replaces ad-hoc sequential cancel loop in lifespan. Registers 12 tasks (8 background + 4 singletons) with per-task drain timeouts, drains in LIFO order, logs structured `shutdown.report`. Gunicorn `--graceful-timeout` bumped to 45s (36s worst-case budget + 9s safety margin). 10 tests.
-- **Durable job queue (OPS-3.2):** Arq-based Redis job queue in `app/core/jobs/`. Feature-flagged via `background_queue_enabled` (default `false`). When enabled, memory compaction (every 6h) and promotion (daily 03:00 UTC) run as durable arq cron jobs instead of bare `asyncio.create_task()`. `GET /admin/jobs/status` (admin-only, rate-limited) returns per-job last run, result, failure count. Docker worker service: `docker compose --profile worker up vtv-worker`. 19 tests.
+- **Durable job queue (OPS-3.2):** Arq-based Redis job queue in `app/core/jobs/`. Feature-flagged via `background_queue_enabled` (default `false`). When enabled, memory compaction (every 6h), promotion (daily 03:00 UTC), and daily adherence report (daily 06:00 UTC, ML-5.2) run as durable arq cron jobs instead of bare `asyncio.create_task()`. `GET /admin/jobs/status` (admin-only, rate-limited) returns per-job last run, result, failure count. Docker worker service: `docker compose --profile worker up vtv-worker`. 19 tests.
 - **Cache invalidation (OPS-3.3):** `CacheInvalidator` in `app/core/cache/invalidation.py` provides namespaced key deletion and SCAN-based pattern invalidation. Wired into repository layer: stops (create/update/delete), geofences (create/update/delete), schedules (GTFS import). Convenience functions: `invalidate_stop_cache()`, `invalidate_geofence_cache()`, `invalidate_vehicle_position_cache()`, `invalidate_route_cache()`. Fire-and-forget safe (errors logged, never raised). Prometheus counter: `vtv_redis_cache_invalidations_total`. 11 tests.
 - **Per-user rate limit bucketing (OPS-4.1):** `RateLimitIdentityMiddleware` in `app/core/rate_limit.py` decodes JWT (HMAC-only, no DB) to populate `request.state.rate_limit_user_id` and `request.state.rate_limit_role`. `_user_or_ip_key` replaces `_get_client_ip` as the limiter key function — authenticated users get `user:{id}:{role}` buckets, anonymous fall back to `ip:{ip}:anonymous`. Role-based tier default limits via `_dynamic_tier_limit` callable (admin 1000/min, dispatcher 300/min, editor 100/min, viewer 50/min, anonymous 30/min). Sub-bucket keys for chat (10/min) and analytics export (5/hour) endpoints. Config: `rate_limit_tier_{role}`, `rate_limit_agent_chat`, `rate_limit_analytics_export`. 20 unit tests + 3 convention tests.
 - **ER diagram (OPS-5.3):** `docs/schema/er.md` — Mermaid ER diagram auto-generated from SQLAlchemy models via `make er-diagram`. 24 tables with FK relationships. Re-run after migrations.
+- **Logging taxonomy audit (OPS-5.4):** `scripts/audit_log_taxonomy.py` compares all `logger.*` events in `app/` against `docs/logging-standard.md` taxonomy (v2.0.0, 301 documented events across 17 infrastructure domains). Supports `--verbose`, `--show-stale`, `--ignore-patterns` (crud, examples, evals, feature). CI gate via `TestLoggingTaxonomy` in `app/tests/test_ops_conventions.py` (3 tests). `make audit-log-taxonomy` to run standalone.
 
 ## Compact instructions
 

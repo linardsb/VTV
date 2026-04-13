@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_role
 from app.auth.models import User
+from app.core.auth.scope import RequestScope, get_request_scope
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.schedules.schemas import (
@@ -90,7 +91,7 @@ async def list_routes(
     is_active: bool | None = Query(None),
     feed_id: str | None = Query(None, max_length=50),
     service: ScheduleService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    scope: RequestScope = Depends(get_request_scope),  # noqa: B008
 ) -> PaginatedResponse[RouteResponse]:
     """List routes with pagination and filtering."""
     _ = request
@@ -101,6 +102,7 @@ async def list_routes(
         agency_id=agency_id,
         is_active=is_active,
         feed_id=feed_id,
+        scope=scope,
     )
 
 
@@ -123,11 +125,11 @@ async def get_route(
     request: Request,
     route_id: int,
     service: ScheduleService = Depends(get_service),  # noqa: B008
-    _current_user: User = Depends(get_current_user),  # noqa: B008
+    scope: RequestScope = Depends(get_request_scope),  # noqa: B008
 ) -> RouteResponse:
     """Get a route by its database ID."""
     _ = request
-    return await service.get_route(route_id)
+    return await service.get_route(route_id, scope=scope)
 
 
 @router.patch("/routes/{route_id}", response_model=RouteResponse)

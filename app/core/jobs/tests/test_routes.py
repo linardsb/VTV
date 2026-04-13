@@ -86,9 +86,10 @@ def test_admin_status_returns_job_info_when_enabled(client_admin: TestClient) ->
     assert resp.status_code == 200
     data = resp.json()
     assert data["queue_enabled"] is True
-    assert len(data["jobs"]) == 2
+    assert len(data["jobs"]) == 3
     assert data["jobs"][0]["name"] == "run_compaction"
     assert data["jobs"][1]["name"] == "run_promotion"
+    assert data["jobs"][2]["name"] == "run_daily_adherence"
 
 
 def test_admin_status_requires_admin_role(client_dispatcher: TestClient) -> None:
