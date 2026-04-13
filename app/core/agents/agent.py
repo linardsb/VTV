@@ -23,6 +23,10 @@ from app.core.agents.tools.transit.predict_eta import predict_eta
 from app.core.agents.tools.transit.predict_passenger_load import predict_passenger_load
 from app.core.agents.tools.transit.query_bus_status import query_bus_status
 from app.core.agents.tools.transit.run_analytics_sql import run_analytics_sql
+from app.core.agents.tools.transit.search_intercity import (
+    search_intercity_routes,
+    search_intercity_stops,
+)
 from app.core.agents.tools.transit.search_stops import search_stops
 from app.core.logging import get_logger
 
@@ -59,6 +63,7 @@ SYSTEM_PROMPT: str = (
     "- transportlīdzeklis (vehicle) | vadītājs (driver)\n"
     "- reiss (trip) | virziens (direction)\n"
     "- galapunkts (terminal) | starppieturu laiks (headway)\n"
+    "- starppilsetu (intercity) | regionāls (regional) | ATD (Autotransporta direkcija)\n"
     "- aktīvs/aktīvi (active) | nākošā pietura (next stop)\n"
     "- ienākšana (arrival) | atiešana (departure)\n\n"
     #
@@ -133,7 +138,7 @@ def create_agent(model: str | Model | None = None) -> Agent[UnifiedDeps, str]:
         output_type=str,
         system_prompt=SYSTEM_PROMPT,
         tools=[
-            # Transit (7 read-only + 1 analytics)
+            # Transit (7 read-only + 2 intercity + 1 analytics)
             query_bus_status,
             get_route_schedule,
             search_stops,
@@ -141,6 +146,8 @@ def create_agent(model: str | Model | None = None) -> Agent[UnifiedDeps, str]:
             check_driver_availability,
             predict_eta,
             predict_passenger_load,
+            search_intercity_stops,
+            search_intercity_routes,
             run_analytics_sql,
             # Obsidian vault (4)
             obsidian_query_vault,

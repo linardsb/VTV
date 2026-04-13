@@ -428,6 +428,22 @@ transit.
 │   ├── started                             # Stop search started
 │   ├── completed                           # Stop search completed
 │   └── failed                              # Stop search failed
+├── ckan.
+│   ├── query_started                       # CKAN SQL query started (fields: sql_hash, cached)
+│   ├── query_completed                     # CKAN SQL query completed (fields: sql_hash, record_count, elapsed_ms, cached)
+│   ├── query_failed                        # CKAN SQL query failed (fields: sql_hash, error, error_type, elapsed_ms)
+│   ├── cache_hit                           # CKAN Redis cache hit (fields: sql_hash, record_count)
+│   ├── cache_miss                          # CKAN Redis cache miss (fields: sql_hash)
+│   ├── cache_error                         # CKAN Redis cache read error (fields: cache_key)
+│   ├── cache_set_error                     # CKAN Redis cache write error (fields: cache_key)
+│   ├── pagination_needed                   # CKAN response exceeded page size (fields: sql_hash, total_fetched, page_count)
+│   ├── rate_limited                        # CKAN request delayed by rate limiter (fields: wait_s)
+│   ├── search_stops_started                # Intercity stop search started (fields: query, latitude, longitude, limit)
+│   ├── search_stops_completed              # Intercity stop search completed (fields: result_count, duration_ms)
+│   ├── search_stops_failed                 # Intercity stop search failed (fields: error, error_type, duration_ms)
+│   ├── search_routes_started               # Intercity route search started (fields: query, stop_name)
+│   ├── search_routes_completed             # Intercity route search completed (fields: result_count, duration_ms)
+│   └── search_routes_failed                # Intercity route search failed (fields: error, error_type, duration_ms)
 └── driver_data.db_fallback                 # Fell back to DB for driver data
 ```
 

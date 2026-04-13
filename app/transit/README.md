@@ -286,4 +286,25 @@ Background ETL pullers that ingest weather and traffic data from Latvian governm
 
 **Configuration:** `WEATHER_ETL_ENABLED`, `WEATHER_STATION_URL`, `WEATHER_OBSERVATIONS_URL`, `WEATHER_PHENOMENA_URL`, `WEATHER_ETL_INTERVAL_SECONDS`, `WEATHER_ETL_LEADER_LOCK_TTL`, `WEATHER_HISTORY_RETENTION_DAYS`, `TRAFFIC_ETL_ENABLED`, `TRAFFIC_COUNTS_URL`, `TRAFFIC_ACCIDENTS_URL`, `TRAFFIC_ETL_CRON_HOUR`
 
+### CKAN Datastore SQL Bridge Client (LV-1.1)
+
+Async client for querying ATD (Autotransporta direkcija) intercity transit data via the CKAN Datastore SQL API on data.gov.lv. Provides two agent tools for searching intercity/regional stops and routes across all of Latvia's bus network.
+
+**Files:** `ckan_client.py`, `app/core/agents/tools/transit/search_intercity.py`
+**Tests:** `tests/test_ckan_client.py` (16 tests), `app/core/agents/tools/transit/tests/test_search_intercity.py` (15 tests)
+
+**Agent tools:**
+- `search_intercity_stops` — Search by name (LIKE) or geographic proximity (Haversine). For intercity stops outside Riga (Liepaja, Ventspils, Jelgava, etc.)
+- `search_intercity_routes` — Search by route name/number or by stop name (JOIN through trips/stop_times). For ATD regional bus routes
+
+**Key features:**
+- Redis caching with configurable TTL (default 5 min) — SHA-256 cache keys for deterministic lookups
+- Rate limiting (1 req/s) via asyncio.Lock to protect data.gov.lv from excessive requests
+- Automatic pagination for result sets exceeding 32K rows (CKAN default page size), capped at 100 pages
+- SQL input sanitization: single-quote doubling, LIKE wildcard escaping (%, _), backslash escaping, control character stripping
+- Error messages sanitized — raw exception details logged but never returned to LLM
+- 15 structured log events under `transit.ckan.*` domain
+
+**Configuration:** `CKAN_DATASTORE_SQL_URL`, `CKAN_CACHE_TTL_S`, `CKAN_RATE_LIMIT_DELAY_S`
+
 See `docs/PLANNING/Implementation-Plan.md` for the complete 4-phase roadmap.

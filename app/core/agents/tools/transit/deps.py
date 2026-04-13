@@ -25,6 +25,7 @@ class UnifiedDeps:
         transit_http_client: Connection-pooled async HTTP client for GTFS-RT fetching.
         obsidian_http_client: Async HTTP client for Obsidian Local REST API
             (SSL verification disabled for self-signed cert).
+        ckan_http_client: Async HTTP client for CKAN Datastore SQL API (intercity data).
         settings: Application settings containing feed URLs, cache TTL, and Obsidian config.
         db_session_factory: Optional factory for creating standalone DB sessions.
     """
@@ -32,6 +33,7 @@ class UnifiedDeps:
     transit_http_client: httpx.AsyncClient
     obsidian_http_client: httpx.AsyncClient
     settings: Settings
+    ckan_http_client: httpx.AsyncClient | None = None
     db_session_factory: Callable[[], AbstractAsyncContextManager[AsyncSession]] | None = field(
         default=None
     )
@@ -73,12 +75,17 @@ def create_unified_deps(settings: Settings | None = None) -> UnifiedDeps:
         verify=settings.obsidian_verify_ssl,
         headers={"Authorization": f"Bearer {settings.obsidian_api_key or ''}"},
     )
+    ckan_client = httpx.AsyncClient(
+        timeout=httpx.Timeout(15.0, connect=5.0),
+        limits=httpx.Limits(max_connections=5, max_keepalive_connections=3),
+    )
     from app.core.database import get_db_context
 
     return UnifiedDeps(
         transit_http_client=transit_client,
         obsidian_http_client=obsidian_client,
         settings=settings,
+        ckan_http_client=ckan_client,
         db_session_factory=get_db_context,
     )
 

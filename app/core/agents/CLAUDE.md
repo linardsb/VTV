@@ -1,12 +1,12 @@
 # Agent Module
 
-Pydantic AI agent (`Agent[UnifiedDeps, str]`) with 13 tools across 4 domains. Follows vertical slice pattern with `tools/` subdirectory.
+Pydantic AI agent (`Agent[UnifiedDeps, str]`) with 15 tools across 4 domains. Follows vertical slice pattern with `tools/` subdirectory.
 
 ## Directory Structure
 
 ```
 app/core/agents/
-├── agent.py           # Agent creation, 13 tool registrations + build_instructions_with_skills()
+├── agent.py           # Agent creation, 15 tool registrations + build_instructions_with_skills()
 ├── routes.py          # /v1/chat/completions, /v1/models, /v1/chat/metrics (admin-only correction metrics, AI-5.3) — rate limited + quota. AI-6.3: when `agent_multi_agent_enabled` flag is on and incoming `body.agent == "unified"`, the most-recent user message is fed through `AgentRouter.route()` to upgrade `"unified"` to a domain-specific agent before resolution
 ├── router.py          # AI-6.3: heuristic AgentRouter — keyword-regex scoring of prompts against transit/knowledge/vault signal sets. Returns `RoutingDecision(domain, transit_score, knowledge_score, vault_score)`. Tied or zero-score prompts fall back to `"unified"`. LLM-free, microsecond classification, mirrors `routing.py` design. Logs `agent.router.decision` with `prompt_hash` (12-char SHA-256, never raw prompt). Singleton via `get_agent_router()`. Gated by `agent_multi_agent_enabled` config flag (default off)
 ├── base.py            # AI-6.1: BaseAgentService harness — shared pipeline orchestrator owning the order: tier → prompt injection detection (AI-9.1 detection + AI-9.2 blocking: `detect_injection()` from `injection_detector.py`, mode-aware gate raises `PromptInjectionBlockedError` → HTTP 400 when `prompt_injection_mode="block"` and confidence >= threshold, otherwise logs with threshold-based level) → RAG routing → skills → memory → system prompt → validation cache preload → execute → **output exfiltration validation (AI-9.3: `validate_output()` from `output_validator.py`, mode-aware gate raises `OutputExfiltrationBlockedError` → HTTP 400 when `output_validation_mode="block"` and confidence >= threshold, otherwise appends warnings + logs; fail-open on validator errors)** → post-process (QA footnotes) → **AgentResult wrapper (AI-6.5)** → **confidence re-route gate (AI-6.5, single retry to complex tier when confidence < threshold)** → response assembly → chat_started/completed logging → AgentExecutionError wrapping. Exposes 11 hook points (_get_model_tier, _apply_rag_routing, detect_relevant_skills, _recall_memories_block, build_system_prompt, _build_user_message, _preload_validation_cache, _execute [MUST override], _post_process/_run_qa/_should_run_qa, _build_response, _persist_episode). `_PipelineOutcome` extended with optional `confidence: float | None` + `tools_used: tuple[str, ...]`. Abstract for concrete subclasses.
@@ -31,7 +31,7 @@ app/core/agents/
 ├── skills/            # AI-6.4: in-repo L3 skill packs (markdown + YAML front matter, priority + token_cost + keywords). 5 transit (delay_analysis P2, schedule_interpretation P2, route_comparison P3, driver_availability P3, adherence_reporting P3), 4 knowledge (sop_retrieval P1 always-on, regulation_interpretation P2, shift_handover P3, incident_response P2), 3 vault (search_patterns P2, bulk_operations P3, folder_organization P3).
 ├── evals/             # AI-7.1: synthetic eval cases (YAML) + loader. 15 transit + 13 knowledge + 5 vault cases. Frozen `EvalCase` dataclass with `__post_init__` validation (5-6 criteria per case since AI-10.2); loader is fail-open and path-sandboxed (mirrors skill_loader.py). AI-7.2: `runner.py` CLI + `EvalTrace` JSONL writer under `evals/traces/` (fail-open per case, path-sandboxed output, never logs prompts; `chat_with_trace()` on `BaseAgentService` exposes trace metadata). AI-7.3: `judge.py` Pydantic AI one-shot judge — grades each case across its 5-6 per-criterion descriptions (PASS/FAIL + ≤280-char reasoning). Fail-open per case, path-sandboxed JSONL under `evals/verdicts/`, never logs raw prompt/response. AI-7.4: `regression.py` per-criterion pass-rate baselines under `evals/baselines/{suite}_baseline.json` (committed), `check_regression()` with 3pp default tolerance, `make eval-judge` / `make eval-baseline` / `make eval-check` for CI gating, `--update-baseline` for intentional drift. AI-10.2: 3 citation format regression cases (knowledge_011-013) with 6th `citation_format_correct` criterion pinning heading-breadcrumb, anchor fragment, and legacy-doc fallback formats.
 ├── tools/
-│   ├── transit/       # 7 read-only tools (GTFS-RT + static data, DB-backed, ML inference)
+│   ├── transit/       # 9 read-only tools (GTFS-RT + static data, DB-backed, ML inference, CKAN intercity)
 │   │   ├── schemas.py, deps.py, client.py, static_cache.py, static_store.py
 │   │   ├── query_bus_status.py      # Tool 1: status/route_overview/stop_departures
 │   │   ├── get_route_schedule.py    # Tool 2: timetable by route/date/direction
@@ -40,19 +40,20 @@ app/core/agents/
 │   │   ├── check_driver_availability.py # Tool 5: driver staffing queries
 │   │   ├── predict_eta.py           # Tool 6: ML-based ETA prediction (ML-2.3)
 │   │   ├── predict_passenger_load.py # Tool 7: ML-based load prediction (ML-3.3)
-│   │   └── tests/                   # 114 tests
+│   │   ├── search_intercity.py      # Tools 8-9: LV-1.1 intercity stop/route search via CKAN (data.gov.lv)
+│   │   └── tests/                   # 128 tests
 │   ├── obsidian/      # 4 read-write tools (Obsidian Local REST API)
 │   │   ├── schemas.py, client.py
-│   │   ├── query_vault.py           # Tool 7: search/tags/list/recent/glob
-│   │   ├── manage_notes.py          # Tool 8: CRUD + frontmatter/section editing
-│   │   ├── manage_folders.py        # Tool 9: folder CRUD (delete requires confirm)
-│   │   ├── bulk_operations.py       # Tool 10: batch ops with dry_run preview
+│   │   ├── query_vault.py           # Tool 10: search/tags/list/recent/glob
+│   │   ├── manage_notes.py          # Tool 11: CRUD + frontmatter/section editing
+│   │   ├── manage_folders.py        # Tool 12: folder CRUD (delete requires confirm)
+│   │   ├── bulk_operations.py       # Tool 13: batch ops with dry_run preview
 │   │   └── tests/                   # 68 tests
 │   ├── knowledge/     # 1 read-only RAG search tool (with query router short-circuit)
-│   │   ├── search_knowledge.py      # Tool 11: hybrid vector+fulltext, heading-breadcrumb citations (AI-10.1), confidence threshold, RAG router gate
+│   │   ├── search_knowledge.py      # Tool 14: hybrid vector+fulltext, heading-breadcrumb citations (AI-10.1), confidence threshold, RAG router gate
 │   │   └── tests/                   # 23 tests
 │   └── skills/        # 1 skills management tool
-│       └── manage_skills.py         # Tool 12: list/create operational skills
+│       └── manage_skills.py         # Tool 15: list/create operational skills
 └── tests/             # 490+ agent-level tests (incl. routing, config tier, self-correction loop, severity-tier QA, correction metrics + admin endpoint, BaseAgentService hook-point tests in test_base.py, AI-6.4 context_budget/skill_loader, AI-6.5 AgentResult + confidence re-route gate, AI-8.1 circuit breaker transitions + concurrency + invariants in test_circuit_breaker.py, AI-8.2 provider health tracker + admin endpoint in test_provider_health.py, AI-8.3 chain registry + invoker in test_llm.py, AI-8.3 service-level chain integration in test_service.py::TestCircuitBreakerIntegration, AI-9.2 injection blocking mode in test_injection_blocking.py, AI-9.3 output exfiltration pattern detection in test_output_validator.py + pipeline integration in test_output_blocking.py). `_reset_provider_breakers` autouse fixture in conftest.py clears the AI-8.3 registry around every test.
 ```
 
