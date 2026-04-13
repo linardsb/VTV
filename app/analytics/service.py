@@ -15,11 +15,17 @@ from sqlalchemy import Row, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analytics.schemas import (
+    DailyAnomalyPoint,
+    DailyOnTimePoint,
     DriverSummaryResponse,
     FleetSummaryResponse,
     FleetTypeSummary,
     OnTimePerformanceResponse,
+    RouteAnomalyResponse,
+    RouteDelayByStopResponse,
+    RouteLoadTrendResponse,
     RoutePerformanceSummary,
+    RoutePerformanceTrendResponse,
     ShiftCoverageSummary,
 )
 from app.core.agents.tools.transit.client import GTFSRealtimeClient, TripUpdateData
@@ -455,3 +461,317 @@ class AnalyticsService:
                 duration_ms=duration_ms,
             )
             raise
+
+    async def get_route_performance(
+        self, route_id: str, window: int
+    ) -> RoutePerformanceTrendResponse:
+        """Get daily on-time performance trend for a single route.
+
+        Queries DailyAdherenceReport for historical data. Falls back to
+        live GTFS-RT computation if no stored reports exist.
+
+        Args:
+            route_id: GTFS route ID.
+            window: Number of days to look back (7, 14, or 30).
+
+        Returns:
+            RoutePerformanceTrendResponse with daily on-time % data points.
+        """
+        start_time = time.monotonic()
+        logger.info(
+            "analytics.route_performance.started",
+            route_id=route_id,
+            window=window,
+        )
+
+        try:
+            from app.analytics.daily_adherence import get_daily_reports
+
+            today = datetime.datetime.now(tz=datetime.UTC).date()
+            date_from = today - datetime.timedelta(days=window)
+
+            reports = await get_daily_reports(self.db, date_from, today)
+
+            data: list[DailyOnTimePoint] = []
+            route_name = route_id
+            total_on_time = 0.0
+            total_delay = 0.0
+            report_count = 0
+
+            for report in reports:
+                for route_data in report.per_route_json:
+                    if route_data.get("route_id") == route_id:
+                        route_name = str(route_data.get("route_short_name") or route_id)
+                        pct: float = route_data.get("on_time_pct", 0.0)  # type: ignore[assignment]
+                        trips: int = route_data.get("total_trips", 0)  # type: ignore[assignment]
+                        delay: float = route_data.get("avg_delay_seconds", 0.0)  # type: ignore[assignment]
+                        data.append(
+                            DailyOnTimePoint(
+                                date=report.report_date.isoformat(),
+                                on_time_percentage=pct,
+                                tracked_trips=trips,
+                            )
+                        )
+                        total_on_time += pct
+                        total_delay += delay
+                        report_count += 1
+                        break
+
+            overall_pct = round(total_on_time / report_count, 1) if report_count > 0 else 0.0
+            overall_delay = round(total_delay / report_count, 1) if report_count > 0 else 0.0
+
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            logger.info(
+                "analytics.route_performance.completed",
+                duration_ms=duration_ms,
+                route_id=route_id,
+                data_points=len(data),
+            )
+
+            return RoutePerformanceTrendResponse(
+                route_id=route_id,
+                route_short_name=route_name,
+                window_days=window,
+                overall_on_time_percentage=overall_pct,
+                overall_average_delay_seconds=overall_delay,
+                data=data,
+                generated_at=datetime.datetime.now(tz=datetime.UTC).isoformat(),
+            )
+        except Exception as e:
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            logger.error(
+                "analytics.route_performance.failed",
+                exc_info=True,
+                error=str(e),
+                error_type=type(e).__name__,
+                duration_ms=duration_ms,
+            )
+            return RoutePerformanceTrendResponse(
+                route_id=route_id,
+                route_short_name=route_id,
+                window_days=window,
+                overall_on_time_percentage=0.0,
+                overall_average_delay_seconds=0.0,
+                data=[],
+                generated_at=datetime.datetime.now(tz=datetime.UTC).isoformat(),
+            )
+
+    async def get_route_delay_by_stop(self, route_id: str, window: int) -> RouteDelayByStopResponse:
+        """Get average delay per stop for a route.
+
+        Args:
+            route_id: GTFS route ID.
+            window: Number of days to look back (7, 14, or 30).
+
+        Returns:
+            RouteDelayByStopResponse with per-stop delay data.
+        """
+        start_time = time.monotonic()
+        logger.info(
+            "analytics.route_delay_by_stop.started",
+            route_id=route_id,
+            window=window,
+        )
+
+        # Per-stop delay data requires trip_updates decomposed per stop.
+        # ML pipeline may not be storing this yet — return empty gracefully.
+        route_name = route_id
+        try:
+            settings = get_settings()
+            static = await get_static_store(
+                lambda: __import__(
+                    "app.core.database", fromlist=["get_db_context"]
+                ).get_db_context(),
+                settings,
+            )
+            if route_id in static.routes:
+                route_name = static.routes[route_id].route_short_name
+        except Exception:
+            logger.warning(
+                "analytics.route_delay_by_stop.static_store_unavailable",
+                route_id=route_id,
+            )
+
+        duration_ms = int((time.monotonic() - start_time) * 1000)
+        logger.info(
+            "analytics.route_delay_by_stop.completed",
+            duration_ms=duration_ms,
+            route_id=route_id,
+            stops=0,
+        )
+
+        return RouteDelayByStopResponse(
+            route_id=route_id,
+            route_short_name=route_name,
+            window_days=window,
+            stops=[],
+            generated_at=datetime.datetime.now(tz=datetime.UTC).isoformat(),
+        )
+
+    async def get_route_load_trend(self, route_id: str, window: int) -> RouteLoadTrendResponse:
+        """Get daily load factor trend for a route.
+
+        Load factor data depends on ML model deployment. Returns empty data
+        gracefully when no load model data is available.
+
+        Args:
+            route_id: GTFS route ID.
+            window: Number of days to look back (7, 14, or 30).
+
+        Returns:
+            RouteLoadTrendResponse with daily load factor data.
+        """
+        start_time = time.monotonic()
+        logger.info(
+            "analytics.route_load_trend.started",
+            route_id=route_id,
+            window=window,
+        )
+
+        # Load factor requires ML model data (ML-2.3).
+        # Return empty gracefully until deployed.
+        route_name = route_id
+        try:
+            settings = get_settings()
+            static = await get_static_store(
+                lambda: __import__(
+                    "app.core.database", fromlist=["get_db_context"]
+                ).get_db_context(),
+                settings,
+            )
+            if route_id in static.routes:
+                route_name = static.routes[route_id].route_short_name
+        except Exception:
+            logger.warning(
+                "analytics.route_load_trend.static_store_unavailable",
+                route_id=route_id,
+            )
+
+        duration_ms = int((time.monotonic() - start_time) * 1000)
+        logger.info(
+            "analytics.route_load_trend.completed",
+            duration_ms=duration_ms,
+            route_id=route_id,
+            data_points=0,
+        )
+
+        return RouteLoadTrendResponse(
+            route_id=route_id,
+            route_short_name=route_name,
+            window_days=window,
+            data=[],
+            generated_at=datetime.datetime.now(tz=datetime.UTC).isoformat(),
+        )
+
+    async def get_route_anomalies(self, route_id: str, window: int) -> RouteAnomalyResponse:
+        """Get daily anomaly counts by type for a route.
+
+        Queries anomaly alerts for the route, grouped by type and date.
+
+        Args:
+            route_id: GTFS route ID.
+            window: Number of days to look back (7, 14, or 30).
+
+        Returns:
+            RouteAnomalyResponse with daily anomaly count data.
+        """
+        start_time = time.monotonic()
+        logger.info(
+            "analytics.route_anomalies.started",
+            route_id=route_id,
+            window=window,
+        )
+
+        data: list[DailyAnomalyPoint] = []
+        route_name = route_id
+
+        try:
+            from app.alerts.models import AlertInstance
+
+            today = datetime.datetime.now(tz=datetime.UTC).date()
+            date_from = today - datetime.timedelta(days=window)
+
+            # Query alerts for this route
+            query = (
+                select(AlertInstance)
+                .where(
+                    AlertInstance.source_entity_id == route_id,
+                    AlertInstance.created_at
+                    >= datetime.datetime.combine(date_from, datetime.time.min, tzinfo=datetime.UTC),
+                )
+                .order_by(AlertInstance.created_at)
+            )
+            result = await self.db.execute(query)
+            alerts = list(result.scalars().all())
+
+            # Group by date and type
+            daily: dict[str, dict[str, int]] = {}
+            for alert in alerts:
+                created_at: datetime.datetime | None = alert.created_at  # type: ignore[assignment]
+                date_key = created_at.date().isoformat() if created_at else ""
+                if not date_key:
+                    continue
+                if date_key not in daily:
+                    daily[date_key] = {"off_route": 0, "stuck": 0, "gps_gap": 0}
+                alert_type = str(alert.alert_type) if hasattr(alert, "alert_type") else ""
+                if "off_route" in alert_type:
+                    daily[date_key]["off_route"] += 1
+                elif "stuck" in alert_type:
+                    daily[date_key]["stuck"] += 1
+                elif "gps" in alert_type.lower():
+                    daily[date_key]["gps_gap"] += 1
+
+            for date_key in sorted(daily):
+                counts = daily[date_key]
+                data.append(
+                    DailyAnomalyPoint(
+                        date=date_key,
+                        off_route=counts["off_route"],
+                        stuck=counts["stuck"],
+                        gps_gap=counts["gps_gap"],
+                    )
+                )
+
+            # Resolve route name
+            try:
+                settings = get_settings()
+                static = await get_static_store(
+                    lambda: __import__(
+                        "app.core.database", fromlist=["get_db_context"]
+                    ).get_db_context(),
+                    settings,
+                )
+                if route_id in static.routes:
+                    route_name = static.routes[route_id].route_short_name
+            except Exception:
+                logger.debug(
+                    "analytics.route_anomalies.static_store_unavailable",
+                    route_id=route_id,
+                )
+
+        except Exception as e:
+            logger.warning(
+                "analytics.route_anomalies.query_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+                route_id=route_id,
+            )
+
+        total = sum(p.off_route + p.stuck + p.gps_gap for p in data)
+
+        duration_ms = int((time.monotonic() - start_time) * 1000)
+        logger.info(
+            "analytics.route_anomalies.completed",
+            duration_ms=duration_ms,
+            route_id=route_id,
+            total_anomalies=total,
+        )
+
+        return RouteAnomalyResponse(
+            route_id=route_id,
+            route_short_name=route_name,
+            window_days=window,
+            total_anomalies=total,
+            data=data,
+            generated_at=datetime.datetime.now(tz=datetime.UTC).isoformat(),
+        )

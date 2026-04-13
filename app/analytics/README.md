@@ -31,6 +31,17 @@ Read-only aggregation layer providing dashboard summary endpoints for the CMS fr
 2. On-time performance degrades gracefully -- if transit data fails, returns empty on-time section
 3. Fleet and driver summaries always succeed independently
 
+### Route Performance Drill-Down (ML-5.1)
+
+4 endpoints providing per-route chart data for the CMS Route Performance page:
+
+1. **On-Time Trend** -- queries `DailyAdherenceReport.per_route_json` for historical on-time % by date, filtered by route_id and window (7/14/30 days)
+2. **Delay by Stop** -- per-stop average delay (placeholder: returns empty until ML pipeline stores per-stop data)
+3. **Load Trend** -- daily load factor (placeholder: returns empty until ML-2.3 load model deployed)
+4. **Anomalies** -- queries `AlertInstance` for the route, grouped by type (off_route, stuck, gps_gap) and date
+
+All 4 methods return empty `data: []` gracefully when ML data is not yet available. Route name resolution uses GTFS static store with fallback to route_id.
+
 ### Daily Adherence Report (ML-5.2)
 
 1. Load GTFS static data via DB-backed `get_static_store`, get active service IDs for target date
@@ -94,7 +105,7 @@ Table: `daily_adherence_reports`
 - **vehicles**: Read-only queries on `Vehicle` model (status, type, mileage, maintenance dates, registration expiry)
 - **drivers**: Read-only queries on `Driver` model (shift, status, license/medical expiry)
 - **core/agents/tools/transit**: Reuses `_compute_route_adherence`, `GTFSRealtimeClient`, `get_static_store`, `validate_date`, `classify_service_type`, `gtfs_time_to_minutes`
-- **alerts**: Creates `schedule_adherence` alerts via `AlertService.create_alert()` when adherence drops below threshold
+- **alerts**: Creates `schedule_adherence` alerts via `AlertService.create_alert()` when adherence drops below threshold; route anomaly endpoint queries `AlertInstance` by `source_entity_id` for per-route anomaly counts
 - **core/jobs**: `run_daily_adherence` arq cron job for durable execution when queue is enabled
 - **core/config**: 10 settings for threshold, Slack webhook, SMTP publish
 - **core/metrics**: `record_poller_tick("daily_adherence")` for Prometheus liveness
@@ -108,6 +119,17 @@ Table: `daily_adherence_reports`
 | GET | `/api/v1/analytics/on-time-performance` | 5/hour | Route adherence from live GTFS-RT data |
 | GET | `/api/v1/analytics/overview` | 10/min | Combined summary (graceful degradation) |
 | GET | `/api/v1/analytics/adherence/daily` | 30/min | Stored daily adherence reports (date range) |
+| GET | `/api/v1/analytics/route-performance` | 30/min | Daily on-time trend for a single route (ML-5.1) |
+| GET | `/api/v1/analytics/route-delay-by-stop` | 30/min | Average delay per stop for a route (ML-5.1) |
+| GET | `/api/v1/analytics/route-load-trend` | 30/min | Daily load factor trend for a route (ML-5.1) |
+| GET | `/api/v1/analytics/route-anomalies` | 30/min | Daily anomaly counts by type for a route (ML-5.1) |
+
+### Route Performance Query Parameters (ML-5.1)
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `route_id` | `str` | Yes | GTFS route ID (pattern: `^[A-Za-z0-9_\-.:]+$`, max 50) |
+| `window` | `Literal["7","14","30"]` | No | Days to look back (default: 7) |
 
 ### Daily Adherence Query Parameters
 

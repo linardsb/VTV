@@ -79,6 +79,8 @@ Workflow: `/fe-prime` → `/fe-planning` → `/fe-execute` → `/fe-validate` �
 | Fleet Map | `/[locale]/fleet/map` | Live | Backend `/api/v1/fleet/positions` (Leaflet map with device markers, 15s auto-refresh, device list sidebar, connection status) |
 | Telemetry | `/[locale]/fleet/telemetry` | Live | Backend `/api/v1/fleet/history` (6 Recharts gauges: speed, RPM, fuel, coolant, engine load, battery. Device selector, 1h/6h/24h time range) |
 | Geofences | `/[locale]/geofences` | Live | Backend `/api/v1/geofences` (8 endpoints: CRUD, events, dwell reports. Split layout: table + polygon map. Click-to-place polygon editor, zone type colors, event history tab, dwell stats) |
+| Analytics | `/[locale]/analytics` | Live | Backend `/api/v1/analytics` (9 endpoints: fleet summary, driver summary, on-time performance, daily adherence, overview, route performance trend, delay-by-stop, load trend, anomaly trend) |
+| Route Performance | `/[locale]/analytics/routes` | Live | Backend `/api/v1/analytics/route-*` (4 endpoints: per-route on-time trend LineChart, delay-by-stop BarChart, load factor AreaChart, anomaly stacked AreaChart. Route selector dropdown, 7/14/30d time window, SWR data fetching) |
 | Chat | `/[locale]/chat` | Live | Agent `POST /v1/chat/completions` (streaming SSE, bilingual LV/EN, unified Pydantic AI agent with 11 tools) |
 | Login | `/[locale]/login` | Live | Auth.js credentials → `POST /api/v1/auth/login` (DB-backed, bcrypt) |
 | Unauthorized | `/[locale]/unauthorized` | Live | — |

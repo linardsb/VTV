@@ -69,3 +69,66 @@ export interface AnalyticsOverviewResponse {
   drivers: DriverSummaryResponse;
   on_time: OnTimePerformanceResponse;
 }
+
+// --- Route Performance Drill-Down Types (ML-5.1) ---
+
+export interface DailyOnTimePoint {
+  date: string;
+  on_time_percentage: number;
+  tracked_trips: number;
+}
+
+export interface StopDelayPoint {
+  stop_id: string;
+  stop_name: string;
+  average_delay_seconds: number;
+  sample_count: number;
+}
+
+export interface DailyLoadPoint {
+  date: string;
+  load_factor: number;
+  estimated_passengers: number;
+}
+
+export interface DailyAnomalyPoint {
+  date: string;
+  off_route: number;
+  stuck: number;
+  gps_gap: number;
+}
+
+export interface RoutePerformanceTrendResponse {
+  route_id: string;
+  route_short_name: string;
+  window_days: number;
+  overall_on_time_percentage: number;
+  overall_average_delay_seconds: number;
+  data: DailyOnTimePoint[];
+  generated_at: string;
+}
+
+export interface RouteDelayByStopResponse {
+  route_id: string;
+  route_short_name: string;
+  window_days: number;
+  stops: StopDelayPoint[];
+  generated_at: string;
+}
+
+export interface RouteLoadTrendResponse {
+  route_id: string;
+  route_short_name: string;
+  window_days: number;
+  data: DailyLoadPoint[];
+  generated_at: string;
+}
+
+export interface RouteAnomalyResponse {
+  route_id: string;
+  route_short_name: string;
+  window_days: number;
+  total_anomalies: number;
+  data: DailyAnomalyPoint[];
+  generated_at: string;
+}

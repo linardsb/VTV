@@ -22,6 +22,11 @@ from app.analytics.schemas import (
     OnTimePerformanceResponse,
     PerHourAdherence,
     PerRouteAdherence,
+    RouteAnomalyResponse,
+    RouteDelayByStopResponse,
+    RouteLoadTrendResponse,
+    RoutePerformanceTrendResponse,
+    WindowLiteral,
 )
 from app.analytics.service import AnalyticsService
 from app.auth.dependencies import get_current_user
@@ -246,3 +251,67 @@ async def get_overview(
         drivers=drivers,
         on_time=on_time,
     )
+
+
+@router.get("/route-performance", response_model=RoutePerformanceTrendResponse)
+@limiter.limit("30/minute")
+async def get_route_performance(
+    request: Request,
+    route_id: str = Query(..., max_length=50, pattern=r"^[A-Za-z0-9_\-.:]+$"),
+    window: WindowLiteral = Query("7"),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _user: User = Depends(get_current_user),  # noqa: B008
+) -> RoutePerformanceTrendResponse:
+    """Get daily on-time performance trend for a single route."""
+    _ = request
+    logger.info("analytics.api.route_performance_requested", route_id=route_id, window=window)
+    service = AnalyticsService(db)
+    return await service.get_route_performance(route_id, int(window))
+
+
+@router.get("/route-delay-by-stop", response_model=RouteDelayByStopResponse)
+@limiter.limit("30/minute")
+async def get_route_delay_by_stop(
+    request: Request,
+    route_id: str = Query(..., max_length=50, pattern=r"^[A-Za-z0-9_\-.:]+$"),
+    window: WindowLiteral = Query("7"),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _user: User = Depends(get_current_user),  # noqa: B008
+) -> RouteDelayByStopResponse:
+    """Get average delay per stop for a route."""
+    _ = request
+    logger.info("analytics.api.route_delay_by_stop_requested", route_id=route_id, window=window)
+    service = AnalyticsService(db)
+    return await service.get_route_delay_by_stop(route_id, int(window))
+
+
+@router.get("/route-load-trend", response_model=RouteLoadTrendResponse)
+@limiter.limit("30/minute")
+async def get_route_load_trend(
+    request: Request,
+    route_id: str = Query(..., max_length=50, pattern=r"^[A-Za-z0-9_\-.:]+$"),
+    window: WindowLiteral = Query("7"),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _user: User = Depends(get_current_user),  # noqa: B008
+) -> RouteLoadTrendResponse:
+    """Get daily load factor trend for a route."""
+    _ = request
+    logger.info("analytics.api.route_load_trend_requested", route_id=route_id, window=window)
+    service = AnalyticsService(db)
+    return await service.get_route_load_trend(route_id, int(window))
+
+
+@router.get("/route-anomalies", response_model=RouteAnomalyResponse)
+@limiter.limit("30/minute")
+async def get_route_anomalies(
+    request: Request,
+    route_id: str = Query(..., max_length=50, pattern=r"^[A-Za-z0-9_\-.:]+$"),
+    window: WindowLiteral = Query("7"),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    _user: User = Depends(get_current_user),  # noqa: B008
+) -> RouteAnomalyResponse:
+    """Get daily anomaly counts by type for a route."""
+    _ = request
+    logger.info("analytics.api.route_anomalies_requested", route_id=route_id, window=window)
+    service = AnalyticsService(db)
+    return await service.get_route_anomalies(route_id, int(window))

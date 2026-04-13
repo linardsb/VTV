@@ -160,3 +160,101 @@ class AnalyticsOverviewResponse(BaseModel):
     fleet: FleetSummaryResponse
     drivers: DriverSummaryResponse
     on_time: OnTimePerformanceResponse
+
+
+# --- Route Performance Drill-Down Schemas (ML-5.1) ---
+
+WindowLiteral = Literal["7", "14", "30"]
+
+
+class DailyOnTimePoint(BaseModel):
+    """Single day's on-time performance for a route."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    date: str
+    on_time_percentage: float
+    tracked_trips: int
+
+
+class StopDelayPoint(BaseModel):
+    """Average delay at a single stop."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    stop_id: str
+    stop_name: str
+    average_delay_seconds: float
+    sample_count: int
+
+
+class DailyLoadPoint(BaseModel):
+    """Single day's load factor for a route."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    date: str
+    load_factor: float  # 0.0-1.0
+    estimated_passengers: int
+
+
+class DailyAnomalyPoint(BaseModel):
+    """Single day's anomaly counts by type for a route."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    date: str
+    off_route: int
+    stuck: int
+    gps_gap: int
+
+
+class RoutePerformanceTrendResponse(BaseModel):
+    """Time-series on-time performance for a single route."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    route_id: str
+    route_short_name: str
+    window_days: int
+    overall_on_time_percentage: float
+    overall_average_delay_seconds: float
+    data: list[DailyOnTimePoint]
+    generated_at: str
+
+
+class RouteDelayByStopResponse(BaseModel):
+    """Average delay per stop for a route."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    route_id: str
+    route_short_name: str
+    window_days: int
+    stops: list[StopDelayPoint]
+    generated_at: str
+
+
+class RouteLoadTrendResponse(BaseModel):
+    """Daily load factor trend for a route."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    route_id: str
+    route_short_name: str
+    window_days: int
+    data: list[DailyLoadPoint]
+    generated_at: str
+
+
+class RouteAnomalyResponse(BaseModel):
+    """Daily anomaly counts by type for a route."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    route_id: str
+    route_short_name: str
+    window_days: int
+    total_anomalies: int
+    data: list[DailyAnomalyPoint]
+    generated_at: str

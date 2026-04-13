@@ -51,7 +51,13 @@ const navEntries: NavEntry[] = [
       { key: "geofences", href: "/geofences", enabled: true },
     ],
   },
-  { key: "analytics", href: "/analytics", enabled: true },
+  {
+    key: "analyticsGroup",
+    children: [
+      { key: "analyticsOverview", href: "/analytics", enabled: true },
+      { key: "routePerformance", href: "/analytics/routes", enabled: true },
+    ],
+  },
   { key: "gtfs", href: "/gtfs", enabled: true },
   { key: "users", href: "/users", enabled: true },
   { key: "documents", href: "/documents", enabled: true },
