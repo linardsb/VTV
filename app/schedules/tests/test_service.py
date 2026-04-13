@@ -487,6 +487,7 @@ async def test_import_gtfs_success(mock_inv_stops, mock_inv_routes, service):
         service.repository.get_trip_gtfs_map = AsyncMock(return_value={"trip_22_1": 1})
         service.repository.delete_stop_times_for_trips = AsyncMock()
         service.repository.bulk_create_stop_times = AsyncMock()
+        service.feed_status_repo.upsert_feed_status = AsyncMock()
 
         with patch("app.schedules.service.GTFSImporter") as mock_importer_cls:
             mock_importer = mock_importer_cls.return_value
@@ -539,6 +540,7 @@ async def test_import_merges_existing_data(mock_inv_stops, mock_inv_routes, serv
         service.repository.get_trip_gtfs_map = AsyncMock(return_value={})
         service.repository.delete_stop_times_for_trips = AsyncMock()
         service.repository.bulk_create_stop_times = AsyncMock()
+        service.feed_status_repo.upsert_feed_status = AsyncMock()
 
         with patch("app.schedules.service.GTFSImporter") as mock_importer_cls:
             mock_importer = mock_importer_cls.return_value

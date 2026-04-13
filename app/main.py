@@ -57,6 +57,7 @@ from app.ml.anomaly.evaluator import start_anomaly_evaluator, stop_anomaly_evalu
 from app.ml.anomaly.off_route import start_off_route_evaluator, stop_off_route_evaluator
 from app.public_api.routes import key_mgmt_router as public_api_key_mgmt_router
 from app.public_api.routes import public_router as public_api_router
+from app.schedules.feed_task import start_feed_import_task, stop_feed_import_task
 from app.schedules.routes import router as schedules_router
 from app.skills.routes import router as skills_router
 from app.stops.routes import router as stops_router
@@ -155,6 +156,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Start traffic ETL background task (ML-1.3)
     await start_traffic_etl()
 
+    # Start daily GTFS feed import task (LV-1.2)
+    await start_feed_import_task()
+
     # Pre-load reranker model (avoids cold-start on first search)
     try:
         from app.knowledge.service import warm_up_reranker
@@ -239,6 +243,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     )
     coordinator.register(
         ShutdownTask(name="adherence_task", drain_timeout_s=3.0, drain=stop_adherence_task)
+    )
+    coordinator.register(
+        ShutdownTask(
+            name="gtfs_feed_import",
+            drain_timeout_s=5.0,
+            drain=stop_feed_import_task,
+        )
     )
 
     yield

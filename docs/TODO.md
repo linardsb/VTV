@@ -85,26 +85,16 @@ Everything else is independent and can run in any order.
 
 | Subtask | Type | Realistic | Parallel? |
 |---------|------|-----------|-----------|
-| LV-1.1 CKAN bridge | BE | ~1.5h | ✅ Yes — independent |
+| ~~LV-1.1 CKAN bridge~~ | BE | ✅ Done | Implemented 2026-04-13 — plan: `.agents/plans/lv-1-1-ckan-bridge-client.md` |
 | ~~LV-1.2 Multi-city GTFS~~ | BE | ✅ Done | Implemented 2026-04-13 — plan: `.agents/plans/lv-1-2-multi-city-gtfs-import.md` |
 | ~~LV-1.3 Full-screen `/map`~~ | FE | ✅ Done | Implemented 2026-04-13 — plan: `.agents/plans/fe-full-screen-map.md` |
 
-#### LV-1.1 CKAN data.gov.lv Bridge Client
-**What:** Create `app/transit/ckan_client.py` — async client wrapping the CKAN Datastore SQL API at `data.gov.lv`. Provides `query_sql(resource_id, sql)` with response caching (5 min TTL via Redis), error handling, and pagination for >32K row results. Register 2 new agent tools: `search_intercity_stops`, `search_intercity_routes`.
-**Why:** ATD intercity GTFS is queryable via CKAN SQL API — zero infrastructure needed. Gives the agent immediate intercity data access (10K stops, all regional routes) while the full GTFS importer is extended for multi-city. CKAN becomes fallback after local DB is primary.
-**Implementation:**
-- `app/transit/ckan_client.py`:
-  - `CKANClient` class with `query_sql(resource_id: str, sql: str) -> list[dict]` — uses existing `httpx.AsyncClient`
-  - `CKAN_RESOURCES` dict mapping table names to resource IDs (stops, routes, trips, stop_times, shapes, calendar, calendar_dates, fare_attributes, fare_rules, agency)
-  - Response caching: Redis key `ckan:{sha256(sql)}` with 300s TTL
-  - Pagination: auto-detect 32K limit, fetch remaining via OFFSET
-  - Rate limiting: 1 req/s to avoid hammering data.gov.lv
-- `app/core/agents/tools/transit/search_intercity.py`:
-  - `search_intercity_stops(query: str, lat: float | None, lon: float | None, limit: int)` — name LIKE search or Haversine proximity via CKAN SQL
-  - `search_intercity_routes(query: str, stop_name: str | None)` — route search with optional stop filter
-- `app/core/config.py` — `ckan_base_url: str = "https://data.gov.lv/dati/eng/api/action/datastore_search_sql"`, `ckan_cache_ttl_s: int = 300`
-- 12+ unit tests: SQL query execution (2), caching hit/miss (2), pagination (2), rate limiting (1), agent tool integration (3), error handling (2)
-**Verify:** Agent query "Which intercity buses stop in Liepāja?" → `search_intercity_routes` fires, returns ATD routes via CKAN SQL API. Response cached — second query returns in <10ms. `search_intercity_stops(lat=56.95, lon=24.11, limit=5)` returns 5 nearest ATD stops.
+#### ~~LV-1.1 CKAN data.gov.lv Bridge Client~~ ✅ Implemented 2026-04-13
+**What:** `app/transit/ckan_client.py` — async CKAN Datastore SQL API client with Redis caching (5 min TTL), rate limiting (1 req/s), automatic pagination (>32K rows, capped at 100 pages), and SQL input sanitization. Two agent tools registered: `search_intercity_stops` (name/proximity), `search_intercity_routes` (name/stop filter). 31 tests across 2 files.
+**Plan:** `.agents/plans/lv-1-1-ckan-bridge-client.md`
+**Files:** `app/transit/ckan_client.py`, `app/core/agents/tools/transit/search_intercity.py`, config + deps + agent.py updates, 15 new log events in `docs/logging-standard.md`
+**Config:** `CKAN_DATASTORE_SQL_URL`, `CKAN_CACHE_TTL_S`, `CKAN_RATE_LIMIT_DELAY_S`
+**Note:** CKAN resource IDs are placeholder UUIDs — replace with actual data.gov.lv IDs before production use.
 
 #### ~~LV-1.2 Multi-City GTFS Static Import~~ ✅ Done (2026-04-13)
 **What:** Extend `app/schedules/gtfs_import.py` to support multiple GTFS feeds by namespacing all parsed entities with `feed_id`. Add GTFS feed management endpoints and a scheduled background task that re-imports each feed daily.

@@ -321,6 +321,22 @@ class GTFSImportResponse(BaseModel):
 # --- Validation ---
 
 
+class FeedStatusResponse(BaseModel):
+    """Per-feed import status enriched with config state."""
+
+    feed_id: str
+    operator_name: str
+    static_url: str | None
+    last_imported_at: datetime.datetime | None
+    last_import_routes: int
+    last_import_trips: int
+    last_import_error: str | None
+    auto_import_enabled: bool
+    enabled: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ValidationResult(BaseModel):
     """Result of schedule data validation."""
 

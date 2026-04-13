@@ -94,18 +94,22 @@ class ScheduleRepository:
         result = await self.db.execute(select(Agency).where(Agency.id == agency_id))
         return result.scalar_one_or_none()
 
-    async def get_agency_by_gtfs_id(self, gtfs_agency_id: str) -> Agency | None:
-        """Get an agency by GTFS agency_id.
+    async def get_agency_by_gtfs_id(
+        self, gtfs_agency_id: str, feed_id: str | None = None
+    ) -> Agency | None:
+        """Get an agency by GTFS agency_id, optionally scoped to a feed.
 
         Args:
             gtfs_agency_id: The GTFS identifier string.
+            feed_id: Optional feed filter for multi-feed disambiguation.
 
         Returns:
             Agency instance or None.
         """
-        result = await self.db.execute(
-            select(Agency).where(Agency.gtfs_agency_id == gtfs_agency_id)
-        )
+        query = select(Agency).where(Agency.gtfs_agency_id == gtfs_agency_id)
+        if feed_id is not None:
+            query = query.where(Agency.feed_id == feed_id)
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
     async def list_agencies(self, feed_id: str | None = None) -> list[Agency]:
@@ -156,16 +160,22 @@ class ScheduleRepository:
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_route_by_gtfs_id(self, gtfs_route_id: str) -> Route | None:
-        """Get a route by GTFS route_id.
+    async def get_route_by_gtfs_id(
+        self, gtfs_route_id: str, feed_id: str | None = None
+    ) -> Route | None:
+        """Get a route by GTFS route_id, optionally scoped to a feed.
 
         Args:
             gtfs_route_id: The GTFS identifier string.
+            feed_id: Optional feed filter for multi-feed disambiguation.
 
         Returns:
             Route instance or None.
         """
-        result = await self.db.execute(select(Route).where(Route.gtfs_route_id == gtfs_route_id))
+        query = select(Route).where(Route.gtfs_route_id == gtfs_route_id)
+        if feed_id is not None:
+            query = query.where(Route.feed_id == feed_id)
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
     async def list_routes(
@@ -313,18 +323,22 @@ class ScheduleRepository:
         )
         return result.scalar_one_or_none()
 
-    async def get_calendar_by_gtfs_id(self, gtfs_service_id: str) -> Calendar | None:
-        """Get a calendar by GTFS service_id.
+    async def get_calendar_by_gtfs_id(
+        self, gtfs_service_id: str, feed_id: str | None = None
+    ) -> Calendar | None:
+        """Get a calendar by GTFS service_id, optionally scoped to a feed.
 
         Args:
             gtfs_service_id: The GTFS identifier string.
+            feed_id: Optional feed filter for multi-feed disambiguation.
 
         Returns:
             Calendar instance or None.
         """
-        result = await self.db.execute(
-            select(Calendar).where(Calendar.gtfs_service_id == gtfs_service_id)
-        )
+        query = select(Calendar).where(Calendar.gtfs_service_id == gtfs_service_id)
+        if feed_id is not None:
+            query = query.where(Calendar.feed_id == feed_id)
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
     async def list_calendars(
@@ -476,16 +490,22 @@ class ScheduleRepository:
         result = await self.db.execute(select(Trip).where(Trip.id == trip_id))
         return result.scalar_one_or_none()
 
-    async def get_trip_by_gtfs_id(self, gtfs_trip_id: str) -> Trip | None:
-        """Get a trip by GTFS trip_id.
+    async def get_trip_by_gtfs_id(
+        self, gtfs_trip_id: str, feed_id: str | None = None
+    ) -> Trip | None:
+        """Get a trip by GTFS trip_id, optionally scoped to a feed.
 
         Args:
             gtfs_trip_id: The GTFS identifier string.
+            feed_id: Optional feed filter for multi-feed disambiguation.
 
         Returns:
             Trip instance or None.
         """
-        result = await self.db.execute(select(Trip).where(Trip.gtfs_trip_id == gtfs_trip_id))
+        query = select(Trip).where(Trip.gtfs_trip_id == gtfs_trip_id)
+        if feed_id is not None:
+            query = query.where(Trip.feed_id == feed_id)
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
     async def list_trips(

@@ -3,7 +3,7 @@
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, UploadFile, status
 from fastapi.requests import Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +21,7 @@ from app.schedules.schemas import (
     CalendarDateResponse,
     CalendarResponse,
     CalendarUpdate,
+    FeedStatusResponse,
     GTFSImportResponse,
     RouteCreate,
     RouteResponse,
@@ -365,6 +366,34 @@ async def replace_stop_times(
     """Replace all stop times for a trip."""
     _ = request
     return await service.replace_stop_times(trip_id, data)
+
+
+# --- Feed Management ---
+
+
+@router.get("/feeds", response_model=list[FeedStatusResponse])
+@limiter.limit("30/minute")
+async def list_feeds(
+    request: Request,
+    service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(get_current_user),  # noqa: B008
+) -> list[FeedStatusResponse]:
+    """List all configured GTFS feeds with import status."""
+    _ = request
+    return await service.list_feeds()
+
+
+@router.post("/feeds/{feed_id}/import", response_model=GTFSImportResponse)
+@limiter.limit("5/minute")
+async def import_feed_from_url(
+    request: Request,
+    feed_id: str = Path(..., max_length=50),
+    service: ScheduleService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin")),  # noqa: B008
+) -> GTFSImportResponse:
+    """Trigger GTFS static import for a configured feed by downloading its static_url."""
+    _ = request
+    return await service.import_feed_from_url(feed_id)
 
 
 # --- Import & Validation ---

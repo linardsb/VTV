@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 13 tools (7 transit + 4 Obsidian vault + 1 knowledge base + 1 skills management). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. Features multi-feed GTFS-RT tracking with Redis caching for sub-ms reads, WebSocket live streaming for real-time vehicle position push, and PostGIS spatial queries for sub-ms proximity search. The platform roadmap extends to ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
+VTV is a unified transit operations platform targeting all of Latvia's public transit, starting with Riga's municipal bus system. This repository contains the **AI Agent Service** — a FastAPI + Pydantic AI application providing a unified agent with 15 tools (9 transit + 4 Obsidian vault + 1 knowledge base + 1 skills management). Built with **vertical slice architecture**, optimized for AI-assisted development. Python 3.12+, strict type checking with MyPy and Pyright. Features multi-feed GTFS-RT tracking with Redis caching for sub-ms reads, WebSocket live streaming for real-time vehicle position push, and PostGIS spatial queries for sub-ms proximity search. The platform roadmap extends to ML-based predictions — see `docs/PLANNING/Implementation-Plan.md`.
 
 ## Core Principles
 
@@ -112,7 +112,7 @@ make audit-log-taxonomy      # Audit structured log events against docs/logging-
 VTV/
 ├── app/                # Backend features (VSA: models, schemas, routes, service, tests per feature)
 │   ├── core/           # Infrastructure (config, database, logging, middleware, health + deep probes, rate_limit + per-user bucketing, redis, metrics, shutdown coordinator, cache invalidation, durable job queue)
-│   │   ├── agents/     # AI agent module — 13 tools (7 transit + 4 Obsidian vault + 1 knowledge base + 1 skills management), see app/core/agents/CLAUDE.md
+│   │   ├── agents/     # AI agent module — 15 tools (9 transit + 4 Obsidian vault + 1 knowledge base + 1 skills management), see app/core/agents/CLAUDE.md
 │   │   ├── auth/       # RBAC scoping (OPS-4.2) + auth audit log (OPS-4.3) — RequestScope dependency, dispatcher assignments CRUD, fail-closed query filtering, authorization denial audit trail (TimescaleDB hypertable, admin query API)
 │   │   └── jobs/       # Arq-based durable job queue (OPS-3.2) — queue wrapper, worker settings, admin status API
 │   ├── shared/         # Cross-feature utilities (pagination, timestamps, error schemas)
@@ -131,7 +131,7 @@ VTV/
 │   ├── stops/          # Stop management (6 endpoints, PostGIS spatial queries)
 ��   ├── schedules/      # GTFS schedule management (25 endpoints, ZIP import/export, multi-feed management + daily auto-import)
 │   ├── skills/         # Agent skills system (7 endpoints)
-│   ├── transit/        # Multi-feed GTFS-RT tracking (6 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage, historical GTFS archive importer, e-ticket validation data pipeline, weather + traffic ETL for ML training, ML-2.3 ETA prediction endpoint, ML-3.3 load prediction agent tool)
+│   ├── transit/        # Multi-feed GTFS-RT tracking (6 REST + 1 WebSocket endpoint, Redis cache + Pub/Sub, TimescaleDB historical storage, historical GTFS archive importer, e-ticket validation data pipeline, weather + traffic ETL for ML training, ML-2.3 ETA prediction endpoint, ML-3.3 load prediction agent tool, LV-1.1 CKAN bridge client for ATD intercity data)
 │   ├── vehicles/       # Vehicle management (8 endpoints, fleet CRUD, maintenance, driver assignment)
 │   └── tests/          # Integration tests
 ├── cms/               # Frontend monorepo — see cms/CLAUDE.md

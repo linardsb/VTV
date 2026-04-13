@@ -6,10 +6,12 @@ import re
 import time
 from datetime import date
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth.scope import RequestScope
 from app.core.cache.invalidation import invalidate_route_cache, invalidate_stop_cache
+from app.core.config import get_settings
 from app.core.exceptions import NotFoundError
 from app.core.logging import get_logger
 from app.schedules.exceptions import (
@@ -23,6 +25,7 @@ from app.schedules.exceptions import (
     TripAlreadyExistsError,
     TripNotFoundError,
 )
+from app.schedules.feed_status import GTFSFeedStatusRepository
 from app.schedules.gtfs_import import GTFSImporter
 from app.schedules.models import (
     Agency,
@@ -38,6 +41,7 @@ from app.schedules.schemas import (
     CalendarDateResponse,
     CalendarResponse,
     CalendarUpdate,
+    FeedStatusResponse,
     GTFSImportResponse,
     RouteCreate,
     RouteResponse,
@@ -53,6 +57,7 @@ from app.schedules.schemas import (
     TripUpdate,
     ValidationResult,
 )
+from app.shared.models import utcnow
 from app.shared.schemas import PaginatedResponse, PaginationParams
 from app.stops.repository import StopRepository
 
@@ -72,6 +77,7 @@ class ScheduleService:
         """
         self.db = db
         self.repository = ScheduleRepository(db)
+        self.feed_status_repo = GTFSFeedStatusRepository(db)
 
     # --- Agency ---
 
@@ -101,7 +107,7 @@ class ScheduleService:
         """
         logger.info("schedules.agency.create_started", gtfs_agency_id=data.gtfs_agency_id)
 
-        existing = await self.repository.get_agency_by_gtfs_id(data.gtfs_agency_id)
+        existing = await self.repository.get_agency_by_gtfs_id(data.gtfs_agency_id, feed_id="riga")
         if existing:
             raise AgencyAlreadyExistsError(
                 f"Agency with gtfs_agency_id '{data.gtfs_agency_id}' already exists"
@@ -203,7 +209,7 @@ class ScheduleService:
             RouteAlreadyExistsError: If gtfs_route_id already exists.
         """
         logger.info("schedules.route.create_started", gtfs_route_id=data.gtfs_route_id)
-        existing = await self.repository.get_route_by_gtfs_id(data.gtfs_route_id)
+        existing = await self.repository.get_route_by_gtfs_id(data.gtfs_route_id, feed_id="riga")
         if existing:
             raise RouteAlreadyExistsError(
                 f"Route with gtfs_route_id '{data.gtfs_route_id}' already exists"
@@ -309,7 +315,9 @@ class ScheduleService:
             CalendarAlreadyExistsError: If gtfs_service_id already exists.
         """
         logger.info("schedules.calendar.create_started", gtfs_service_id=data.gtfs_service_id)
-        existing = await self.repository.get_calendar_by_gtfs_id(data.gtfs_service_id)
+        existing = await self.repository.get_calendar_by_gtfs_id(
+            data.gtfs_service_id, feed_id="riga"
+        )
         if existing:
             raise CalendarAlreadyExistsError(
                 f"Calendar with gtfs_service_id '{data.gtfs_service_id}' already exists"
@@ -484,7 +492,7 @@ class ScheduleService:
             raise CalendarNotFoundError(f"Calendar {data.calendar_id} not found")
 
         # Check duplicate
-        existing = await self.repository.get_trip_by_gtfs_id(data.gtfs_trip_id)
+        existing = await self.repository.get_trip_by_gtfs_id(data.gtfs_trip_id, feed_id="riga")
         if existing:
             raise TripAlreadyExistsError(
                 f"Trip with gtfs_trip_id '{data.gtfs_trip_id}' already exists"
@@ -751,6 +759,16 @@ class ScheduleService:
                 await self.repository.bulk_create_shapes(result.shapes)
                 shapes_count = len(result.shapes)
 
+            # Update feed status tracking
+            await self.feed_status_repo.upsert_feed_status(
+                feed_id=feed_id,
+                operator_name=feed_id,
+                last_imported_at=utcnow(),
+                last_import_routes=routes_created + routes_updated,
+                last_import_trips=trips_created + trips_updated,
+                last_import_error=None,
+            )
+
             await self.db.commit()
             await invalidate_stop_cache()
             await invalidate_route_cache()
@@ -866,6 +884,86 @@ class ScheduleService:
             warning_count=len(warnings),
         )
         return ValidationResult(valid=valid, errors=errors, warnings=warnings)
+
+    # --- Feed Management ---
+
+    async def list_feeds(self) -> list[FeedStatusResponse]:
+        """List all configured feeds enriched with DB import status.
+
+        Returns:
+            List of FeedStatusResponse combining config + DB status.
+        """
+        settings = get_settings()
+        statuses = await self.feed_status_repo.list_feed_statuses()
+        status_map = {s.feed_id: s for s in statuses}
+
+        result: list[FeedStatusResponse] = []
+        for feed in settings.transit_feeds:
+            db_status = status_map.get(feed.feed_id)
+            result.append(
+                FeedStatusResponse(
+                    feed_id=feed.feed_id,
+                    operator_name=feed.operator_name,
+                    static_url=feed.static_url,
+                    last_imported_at=db_status.last_imported_at if db_status else None,
+                    last_import_routes=db_status.last_import_routes if db_status else 0,
+                    last_import_trips=db_status.last_import_trips if db_status else 0,
+                    last_import_error=db_status.last_import_error if db_status else None,
+                    auto_import_enabled=db_status.auto_import_enabled if db_status else True,
+                    enabled=feed.enabled,
+                )
+            )
+        return result
+
+    async def import_feed_from_url(self, feed_id: str) -> GTFSImportResponse:
+        """Download GTFS ZIP from the configured URL and import for the given feed.
+
+        The URL is read from server config (not user input) to prevent SSRF.
+
+        Args:
+            feed_id: The feed identifier from transit_feeds config.
+
+        Returns:
+            GTFSImportResponse with import results.
+
+        Raises:
+            NotFoundError: If feed_id is not in config or has no static_url.
+            GTFSImportError: If download or import fails.
+        """
+        settings = get_settings()
+        feed_config = next((f for f in settings.transit_feeds if f.feed_id == feed_id), None)
+        if not feed_config or not feed_config.static_url:
+            raise NotFoundError(f"Feed '{feed_id}' not found or has no static_url configured")
+
+        logger.info(
+            "schedules.feed.download_started",
+            feed_id=feed_id,
+            url=feed_config.static_url,
+        )
+
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.get(feed_config.static_url)
+                resp.raise_for_status()
+                zip_data = resp.content
+        except httpx.HTTPError as e:
+            # Record error in feed status
+            await self.feed_status_repo.upsert_feed_status(
+                feed_id=feed_id,
+                operator_name=feed_config.operator_name,
+                static_url=feed_config.static_url,
+                last_import_error=str(e),
+            )
+            await self.db.commit()
+            raise GTFSImportError(f"Failed to download GTFS for feed '{feed_id}': {e}") from e
+
+        logger.info(
+            "schedules.feed.download_completed",
+            feed_id=feed_id,
+            size_bytes=len(zip_data),
+        )
+
+        return await self.import_gtfs(zip_data, feed_id=feed_id)
 
     # --- GTFS Export ---
 

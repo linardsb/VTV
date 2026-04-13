@@ -98,6 +98,10 @@ class Settings(BaseSettings):
     transit_feeds_json: str = "[]"
     poller_enabled: bool = True
 
+    # Daily GTFS static auto-import (LV-1.2)
+    gtfs_auto_import_enabled: bool = False
+    gtfs_auto_import_hour_utc: int = 3
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def transit_feeds(self) -> list[TransitFeedConfig]:
@@ -398,6 +402,11 @@ class Settings(BaseSettings):
     data_gov_lv_base_url: str = "https://data.gov.lv/dati/api/3"
     data_gov_lv_dataset_id: str = "rigas-satiksmes-marsrutu-saraksti-gtfs"
     gtfs_backfill_rate_limit_seconds: float = 1.0
+
+    # CKAN Datastore SQL API (LV-1.1 — intercity transit data)
+    ckan_datastore_sql_url: str = "https://data.gov.lv/dati/api/3/action/datastore_search_sql"
+    ckan_cache_ttl_s: int = 300
+    ckan_rate_limit_delay_s: float = 1.0
 
     # Public Developer API (ML-5.3)
     public_api_enabled: bool = True

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from app.schedules.feed_status import GTFSFeedStatus
 from app.schedules.models import (
     Agency,
     Calendar,
@@ -173,6 +174,32 @@ def make_stop_time(**overrides: object) -> StopTime:
     }
     defaults.update(overrides)
     return StopTime(**defaults)
+
+
+def make_feed_status(**overrides: object) -> GTFSFeedStatus:
+    """Factory to create a GTFSFeedStatus model instance with sensible defaults.
+
+    Args:
+        **overrides: Field values to override defaults.
+
+    Returns:
+        A GTFSFeedStatus instance with all fields populated.
+    """
+    now = utcnow()
+    defaults: dict[str, object] = {
+        "feed_id": "riga",
+        "operator_name": "Rigas Satiksme",
+        "static_url": "https://saraksti.rigassatiksme.lv/gtfs.zip",
+        "last_imported_at": now,
+        "last_import_routes": 50,
+        "last_import_trips": 200,
+        "last_import_error": None,
+        "auto_import_enabled": True,
+        "created_at": now,
+        "updated_at": now,
+    }
+    defaults.update(overrides)
+    return GTFSFeedStatus(**defaults)
 
 
 @pytest.fixture
