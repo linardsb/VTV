@@ -97,3 +97,60 @@ def make_mapping_result(rows: list[dict[str, Any]]) -> MagicMock:
 
 
 SAMPLE_OBSERVED_AT = datetime.datetime(2026, 3, 15, 8, 30, 0, tzinfo=datetime.UTC)
+
+
+def make_load_features_df(n: int = 10, **overrides: Any) -> pd.DataFrame:
+    """Create a DataFrame of n rows with load feature columns.
+
+    Args:
+        n: Number of rows.
+        **overrides: Fields to override in all rows.
+
+    Returns:
+        DataFrame with all load feature columns.
+    """
+    rows = []
+    for i in range(n):
+        row: dict[str, Any] = {
+            "gtfs_trip_id": f"trip_{i:03d}",
+            "stop_sequence": float(i + 1),
+            "stop_id": float(100 + i),
+            "date": datetime.date(2026, 3, 15),
+            "hour": 8,
+            "route_code": "22",
+            "transport_type": "bus",
+            "tap_count": 5,
+            "cumulative_load": 5 * (i + 1),
+            "capacity": 60,
+            "load_factor_pct": min((5 * (i + 1) / 60) * 100, 100.0),
+        }
+        row.update(overrides)
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def make_correlated_tap(**overrides: Any) -> dict[str, Any]:
+    """Create a single correlated tap dict with sensible defaults.
+
+    Args:
+        **overrides: Fields to override from defaults.
+
+    Returns:
+        Dict representing a correlated e-ticket tap row.
+    """
+    defaults: dict[str, Any] = {
+        "eticket_id": 1,
+        "vehicle_number": "4521",
+        "validated_at": SAMPLE_OBSERVED_AT,
+        "route_code": "22",
+        "transport_type": "bus",
+        "gtfs_trip_id": "trip_001",
+        "vp_lat": 56.9496,
+        "vp_lon": 24.1052,
+        "position_at": SAMPLE_OBSERVED_AT,
+        "stop_id": 101,
+        "gtfs_stop_id": "stop_001",
+        "stop_sequence": 1,
+    }
+    defaults.update(overrides)
+    return defaults

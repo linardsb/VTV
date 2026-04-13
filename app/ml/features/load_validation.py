@@ -12,7 +12,7 @@ from typing import Any
 import pandas as pd
 from pandera import Check, Column, DataFrameSchema
 
-LOAD_FEATURES_SCHEMA = DataFrameSchema(
+LOAD_FEATURES_SCHEMA = DataFrameSchema(  # type: ignore[no-untyped-call]
     {
         "gtfs_trip_id": Column(str, nullable=True, coerce=True),
         # Nullable int columns use coerce=True because pandas stores
