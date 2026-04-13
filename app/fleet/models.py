@@ -38,6 +38,9 @@ class TrackedDevice(Base, TimestampMixin):
     vehicle_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("vehicles.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    route_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("routes.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     last_seen_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

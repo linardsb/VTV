@@ -32,6 +32,7 @@ class TrackedDeviceCreate(TrackedDeviceBase):
     """Schema for creating a tracked device."""
 
     vehicle_id: int | None = Field(None, description="Link to existing vehicle")
+    route_id: int | None = Field(None, description="Assigned transit route for map display")
 
 
 class TrackedDeviceUpdate(BaseModel):
@@ -49,6 +50,7 @@ class TrackedDeviceUpdate(BaseModel):
     firmware_version: str | None = Field(None, max_length=50)
     notes: str | None = Field(None, max_length=2000)
     vehicle_id: int | None = Field(None)
+    route_id: int | None = Field(None)
     status: DeviceStatusType | None = Field(None)
 
     @model_validator(mode="before")
@@ -66,6 +68,7 @@ class TrackedDeviceResponse(TrackedDeviceBase):
 
     id: int
     vehicle_id: int | None
+    route_id: int | None
     status: DeviceStatusType
     last_seen_at: datetime.datetime | None
     created_at: datetime.datetime

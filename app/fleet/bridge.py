@@ -57,7 +57,13 @@ def parse_obd_attributes(attributes: dict[str, Any]) -> OBDTelemetry:
     )
 
 
-def normalize_webhook(payload: TraccarWebhookPayload, device: TrackedDevice) -> dict[str, Any]:
+def normalize_webhook(
+    payload: TraccarWebhookPayload,
+    device: TrackedDevice,
+    *,
+    route_id: str = "",
+    route_short_name: str = "",
+) -> dict[str, Any]:
     """Convert Traccar webhook payload to VTV vehicle position format.
 
     Maps Traccar fields to match the existing GTFS-RT position structure,
@@ -66,6 +72,8 @@ def normalize_webhook(payload: TraccarWebhookPayload, device: TrackedDevice) -> 
     Args:
         payload: Traccar webhook event data.
         device: The VTV tracked device record.
+        route_id: Assigned transit route ID (empty if not transit-assigned).
+        route_short_name: Human-readable route name (empty if not transit-assigned).
 
     Returns:
         Dict ready for Redis SET and TimescaleDB insert.
@@ -86,8 +94,8 @@ def normalize_webhook(payload: TraccarWebhookPayload, device: TrackedDevice) -> 
     return {
         "feed_id": "fleet",
         "vehicle_id": fleet_number,
-        "route_id": "",
-        "route_short_name": "",
+        "route_id": route_id,
+        "route_short_name": route_short_name,
         "trip_id": None,
         "latitude": payload.latitude,
         "longitude": payload.longitude,
@@ -143,8 +151,17 @@ class TraccarBridge:
             )
             return False
 
+        # Look up transit route assignment
+        route_id_str = ""
+        route_short_name = ""
+        if device.route_id is not None:
+            route_short_name = await self.fleet_repo.get_route_short_name(device.route_id)
+            route_id_str = str(device.route_id)
+
         # Normalize payload to VTV position format
-        position_data = normalize_webhook(payload, device)
+        position_data = normalize_webhook(
+            payload, device, route_id=route_id_str, route_short_name=route_short_name
+        )
 
         try:
             # Write to Redis cache (same key pattern as transit poller)
@@ -152,7 +169,19 @@ class TraccarBridge:
             redis_value = json.dumps(position_data)
             pipe = redis_client.pipeline()
             pipe.set(redis_key, redis_value, ex=120)
+            pipe.sadd("feed:fleet:vehicles", position_data["vehicle_id"])
+            pipe.expire("feed:fleet:vehicles", 120)
             pipe.publish("vehicle_positions", redis_value)
+            if position_data["route_id"]:
+                transit_payload = json.dumps(
+                    {
+                        "feed_id": "fleet",
+                        "count": 1,
+                        "vehicles": [position_data],
+                        "timestamp": position_data["recorded_at"],
+                    }
+                )
+                pipe.publish("transit:vehicles:fleet", transit_payload)
             await pipe.execute()
 
             # Write to TimescaleDB

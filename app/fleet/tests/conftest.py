@@ -42,6 +42,28 @@ def sample_tracked_device() -> TrackedDevice:
     device.status = "active"
     device.last_seen_at = None
     device.traccar_device_id = 42
+    device.route_id = None
+    device.notes = None
+    device.created_at = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
+    device.updated_at = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
+    return device
+
+
+@pytest.fixture
+def sample_tracked_device_with_route() -> TrackedDevice:
+    """Sample TrackedDevice model instance with transit route assignment."""
+    device = MagicMock(spec=TrackedDevice)
+    device.id = 2
+    device.imei = "987654321098765"
+    device.device_name = "Transit Device"
+    device.sim_number = "87654321"
+    device.protocol_type = "teltonika"
+    device.firmware_version = None
+    device.vehicle_id = 20
+    device.status = "active"
+    device.last_seen_at = None
+    device.traccar_device_id = 99
+    device.route_id = 101
     device.notes = None
     device.created_at = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
     device.updated_at = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)

@@ -1,6 +1,7 @@
 # pyright: reportUnknownMemberType=false
 """Unit tests for TraccarBridge and telemetry processing."""
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -153,7 +154,163 @@ class TestProcessWebhook:
         # Verify Redis pipeline was used
         mock_redis.pipeline.assert_called_once()
         mock_pipe.set.assert_called_once()
+        mock_pipe.sadd.assert_called_once()
+        mock_pipe.expire.assert_called_once()
+        # No route assigned -> only vehicle_positions publish, no transit publish
         mock_pipe.publish.assert_called_once()
         mock_pipe.execute.assert_awaited_once()
         # Verify DB record was added
         mock_db.add.assert_called_once()
+
+
+class TestTransitBridgePublish:
+    """Tests for transit channel publishing on route-assigned devices."""
+
+    def test_normalize_webhook_with_route_id(
+        self,
+        sample_webhook_payload: TraccarWebhookPayload,
+        sample_tracked_device_with_route: TrackedDevice,
+    ) -> None:
+        """Route ID and short name populated when passed."""
+        result = normalize_webhook(
+            sample_webhook_payload,
+            sample_tracked_device_with_route,
+            route_id="101",
+            route_short_name="3A",
+        )
+
+        assert result["route_id"] == "101"
+        assert result["route_short_name"] == "3A"
+
+    def test_normalize_webhook_without_route_id(
+        self,
+        sample_webhook_payload: TraccarWebhookPayload,
+        sample_tracked_device: TrackedDevice,
+    ) -> None:
+        """Route ID and short name empty when not passed."""
+        result = normalize_webhook(sample_webhook_payload, sample_tracked_device)
+
+        assert result["route_id"] == ""
+        assert result["route_short_name"] == ""
+
+    async def test_process_webhook_route_assigned_publishes_transit(
+        self,
+        mock_db: AsyncMock,
+        sample_webhook_payload: TraccarWebhookPayload,
+        sample_tracked_device_with_route: TrackedDevice,
+    ) -> None:
+        """Device with route_id publishes to transit:vehicles:fleet."""
+        bridge = TraccarBridge(mock_db)
+
+        mock_pipe = MagicMock()
+        mock_pipe.execute = AsyncMock()
+        mock_redis = MagicMock()
+        mock_redis.pipeline.return_value = mock_pipe
+
+        with (
+            patch.object(
+                bridge.fleet_repo,
+                "get_by_traccar_id",
+                return_value=sample_tracked_device_with_route,
+            ),
+            patch.object(bridge.fleet_repo, "get_route_short_name", return_value="3A"),
+            patch.object(bridge.fleet_repo, "update_last_seen", return_value=None),
+        ):
+            result = await bridge.process_webhook(sample_webhook_payload, mock_redis)
+
+        assert result is True
+        # Two publishes: vehicle_positions + transit:vehicles:fleet
+        assert mock_pipe.publish.call_count == 2
+        publish_calls = mock_pipe.publish.call_args_list
+        assert publish_calls[0][0][0] == "vehicle_positions"
+        assert publish_calls[1][0][0] == "transit:vehicles:fleet"
+
+    async def test_process_webhook_no_route_skips_transit(
+        self,
+        mock_db: AsyncMock,
+        sample_webhook_payload: TraccarWebhookPayload,
+        sample_tracked_device: TrackedDevice,
+    ) -> None:
+        """Device without route_id does not publish to transit channel."""
+        bridge = TraccarBridge(mock_db)
+
+        mock_pipe = MagicMock()
+        mock_pipe.execute = AsyncMock()
+        mock_redis = MagicMock()
+        mock_redis.pipeline.return_value = mock_pipe
+
+        with (
+            patch.object(
+                bridge.fleet_repo, "get_by_traccar_id", return_value=sample_tracked_device
+            ),
+            patch.object(bridge.fleet_repo, "update_last_seen", return_value=None),
+        ):
+            result = await bridge.process_webhook(sample_webhook_payload, mock_redis)
+
+        assert result is True
+        # Only vehicle_positions publish, no transit
+        mock_pipe.publish.assert_called_once()
+        assert mock_pipe.publish.call_args[0][0] == "vehicle_positions"
+
+    async def test_process_webhook_route_populates_redis_set(
+        self,
+        mock_db: AsyncMock,
+        sample_webhook_payload: TraccarWebhookPayload,
+        sample_tracked_device_with_route: TrackedDevice,
+    ) -> None:
+        """SADD feed:fleet:vehicles called with vehicle_id."""
+        bridge = TraccarBridge(mock_db)
+
+        mock_pipe = MagicMock()
+        mock_pipe.execute = AsyncMock()
+        mock_redis = MagicMock()
+        mock_redis.pipeline.return_value = mock_pipe
+
+        with (
+            patch.object(
+                bridge.fleet_repo,
+                "get_by_traccar_id",
+                return_value=sample_tracked_device_with_route,
+            ),
+            patch.object(bridge.fleet_repo, "get_route_short_name", return_value="3A"),
+            patch.object(bridge.fleet_repo, "update_last_seen", return_value=None),
+        ):
+            await bridge.process_webhook(sample_webhook_payload, mock_redis)
+
+        mock_pipe.sadd.assert_called_once_with("feed:fleet:vehicles", "20")
+        mock_pipe.expire.assert_called_once_with("feed:fleet:vehicles", 120)
+
+    async def test_process_webhook_transit_payload_format(
+        self,
+        mock_db: AsyncMock,
+        sample_webhook_payload: TraccarWebhookPayload,
+        sample_tracked_device_with_route: TrackedDevice,
+    ) -> None:
+        """Transit Pub/Sub message has correct structure."""
+        bridge = TraccarBridge(mock_db)
+
+        mock_pipe = MagicMock()
+        mock_pipe.execute = AsyncMock()
+        mock_redis = MagicMock()
+        mock_redis.pipeline.return_value = mock_pipe
+
+        with (
+            patch.object(
+                bridge.fleet_repo,
+                "get_by_traccar_id",
+                return_value=sample_tracked_device_with_route,
+            ),
+            patch.object(bridge.fleet_repo, "get_route_short_name", return_value="3A"),
+            patch.object(bridge.fleet_repo, "update_last_seen", return_value=None),
+        ):
+            await bridge.process_webhook(sample_webhook_payload, mock_redis)
+
+        # Second publish call is the transit payload
+        transit_call = mock_pipe.publish.call_args_list[1]
+        transit_data = json.loads(transit_call[0][1])
+        assert transit_data["feed_id"] == "fleet"
+        assert transit_data["count"] == 1
+        assert len(transit_data["vehicles"]) == 1
+        assert "timestamp" in transit_data
+        assert transit_data["vehicles"][0]["route_id"] == "101"
+        assert transit_data["vehicles"][0]["route_short_name"] == "3A"

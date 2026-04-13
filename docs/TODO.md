@@ -162,7 +162,7 @@ Everything else is independent and can run in any order.
 | Subtask | Type | Realistic | Parallel? |
 |---------|------|-----------|-----------|
 | LV-3.1 OwnTracks MQTT | BE + infra | ~3h | ✅ **DONE** (2026-04-13) |
-| LV-3.2 Traccar bridge extension | BE | ~1.5h | ✅ Yes — independent |
+| LV-3.2 Traccar bridge extension | BE | ~1.5h | ✅ **DONE** (2026-04-13) |
 | LV-3.3 OpenTripPlanner | BE + FE + infra | ~6h | ✅ Yes — independent |
 | LV-3.4 LocShare tracking links | BE + FE | ~3h | ✅ Yes — independent |
 
@@ -181,15 +181,17 @@ Everything else is independent and can run in any order.
 - 12+ unit tests: MQTT message parsing (3), vehicle assignment lookup (2), normalization (2), Redis write (2), missing assignment handling (1), endpoint auth (2)
 **Verify:** Start Mosquitto + app. Publish OwnTracks test message via `mosquitto_pub`. Vehicle appears on `/map` with `source="owntracks"`. Assign phone to vehicle+route via admin API → marker shows route label.
 
-#### LV-3.2 Traccar Hardware GPS Bridge Extension
-**What:** Extend existing `app/fleet/bridge.py` Traccar webhook integration to also write transit-compatible positions for fleet devices assigned to transit routes. This bridges hardware GPS (Teltonika FMB920) into the transit map alongside GTFS-RT and OwnTracks sources.
+#### LV-3.2 Traccar Hardware GPS Bridge Extension — **IMPLEMENTED** (2026-04-13)
+**What:** Extended `app/fleet/bridge.py` Traccar webhook bridge so route-assigned devices also publish to transit Pub/Sub channel. Added `route_id` FK to `TrackedDevice` model (Option A: direct column, not junction table). Bridge looks up `route_short_name` from schedules.Route, populates position data, publishes to `transit:vehicles:fleet` channel, and adds to `feed:fleet:vehicles` Redis SET. Non-route-assigned devices continue working unchanged (fleet telemetry only).
 **Why:** Traccar integration already exists for fleet telemetry (Phase 1A). This phase extends it so fleet-tracked intercity buses appear on the transit map — same vehicle, dual purpose. No new infrastructure needed.
 **Implementation:**
-- `app/fleet/bridge.py` — after writing to `vehicle_positions` with `source="traccar"`, also publish to Redis Pub/Sub channel `transit:vehicles:fleet` if the device's vehicle has an active route assignment
-- `vehicle_phone_assignments` table reused (or new `vehicle_transit_assignments` if semantics differ)
-- CMS `/map` — fleet-sourced vehicles appear alongside GTFS-RT vehicles, distinguished by source icon
-- 6+ unit tests: transit publish for route-assigned devices (2), no publish for non-transit devices (1), dual-write consistency (2), map rendering (1)
-**Verify:** Assign a Traccar device to a transit route. Simulated webhook → vehicle appears on `/map` with fleet icon + route label. GTFS-RT vehicles from same route show alongside.
+- `app/fleet/models.py` — `route_id` FK column on TrackedDevice (nullable, SET NULL on delete)
+- `app/fleet/schemas.py` — `route_id` field added to create/update/response schemas
+- `app/fleet/repository.py` — `get_route_short_name()` cross-feature read from schedules.Route
+- `app/fleet/bridge.py` — `normalize_webhook()` accepts route params; `process_webhook()` looks up route, publishes to `transit:vehicles:fleet` when assigned, adds to `feed:fleet:vehicles` SET
+- Migration: `u5v6w7x8y9z0` adds `route_id` column + FK + index
+- 6 new tests in `TestTransitBridgePublish` (total 23 fleet tests)
+**Verify:** Assign a Traccar device to a transit route via PATCH. Simulated webhook → vehicle appears on `/map` with fleet icon + route label. GTFS-RT vehicles from same route show alongside.
 
 #### LV-3.3 OpenTripPlanner Journey Planning
 **What:** Deploy OpenTripPlanner (Docker sidecar) with Latvia GTFS + OSM data. Create `app/transit/journey_planner.py` — proxies OTP's `/plan` API, enriches with VTV's real-time delay data (GTFS-RT trip updates), and exposes as `GET /api/v1/transit/plan`. CMS journey planner UI.

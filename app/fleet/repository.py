@@ -192,6 +192,21 @@ class FleetRepository:
         await self.db.delete(device)
         await self.db.commit()
 
+    async def get_route_short_name(self, route_id: int) -> str:
+        """Look up route_short_name from schedules.Route by ID.
+
+        Args:
+            route_id: The route's database ID.
+
+        Returns:
+            The route's short name, or empty string if not found.
+        """
+        from app.schedules.models import Route
+
+        result = await self.db.execute(select(Route.route_short_name).where(Route.id == route_id))
+        name = result.scalar_one_or_none()
+        return name or ""
+
     async def update_last_seen(self, device: TrackedDevice, seen_at: datetime.datetime) -> None:
         """Update device last_seen_at timestamp.
 

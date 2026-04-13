@@ -126,7 +126,7 @@ VTV/
 │   ├── public_api/     # Public Developer API (6 endpoints: 3 key management + 3 read-only transit data, API key auth with SHA-256 hashing, per-key Redis rate limiting with tiered limits, fire-and-forget usage tracking via TimescaleDB hypertable)
 │   ├── drivers/        # Driver management (5 endpoints, HR profiles)
 │   ├── events/         # Operational events (5 endpoints, JSONB goals)
-│   ├── fleet/          # Fleet device management (6 endpoints, Traccar GPS bridge, OBD-II telemetry)
+│   ├── fleet/          # Fleet device management (6 endpoints, Traccar GPS bridge, OBD-II telemetry, LV-3.2 transit bridge: route-assigned devices publish to transit Pub/Sub channel)
 │   ├── geofences/      # Geofence zone monitoring (8 endpoints, PostGIS polygons, background evaluator, dwell tracking)
 │   ├── stops/          # Stop management (6 endpoints, PostGIS spatial queries)
 ��   ├── schedules/      # GTFS schedule management (25 endpoints, ZIP import/export, multi-feed management + daily auto-import)
@@ -148,7 +148,7 @@ VTV/
 
 LocTracker-inspired fleet management extension. Full plan: `docs/PLANNING/fleet-management-tracking.md`.
 
-**Phase 1A (implemented):** `app/fleet/` — Device CRUD (5 endpoints + RBAC), Traccar webhook bridge for hardware GPS ingestion, OBD-II telemetry parsing, `vehicle_positions` hypertable extended with `source` discriminator + `obd_data` JSONB. Traccar Docker sidecar (`--profile fleet`). 17 unit tests.
+**Phase 1A (implemented):** `app/fleet/` — Device CRUD (5 endpoints + RBAC), Traccar webhook bridge for hardware GPS ingestion, OBD-II telemetry parsing, `vehicle_positions` hypertable extended with `source` discriminator + `obd_data` JSONB. Traccar Docker sidecar (`--profile fleet`). LV-3.2 transit bridge: route-assigned devices populate `route_id`/`route_short_name` and publish to `transit:vehicles:fleet` Pub/Sub channel + `feed:fleet:vehicles` Redis SET, making them visible on the transit map alongside GTFS-RT and OwnTracks sources. 23 unit tests.
 
 **Phase 1B (implemented — backend):** `app/geofences/` — PostGIS POLYGON zones with GIST indexing, 8 REST endpoints (CRUD + events + dwell reports), background evaluator (30s cycle, Redis state tracking, `ST_Contains` containment queries), entry/exit/dwell detection with alerts integration. 23 unit tests.
 
