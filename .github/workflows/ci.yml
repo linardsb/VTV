@@ -57,6 +57,17 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Refresh detect-secrets baseline line numbers
+        # detect-secrets pre-commit hook auto-updates .secrets.baseline
+        # whenever tracked secrets' line numbers drift, then fails asking
+        # the developer to `git add` it. CI has no developer to acknowledge
+        # drift, so we regenerate the baseline before pre-commit runs.
+        # `scan --baseline` merges known entries only — any net-new secret
+        # still fails the downstream pre-commit hook, which remains the gate.
+        run: |
+          uv run detect-secrets scan --baseline .secrets.baseline
+          git update-index --refresh .secrets.baseline || true
+
       - name: Pre-commit checks
         run: |
           uv run pre-commit run --all-files --show-diff-on-failure
