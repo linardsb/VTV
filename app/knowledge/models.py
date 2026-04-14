@@ -175,3 +175,32 @@ class EntityMention(Base):
     )
 
     __table_args__ = (UniqueConstraint("entity_id", "chunk_id", name="uq_entity_mentions_pair"),)
+
+
+class SearchFeedback(Base, TimestampMixin):
+    """KB-4 thumbs-up/down signal for a cited chunk on a specific query.
+
+    Unique on ``(user_id, query_hash, chunk_id)`` so re-voting upserts rather
+    than duplicating. ``rank_source`` discriminates which retrieval branch
+    surfaced the chunk, used by the daily RRF recompute.
+    """
+
+    __tablename__ = "search_feedback"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    query_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    query_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    chunk_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("document_chunks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    rank_source: Mapped[str] = mapped_column(String(16), nullable=False)
+    relevant: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "query_hash", "chunk_id", name="uq_feedback_user_query_chunk"
+        ),
+    )

@@ -237,9 +237,9 @@ Everything else is independent and can run in any order.
 |---------|------|-----------|-----------|
 | ~~KB-1 PPTX extractor~~ | BE | ~30min | ✅ **DONE** (2026-04-14) |
 | ~~KB-2 Latvian lemmatizer~~ | BE | ~1.5h | ✅ **DONE** (2026-04-14) |
-| KB-3 Document versioning | BE | ~1.5h | ✅ Yes — independent |
+| ~~KB-3 Document versioning~~ | BE | ~1.5h | ✅ **DONE** (2026-04-14) |
 | ~~KB-4 Search feedback loop~~ | BE (CMS UI deferred) | ~1.5h | ✅ **DONE backend** (2026-04-14) |
-| KB-5 Entity/knowledge graph | BE | ~1.5h | ✅ Yes — independent |
+| ~~KB-5 Entity/knowledge graph~~ | BE | ~1.5h | ✅ **DONE on branch** (2026-04-14) |
 
 #### ~~KB-1 PPTX Extractor~~ ✅ Implemented 2026-04-14
 **Plan:** `.agents/plans/kb-1-pptx-extractor.md`
@@ -274,7 +274,9 @@ Everything else is independent and can run in any order.
 - 12+ unit tests: lemmatization accuracy (4 — noun cases, verb conjugations, compound words, mixed LV/EN), tsvector generation (2), search recall improvement (2), fallback for non-Latvian (2), model loading (2)
 **Verify:** Index a Latvian SOP document. Search "autobusu apkope" (bus maintenance) — matches document containing "autobuss" and "apkopē". Compare recall@3 with/without lemmatizer on 20 Latvian QA pairs — expect 15-20% improvement.
 
-#### KB-3 Document Versioning with Diff-Aware Search
+#### ~~KB-3 Document Versioning with Diff-Aware Search~~ ✅ Implemented 2026-04-14
+**Plan:** `.agents/plans/kb-3-document-versioning.md`
+**Shipped:** Migration adds `version`, `parent_document_id`, `is_latest` to `documents`. `KnowledgeService.ingest_document` auto-increments version on same (title, domain) re-upload and flips prior row to `status='superseded'` / `is_latest=False`. `get_document_versions` and `get_document_diff` (unified diff over extracted text) exposed via `GET /v1/documents/{id}/versions` and `GET /v1/documents/{id}/diff?v1=&v2=`. Search defaults to `is_latest` rows. 442-line test suite in `app/knowledge/tests/test_versioning.py`. Commit 725c03f.
 **What:** Add version tracking to documents — re-uploading a document with the same title creates a new version rather than overwriting. Search results annotate which version matched. Diff view shows what changed between versions.
 **Why:** SOPs and regulations are updated periodically. Currently re-upload overwrites — the old version is lost. Dispatchers need to know "was this procedure updated recently?" and "what changed?".
 **Implementation:**
@@ -305,7 +307,9 @@ Everything else is independent and can run in any order.
 - 10+ unit tests: feedback storage (2), weight computation (3), fallback to defaults (1), daily recompute (2), CMS feedback submission (2)
 **Verify:** Submit 20 feedback signals (mostly thumbs-up on vector results for keyword queries). Run weight recompute → `vector_weight` for keyword queries increases. Next search uses tuned weights. Reset feedback → falls back to config defaults.
 
-#### KB-5 Entity/Knowledge-Graph Overlay
+#### ~~KB-5 Entity/Knowledge-Graph Overlay~~ ✅ Implemented 2026-04-14 (on `kb-5-entity-graph`, not yet merged)
+**Plan:** `.agents/plans/kb-5-entity-knowledge-graph.md`
+**Shipped:** Migration `e5n6t6k6b6_add_entities`, `app/knowledge/entity_extractor.py` + `entities_gazetteer.py`, schema/repository/service/chunking/lifecycle wiring, config flags. Validation: ruff/mypy/pyright clean on 7 KB-5 files, 21/21 entity tests pass, 233/233 knowledge-suite pass (ex. KB-4 WIP). Bundled in commit `842a9c4` + follow-ups `a2c6bce`/`8dd67bf`/`dafff00`. **Not yet merged to main** — lives with KB-4 on `kb-5-entity-graph`.
 **What:** Extract named entities (routes, stops, people, regulations) from documents during chunking, store as a lightweight knowledge graph (`entities` + `entity_mentions` tables), and use entity co-occurrence to boost search results that share entities with the query.
 **Why:** Transit documents heavily reference shared entities — "Route 22", "Brīvības iela", "EU Regulation 561/2006". When a dispatcher asks about Route 22, chunks mentioning Route 22 should rank higher even if the embedding similarity is moderate. Entity-aware retrieval bridges the semantic gap.
 **Implementation:**

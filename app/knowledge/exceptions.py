@@ -40,3 +40,7 @@ class DuplicateTagError(KnowledgeBaseError):
 
 class DocumentVersionConflictError(DomainValidationError):
     """Raised when version diff params are invalid (e.g. v1 == v2)."""
+
+
+class FeedbackChunkNotFoundError(NotFoundError):
+    """Raised when feedback references a chunk id that doesn't exist."""

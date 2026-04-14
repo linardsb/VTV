@@ -140,3 +140,19 @@ class VehiclePhoneAssignment(Base, TimestampMixin):
     driver_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("drivers.id"), nullable=True)
     assigned_by: Mapped[str] = mapped_column(String(100), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class ShareLink(Base, TimestampMixin):
+    """Signed trip share link — JWT in URL, hash stored for lookup (LV-3.4)."""
+
+    __tablename__ = "share_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    vehicle_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    route_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    feed_id: Mapped[str] = mapped_column(String(50), nullable=False, default="riga")
+    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

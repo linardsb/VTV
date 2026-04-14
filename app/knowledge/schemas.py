@@ -10,6 +10,28 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validat
 EntityType = Literal["route", "stop", "regulation", "person", "org"]
 ExtractionMethod = Literal["regex", "gazetteer", "spacy"]
 
+# KB-4: search classification + rank-source discriminator for feedback loop.
+type QueryType = Literal["keyword", "semantic", "mixed"]
+type RankSource = Literal["vector", "fulltext"]
+
+
+class RRFWeights(BaseModel):
+    """Tuned RRF vector/text weights for a given query type (KB-4)."""
+
+    query_type: QueryType
+    vector_weight: float = Field(..., ge=0.0, le=1.0)
+    text_weight: float = Field(..., ge=0.0, le=1.0)
+    sample_size: int = Field(..., ge=0)
+    updated_at: datetime
+    source: Literal["tuned", "static"] = "tuned"
+
+
+class SearchFeedbackCreate(BaseModel):
+    """Payload for POST /v1/knowledge/search/{query_hash}/feedback (KB-4)."""
+
+    chunk_id: int = Field(..., ge=1)
+    relevant: bool
+
 
 class DocumentUpload(BaseModel):
     """Schema for document upload metadata (sent alongside file)."""

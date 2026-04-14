@@ -182,3 +182,105 @@ class PhoneAssignmentResponse(BaseModel):
     active: bool
     created_at: datetime.datetime
     updated_at: datetime.datetime
+
+
+# ---------------------------------------------------------------------------
+# LV-3.3 OTP journey planner
+# ---------------------------------------------------------------------------
+
+TransportMode = Literal[
+    "WALK", "BUS", "TRAM", "RAIL", "SUBWAY", "FERRY", "TROLLEYBUS", "BICYCLE", "CAR"
+]
+
+
+class JourneyLeg(BaseModel):
+    """Single leg of a multi-modal itinerary (LV-3.3)."""
+
+    model_config = ConfigDict(strict=True)
+
+    mode: TransportMode
+    from_name: str
+    from_lat: float
+    from_lon: float
+    to_name: str
+    to_lat: float
+    to_lon: float
+    start_time: datetime.datetime
+    end_time: datetime.datetime
+    duration_seconds: int
+    distance_m: float
+    route_id: str | None = None
+    route_short_name: str | None = None
+    route_long_name: str | None = None
+    trip_id: str | None = None
+    agency_name: str | None = None
+    num_stops: int | None = None
+    realtime_delay_seconds: int | None = None
+    scheduled_start_time: datetime.datetime | None = None
+    polyline: str | None = None
+
+
+class JourneyItinerary(BaseModel):
+    """Full itinerary composed of one or more legs (LV-3.3)."""
+
+    model_config = ConfigDict(strict=True)
+
+    start_time: datetime.datetime
+    end_time: datetime.datetime
+    duration_seconds: int
+    walk_distance_m: float
+    transit_time_seconds: int
+    waiting_time_seconds: int
+    transfers: int
+    legs: list[JourneyLeg]
+
+
+class JourneyPlanResponse(BaseModel):
+    """Envelope returned by ``GET /api/v1/transit/plan`` (LV-3.3)."""
+
+    from_name: str
+    from_lat: float
+    from_lon: float
+    to_name: str
+    to_lat: float
+    to_lon: float
+    itineraries: list[JourneyItinerary]
+    requested_at: datetime.datetime
+    otp_enriched: bool = False
+
+
+# ---------------------------------------------------------------------------
+# LV-3.4 Share links
+# ---------------------------------------------------------------------------
+
+
+class ShareLinkCreate(BaseModel):
+    """Request body for creating a trip-share link (LV-3.4)."""
+
+    vehicle_id: str = Field(..., max_length=100)
+    route_id: str | None = Field(None, max_length=50)
+    feed_id: str = Field("riga", max_length=50)
+    expiry_hours: int = Field(1, ge=1, le=24)
+
+
+class ShareLinkResponse(BaseModel):
+    """Response after creating a share link (LV-3.4)."""
+
+    id: int
+    vehicle_id: str
+    route_id: str | None
+    feed_id: str
+    token: str
+    share_url: str
+    qr_code_base64: str
+    expires_at: datetime.datetime
+
+
+class ShareResolveResponse(BaseModel):
+    """Public resolver payload for a share link (LV-3.4)."""
+
+    vehicle_id: str
+    route_id: str | None
+    feed_id: str
+    expires_at: datetime.datetime
+    position: VehiclePosition | None = None

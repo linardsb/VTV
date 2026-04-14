@@ -9,7 +9,15 @@ from sqlalchemy import delete, distinct, func, or_, select, text, tuple_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.knowledge.models import Document, DocumentChunk, Entity, EntityMention, Tag, document_tags
+from app.knowledge.models import (
+    Document,
+    DocumentChunk,
+    Entity,
+    EntityMention,
+    SearchFeedback,
+    Tag,
+    document_tags,
+)
 from app.knowledge.schemas import ExtractedEntity
 
 
@@ -851,3 +859,70 @@ class KnowledgeRepository:
         for cid, name in result.all():
             accum.setdefault(int(cid), []).append(str(name))
         return accum
+
+    # ------------------------------------------------------------------
+    # KB-4: Search feedback persistence + aggregation
+    # ------------------------------------------------------------------
+
+    async def chunk_exists(self, chunk_id: int) -> bool:
+        """Return True if a document chunk with ``chunk_id`` exists."""
+        result = await self.db.execute(
+            select(DocumentChunk.id).where(DocumentChunk.id == chunk_id)
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def upsert_feedback(
+        self,
+        *,
+        user_id: int | None,
+        query_hash: str,
+        query_type: str,
+        chunk_id: int,
+        rank_source: str,
+        relevant: bool,
+    ) -> None:
+        """Insert a feedback row, or update ``relevant`` + ``rank_source`` on re-vote."""
+        stmt = (
+            pg_insert(SearchFeedback)
+            .values(
+                user_id=user_id,
+                query_hash=query_hash,
+                query_type=query_type,
+                chunk_id=chunk_id,
+                rank_source=rank_source,
+                relevant=relevant,
+            )
+            .on_conflict_do_update(
+                constraint="uq_feedback_user_query_chunk",
+                set_={
+                    "relevant": pg_insert(SearchFeedback).excluded.relevant,
+                    "rank_source": pg_insert(SearchFeedback).excluded.rank_source,
+                    "query_type": pg_insert(SearchFeedback).excluded.query_type,
+                },
+            )
+        )
+        await self.db.execute(stmt)
+        await self.db.commit()
+
+    async def feedback_counts(
+        self, *, since: datetime
+    ) -> dict[tuple[str, str], dict[str, int]]:
+        """Return ``{(query_type, rank_source): {"up": N, "down": N}}`` since ``since``."""
+        stmt = (
+            select(
+                SearchFeedback.query_type,
+                SearchFeedback.rank_source,
+                func.count().filter(SearchFeedback.relevant.is_(True)).label("up"),
+                func.count().filter(SearchFeedback.relevant.is_(False)).label("down"),
+            )
+            .where(SearchFeedback.created_at >= since)
+            .group_by(SearchFeedback.query_type, SearchFeedback.rank_source)
+        )
+        result = await self.db.execute(stmt)
+        counts: dict[tuple[str, str], dict[str, int]] = {}
+        for query_type, rank_source, up, down in result.all():
+            counts[(str(query_type), str(rank_source))] = {
+                "up": int(up),
+                "down": int(down),
+            }
+        return counts

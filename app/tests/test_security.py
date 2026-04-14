@@ -716,6 +716,7 @@ class TestAllEndpointsRequireAuth:
         "ws_vehicle_stream",  # WebSocket: manual JWT auth via query param (not Depends)
         "traccar_webhook",  # Traccar webhook: token auth, not JWT (verify_webhook_token dependency)
         "get_gtfs_rt_vehicle_positions",  # LV-2.4: public GTFS-RT feed, rate-limited, no auth
+        "resolve_share_link",  # LV-3.4: trip-share links are public by design, JWT in URL + rate-limited
     }
 
     def test_all_routes_have_auth(self) -> None:

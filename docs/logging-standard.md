@@ -491,6 +491,20 @@ transit.
 │   ├── create_started                      # Phone-to-route assignment create started (fields: phone_id, route_id)
 │   ├── create_completed                    # Phone-to-route assignment create completed (fields: assignment_id)
 │   └── delete_completed                    # Phone-to-route assignment delete completed (fields: assignment_id)
+├── journey_planner.
+│   ├── plan_requested                      # LV-3.3 Journey plan requested (fields: from_lat, from_lon, to_lat, to_lon, modes)
+│   ├── plan_completed                      # Journey plan returned (fields: cache_key, itineraries_count, duration_ms)
+│   ├── cache_hit                           # Journey plan served from Redis (fields: cache_key)
+│   ├── cache_read_failed                   # Journey plan cache read error (fields: error)
+│   ├── cache_write_failed                  # Journey plan cache write error (fields: error)
+│   └── delay_map_failed                    # GTFS-RT delay enrichment skipped (fields: error)
+├── otp_client.
+│   ├── plan_http_error                     # OpenTripPlanner /plan non-2xx (fields: status_code, url)
+│   ├── plan_connection_failed              # OpenTripPlanner connection/timeout (fields: error)
+│   └── plan_failed                         # OpenTripPlanner other error (fields: error)
+├── share_link.
+│   ├── created                             # LV-3.4 Trip share link minted (fields: share_link_id, vehicle_id, user_id)
+│   └── invalid_type                        # Share token rejected (wrong `type` claim) (fields: token_type)
 └── driver_data.db_fallback                 # Fell back to DB for driver data
 ```
 

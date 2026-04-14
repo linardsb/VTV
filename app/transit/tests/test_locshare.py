@@ -19,7 +19,7 @@ from app.transit.locshare import (
 def _mock_settings() -> MagicMock:
     settings = MagicMock()
     settings.share_link_secret_key = None
-    settings.jwt_secret_key = "test-secret-key-for-unit-tests"
+    settings.jwt_secret_key = "test-secret-key-for-unit-tests"  # pragma: allowlist secret
     settings.jwt_algorithm = "HS256"
     return settings
 

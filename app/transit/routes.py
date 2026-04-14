@@ -17,15 +17,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_role
 from app.auth.models import User
+from app.core.agents.exceptions import TransitDataError
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
-from app.transit.models import VehiclePhoneAssignment
+from app.transit.journey_planner import get_journey_planner
+from app.transit.locshare import (
+    create_share_token,
+    decode_share_token,
+    generate_qr_code_base64,
+    hash_token,
+)
+from app.transit.models import ShareLink, VehiclePhoneAssignment
 from app.transit.schemas import (
+    JourneyPlanResponse,
     PhoneAssignmentCreate,
     PhoneAssignmentResponse,
     RouteDelayTrendResponse,
+    ShareLinkCreate,
+    ShareLinkResponse,
+    ShareResolveResponse,
     TransitFeedsResponse,
     TransitFeedStatus,
     VehicleHistoryResponse,
@@ -360,3 +372,147 @@ async def delete_phone_assignment(
         assignment_id=assignment_id,
     )
     return PhoneAssignmentResponse.model_validate(assignment)
+
+
+# ── LV-3.3 OTP journey planner ──────────────────────────────────────
+
+
+@router.get("/plan", response_model=JourneyPlanResponse)
+@limiter.limit("10/minute")
+async def plan_journey(
+    request: Request,
+    from_lat: float = Query(..., ge=55.5, le=58.1),
+    from_lon: float = Query(..., ge=20.5, le=28.3),
+    to_lat: float = Query(..., ge=55.5, le=58.1),
+    to_lon: float = Query(..., ge=20.5, le=28.3),
+    depart_at: str | None = Query(None, max_length=30),
+    arrive_by: str | None = Query(None, max_length=30),
+    modes: str = Query("TRANSIT,WALK", max_length=100, pattern=r"^[A-Z,]+$"),
+    _current_user: User = Depends(get_current_user),  # noqa: B008
+) -> JourneyPlanResponse:
+    """Plan a multi-modal journey via OpenTripPlanner with GTFS-RT delay enrichment."""
+    _ = request
+    if depart_at is not None and arrive_by is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="depart_at and arrive_by are mutually exclusive",
+        )
+    depart_dt = _parse_iso_time(depart_at) if depart_at else None
+    arrive_dt = _parse_iso_time(arrive_by) if arrive_by else None
+    planner = get_journey_planner()
+    try:
+        return await planner.plan_journey(
+            from_lat=from_lat,
+            from_lon=from_lon,
+            to_lat=to_lat,
+            to_lon=to_lon,
+            depart_at=depart_dt,
+            arrive_by=arrive_dt,
+            modes=modes,
+        )
+    except TransitDataError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+# ── LV-3.4 Trip share links ─────────────────────────────────────────
+
+
+@router.post(
+    "/share",
+    response_model=ShareLinkResponse,
+    status_code=201,
+)
+@limiter.limit("30/minute")
+async def create_share_link(
+    request: Request,
+    body: ShareLinkCreate,
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    current_user: User = Depends(  # noqa: B008
+        require_role("admin", "dispatcher")  # noqa: B008
+    ),
+) -> ShareLinkResponse:
+    """Mint a signed share-link JWT for a specific vehicle/route (LV-3.4)."""
+    _ = request
+    token, token_hash_val = create_share_token(
+        body.vehicle_id,
+        body.route_id,
+        body.feed_id,
+        body.expiry_hours,
+    )
+    expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(hours=body.expiry_hours)
+    link = ShareLink(
+        token_hash=token_hash_val,
+        vehicle_id=body.vehicle_id,
+        route_id=body.route_id,
+        feed_id=body.feed_id,
+        created_by=current_user.id,
+        expires_at=expires_at,
+        view_count=0,
+        is_active=True,
+    )
+    db.add(link)
+    await db.commit()
+    await db.refresh(link)
+    share_url = f"/share/{token}"
+    qr = generate_qr_code_base64(share_url)
+    logger.info(
+        "transit.share_link.created",
+        share_link_id=link.id,
+        vehicle_id=body.vehicle_id,
+        user_id=current_user.id,
+    )
+    return ShareLinkResponse(
+        id=link.id,
+        vehicle_id=link.vehicle_id,
+        route_id=link.route_id,
+        feed_id=link.feed_id,
+        token=token,
+        share_url=share_url,
+        qr_code_base64=qr,
+        expires_at=link.expires_at,
+    )
+
+
+@router.get("/share/{token}", response_model=ShareResolveResponse)
+@limiter.limit("60/minute")
+async def resolve_share_link(
+    request: Request,
+    token: str = Path(..., min_length=8, max_length=2048),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+) -> ShareResolveResponse:
+    """Public resolver for a share link — returns live vehicle position (LV-3.4)."""
+    _ = request
+    payload = decode_share_token(token)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Share link not found")
+    token_hash_val = hash_token(token)
+    result = await db.execute(
+        select(ShareLink).where(
+            ShareLink.token_hash == token_hash_val,
+            ShareLink.is_active.is_(True),
+        )
+    )
+    link = result.scalar_one_or_none()
+    if link is None:
+        raise HTTPException(status_code=404, detail="Share link not found")
+    if link.expires_at < dt.datetime.now(dt.UTC):
+        raise HTTPException(status_code=410, detail="Share link expired")
+
+    service = get_transit_service()
+    positions = await service.get_vehicle_positions(
+        route_id=link.route_id,
+        feed_id=link.feed_id,
+    )
+    position = next(
+        (v for v in positions.vehicles if v.vehicle_id == link.vehicle_id),
+        None,
+    )
+    link.view_count += 1
+    await db.commit()
+    return ShareResolveResponse(
+        vehicle_id=link.vehicle_id,
+        route_id=link.route_id,
+        feed_id=link.feed_id,
+        expires_at=link.expires_at,
+        position=position,
+    )

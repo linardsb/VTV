@@ -259,6 +259,27 @@ class Settings(BaseSettings):
     rrf_mixed_vector_weight: float = 0.5
     rrf_mixed_text_weight: float = 0.5
 
+    # KB-4: search feedback loop — tuned RRF weights from thumbs-up/down.
+    knowledge_feedback_enabled: bool = False
+    knowledge_rrf_recompute_cron_hour: int = Field(default=3, ge=0, le=23)
+    knowledge_rrf_feedback_window_days: int = Field(default=30, ge=1, le=365)
+    knowledge_rrf_min_signals_per_type: int = Field(default=20, ge=1)
+    knowledge_rrf_blend_weight: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    # LV-3.3: OpenTripPlanner multi-modal journey planner proxy.
+    otp_enabled: bool = False
+    otp_base_url: str = "http://otp:8080"
+    otp_router_id: str = "default"
+    otp_timeout_seconds: float = Field(default=10.0, ge=1.0, le=60.0)
+    otp_cache_ttl_seconds: int = Field(default=300, ge=0, le=3600)
+    otp_max_itineraries: int = Field(default=5, ge=1, le=10)
+    otp_max_walk_distance_m: int = Field(default=2000, ge=0, le=10000)
+
+    # LV-3.4: Trip share links (signed tokens, short-lived Redis state).
+    share_link_secret_key: str | None = None
+    share_link_default_ttl_seconds: int = Field(default=3600, ge=60, le=86400)
+    share_link_max_ttl_seconds: int = Field(default=86400, ge=60, le=604800)
+
     # KB-5: Entity/knowledge-graph overlay. Extracts named entities (routes,
     # stops, regulations, optionally people/orgs via spaCy) during ingest and
     # boosts RRF scores for chunks that share entities with the query.
