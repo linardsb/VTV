@@ -534,9 +534,7 @@ class KnowledgeService:
                 entity_id = id_map.get((mention.entity_type, mention.normalized_name))
                 if entity_id is None:
                     continue
-                triples.append(
-                    (entity_id, mention.mention_count, mention.extraction_method)
-                )
+                triples.append((entity_id, mention.mention_count, mention.extraction_method))
             if triples:
                 await self.repository.record_mentions(chunk_id, triples)
 
@@ -813,9 +811,7 @@ class KnowledgeService:
         if settings.entity_boost_enabled and settings.entity_extraction_enabled:
             try:
                 extractor = await get_entity_extractor()
-                query_entities = extractor.extract(
-                    request.query[:500], request.language or "lv"
-                )
+                query_entities = extractor.extract(request.query[:500], request.language or "lv")
                 if query_entities:
                     query_entity_ids = await self.repository.get_entity_ids_for_names(
                         [(e.entity_type, e.normalized_name) for e in query_entities]

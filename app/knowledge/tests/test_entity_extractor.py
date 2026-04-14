@@ -149,7 +149,14 @@ class TestFactory:
         assert isinstance(ext, NoopEntityExtractor)
         assert ext.extract("Route 22", "en") == []
 
-    async def test_factory_returns_regex_when_provider_regex(self) -> None:
+    async def test_factory_returns_regex_when_provider_regex(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Stub warm_up so the factory doesn't touch the DB.
+        async def _noop(self: RegexEntityExtractor) -> None:
+            return
+
+        monkeypatch.setattr(RegexEntityExtractor, "warm_up", _noop)
         ext = await get_entity_extractor()
         assert isinstance(ext, RegexEntityExtractor)
 

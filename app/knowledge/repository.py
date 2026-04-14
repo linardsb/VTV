@@ -719,9 +719,7 @@ class KnowledgeRepository:
     # KB-5: Entity / knowledge-graph overlay
     # ------------------------------------------------------------------
 
-    async def upsert_entities(
-        self, entities: list[ExtractedEntity]
-    ) -> dict[tuple[str, str], int]:
+    async def upsert_entities(self, entities: list[ExtractedEntity]) -> dict[tuple[str, str], int]:
         """Insert new entities (ignoring conflicts) and return an id map.
 
         Performs a single ``INSERT ... ON CONFLICT DO NOTHING`` against the
@@ -760,9 +758,9 @@ class KnowledgeRepository:
         await self.db.execute(stmt)
 
         pairs = [(ent.entity_type, ent.normalized_name) for ent in deduped.values()]
-        select_stmt = select(
-            Entity.id, Entity.entity_type, Entity.normalized_name
-        ).where(tuple_(Entity.entity_type, Entity.normalized_name).in_(pairs))
+        select_stmt = select(Entity.id, Entity.entity_type, Entity.normalized_name).where(
+            tuple_(Entity.entity_type, Entity.normalized_name).in_(pairs)
+        )
         result = await self.db.execute(select_stmt)
         id_map: dict[tuple[str, str], int] = {}
         for row in result.all():
@@ -824,9 +822,7 @@ class KnowledgeRepository:
             accum.setdefault(int(cid), set()).add(int(eid))
         return {cid: frozenset(eids) for cid, eids in accum.items()}
 
-    async def get_entity_ids_for_names(
-        self, pairs: Sequence[tuple[str, str]]
-    ) -> frozenset[int]:
+    async def get_entity_ids_for_names(self, pairs: Sequence[tuple[str, str]]) -> frozenset[int]:
         """Resolve ``[(entity_type, normalized_name), ...]`` to entity ids."""
         if not pairs:
             return frozenset()
@@ -836,9 +832,7 @@ class KnowledgeRepository:
         result = await self.db.execute(stmt)
         return frozenset(int(row[0]) for row in result.all())
 
-    async def get_entity_names_for_chunks(
-        self, chunk_ids: Sequence[int]
-    ) -> dict[int, list[str]]:
+    async def get_entity_names_for_chunks(self, chunk_ids: Sequence[int]) -> dict[int, list[str]]:
         """Return ``{chunk_id: [entity_name, ...]}`` for populating search results.
 
         Uses canonical ``Entity.name`` (the first observed raw form) so the

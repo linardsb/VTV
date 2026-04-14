@@ -42,9 +42,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.func.now(),
         ),
-        sa.UniqueConstraint(
-            "entity_type", "normalized_name", name="uq_entities_type_normalized"
-        ),
+        sa.UniqueConstraint("entity_type", "normalized_name", name="uq_entities_type_normalized"),
     )
     op.create_index(
         "ix_entities_type_norm",
@@ -80,16 +78,10 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.func.now(),
         ),
-        sa.UniqueConstraint(
-            "entity_id", "chunk_id", name="uq_entity_mentions_pair"
-        ),
+        sa.UniqueConstraint("entity_id", "chunk_id", name="uq_entity_mentions_pair"),
     )
-    op.create_index(
-        "ix_entity_mentions_chunk", "entity_mentions", ["chunk_id"]
-    )
-    op.create_index(
-        "ix_entity_mentions_entity", "entity_mentions", ["entity_id"]
-    )
+    op.create_index("ix_entity_mentions_chunk", "entity_mentions", ["chunk_id"])
+    op.create_index("ix_entity_mentions_entity", "entity_mentions", ["entity_id"])
 
 
 def downgrade() -> None:
