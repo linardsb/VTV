@@ -75,25 +75,53 @@ Probably to keep line numbers of secrets up-to-date.
 Please `git add .secrets.baseline`, thank you.
 ```
 
-The hook detects that the baseline's recorded line numbers drift from what it just re-scanned (my pragma line shifted the hashes in `app/core/tests/test_config.py`), auto-updates `.secrets.baseline`, and then fails because the modified baseline isn't in git.
+The hook detects that the baseline's recorded line numbers drift from what it just re-scanned (my pragma line shifted the hashes in `app/core/tests/test_config.py`), auto-updates `.secrets.baseline`, and then fails because the modified baseline isn't in git. The hook's auto-update is by design: it tells the developer to acknowledge drift. In CI there is no developer to acknowledge, so the job fails on every run until the drift is committed.
 
 Commit `7ccb4bf` addressed a *different* oscillation (self-scan of the baseline file). This one is legitimate baseline drift.
 
-**Suggested fix paths** (pick one):
+Commit `c480ff8 fix(ci): auto-update secrets baseline line numbers before pre-commit check` introduced a pre-scan-and-stage step in CI that solved this exact class of failure. Commit `e1226c2 fix(ci): remove redundant secrets scan + scope mypy to tracked files` removed it, which is why the failure has returned.
 
-1. **Re-generate and commit the baseline:**
-   ```bash
-   uv run detect-secrets scan --baseline .secrets.baseline
-   git add .secrets.baseline
-   git commit -m "chore(security): refresh detect-secrets baseline line numbers"
-   ```
-   Low-risk — just accepts the new line numbers as canonical.
+### R1 — stipulated fix
 
-2. **CI auto-stage on drift** (similar to the pattern in commit `c480ff8 fix(ci): auto-update secrets baseline line numbers before pre-commit check`) — if that logic exists but isn't firing here, debug why. The CI workflow may need a pre-hook step that runs `detect-secrets scan --baseline .secrets.baseline` before `pre-commit run`.
+**Primary recommendation: restore the pre-scan step in CI.** This is the durable fix — it eliminates the class of failure regardless of who shifts line numbers in the future, so subsequent developers never have to hand-refresh the baseline.
 
-3. **Drop line numbers from the baseline** via `--exclude-lines` or equivalent — more invasive, risks masking real regressions.
+Change `.github/workflows/ci.yml` — insert one step immediately **before** the existing `Pre-commit checks` step (around line 60):
 
-Option 1 is fastest. Option 2 is more durable.
+```yaml
+      - name: Refresh detect-secrets baseline line numbers
+        # detect-secrets pre-commit hook auto-updates .secrets.baseline
+        # whenever the tracked secrets' line numbers drift, then fails
+        # asking you to `git add` it. In CI there is no developer to
+        # acknowledge drift, so we regenerate and stage the baseline
+        # before pre-commit runs. Any new (unbaselined) secret will still
+        # fail the downstream scan since `scan --baseline` merges rather
+        # than reviewing — the pre-commit hook remains the gate for net-new
+        # secrets.
+        run: |
+          uv run detect-secrets scan --baseline .secrets.baseline
+          git update-index --refresh .secrets.baseline || true
+```
+
+Then run `.github/workflows/ci.yml`'s existing `Pre-commit checks` step unchanged — it will no longer see drift.
+
+**Verification after applying the CI change:**
+
+1. Push the workflow change on a branch and observe one CI run on `main`.
+2. Confirm the `Pre-commit checks` step passes without the "Please `git add .secrets.baseline`" error.
+3. Sanity-check that a deliberately-introduced new secret (on a throwaway branch) still fails the scan — the step above must not become a silent-accept of new secrets. `detect-secrets scan --baseline` should merge known entries but flag unknown ones; verify with a test branch before closing the ticket.
+
+**Fallback path if the CI change is blocked:** run locally once to silence today's failure —
+
+```bash
+uv run detect-secrets scan --baseline .secrets.baseline
+git add .secrets.baseline
+git commit -m "chore(security): refresh detect-secrets baseline line numbers"
+git push origin main
+```
+
+— but this is a band-aid. The next line-number shift (any commit that adds/removes a line in a file with baselined secrets) will re-trigger the same failure in CI. Do this only if the CI change cannot be made immediately.
+
+**Do not** drop line numbers from the baseline or use `--exclude-lines` — those mask real regressions and defeat the purpose of the baseline.
 
 ### R2 — Potential further latent failures beyond R1
 
@@ -139,3 +167,15 @@ git stash pop
 - BUCKETS.md: `.agents/ci-fixes/BUCKETS.md`
 - CI workflow: `.github/workflows/ci.yml`
 - Failing run IDs inspected this session: 24386812918 (predict_eta), 24387731575 (predict_eta), 24388507319 (test_config), 24388756206 (detect-secrets pragma), 24388924745 (detect-secrets baseline drift — **next to fix**).
+
+### GitHub Actions history pages inspected this session
+
+Source of the 140-run cross-check that proved all failures map to the 9 buckets. Preserve for the next session to re-verify after R1 lands:
+
+- Page 1: <https://github.com/linardsb/VTV/actions?query=workflow%3ACI>
+- Page 2: <https://github.com/linardsb/VTV/actions?page=2&query=workflow%3ACI>
+- Page 3: <https://github.com/linardsb/VTV/actions?page=3&query=workflow%3ACI>
+- Page 4: <https://github.com/linardsb/VTV/actions?page=4&query=workflow%3ACI>
+- Page 5: <https://github.com/linardsb/VTV/actions?page=5&query=workflow%3ACI>
+- Page 6: <https://github.com/linardsb/VTV/actions?page=6&query=workflow%3ACI>
+- Page 7: <https://github.com/linardsb/VTV/actions?page=7&query=workflow%3ACI>
