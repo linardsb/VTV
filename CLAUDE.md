@@ -204,6 +204,15 @@ Use `/be-create-feature {name}` to scaffold new features. Manual process and pat
 
 **Testing:** Tests in `tests/` subdirectory. `@pytest.mark.integration` for DB tests. Fast unit tests preferred.
 
+## Local CI Alignment
+
+Three layers keep local in sync with CI. Full details: `docs/runbooks/local-ci-alignment.md`.
+
+- **Pre-commit (`git commit`, ≈5s):** ruff format/lint, file hygiene, detect-secrets, `scripts/pre-commit` (Bandit + sensitive files + creds).
+- **Pre-push (`git push`, ≈90s, requires `make db`):** mypy, app import smoke, `scripts/audit_log_taxonomy.py`, full `pytest -x -q`. Catches the 4 most common CI-failure classes (wiring gaps, undocumented log events, suite-only test regressions, type drift).
+- **Local docker (`make docker && make e2e`, ≈3-5min):** run before pushing changes to `Dockerfile`, `docker-compose.yml`, `nginx/`, `app/main.py`, `cms/apps/web/Dockerfile`, `auth.ts`, `middleware.ts`, or any new `NEXT_PUBLIC_*` / boundary env var. Catches docker-only bugs the pre-push hook can't see.
+- **CI debug aid:** E2E job has a `Dump container logs on failure` step that prints the last 1000 lines of every service before teardown — use it to diagnose docker startup failures without speculative push iterations.
+
 ## Security
 
 Security enforced through 6 automated layers. Pre-commit framework (`.pre-commit-config.yaml`) runs ruff, detect-secrets, and custom security checks on every commit; mypy on pre-push. Details in `.claude/rules/security.md` and `docs/sdlc-security-framework.md`.

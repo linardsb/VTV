@@ -12,6 +12,7 @@ Quick-reference index for on-call engineers.
 | [Circuit Breaker Open](circuit-breaker-open.md) | LLM provider circuit breaker open | 2026-04-12 |
 | [Poller Stale](poller-stale.md) | Background poller liveness failure | 2026-04-12 |
 | [DB Pool Exhaustion](db-pool-exhaustion.md) | Database connection pool saturation | 2026-04-12 |
+| [Local CI Alignment](local-ci-alignment.md) | Pre-commit + pre-push hooks, when to run docker locally, how to debug E2E failures | 2026-04-14 |
 
 ## General Guidance
 
