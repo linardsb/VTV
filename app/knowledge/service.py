@@ -26,6 +26,7 @@ from app.knowledge.exceptions import (
     ProcessingError,
     TagNotFoundError,
 )
+from app.knowledge.lemmatizer import LemmaTokenizer, get_lemmatizer_provider
 from app.knowledge.models import Document, DocumentChunk
 from app.knowledge.repository import KnowledgeRepository
 from app.knowledge.reranker import RerankerProvider, get_reranker_provider
@@ -52,6 +53,7 @@ logger = get_logger(__name__)
 # Module-level lazy singletons for expensive resources
 _embedding_provider: EmbeddingProvider | None = None
 _reranker_provider: RerankerProvider | None = None
+_lemmatizer_provider: LemmaTokenizer | None = None
 
 
 def _get_embedding() -> EmbeddingProvider:
@@ -84,6 +86,19 @@ async def warm_up_reranker() -> None:
     """Pre-load reranker model for startup."""
     provider = _get_reranker()
     await provider.warm_up()
+
+
+def _get_lemmatizer() -> LemmaTokenizer:
+    """Get or create the Latvian lemmatizer provider singleton (KB-2)."""
+    global _lemmatizer_provider
+    if _lemmatizer_provider is None:
+        _lemmatizer_provider = get_lemmatizer_provider(get_settings())
+    return _lemmatizer_provider
+
+
+async def warm_up_lemmatizer() -> None:
+    """Pre-load UDPipe model for startup so the first search has no cold start."""
+    await _get_lemmatizer().warm_up()
 
 
 # Semantic patterns: questions, procedural queries (EN + LV)
@@ -248,7 +263,9 @@ class KnowledgeService:
             )
 
             # Chunk + embed + two-phase parent/child store
-            chunk_count = await self._chunk_embed_store(document_id=doc.id, text=text)
+            chunk_count = await self._chunk_embed_store(
+                document_id=doc.id, text=text, language=upload.language
+            )
 
             if chunk_count == 0:
                 await self.repository.update_document_status(doc.id, "completed", None, 0)
@@ -301,7 +318,7 @@ class KnowledgeService:
 
         return await self.get_document(doc.id)
 
-    async def _chunk_embed_store(self, *, document_id: int, text: str) -> int:
+    async def _chunk_embed_store(self, *, document_id: int, text: str, language: str) -> int:
         """Chunk + embed + two-phase parent/child store for a document.
 
         Used by both fresh ingestion (``ingest_document``) and the AI-4.4
@@ -313,6 +330,8 @@ class KnowledgeService:
         Args:
             document_id: The document's database ID.
             text: Already-extracted document text.
+            language: Document language code. Used to decide whether to run
+                the KB-2 Latvian lemmatizer on chunk content.
 
         Returns:
             Number of chunks created. Returns 0 for empty/whitespace text.
@@ -336,6 +355,11 @@ class KnowledgeService:
 
         if not chunks:
             return 0
+
+        # KB-2: populate lemmatized_content for Latvian documents so BM25
+        # matches inflected forms. No-op for non-Latvian or disabled.
+        if settings.latvian_lemmatizer_enabled:
+            chunking.apply_lemmatization(chunks, _get_lemmatizer(), language)
 
         # Embed
         texts = [c.content for c in chunks]
@@ -361,6 +385,7 @@ class KnowledgeService:
                     parent_chunk_id=None,
                     heading_path=chunk_result.heading_path,
                     section_type=chunk_result.section_type,
+                    lemmatized_content=chunk_result.lemmatized_content,
                 )
                 parent_objects.append(obj)
                 parent_position_to_obj[chunk_result.chunk_index] = obj
@@ -390,6 +415,7 @@ class KnowledgeService:
                     parent_chunk_id=parent_id,
                     heading_path=child_result.heading_path,
                     section_type=child_result.section_type,
+                    lemmatized_content=child_result.lemmatized_content,
                 )
             )
         for leaf_result, leaf_embedding in leaf_specs:
@@ -405,6 +431,7 @@ class KnowledgeService:
                     parent_chunk_id=None,
                     heading_path=leaf_result.heading_path,
                     section_type=leaf_result.section_type,
+                    lemmatized_content=leaf_result.lemmatized_content,
                 )
             )
 
@@ -452,7 +479,9 @@ class KnowledgeService:
         try:
             text, ocr_applied = await processing.extract_text(doc.file_path, doc.source_type)
             await self.repository.delete_chunks_by_document(document_id)
-            chunk_count = await self._chunk_embed_store(document_id=document_id, text=text)
+            chunk_count = await self._chunk_embed_store(
+                document_id=document_id, text=text, language=doc.language
+            )
             await self.repository.update_document_status(
                 document_id, "completed", None, chunk_count
             )
@@ -608,6 +637,22 @@ class KnowledgeService:
             request.created_after,
             request.created_before,
         )
+        # KB-2: lemmatize Latvian queries so BM25 matches inflected forms.
+        # Fail-safe: exceptions log and fall back to raw query via COALESCE.
+        lemmatized_query: str | None = None
+        if settings.latvian_lemmatizer_enabled:
+            try:
+                candidate = _get_lemmatizer().lemmatize(request.query, "lv")
+                if candidate and candidate != request.query:
+                    lemmatized_query = candidate
+            except Exception as exc:
+                logger.error(
+                    "knowledge.lemmatizer.failed",
+                    reason="query_lemmatize_error",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+
         text_results = await self.repository.search_fulltext(
             request.query,
             search_limit,
@@ -615,6 +660,7 @@ class KnowledgeService:
             request.language,
             request.created_after,
             request.created_before,
+            lemmatized_query=lemmatized_query,
         )
 
         # Detect query type and select RRF weights

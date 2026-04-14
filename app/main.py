@@ -179,6 +179,19 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     except Exception:
         logger.warning("knowledge.reranker.warm_up_failed", exc_info=True)
 
+    # Pre-load Latvian UDPipe lemmatizer (KB-2) — non-fatal if model missing
+    if settings.latvian_lemmatizer_enabled:
+        try:
+            from app.knowledge.service import warm_up_lemmatizer
+
+            await warm_up_lemmatizer()
+        except Exception:
+            logger.warning(
+                "knowledge.lemmatizer.warm_up_failed",
+                exc_info=True,
+                stage="startup_warmup",
+            )
+
     # Start WebSocket subscriber (pushes Redis Pub/Sub -> WebSocket clients)
     if settings.ws_enabled and settings.poller_enabled:
         ws_manager = get_ws_manager()

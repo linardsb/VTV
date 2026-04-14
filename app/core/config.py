@@ -224,6 +224,11 @@ class Settings(BaseSettings):
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_top_k: int = 10
 
+    # Latvian UDPipe lemmatizer (KB-2) — default OFF so the model file is opt-in.
+    # Enable only after running `make download-udpipe-model`.
+    latvian_lemmatizer_enabled: bool = False
+    udpipe_model_path: str = "models/latvian-ud-2.5.udpipe"
+
     # Confidence threshold (filter reranked results below this score)
     knowledge_confidence_threshold: float = 0.3
 

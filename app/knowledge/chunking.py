@@ -5,8 +5,18 @@ sentences, words) to keep semantic units together when possible.
 Includes heading-aware semantic chunking for structured documents.
 """
 
+from __future__ import annotations
+
 import re
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+from app.core.logging import get_logger
+
+if TYPE_CHECKING:
+    from app.knowledge.lemmatizer import LemmaTokenizer
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -22,6 +32,9 @@ class ChunkResult:
     section_type: str | None = None
     is_parent: bool = False
     parent_index: int | None = None  # positional index in result list, NOT a DB id
+    # KB-2: populated by ``apply_lemmatization`` for Latvian chunks so
+    # BM25 can match inflected forms. NULL = fall back to ``content``.
+    lemmatized_content: str | None = None
 
 
 def chunk_text(
@@ -492,3 +505,50 @@ def chunk_text_semantic(
             next_index += 1
 
     return results
+
+
+def apply_lemmatization(
+    chunks: list[ChunkResult],
+    lemmatizer: LemmaTokenizer,
+    language: str,
+) -> list[ChunkResult]:
+    """Populate ``lemmatized_content`` on each chunk for Latvian docs.
+
+    Mutates the chunks in place for cheapness — chunking is a fresh
+    computation each ingestion so there are no aliasing concerns.
+    Non-Latvian languages and empty content are left untouched (the
+    repository falls back to ``content`` via COALESCE).
+
+    Lemmatizer failures are caught per-chunk so a single bad chunk does
+    not abort ingestion; the chunk keeps ``lemmatized_content=None``.
+
+    Args:
+        chunks: Chunk results produced by :func:`chunk_text` or
+            :func:`chunk_text_semantic`.
+        lemmatizer: A :class:`LemmaTokenizer` (UDPipe or Noop).
+        language: Document language code. Lemmatization runs only when
+            ``language == "lv"``.
+
+    Returns:
+        The same ``chunks`` list (returned for call-site convenience).
+    """
+    if language != "lv":
+        return chunks
+    for chunk in chunks:
+        if not chunk.content:
+            continue
+        try:
+            chunk.lemmatized_content = lemmatizer.lemmatize(chunk.content, language)
+        except Exception as exc:
+            # Intentional broad catch — lemmatizer wraps a C++ lib that
+            # can surface arbitrary RuntimeErrors. Fall back to raw text
+            # (COALESCE keeps BM25 working) and log for observability.
+            logger.error(
+                "knowledge.lemmatizer.failed",
+                reason="chunk_lemmatize_error",
+                chunk_index=chunk.chunk_index,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            chunk.lemmatized_content = None
+    return chunks

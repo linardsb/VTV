@@ -65,6 +65,9 @@ cms/apps/web/.next/
 models/*.pkl
 models/*.joblib
 
+# KB-2: UDPipe Latvian lemmatizer model (fetched via scripts/download_udpipe_model.sh)
+models/*.udpipe
+
 # AI-7.2 eval runs (JSONL traces are per-run artifacts)
 evals/traces/*.jsonl
 

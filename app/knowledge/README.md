@@ -89,12 +89,32 @@ RAG-powered document knowledge base with full document management capabilities. 
 
 1. Embed query text (or HyDE-expanded text if enabled) using the configured embedding provider (with optional cache)
 2. Run vector similarity search (pgvector cosine distance)
-3. Run fulltext search (PostgreSQL `to_tsvector('simple')` with `ts_rank`)
+3. Run fulltext search (PostgreSQL `to_tsvector('simple')` with `ts_rank`) against `COALESCE(document_chunks.lemmatized_content, document_chunks.content)` — Latvian chunks use their pre-lemmatized form (KB-2), everything else falls through to raw content
 4. Classify query type: keyword (route numbers, stop codes), semantic (questions, procedural phrases in EN/LV), or mixed
 5. Combine results via Reciprocal Rank Fusion (RRF, k=60) with query-adaptive weights (keyword: fulltext 0.7/vector 0.3, semantic: vector 0.7/fulltext 0.3, mixed: 0.5/0.5)
 6. Apply temporal boost multiplier based on document age (today: 1.5x, this week: 1.2x, this month: 1.0x, older: 0.8x). Evergreen documents skip temporal decay
 7. Rerank top candidates via cross-encoder (configurable: local or noop)
 8. Return ranked results with scores, document metadata, and `document_created_at`
+
+### Latvian UDPipe Lemmatization (KB-2)
+
+1. Feature-flagged via `latvian_lemmatizer_enabled` (default `False`; enable after running `make download-udpipe-model`)
+2. `app/knowledge/lemmatizer.py` — `LemmaTokenizer` Protocol with `UDPipeLemmatizer` (lazy model load in a worker thread) and `NoopLemmatizer` fallback; factory `get_lemmatizer_provider(settings)` selects by flag
+3. Warm-up in FastAPI lifespan is non-fatal — missing model file logs `knowledge.lemmatizer.warm_up_failed` and search degrades to raw-text BM25
+4. Ingestion (`service._chunk_embed_store`) calls `chunking.apply_lemmatization(chunks, lemmatizer, language)` for Latvian docs to populate `DocumentChunk.lemmatized_content` alongside `content` (no re-embed, no re-chunk)
+5. Search pre-lemmatizes the Latvian query and passes it as `lemmatized_query` kwarg to `repository.search_fulltext`; per-chunk exceptions are caught and logged so a single UDPipe failure never blocks ingestion or search
+6. One-shot backfill for existing chunks: `make lemmatize-backfill` (or `--dry-run`) writes `lemmatized_content` without re-embedding
+
+### Search Feedback Loop (KB-4)
+
+1. Every `POST /search` response carries a stable `query_hash` (SHA-256 prefix over normalized `query|domain`) and the detected `query_type` (`keyword` / `semantic` / `mixed`). Each `SearchResult` also carries `rank_source` — `vector`, `fulltext`, or `both` — recording which retrieval branch surfaced that chunk
+2. Clients record thumbs-up/down votes via `POST /v1/knowledge/search/{query_hash}/feedback?query_type=...&rank_source=...` with body `{chunk_id, relevant}`. JWT-gated (no role check — any authenticated user may vote), rate-limited to 60/min. The `(user_id, query_hash, chunk_id)` unique constraint prevents vote stuffing (one vote per user per chunk per query; a second call upserts)
+3. `FeedbackService.recompute_weights()` aggregates the last `knowledge_rrf_feedback_window_days` days (default 30) grouped by `(query_type, rank_source)`. Only `vector` and `fulltext` rows contribute — `both` rows give no signal about branch preference
+4. For each query type: compute Laplace-smoothed positive-rate per branch `(up+1)/(up+down+2)`, normalize to a share, then blend `knowledge_rrf_blend_weight * raw_vec + (1 - blend) * static_vec` (default blend 0.7 tuned / 0.3 static) to prevent runaway drift. Clamp to `[0.1, 0.9]` for safety. Query types below `knowledge_rrf_min_signals_per_type` total votes (default 20) are skipped and fall back to static config
+5. Tuned weights written to Redis key `knowledge:rrf:weights:{query_type}` with 48h TTL. Search reads via `FeedbackService.get_tuned_weights(query_type)` with graceful fallback to `settings.rrf_{type}_{vector|text}_weight` on cache miss, corrupt payload, or any `RedisError` (fail-open — search quality, not a security boundary)
+6. Daily recompute: when `background_queue_enabled=True`, runs as arq cron job `run_rrf_recompute` at `knowledge_rrf_recompute_cron_hour:15` UTC (default 03:15 UTC). Otherwise the in-process `start_knowledge_tasks()` lifecycle loop recomputes daily at the same hour. Both paths call `FeedbackService.recompute_weights()` with a fresh DB session via `get_db_context()`
+7. Feature-flagged via `knowledge_feedback_enabled` (default `True`). Disabling reverts to static RRF weights at both write (no feedback persisted) and read (tuned weights not consulted) paths
+8. Logging events: `knowledge.feedback.recorded`, `knowledge.rrf.recomputed`, `knowledge.rrf.recompute_failed`, `knowledge.rrf.tuned_weights_unavailable`, `knowledge.lifecycle.rrf_recompute_completed`
 
 ### Tag Management
 
@@ -200,8 +220,25 @@ Table: `document_chunks`
 | `parent_chunk_id` | Integer | FK -> document_chunks.id, CASCADE, nullable, indexed | Self-referential link from child paragraph chunks to their parent section chunk (AI-4.2). NULL for parents and standalone leaf chunks. |
 | `heading_path` | String(500) | Nullable | Heading hierarchy path (e.g. "Safety > Emergency Procedures > Route Deviation"). Promoted from `metadata_json` for direct column access. |
 | `section_type` | String(20) | Nullable | Structural classification: `"heading" \| "body" \| "list" \| "table"`. Used for retrieval boosting/filtering by structural role. |
+| `lemmatized_content` | Text | Nullable | KB-2: UDPipe-lemmatized form of `content` for Latvian docs. NULL for non-Latvian/legacy chunks — BM25 falls back to `content` via `COALESCE`. |
 | `created_at` | DateTime | Not null | Auto-set on create |
 | `updated_at` | DateTime | Not null | Auto-set on update |
+
+Table: `search_feedback` (KB-4)
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | Integer | PK | Primary key |
+| `query_hash` | String(64) | Not null, indexed | Stable hash of (normalized query, domain) returned on SearchResponse |
+| `query_type` | String(16) | Not null | Query classification: `keyword` / `semantic` / `mixed` |
+| `chunk_id` | Integer | FK -> document_chunks.id, CASCADE, indexed | Rated chunk |
+| `rank_source` | String(16) | Not null | Retrieval branch that surfaced the chunk: `vector` / `fulltext` / `both` |
+| `relevant` | Boolean | Not null | True for thumbs-up, False for thumbs-down |
+| `user_id` | Integer | FK -> users.id, SET NULL | Voter; NULLed when the user is deleted |
+| `created_at` | DateTime | Not null | Auto-set on create |
+| `updated_at` | DateTime | Not null | Auto-set on update |
+| | | Index `ix_search_feedback_qtype_created` on `(query_type, created_at)` | Supports the 30-day aggregation query in `feedback_counts()` |
+| | | Unique `(user_id, query_hash, chunk_id)` | One vote per user per chunk per query (second call upserts) |
 
 ## Business Rules
 
@@ -254,6 +291,7 @@ Table: `document_chunks`
 | DELETE | `/api/v1/knowledge/documents/{id}` | admin, editor | 10/min | Delete document, chunks, tags, and stored file |
 | GET | `/api/v1/knowledge/domains` | any authenticated | 30/min | List unique document domains with count |
 | POST | `/api/v1/knowledge/search` | any authenticated | 30/min | Hybrid search with reranking |
+| POST | `/api/v1/knowledge/search/{query_hash}/feedback` | any authenticated | 60/min | KB-4: record thumbs-up/down on a cited chunk |
 | GET | `/api/v1/knowledge/tags` | any authenticated | 30/min | List all tags sorted by name |
 | POST | `/api/v1/knowledge/tags` | admin, editor | 10/min | Create new tag (409 on duplicate) |
 | DELETE | `/api/v1/knowledge/tags/{tag_id}` | admin, editor | 10/min | Delete tag and all document associations |

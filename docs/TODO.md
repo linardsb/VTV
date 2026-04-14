@@ -235,13 +235,14 @@ Everything else is independent and can run in any order.
 
 | Subtask | Type | Realistic | Parallel? |
 |---------|------|-----------|-----------|
-| KB-1 PPTX extractor | BE | ~30min | ✅ Yes — independent |
-| KB-2 Latvian lemmatizer | BE | ~1.5h | ✅ Yes — independent |
+| ~~KB-1 PPTX extractor~~ | BE | ~30min | ✅ **DONE** (2026-04-14) |
+| ~~KB-2 Latvian lemmatizer~~ | BE | ~1.5h | ✅ **DONE** (2026-04-14) |
 | KB-3 Document versioning | BE | ~1.5h | ✅ Yes — independent |
-| KB-4 Search feedback loop | BE + FE | ~1.5h | ✅ Yes — independent |
+| ~~KB-4 Search feedback loop~~ | BE (CMS UI deferred) | ~1.5h | ✅ **DONE backend** (2026-04-14) |
 | KB-5 Entity/knowledge graph | BE | ~1.5h | ✅ Yes — independent |
 
-#### KB-1 PPTX Extractor
+#### ~~KB-1 PPTX Extractor~~ ✅ Implemented 2026-04-14
+**Plan:** `.agents/plans/kb-1-pptx-extractor.md`
 **What:** Add PowerPoint support to `app/knowledge/processing.py` — extract text from slides (titles, body, notes, tables, grouped shapes) preserving slide order and heading structure for the semantic chunker.
 **Why:** Operations teams share SOPs and training materials as PPTX. Currently these must be manually converted to PDF/DOCX before upload. PPTX is the last major office format missing (PDF, DOCX, XLSX, CSV, email, images already supported).
 **Implementation:**
@@ -254,7 +255,8 @@ Everything else is independent and can run in any order.
 - 8+ unit tests: basic extraction (1), tables in slides (1), notes extraction (1), grouped shapes (1), empty slides (1), heading structure (1), MIME type acceptance (1), round-trip with chunker (1)
 **Verify:** Upload a 20-slide PPTX with mixed content (titles, bullet lists, tables, speaker notes). Extracted text preserves slide order with markdown headings. Chunks have `heading_path` like "Slide 3: Safety Procedures > Evacuation Protocol". Search finds content from slide body text.
 
-#### KB-2 Latvian UDPipe Lemmatizer for BM25
+#### ~~KB-2 Latvian UDPipe Lemmatizer for BM25~~ ✅ Implemented 2026-04-14
+**Plan:** `.agents/plans/kb-2-latvian-udpipe-lemmatizer.md`
 **What:** Integrate UDPipe Latvian model into fulltext search to enable proper BM25 stemming. Current `to_tsvector('simple', ...)` treats Latvian as unstemmed tokens — "autobuss", "autobusam", "autobusu" are 3 separate terms. Lemmatization collapses them to "autobuss".
 **Why:** Latvian is a highly inflected language (7 noun cases, 6 verb conjugations). Without lemmatization, BM25 recall is ~40% lower than English on equivalent queries. This is the single highest-impact retrieval improvement remaining after HyDE.
 **Implementation:**
@@ -286,7 +288,9 @@ Everything else is independent and can run in any order.
 - 10+ unit tests: version creation (2), superseded marking (1), diff generation (2), search latest-only (2), search with superseded (1), version history endpoint (2)
 **Verify:** Upload "SOP-001.pdf" v1. Upload updated "SOP-001.pdf" — creates v2, v1 marked superseded. Search returns v2 by default. `GET /v1/documents/{id}/diff?v1=1&v2=2` shows unified diff. `GET /v1/documents/{id}/versions` lists both.
 
-#### KB-4 Search Feedback Loop
+#### ~~KB-4 Search Feedback Loop~~ ✅ Backend implemented 2026-04-14 (CMS UI deferred)
+**Plan:** `.agents/plans/kb-4-search-feedback-loop.md`
+**Shipped:** `search_feedback` table (migration `1f0fc7681339`), `app/knowledge/feedback.py` (`FeedbackService.record` / `recompute_weights` / `get_tuned_weights`), `app/knowledge/lifecycle.py` (in-process daily recompute loop with shutdown event), `run_rrf_recompute` arq cron job at hour:15 UTC, `POST /v1/knowledge/search/{query_hash}/feedback` (JWT + 60/min), `SearchResponse.query_hash` + `query_type`, `SearchResult.rank_source`, tuned-weight Redis lookup with fail-open to static config. 17 unit + 3 route tests. **CMS thumbs-up/down UI deferred** — `@vtv/sdk` regen + `/fe-planning add chat feedback buttons` when ready.
 **What:** Add thumbs-up/down feedback on search results. Aggregate feedback to auto-tune RRF weights per query type (keyword/semantic/mixed) — queries where users consistently prefer vector results shift weight toward vector, and vice versa.
 **Why:** RRF weights are currently static (configured in AI-1.3). Real usage patterns differ from assumptions — keyword-heavy queries may need more fulltext weight than the default. Feedback-driven tuning closes the loop without manual A/B testing.
 **Implementation:**

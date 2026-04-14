@@ -98,3 +98,8 @@ class DocumentChunk(Base, TimestampMixin):
     )
     heading_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     section_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # KB-2: UDPipe-lemmatized form of ``content``. Populated for Latvian
+    # documents so BM25 (`to_tsvector('simple', ...)`) matches inflected
+    # forms. NULL for non-Latvian docs and legacy chunks; the repository
+    # falls back to ``content`` via COALESCE.
+    lemmatized_content: Mapped[str | None] = mapped_column(Text, nullable=True)

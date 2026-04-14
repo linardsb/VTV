@@ -365,25 +365,38 @@ class KnowledgeRepository:
         language: str | None = None,
         created_after: datetime | None = None,
         created_before: datetime | None = None,
+        *,
+        lemmatized_query: str | None = None,
     ) -> list[tuple[DocumentChunk, Document, float]]:
         """Search chunks using PostgreSQL full-text search.
 
-        Uses 'simple' configuration (no language-specific stemming)
-        for cross-language support.
+        Uses 'simple' configuration (no built-in stemming). When
+        ``lemmatized_query`` is provided and a chunk has a pre-computed
+        ``lemmatized_content`` (KB-2, Latvian docs), BM25 runs against
+        the lemmatized text — so inflected Latvian forms match. Chunks
+        without ``lemmatized_content`` fall back to raw ``content`` via
+        COALESCE.
 
         Args:
-            query_text: Search text.
+            query_text: Raw search text (used when no lemmatized form provided).
             limit: Maximum results.
             domain: Optional domain filter.
             language: Optional language filter.
             created_after: Exclude documents created before this timestamp.
             created_before: Exclude documents created after this timestamp.
+            lemmatized_query: Pre-lemmatized query text. When provided, the
+                fulltext query runs against it; otherwise ``query_text`` is used.
 
         Returns:
             List of (chunk, document, rank) tuples sorted by rank descending.
         """
-        ts_query = func.plainto_tsquery(text("'simple'"), query_text)
-        ts_vector = func.to_tsvector(text("'simple'"), DocumentChunk.content)
+        query_param = lemmatized_query if lemmatized_query else query_text
+        ts_query = func.plainto_tsquery(text("'simple'"), query_param)
+        chunk_text_expr = func.coalesce(
+            DocumentChunk.lemmatized_content,
+            DocumentChunk.content,
+        )
+        ts_vector = func.to_tsvector(text("'simple'"), chunk_text_expr)
         rank = func.ts_rank(ts_vector, ts_query).label("rank")
 
         query = (

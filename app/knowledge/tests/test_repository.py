@@ -314,6 +314,65 @@ async def test_search_fulltext(repo: KnowledgeRepository, mock_db: AsyncMock) ->
     mock_db.execute.assert_awaited_once()
 
 
+# --- KB-2: BM25 uses lemmatized_query + COALESCE branch ---
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_search_fulltext_uses_lemmatized_query(
+    repo: KnowledgeRepository, mock_db: AsyncMock
+) -> None:
+    """When lemmatized_query is provided, it flows into the SQL bind params (KB-2)."""
+    doc = make_document(id=1, language="lv")
+    chunk = make_chunk(id=1, content="autobusu apkope", chunk_index=0)
+
+    mock_result = MagicMock()
+    mock_result.all.return_value = [(chunk, doc, 0.7)]
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    await repo.search_fulltext(
+        "autobusu apkope",
+        limit=5,
+        lemmatized_query="autobuss apkope",
+    )
+
+    mock_db.execute.assert_awaited_once()
+    compiled = mock_db.execute.await_args.args[0].compile(
+        compile_kwargs={"literal_binds": True},
+    )
+    rendered = str(compiled)
+    # The lemmatized query must be the tsquery argument
+    assert "autobuss apkope" in rendered
+    # COALESCE(lemmatized_content, content) must be the tsvector source
+    assert "COALESCE" in rendered.upper()
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_search_fulltext_falls_back_to_content_when_no_lemmatized_query(
+    repo: KnowledgeRepository, mock_db: AsyncMock
+) -> None:
+    """Without lemmatized_query, raw query_text is used and COALESCE still handles null."""
+    doc = make_document(id=1, language="en")
+    chunk = make_chunk(id=1, content="Route schedule", chunk_index=0)
+
+    mock_result = MagicMock()
+    mock_result.all.return_value = [(chunk, doc, 0.5)]
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    await repo.search_fulltext("route schedule", limit=5)
+
+    mock_db.execute.assert_awaited_once()
+    compiled = mock_db.execute.await_args.args[0].compile(
+        compile_kwargs={"literal_binds": True},
+    )
+    rendered = str(compiled)
+    # Raw query is passed to tsquery
+    assert "route schedule" in rendered
+    # COALESCE still wraps the chunk text column so null lemmatized rows fall through
+    assert "COALESCE" in rendered.upper()
+
+
 # --- Test 8: Search with domain filter isolation ---
 
 

@@ -1,4 +1,4 @@
-.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run weather-backfill traffic-backfill er-diagram gtfs-backfill seed-schema-examples ml-train-eta ml-train-load
+.PHONY: bootstrap dev dev-be dev-fe docker docker-down docker-prod docker-prod-down test lint types check db db-backup db-backup-auto db-restore e2e e2e-all e2e-ui e2e-headed install-hooks security-check security-audit-quick security-audit security-audit-full dep-audit deploy deploy-quick rechunk rechunk-dry-run download-udpipe-model lemmatize-backfill lemmatize-backfill-dry-run weather-backfill traffic-backfill er-diagram gtfs-backfill seed-schema-examples ml-train-eta ml-train-load
 
 # === Local Development (terminals) ===
 
@@ -103,6 +103,15 @@ rechunk: ## Re-chunk all documents with the new SemanticChunker (one-shot AI-4.4
 
 rechunk-dry-run: ## Preview re-chunking without modifying the database
 	uv run python scripts/rechunk_documents.py --dry-run
+
+download-udpipe-model: ## Fetch the Latvian UDPipe 2.5 model (KB-2, ~50MB)
+	bash scripts/download_udpipe_model.sh
+
+lemmatize-backfill: ## Backfill lemmatized_content on chunks of Latvian docs (KB-2)
+	uv run python scripts/backfill_lemmatized_content.py
+
+lemmatize-backfill-dry-run: ## Preview lemmatization backfill without writes (KB-2)
+	uv run python scripts/backfill_lemmatized_content.py --dry-run
 
 eticket-backfill: ## Backfill single month (usage: make eticket-backfill MONTH=2026-01)
 	@test -n "$(MONTH)" || (echo "Usage: make eticket-backfill MONTH=2026-01" && exit 1)
