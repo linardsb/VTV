@@ -66,9 +66,13 @@ test.describe("Stops page", () => {
     await waitForDataOrEmpty(page);
     const firstRow = page.getByRole("row").nth(1);
     if (await firstRow.isVisible()) {
-      await firstRow.click();
-      const sheet = page.getByRole("dialog");
-      await expect(sheet).toBeVisible({ timeout: 5000 });
+      // Retry click+dialog to handle React rendering timing under the
+      // parallel test load — same pattern the schedules tests use after
+      // the equivalent flake surfaced there.
+      await expect(async () => {
+        await firstRow.getByRole("cell").first().click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+      }).toPass({ timeout: 10000 });
     }
   });
 

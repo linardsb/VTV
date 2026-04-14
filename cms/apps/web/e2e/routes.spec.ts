@@ -88,8 +88,10 @@ test.describe("Routes page", () => {
     if (!(await hasDataTable(page))) return; // No data — skip
     const rows = page.getByRole("row");
     if ((await rows.count()) > 1) {
-      const nextButton = page.getByRole("button", { name: /next|nākamā/i });
-      await expect(nextButton).toBeVisible();
+      // shadcn/ui PaginationNext renders as <a aria-label="Go to next page">
+      // so the element has role=link, not role=button. Match by aria-label.
+      const nextButton = page.getByLabel(/next page|go to next|nākamā/i);
+      await expect(nextButton.first()).toBeVisible();
     }
   });
 
