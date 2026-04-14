@@ -184,7 +184,14 @@ def setup_logging(log_level: str = "INFO") -> None:
         wrapper_class=structlog.make_filtering_bound_logger(level_int),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
-        cache_logger_on_first_use=True,
+        # False so structlog.testing.capture_logs() can intercept events
+        # emitted through module-level `logger = get_logger(__name__)`
+        # proxies. With caching on, the proxy binds its processor chain on
+        # first use; capture_logs() swaps the global config but the bound
+        # logger keeps its stale chain and writes to stdout instead of the
+        # LogCapture processor. The per-call rebind overhead is microseconds
+        # and is dominated by any realistic log sink (I/O or JSON render).
+        cache_logger_on_first_use=False,
     )
 
 
