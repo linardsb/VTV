@@ -188,7 +188,7 @@ async def test_listener_reconnects_with_backoff(
 
     call_count = 0
 
-    async def _fake_connect(*_args: object, **_kwargs: object) -> None:
+    def _fake_connect(*_args: object, **_kwargs: object) -> None:
         nonlocal call_count
         call_count += 1
         if call_count == 1:
@@ -197,7 +197,7 @@ async def test_listener_reconnects_with_backoff(
         shutdown.set()
         raise ConnectionError("WS unavailable again")
 
-    async def _fake_sleep(seconds: float) -> None:
+    def _fake_sleep(seconds: float) -> None:
         sleep_calls.append(seconds)
 
     settings = _make_settings()
@@ -230,14 +230,14 @@ async def test_listener_backoff_caps_at_max(
     call_count = 0
     max_failures = 10
 
-    async def _fake_connect(*_args: object, **_kwargs: object) -> None:
+    def _fake_connect(*_args: object, **_kwargs: object) -> None:
         nonlocal call_count
         call_count += 1
         if call_count >= max_failures:
             shutdown.set()
         raise ConnectionError("WS unavailable")
 
-    async def _fake_sleep(seconds: float) -> None:
+    def _fake_sleep(seconds: float) -> None:
         sleep_calls.append(seconds)
 
     settings = _make_settings()
@@ -268,7 +268,7 @@ async def test_listener_cancellation_exits_cleanly(
     """CancelledError during connect exits cleanly (no infinite loop)."""
     mock_get_redis.return_value = MagicMock()
 
-    async def _fake_connect(*_args: object, **_kwargs: object) -> None:
+    def _fake_connect(*_args: object, **_kwargs: object) -> None:
         raise asyncio.CancelledError
 
     settings = _make_settings()
