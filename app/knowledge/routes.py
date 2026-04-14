@@ -10,11 +10,13 @@ from fastapi.requests import Request
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import require_role
+from app.auth.dependencies import get_current_user, require_role
 from app.auth.models import User
 from app.core.database import get_db
 from app.core.rate_limit import limiter
+from app.core.redis import get_redis
 from app.knowledge.exceptions import DuplicateTagError
+from app.knowledge.feedback import FeedbackService
 from app.knowledge.schemas import (
     DocumentContentResponse,
     DocumentDiffResponse,
@@ -24,6 +26,9 @@ from app.knowledge.schemas import (
     DocumentUpload,
     DocumentVersionItem,
     DomainListResponse,
+    QueryType,
+    RankSource,
+    SearchFeedbackCreate,
     SearchRequest,
     SearchResponse,
     TagCreate,
@@ -405,3 +410,38 @@ async def search_knowledge(
     """Search the knowledge base with hybrid vector + fulltext search."""
     _ = request
     return await service.search(body)
+
+
+# ---------------------------------------------------------------------------
+# KB-4: feedback on search results
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/search/{query_hash}/feedback",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+@limiter.limit("60/minute")
+async def submit_search_feedback(
+    request: Request,
+    query_hash: str,
+    body: SearchFeedbackCreate,
+    query_type: QueryType = Query(...),  # noqa: B008
+    rank_source: RankSource = Query(...),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    current_user: User = Depends(get_current_user),  # noqa: B008
+) -> None:
+    """Record a thumbs-up/down signal for a cited chunk (KB-4)."""
+    _ = request
+    if not re.fullmatch(r"[0-9a-f]{32}", query_hash):
+        raise HTTPException(status_code=422, detail="query_hash must be 32 hex chars")
+    redis = await get_redis()
+    service = FeedbackService(db, redis)
+    await service.record(
+        user_id=current_user.id,
+        query_hash=query_hash,
+        query_type=query_type,
+        chunk_id=body.chunk_id,
+        rank_source=rank_source,
+        relevant=body.relevant,
+    )

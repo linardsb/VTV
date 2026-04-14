@@ -20,6 +20,7 @@ from arq.worker import Function
 from app.core.config import get_settings
 from app.core.jobs.queue import _parse_redis_settings
 from app.core.logging import get_logger, setup_logging
+from app.knowledge.lifecycle import _run_recompute as _run_rrf
 from app.memory.lifecycle import _run_compaction, _run_promotion
 
 logger = get_logger(__name__)
@@ -81,6 +82,24 @@ async def run_daily_adherence(ctx: dict[str, Any]) -> dict[str, str]:
         raise
 
 
+async def run_rrf_recompute(ctx: dict[str, Any]) -> dict[str, str]:
+    """Execute one KB-4 RRF-weight recompute cycle via arq.
+
+    Args:
+        ctx: Arq worker context dict.
+
+    Returns:
+        Dict with execution status.
+    """
+    _ = ctx
+    try:
+        await _run_rrf()
+        return {"status": "completed"}
+    except Exception:
+        logger.error("jobs.worker.rrf_recompute_failed", exc_info=True)
+        raise
+
+
 async def on_startup(ctx: dict[str, Any]) -> None:
     """Worker startup hook - initialize logging."""
     _ = ctx
@@ -103,6 +122,8 @@ def _build_cron_jobs() -> list[CronJob]:
     promotion_hour = {settings.arq_promotion_cron_hour}
 
     adherence_hour = {settings.analytics_adherence_cron_hour}
+
+    rrf_hour = {settings.knowledge_rrf_recompute_cron_hour}
 
     return [
         cron(
@@ -129,6 +150,14 @@ def _build_cron_jobs() -> list[CronJob]:
             run_at_startup=False,
             unique=True,
         ),
+        cron(
+            run_rrf_recompute,
+            hour=rrf_hour,
+            minute={15},
+            second={0},
+            run_at_startup=False,
+            unique=True,
+        ),
     ]
 
 
@@ -150,6 +179,7 @@ class WorkerSettings:
         run_compaction,
         run_promotion,
         run_daily_adherence,
+        run_rrf_recompute,
     ]
     cron_jobs: ClassVar[Sequence[CronJob]] = _build_cron_jobs()
     redis_settings: ClassVar[RedisSettings] = _build_redis_settings()

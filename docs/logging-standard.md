@@ -537,7 +537,8 @@ jobs.
 │   ├── stopped                             # Arq worker stopped
 │   ├── compaction_failed                   # Memory compaction job failed (fields: error)
 │   ├── promotion_failed                    # Memory promotion job failed (fields: error)
-│   └── daily_adherence_failed              # Daily adherence job failed (fields: error)
+│   ├── daily_adherence_failed              # Daily adherence job failed (fields: error)
+│   └── rrf_recompute_failed                # KB-4 RRF weight recompute job failed (fields: error)
 └── queue.
     ├── lifecycle_started                   # Queue system initialized
     ├── pool_initialized                    # Redis pool created (fields: pool_size)

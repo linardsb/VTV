@@ -866,9 +866,7 @@ class KnowledgeRepository:
 
     async def chunk_exists(self, chunk_id: int) -> bool:
         """Return True if a document chunk with ``chunk_id`` exists."""
-        result = await self.db.execute(
-            select(DocumentChunk.id).where(DocumentChunk.id == chunk_id)
-        )
+        result = await self.db.execute(select(DocumentChunk.id).where(DocumentChunk.id == chunk_id))
         return result.scalar_one_or_none() is not None
 
     async def upsert_feedback(
@@ -904,9 +902,7 @@ class KnowledgeRepository:
         await self.db.execute(stmt)
         await self.db.commit()
 
-    async def feedback_counts(
-        self, *, since: datetime
-    ) -> dict[tuple[str, str], dict[str, int]]:
+    async def feedback_counts(self, *, since: datetime) -> dict[tuple[str, str], dict[str, int]]:
         """Return ``{(query_type, rank_source): {"up": N, "down": N}}`` since ``since``."""
         stmt = (
             select(

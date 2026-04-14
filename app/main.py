@@ -50,6 +50,7 @@ from app.events.routes import router as events_router
 from app.fleet.routes import router as fleet_router
 from app.geofences.evaluator import start_geofence_evaluator, stop_geofence_evaluator
 from app.geofences.routes import router as geofences_router
+from app.knowledge.lifecycle import start_knowledge_tasks, stop_knowledge_tasks
 from app.knowledge.routes import router as knowledge_router
 from app.memory.lifecycle import start_memory_tasks, stop_memory_tasks
 from app.memory.routes import router as memory_router
@@ -145,6 +146,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
     # Start memory background tasks (compaction + promotion)
     await start_memory_tasks()
+
+    # Start knowledge RRF recompute loop (KB-4, in-process fallback)
+    await start_knowledge_tasks()
 
     # Initialize arq pool for durable job queue (OPS-3.2)
     if settings.background_queue_enabled:
@@ -266,6 +270,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     )
     coordinator.register(
         ShutdownTask(name="memory_tasks", drain_timeout_s=5.0, drain=stop_memory_tasks)
+    )
+    coordinator.register(
+        ShutdownTask(name="knowledge_tasks", drain_timeout_s=5.0, drain=stop_knowledge_tasks)
     )
     coordinator.register(
         ShutdownTask(name="adherence_task", drain_timeout_s=3.0, drain=stop_adherence_task)

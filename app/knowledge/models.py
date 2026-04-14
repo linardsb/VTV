@@ -200,7 +200,5 @@ class SearchFeedback(Base, TimestampMixin):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "user_id", "query_hash", "chunk_id", name="uq_feedback_user_query_chunk"
-        ),
+        UniqueConstraint("user_id", "query_hash", "chunk_id", name="uq_feedback_user_query_chunk"),
     )
