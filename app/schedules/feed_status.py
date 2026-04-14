@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 
-from sqlalchemy import Boolean, Integer, String, select
+from sqlalchemy import Boolean, DateTime, Integer, String, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,7 +25,13 @@ class GTFSFeedStatus(Base, TimestampMixin):
     feed_id: Mapped[str] = mapped_column(String(50), primary_key=True)
     operator_name: Mapped[str] = mapped_column(String(200), nullable=False)
     static_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    last_imported_at: Mapped[datetime.datetime | None] = mapped_column(nullable=True)
+    # timezone=True matches the Alembic migration (s3t4u5v6w7x8) which
+    # created this column as TIMESTAMP WITH TIME ZONE. Without it, SQLAlchemy
+    # infers DateTime() (tz-naive) from the annotation, and asyncpg refuses
+    # to encode a tz-aware `utcnow()` value into a tz-naive column.
+    last_imported_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     last_import_routes: Mapped[int] = mapped_column(Integer, default=0)
     last_import_trips: Mapped[int] = mapped_column(Integer, default=0)
     last_import_error: Mapped[str | None] = mapped_column(String(2000), nullable=True)
