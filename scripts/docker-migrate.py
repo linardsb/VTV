@@ -93,7 +93,12 @@ async def auto_import_gtfs() -> None:
     print(f"[migrate] Downloading GTFS from {gtfs_url}...")
     start = time.time()
     try:
-        urllib.request.urlretrieve(gtfs_url, gtfs_path, timeout=120)  # noqa: S310
+        # urlretrieve() does not accept a `timeout` kwarg (never has); the
+        # previous call raised TypeError and we silently skipped the import.
+        # urlopen does accept timeout, so stream the bytes into the file
+        # ourselves.
+        with urllib.request.urlopen(gtfs_url, timeout=120) as response:  # noqa: S310
+            gtfs_path.write_bytes(response.read())
     except Exception as e:
         print(f"[migrate] ERROR: GTFS download failed: {e}")
         print("[migrate] Continuing without GTFS data - import manually later")
