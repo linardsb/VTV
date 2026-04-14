@@ -1,4 +1,4 @@
-# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportMissingImports=false, reportAttributeAccessIssue=false
+# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportMissingImports=false, reportAttributeAccessIssue=false
 """Entity extractor for KB-5 knowledge-graph overlay.
 
 Three providers compose behind the :class:`EntityExtractor` protocol:

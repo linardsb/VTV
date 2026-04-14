@@ -505,7 +505,7 @@ class KnowledgeService:
         collected: dict[tuple[str, str], ExtractedEntity] = {}
         per_chunk: list[tuple[int, list[ExtractedEntity]]] = []
         for chunk in chunks:
-            if not chunk.content or chunk.id is None:
+            if not chunk.content:
                 continue
             try:
                 mentions = extractor.extract(chunk.content, language)

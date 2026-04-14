@@ -39,7 +39,9 @@ class ChunkResult:
     # KB-5: populated by the service ingest path (NOT by ``chunk_text``
     # itself, which stays pure and dependency-free). Empty list = no entities
     # extracted or extraction disabled.
-    entity_mentions: list[ExtractedEntity] = field(default_factory=list)
+    entity_mentions: list[ExtractedEntity] = field(
+        default_factory=lambda: list["ExtractedEntity"]()
+    )
 
 
 def chunk_text(
