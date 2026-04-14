@@ -1,4 +1,13 @@
-"""Create admin user directly in the database."""
+"""Create admin user directly in the database.
+
+Reads DEMO_USER_PASSWORD from env so local dev, CI, and the backend's
+own seed path (app.auth.service.AuthService.seed_demo_users) share a
+single source of truth for the admin password. Falls back to 'admin'
+for legacy callers that don't set the env var.
+
+ON CONFLICT DO NOTHING — re-running after the user exists is a no-op
+so this is safe to call unconditionally after services are healthy.
+"""
 
 import asyncio
 import os
@@ -10,9 +19,10 @@ from sqlalchemy.orm import sessionmaker
 
 
 async def go() -> None:
+    password = os.environ.get("DEMO_USER_PASSWORD", "admin")
     engine = create_async_engine(os.environ["DATABASE_URL"])
     Session = sessionmaker(engine, class_=AsyncSession)
-    pw = bcrypt.hashpw(b"admin", bcrypt.gensalt()).decode()
+    pw = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     sql = (
         "INSERT INTO users (email, hashed_password, name, role, is_active, failed_attempts, created_at, updated_at)"
         " VALUES (:e, :p, :n, :r, true, 0, now(), now())"
@@ -21,7 +31,7 @@ async def go() -> None:
     async with Session() as s:
         await s.execute(text(sql), {"e": "admin@vtv.lv", "p": pw, "n": "Admin", "r": "admin"})
         await s.commit()
-        print("Admin user created: admin@vtv.lv / admin")
+        print(f"Admin user ensured: admin@vtv.lv (password length {len(password)})")
     await engine.dispose()
 
 

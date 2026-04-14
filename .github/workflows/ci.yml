@@ -206,6 +206,18 @@ jobs:
           timeout 120 bash -c 'until curl -sf http://localhost:80; do sleep 5; done'
           echo "Frontend healthy"
 
+      - name: Seed admin user for Playwright auth.setup
+        # scripts/seed_admin.py inserts admin@vtv.lv with DEMO_USER_PASSWORD
+        # directly via SQL (ON CONFLICT DO NOTHING). The `/v1/auth/seed`
+        # HTTP endpoint is admin-only, so it can't bootstrap itself; and
+        # the app's lifespan does not auto-seed. Playwright's
+        # e2e/auth.setup.ts logs in as admin@vtv.lv, so without this step
+        # auth.js returns CredentialsSignin and the whole suite fails
+        # before the first test assertion.
+        run: docker compose exec -T app python scripts/seed_admin.py
+        env:
+          DEMO_USER_PASSWORD: e2e-test-password
+
       - name: Run Playwright tests
         working-directory: cms/apps/web
         run: npx playwright test
