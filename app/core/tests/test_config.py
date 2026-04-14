@@ -52,6 +52,8 @@ def test_settings_from_environment() -> None:
             "LOG_LEVEL": "DEBUG",
             "API_PREFIX": "/v1",
             "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/test",
+            # Production validator requires non-default JWT_SECRET_KEY.
+            "JWT_SECRET_KEY": "test-production-secret-not-default",
         },
     ):
         settings = create_settings()
