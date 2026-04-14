@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import useSWR from "swr";
 import type { BusPosition } from "@/types/route";
 import { getToken } from "@/lib/auth-fetch";
+import { apiBase as getApiBase } from "@/lib/api-base";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,7 +106,11 @@ function mapVehicle(
 
 /** Derive WebSocket URL from the REST API base URL. */
 function getWsUrl(apiBase: string): string {
-  const url = new URL(apiBase);
+  // Empty base = same-origin (browser context with nginx in front). Use
+  // the current page origin so the ws:// upgrade routes through nginx.
+  const base =
+    apiBase || (typeof window !== "undefined" ? window.location.origin : "");
+  const url = new URL(base);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   url.pathname = "/ws/transit/vehicles";
   return url.toString();
@@ -129,7 +134,7 @@ export function useVehiclePositions(
   const {
     interval = 10_000,
     colorMap = {},
-    apiBase = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123",
+    apiBase = getApiBase(),
     routeFilter,
     feedFilter,
   } = options;

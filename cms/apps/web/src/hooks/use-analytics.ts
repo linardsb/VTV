@@ -3,8 +3,9 @@
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import type { AnalyticsOverviewResponse } from "@/types/analytics";
+import { apiBase } from "@/lib/api-base";
 
-const API_BASE = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
+const API_BASE = apiBase();
 
 export function useAnalyticsOverview() {
   const { status } = useSession();

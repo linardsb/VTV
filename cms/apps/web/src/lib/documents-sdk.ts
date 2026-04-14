@@ -18,6 +18,7 @@ import {
   listDomainsApiV1KnowledgeDomainsGet,
 } from "@vtv/sdk";
 import { authFetch } from "@/lib/auth-fetch";
+import { apiBase } from "@/lib/api-base";
 import type {
   DocumentItem,
   DocumentContentResponse,
@@ -28,7 +29,7 @@ import type {
 } from "@/types/document";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
+  apiBase();
 
 /** Error thrown when the documents API returns a non-OK response. */
 export class DocumentsApiError extends Error {

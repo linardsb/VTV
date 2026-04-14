@@ -7,6 +7,7 @@
  */
 
 import { authFetch } from "@/lib/auth-fetch";
+import { apiBase } from "@/lib/api-base";
 import type {
   Geofence,
   GeofenceCreate,
@@ -16,7 +17,7 @@ import type {
   DwellTimeReport,
 } from "@/types/geofence";
 
-const BASE = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
+const BASE = apiBase();
 
 export class GeofencesApiError extends Error {
   status: number;

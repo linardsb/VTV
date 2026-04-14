@@ -16,12 +16,13 @@ import {
 import { authFetch } from "@/lib/auth-fetch";
 import { cn } from "@/lib/utils";
 import type { OnTimePerformanceResponse } from "@/types/analytics";
+import { apiBase } from "@/lib/api-base";
 
 interface PerformanceOverviewProps {
   data: OnTimePerformanceResponse;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
+const API_BASE = apiBase();
 
 function onTimeColor(pct: number): string {
   if (pct >= 90) return "text-status-ontime";

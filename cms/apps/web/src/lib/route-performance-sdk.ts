@@ -7,6 +7,7 @@
  */
 
 import { authFetch } from "@/lib/auth-fetch";
+import { apiBase } from "@/lib/api-base";
 import type {
   RoutePerformanceTrendResponse,
   RouteDelayByStopResponse,
@@ -14,7 +15,7 @@ import type {
   RouteAnomalyResponse,
 } from "@/types/analytics";
 
-const BASE = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
+const BASE = apiBase();
 
 export class RoutePerformanceApiError extends Error {
   status: number;

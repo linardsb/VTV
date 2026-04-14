@@ -7,6 +7,7 @@
  */
 
 import { authFetch } from "@/lib/auth-fetch";
+import { apiBase } from "@/lib/api-base";
 import type {
   TrackedDevice,
   TrackedDeviceCreate,
@@ -16,7 +17,7 @@ import type {
   TelemetryHistoryPoint,
 } from "@/types/fleet";
 
-const BASE = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
+const BASE = apiBase();
 
 export class FleetApiError extends Error {
   status: number;

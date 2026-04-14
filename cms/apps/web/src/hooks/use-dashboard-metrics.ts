@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { authFetch } from "@/lib/auth-fetch";
+import { apiBase } from "@/lib/api-base";
 
 interface VehicleApiResponse {
   count: number;
@@ -39,7 +40,7 @@ interface UseDashboardMetricsResult {
   error: string | null;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
+const API_BASE = apiBase();
 
 export function useDashboardMetrics(): UseDashboardMetricsResult {
   const { status } = useSession();

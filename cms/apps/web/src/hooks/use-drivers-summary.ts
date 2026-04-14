@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import type { Driver } from "@/types/driver";
 import { authFetch } from "@/lib/auth-fetch";
+import { apiBase as getApiBase } from "@/lib/api-base";
 
 interface UseDriversSummaryResult {
   drivers: Driver[];
@@ -13,8 +14,7 @@ interface UseDriversSummaryResult {
 const POLL_INTERVAL = 120_000; // 2 minutes
 
 export function useDriversSummary(): UseDriversSummaryResult {
-  const apiBase =
-    process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
+  const apiBase = getApiBase();
   const { status } = useSession();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState(true);

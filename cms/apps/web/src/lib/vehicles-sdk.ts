@@ -7,6 +7,7 @@
  */
 
 import { authFetch } from "@/lib/auth-fetch";
+import { apiBase } from "@/lib/api-base";
 import type {
   Vehicle,
   VehicleCreate,
@@ -17,7 +18,7 @@ import type {
   PaginatedMaintenanceRecords,
 } from "@/types/vehicle";
 
-const BASE = process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
+const BASE = apiBase();
 
 export class VehiclesApiError extends Error {
   status: number;

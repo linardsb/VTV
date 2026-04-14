@@ -11,9 +11,10 @@ import { authFetch } from "@/lib/auth-fetch";
 import { fetchAgencies, fetchRoutes, fetchCalendars, fetchTrips } from "@/lib/schedules-sdk";
 import { fetchStops } from "@/lib/stops-sdk";
 import type { GTFSStats, GTFSFeed, ExportMetadata } from "@/types/gtfs";
+import { apiBase } from "@/lib/api-base";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_AGENT_URL ?? "http://localhost:8123";
+  apiBase();
 
 /** Error thrown when a GTFS API request fails. */
 export class GTFSApiError extends Error {
