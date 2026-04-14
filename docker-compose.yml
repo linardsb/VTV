@@ -250,6 +250,12 @@ services:
     build:
       context: ./cms
       dockerfile: apps/web/Dockerfile
+      # NEXT_PUBLIC_* env vars are baked into the Next.js bundle at build
+      # time — the runtime `environment:` value arrives too late for
+      # server-side auth.ts's `process.env.NEXT_PUBLIC_AGENT_URL`. Pass it
+      # as a build arg so the bundle contains the right URL before runtime.
+      args:
+        NEXT_PUBLIC_AGENT_URL: http://app:8123
     # SECURITY: Internal only - nginx proxies traffic. Uncomment ports for direct access during dev.
     expose:
       - "3000"
