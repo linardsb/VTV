@@ -121,6 +121,14 @@ async def auto_import_gtfs() -> None:
         async with session_factory() as session:
             service = ScheduleService(session)
             result = await service.import_gtfs(gtfs_path.read_bytes())
+    except Exception as e:
+        # Never let a GTFS import bug take down the whole stack — the app
+        # boots fine without schedule data, schedule-dependent e2e tests
+        # will surface the issue on their own. migrate must not exit 1 on
+        # optional seed failures.
+        print(f"[migrate] ERROR: GTFS import failed: {e}")
+        print("[migrate] Continuing without GTFS data - import manually later")
+        return
     finally:
         await engine.dispose()
 
