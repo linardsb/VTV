@@ -69,6 +69,11 @@ dev = [
     "detect-secrets>=1.5.0",
     "pandas-stubs>=2.2.0",
 ]
+# KB-5 optional NER (spaCy PERSON/ORG). Install with `uv sync --group ner`.
+# Not included in default dev sync or CI to keep cold-install fast.
+ner = [
+    "spacy>=3.7,<4.0",
+]
 
 [tool.uv]
 # Force security patches for transitive dependencies flagged by pip-audit.
@@ -311,6 +316,16 @@ ignore_missing_imports = true
 # Modules that call ufal.udpipe APIs (untyped library)
 [[tool.mypy.overrides]]
 module = "app.knowledge.lemmatizer"
+disallow_untyped_calls = false
+
+# KB-5: spaCy is optional (ner dep group); no stubs available
+[[tool.mypy.overrides]]
+module = ["spacy", "spacy.*"]
+ignore_missing_imports = true
+
+# KB-5: entity_extractor calls optional spaCy APIs
+[[tool.mypy.overrides]]
+module = "app.knowledge.entity_extractor"
 disallow_untyped_calls = false
 
 [tool.pytest.ini_options]

@@ -95,6 +95,20 @@ class TestPredictEta:
 
         ctx = _make_ctx(db_session_factory=mock_factory)
 
+        # setup_logging() runs with cache_logger_on_first_use=True, so the
+        # module-level `logger = get_logger(__name__)` in predict_eta.py
+        # caches its processor chain on first use. When an earlier test in
+        # the full suite triggers that first use, the cached processors
+        # bypass capture_logs() and events go straight to stdout. Reset
+        # defaults and re-bind the module logger so the capture context's
+        # LogCapture processor is what the emit actually hits.
+        import structlog as _structlog
+
+        import app.core.agents.tools.transit.predict_eta as _pe
+
+        _structlog.reset_defaults()
+        _pe.logger = _structlog.get_logger(_pe.__name__)
+
         with structlog.testing.capture_logs() as cap_logs:
             await predict_eta(ctx, "4521", "a0072")
 

@@ -21,6 +21,7 @@ from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
 from app.knowledge import chunking, hyde, processing
 from app.knowledge.embedding import EmbeddingProvider, get_embedding_provider
+from app.knowledge.entity_extractor import EntityExtractor, get_entity_extractor
 from app.knowledge.exceptions import (
     DocumentNotFoundError,
     DocumentVersionConflictError,
@@ -42,6 +43,7 @@ from app.knowledge.schemas import (
     DocumentUpload,
     DocumentVersionItem,
     DomainListResponse,
+    ExtractedEntity,
     SearchRequest,
     SearchResponse,
     SearchResult,
@@ -466,7 +468,75 @@ class KnowledgeService:
         # Phase 3: commit children + leaves (parents commit with this transaction)
         await self.repository.bulk_create_chunks(child_and_leaf_objects)
 
+        # KB-5: extract entities from each persisted chunk and record mentions.
+        # Fail-open — single-chunk extraction failures are logged and skipped
+        # so chunk ingest stays durable.
+        if settings.entity_extraction_enabled:
+            try:
+                extractor = await get_entity_extractor()
+                await self._record_chunk_entities(
+                    chunks=[*parent_objects, *child_and_leaf_objects],
+                    extractor=extractor,
+                    language=language,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "knowledge.ingest.entity_extraction_failed",
+                    document_id=document_id,
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+
         return len(chunks)
+
+    async def _record_chunk_entities(
+        self,
+        *,
+        chunks: list[DocumentChunk],
+        extractor: EntityExtractor,
+        language: str,
+    ) -> None:
+        """Extract + persist entity mentions for the given chunks (KB-5).
+
+        Groups extracted entities by the ``(entity_type, normalized_name)``
+        pair, upserts them in one round-trip, then inserts the mention rows
+        in batches. Per-chunk failures are swallowed with a warning.
+        """
+        collected: dict[tuple[str, str], ExtractedEntity] = {}
+        per_chunk: list[tuple[int, list[ExtractedEntity]]] = []
+        for chunk in chunks:
+            if not chunk.content:
+                continue
+            try:
+                mentions = extractor.extract(chunk.content, language)
+            except Exception as exc:
+                logger.warning(
+                    "knowledge.entity_extractor.chunk_failed",
+                    chunk_id=chunk.id,
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+                continue
+            if not mentions:
+                continue
+            per_chunk.append((chunk.id, mentions))
+            for mention in mentions:
+                key = (mention.entity_type, mention.normalized_name)
+                collected.setdefault(key, mention)
+
+        if not collected:
+            return
+
+        id_map = await self.repository.upsert_entities(list(collected.values()))
+        for chunk_id, mentions in per_chunk:
+            triples: list[tuple[int, int, str]] = []
+            for mention in mentions:
+                entity_id = id_map.get((mention.entity_type, mention.normalized_name))
+                if entity_id is None:
+                    continue
+                triples.append((entity_id, mention.mention_count, mention.extraction_method))
+            if triples:
+                await self.repository.record_mentions(chunk_id, triples)
 
     async def rechunk_document(self, document_id: int) -> int:
         """Re-chunk a single document using the current chunking config.
@@ -736,6 +806,41 @@ class KnowledgeService:
             )
             chunk_scores[chunk_id] *= boost
 
+        # KB-5: entity boost — multiply scores of chunks sharing entities
+        # with the query. Fails open (pure RRF + temporal) on any error.
+        if settings.entity_boost_enabled and settings.entity_extraction_enabled:
+            try:
+                extractor = await get_entity_extractor()
+                query_entities = extractor.extract(request.query[:500], request.language or "lv")
+                if query_entities:
+                    query_entity_ids = await self.repository.get_entity_ids_for_names(
+                        [(e.entity_type, e.normalized_name) for e in query_entities]
+                    )
+                    if query_entity_ids:
+                        chunk_entity_map = await self.repository.get_entity_ids_for_chunks(
+                            list(chunk_scores.keys())
+                        )
+                        boost_mult = settings.entity_boost_multiplier
+                        boosted = 0
+                        for cid in chunk_scores:
+                            shared = chunk_entity_map.get(cid, frozenset()) & query_entity_ids
+                            if shared:
+                                chunk_scores[cid] *= boost_mult
+                                boosted += 1
+                        logger.info(
+                            "knowledge.search.entity_boost_applied",
+                            query_entity_count=len(query_entities),
+                            matched_entity_ids=len(query_entity_ids),
+                            boosted_chunks=boosted,
+                            multiplier=boost_mult,
+                        )
+            except Exception as exc:
+                logger.warning(
+                    "knowledge.search.entity_boost_failed",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+
         # Sort by boosted RRF score
         sorted_ids = sorted(chunk_scores.keys(), key=lambda cid: chunk_scores[cid], reverse=True)
         total_candidates = len(sorted_ids)
@@ -825,6 +930,35 @@ class KnowledgeService:
                 parent_count=parent_count,
                 unique_parents=unique_parents,
             )
+
+        # KB-5: populate SearchResult.entities for surfacing to clients.
+        if settings.entity_extraction_enabled and results:
+            try:
+                top_chunk_ids: list[int] = []
+                result_chunk_ids: dict[int, int] = {}
+                for r in results:
+                    for cid, (chunk, _doc) in chunk_data.items():
+                        if (
+                            chunk.document_id == r.document_id
+                            and chunk.chunk_index == r.chunk_index
+                        ):
+                            top_chunk_ids.append(cid)
+                            result_chunk_ids[id(r)] = cid
+                            break
+                name_map = await self.repository.get_entity_names_for_chunks(top_chunk_ids)
+                for r in results:
+                    resolved_cid = result_chunk_ids.get(id(r))
+                    if resolved_cid is None:
+                        continue
+                    names = name_map.get(resolved_cid)
+                    if names:
+                        r.entities = names
+            except Exception as exc:
+                logger.warning(
+                    "knowledge.search.entity_names_failed",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
 
         duration_ms = int((time.monotonic() - start) * 1000)
         logger.info(
