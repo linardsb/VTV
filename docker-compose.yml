@@ -265,6 +265,12 @@ services:
       - NEXT_PUBLIC_AGENT_URL=http://app:8123
       - AUTH_SECRET=${AUTH_SECRET:?AUTH_SECRET must be set}
       - AUTH_TRUST_HOST=true
+      # Canonical external URL for Auth.js redirect construction. Without
+      # this, Auth.js falls back to the server's HOSTNAME:PORT (0.0.0.0:3000
+      # in standalone mode) and post-login redirects end up at an
+      # unreachable address, producing chrome-error://chromewebdata/ in
+      # Playwright. Must match the browser-facing origin (nginx port 80).
+      - AUTH_URL=${AUTH_URL:-http://localhost}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000 || exit 1"]
       interval: 10s
