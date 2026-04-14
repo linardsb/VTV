@@ -258,7 +258,7 @@ jobs:
           echo ""
           for svc in db redis migrate app cms nginx; do
             echo "=== logs: $svc ==="
-            docker compose logs --tail=300 "$svc" 2>&1 || true
+            docker compose logs --tail=1000 "$svc" 2>&1 || true
             echo ""
           done
 

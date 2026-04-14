@@ -23,10 +23,19 @@ async def go() -> None:
     engine = create_async_engine(os.environ["DATABASE_URL"])
     Session = sessionmaker(engine, class_=AsyncSession)
     pw = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    # DO UPDATE not DO NOTHING: if anything else (tests, auto-seed, a previous
+    # CI run with stale volume) created the admin user with a different
+    # password, the seed script must win. Otherwise the DB keeps whatever was
+    # there first and Playwright auth.setup silently fails with 401.
     sql = (
         "INSERT INTO users (email, hashed_password, name, role, is_active, failed_attempts, created_at, updated_at)"
         " VALUES (:e, :p, :n, :r, true, 0, now(), now())"
-        " ON CONFLICT (email) DO NOTHING"
+        " ON CONFLICT (email) DO UPDATE SET"
+        "   hashed_password = EXCLUDED.hashed_password,"
+        "   failed_attempts = 0,"
+        "   locked_until = NULL,"
+        "   is_active = true,"
+        "   updated_at = now()"
     )
     async with Session() as s:
         await s.execute(text(sql), {"e": "admin@vtv.lv", "p": pw, "n": "Admin", "r": "admin"})
