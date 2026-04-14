@@ -66,11 +66,14 @@ test.describe("Stops page", () => {
     await waitForDataOrEmpty(page);
     const firstRow = page.getByRole("row").nth(1);
     if (await firstRow.isVisible()) {
-      // Retry click+dialog to handle React rendering timing under the
-      // parallel test load — same pattern the schedules tests use after
-      // the equivalent flake surfaced there.
+      // The stops table's first cell contains nested clickable buttons
+      // (CopyGtfsButton, CopyCoordinatesButton) with stopPropagation. A
+      // plain `firstRow.getByRole("cell").first().click()` would land on
+      // one of those buttons and never fire the row's onSelectStop. Click
+      // at a fixed top-left position (over the stop name span) so the
+      // event bubbles to the row's onClick.
       await expect(async () => {
-        await firstRow.getByRole("cell").first().click();
+        await firstRow.getByRole("cell").first().click({ position: { x: 5, y: 5 } });
         await expect(page.getByRole("dialog")).toBeVisible();
       }).toPass({ timeout: 10000 });
     }
