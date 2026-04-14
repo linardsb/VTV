@@ -1,7 +1,7 @@
 """Add lemmatized_content to document_chunks (KB-2).
 
 Revision ID: w7x8y9z0a1b2
-Revises: v6w7x8y9z0a1
+Revises: u5v6w7x8y9z0
 Create Date: 2026-04-14
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "w7x8y9z0a1b2"
-down_revision: str | None = "v6w7x8y9z0a1"
+down_revision: str | None = "u5v6w7x8y9z0"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
