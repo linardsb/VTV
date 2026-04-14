@@ -191,6 +191,27 @@ class SearchResult(BaseModel):
     version: int = 1
     is_latest: bool = True
 
+    # KB-5: canonical entity names mentioned in this chunk, populated after
+    # the final top-K is selected. ``None`` when extraction is disabled or
+    # the chunk has no recorded mentions.
+    entities: list[str] | None = Field(
+        default=None, description="Canonical entity names mentioned in this chunk"
+    )
+
+
+class ExtractedEntity(BaseModel):
+    """A single entity extracted from text (KB-5).
+
+    Non-ORM DTO passed between the extractor, repository upsert path, and
+    service ingest/search loops.
+    """
+
+    entity_type: EntityType
+    name: str = Field(max_length=500)
+    normalized_name: str = Field(max_length=500)
+    extraction_method: ExtractionMethod
+    mention_count: int = Field(default=1, ge=1)
+
 
 class SearchResponse(BaseModel):
     """Search response with results and metadata."""

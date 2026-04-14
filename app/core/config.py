@@ -11,7 +11,7 @@ import json
 from functools import lru_cache
 from typing import Any, Literal
 
-from pydantic import BaseModel, computed_field, model_validator
+from pydantic import BaseModel, Field, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 FeedType = Literal["gtfs_rt", "scraper", "gps_text"]
@@ -258,6 +258,15 @@ class Settings(BaseSettings):
     rrf_semantic_text_weight: float = 0.3
     rrf_mixed_vector_weight: float = 0.5
     rrf_mixed_text_weight: float = 0.5
+
+    # KB-5: Entity/knowledge-graph overlay. Extracts named entities (routes,
+    # stops, regulations, optionally people/orgs via spaCy) during ingest and
+    # boosts RRF scores for chunks that share entities with the query.
+    entity_extraction_enabled: bool = True
+    entity_boost_enabled: bool = True
+    entity_boost_multiplier: float = Field(default=1.3, ge=1.0, le=3.0)
+    entity_mention_confidence_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
+    entity_extractor_provider: Literal["regex", "spacy"] = "regex"
 
     # RAG query router (skip knowledge search for transit/schedule queries)
     knowledge_router_enabled: bool = True

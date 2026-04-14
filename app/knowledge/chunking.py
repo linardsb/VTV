@@ -15,6 +15,7 @@ from app.core.logging import get_logger
 
 if TYPE_CHECKING:
     from app.knowledge.lemmatizer import LemmaTokenizer
+    from app.knowledge.schemas import ExtractedEntity
 
 logger = get_logger(__name__)
 
@@ -35,6 +36,10 @@ class ChunkResult:
     # KB-2: populated by ``apply_lemmatization`` for Latvian chunks so
     # BM25 can match inflected forms. NULL = fall back to ``content``.
     lemmatized_content: str | None = None
+    # KB-5: populated by the service ingest path (NOT by ``chunk_text``
+    # itself, which stays pure and dependency-free). Empty list = no entities
+    # extracted or extraction disabled.
+    entity_mentions: list[ExtractedEntity] = field(default_factory=list)
 
 
 def chunk_text(

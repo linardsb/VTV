@@ -1,14 +1,16 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
 """Data access layer for knowledge base with pgvector hybrid search."""
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import cast
 
-from sqlalchemy import delete, distinct, func, or_, select, text, update
+from sqlalchemy import delete, distinct, func, or_, select, text, tuple_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.knowledge.models import Document, DocumentChunk, Tag, document_tags
+from app.knowledge.models import Document, DocumentChunk, Entity, EntityMention, Tag, document_tags
+from app.knowledge.schemas import ExtractedEntity
 
 
 class KnowledgeRepository:
@@ -712,3 +714,146 @@ class KnowledgeRepository:
             .order_by(Tag.name)
         )
         return list(result.scalars().all())
+
+    # ------------------------------------------------------------------
+    # KB-5: Entity / knowledge-graph overlay
+    # ------------------------------------------------------------------
+
+    async def upsert_entities(
+        self, entities: list[ExtractedEntity]
+    ) -> dict[tuple[str, str], int]:
+        """Insert new entities (ignoring conflicts) and return an id map.
+
+        Performs a single ``INSERT ... ON CONFLICT DO NOTHING`` against the
+        unique ``(entity_type, normalized_name)`` constraint, then re-selects
+        all matching rows to build the lookup map. Concurrent ingestions can
+        race on the insert; the SELECT afterwards picks up whichever row won.
+
+        Args:
+            entities: Extracted entities to persist. Duplicates on
+                ``(entity_type, normalized_name)`` are folded before insert.
+
+        Returns:
+            Mapping from ``(entity_type, normalized_name)`` to the database
+            row id. Empty dict when ``entities`` is empty.
+        """
+        if not entities:
+            return {}
+
+        deduped: dict[tuple[str, str], ExtractedEntity] = {}
+        for ent in entities:
+            deduped[(ent.entity_type, ent.normalized_name)] = ent
+
+        insert_values = [
+            {
+                "entity_type": ent.entity_type,
+                "name": ent.name,
+                "normalized_name": ent.normalized_name,
+            }
+            for ent in deduped.values()
+        ]
+        stmt = (
+            pg_insert(Entity)
+            .values(insert_values)
+            .on_conflict_do_nothing(constraint="uq_entities_type_normalized")
+        )
+        await self.db.execute(stmt)
+
+        pairs = [(ent.entity_type, ent.normalized_name) for ent in deduped.values()]
+        select_stmt = select(
+            Entity.id, Entity.entity_type, Entity.normalized_name
+        ).where(tuple_(Entity.entity_type, Entity.normalized_name).in_(pairs))
+        result = await self.db.execute(select_stmt)
+        id_map: dict[tuple[str, str], int] = {}
+        for row in result.all():
+            id_map[(str(row[1]), str(row[2]))] = int(row[0])
+        return id_map
+
+    async def record_mentions(
+        self,
+        chunk_id: int,
+        mentions: list[tuple[int, int, str]],
+    ) -> None:
+        """Insert per-chunk entity mentions, updating on conflict.
+
+        Args:
+            chunk_id: Chunk whose mentions are being recorded.
+            mentions: ``(entity_id, mention_count, extraction_method)`` triples.
+        """
+        if not mentions:
+            return
+        values = [
+            {
+                "entity_id": entity_id,
+                "chunk_id": chunk_id,
+                "mention_count": mention_count,
+                "extraction_method": extraction_method,
+            }
+            for entity_id, mention_count, extraction_method in mentions
+        ]
+        stmt = (
+            pg_insert(EntityMention)
+            .values(values)
+            .on_conflict_do_update(
+                constraint="uq_entity_mentions_pair",
+                set_={
+                    "mention_count": pg_insert(EntityMention).excluded.mention_count,
+                    "extraction_method": pg_insert(EntityMention).excluded.extraction_method,
+                },
+            )
+        )
+        await self.db.execute(stmt)
+
+    async def get_entity_ids_for_chunks(
+        self, chunk_ids: Sequence[int]
+    ) -> dict[int, frozenset[int]]:
+        """Return ``{chunk_id: frozenset(entity_id, ...)}`` for the given chunks.
+
+        Used at search time to find overlap between query entities and
+        candidate chunks. Chunks with no mentions are omitted from the map.
+        """
+        if not chunk_ids:
+            return {}
+        result = await self.db.execute(
+            select(EntityMention.chunk_id, EntityMention.entity_id).where(
+                EntityMention.chunk_id.in_(chunk_ids)
+            )
+        )
+        accum: dict[int, set[int]] = {}
+        for cid, eid in result.all():
+            accum.setdefault(int(cid), set()).add(int(eid))
+        return {cid: frozenset(eids) for cid, eids in accum.items()}
+
+    async def get_entity_ids_for_names(
+        self, pairs: Sequence[tuple[str, str]]
+    ) -> frozenset[int]:
+        """Resolve ``[(entity_type, normalized_name), ...]`` to entity ids."""
+        if not pairs:
+            return frozenset()
+        stmt = select(Entity.id).where(
+            tuple_(Entity.entity_type, Entity.normalized_name).in_(list(pairs))
+        )
+        result = await self.db.execute(stmt)
+        return frozenset(int(row[0]) for row in result.all())
+
+    async def get_entity_names_for_chunks(
+        self, chunk_ids: Sequence[int]
+    ) -> dict[int, list[str]]:
+        """Return ``{chunk_id: [entity_name, ...]}`` for populating search results.
+
+        Uses canonical ``Entity.name`` (the first observed raw form) so the
+        surfaced strings read naturally rather than the normalized form.
+        """
+        if not chunk_ids:
+            return {}
+        stmt = (
+            select(EntityMention.chunk_id, Entity.name)
+            .join(Entity, EntityMention.entity_id == Entity.id)
+            .where(EntityMention.chunk_id.in_(chunk_ids))
+            .order_by(Entity.name)
+        )
+        result = await self.db.execute(stmt)
+        accum: dict[int, list[str]] = {}
+        for cid, name in result.all():
+            accum.setdefault(int(cid), []).append(str(name))
+        return accum
