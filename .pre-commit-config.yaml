@@ -50,6 +50,43 @@ repos:
         pass_filenames: false
         stages: [pre-push]
 
+  # App import smoke — catches startup-breaking import errors in app.main
+  # before push (e.g. missing register_router, broken module imports).
+  # Fast (~2s). Mirrors what the docker runtime hits on container start.
+  - repo: local
+    hooks:
+      - id: app-import-smoke
+        name: app import smoke
+        entry: uv run python -c "from app.main import app; assert app.routes"
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+  # Logging taxonomy audit — fails if any logger.*() event in app/ is not
+  # documented in docs/logging-standard.md. CI runs the same check via
+  # TestLoggingTaxonomy; we catch it locally before push.
+  - repo: local
+    hooks:
+      - id: audit-log-taxonomy
+        name: audit log taxonomy
+        entry: uv run python scripts/audit_log_taxonomy.py
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+  # Full test suite on push — catches wiring gaps and regressions that
+  # pass in isolation but fail in the full CI suite (e.g. structlog cache
+  # pollution, tests that set ENVIRONMENT=production without JWT_SECRET_KEY).
+  # Requires `make db` (postgres + redis) running. ~75s — real cost, real catch rate.
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest (full suite)
+        entry: uv run pytest -x -q
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
   # Existing custom security hook (sensitive files, hardcoded creds, secrets regex)
   - repo: local
     hooks:
