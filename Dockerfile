@@ -33,6 +33,17 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Stage 2: Runtime - Minimal production image
 FROM python:3.12-slim-bookworm
 
+# Runtime system deps. libgomp1 is the OpenMP runtime that lightgbm's
+# bundled native library (`_lightgbm.so`) dynamically links against —
+# the Python wheel ships the .so but not the .so it depends on, so
+# importing lightgbm without it fails with
+# `OSError: libgomp.so.1: cannot open shared object file`.
+# Keep this list minimal; add packages only when a specific runtime
+# failure demands it.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libgomp1 && \
+    rm -rf /var/lib/apt/lists/*
+
 # SECURITY: Create non-root user
 RUN groupadd --gid 1001 vtv && \
     useradd --uid 1001 --gid vtv --shell /bin/false --create-home vtv
