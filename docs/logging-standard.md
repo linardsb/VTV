@@ -471,6 +471,26 @@ transit.
 │   ├── search_routes_started               # Intercity route search started (fields: query, stop_name)
 │   ├── search_routes_completed             # Intercity route search completed (fields: result_count, duration_ms)
 │   └── search_routes_failed                # Intercity route search failed (fields: error, error_type, duration_ms)
+├── owntracks.
+│   ├── listener_started                    # LV-3.1 OwnTracks MQTT listener started
+│   ├── listener_stopped                    # OwnTracks listener stopped
+│   ├── listener_stop_error                 # OwnTracks listener stop error (fields: error)
+│   ├── connected                           # Connected to MQTT broker (fields: broker_url)
+│   ├── reconnecting                        # OwnTracks reconnecting after error (fields: error, backoff_seconds)
+│   ├── message_received                    # MQTT message received (fields: topic)
+│   ├── message_parse_failed                # MQTT message parse error (fields: error, topic)
+│   ├── missing_coords                      # OwnTracks payload missing lat/lon (fields: topic)
+│   ├── invalid_coords                      # OwnTracks lat/lon malformed (fields: topic, reason)
+│   ├── coords_out_of_bounds                # OwnTracks coords outside Latvia bounds (fields: lat, lon)
+│   ├── no_assignment                       # Phone with no route assignment (fields: phone_id)
+│   ├── history_write_completed             # OwnTracks history written to TimescaleDB (fields: records_inserted)
+│   ├── history_write_failed                # OwnTracks history write error (fields: error)
+│   ├── redis_write_failed                  # OwnTracks Redis write error (fields: error)
+│   └── pubsub_publish_failed               # OwnTracks Pub/Sub publish error (fields: error)
+├── phone_assignment.
+│   ├── create_started                      # Phone-to-route assignment create started (fields: phone_id, route_id)
+│   ├── create_completed                    # Phone-to-route assignment create completed (fields: assignment_id)
+│   └── delete_completed                    # Phone-to-route assignment delete completed (fields: assignment_id)
 └── driver_data.db_fallback                 # Fell back to DB for driver data
 ```
 
