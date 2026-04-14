@@ -185,13 +185,16 @@ jobs:
       - name: Verify migrations completed
         run: |
           echo "Waiting for migrate container to finish..."
-          # `docker compose ps migrate` (no flags) hides exited containers, so
-          # the poll would never see "exited" state once migrate finishes.
-          # Use -a to include stopped containers.
-          timeout 60 bash -c 'while [ "$(docker compose ps -a migrate --format json 2>/dev/null | grep -c "exited")" -eq 0 ]; do sleep 2; done'
+          # Query the container state via `docker inspect` directly — the
+          # previous `docker compose ps --format json | grep "exited"`
+          # approach was brittle across compose versions (field casing and
+          # key name differ: Status vs State, Exited vs exited) and
+          # silently failed to match even when the container had exited.
+          MIGRATE_CID=$(docker compose ps -aq migrate)
+          timeout 180 bash -c "until [ \"\$(docker inspect --format='{{.State.Status}}' $MIGRATE_CID 2>/dev/null)\" = 'exited' ]; do sleep 2; done"
           echo "Checking migration exit code..."
           docker compose logs migrate
-          EXIT_CODE=$(docker inspect --format='{{.State.ExitCode}}' "$(docker compose ps -a migrate -q)" 2>/dev/null || echo "1")
+          EXIT_CODE=$(docker inspect --format='{{.State.ExitCode}}' "$MIGRATE_CID")
           if [ "$EXIT_CODE" != "0" ]; then echo "Migration failed with exit code $EXIT_CODE"; exit 1; fi
           echo "Migrations completed successfully"
 
