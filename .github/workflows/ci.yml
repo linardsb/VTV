@@ -222,6 +222,28 @@ jobs:
         # sends (e2e-test-password), re-producing the CredentialsSignin.
         run: docker compose exec -T -e DEMO_USER_PASSWORD=e2e-test-password app python scripts/seed_admin.py
 
+      - name: Smoke-test admin login end-to-end
+        # Proves (a) the seed hit the DB the app reads from,
+        # (b) the password round-trips through bcrypt, and
+        # (c) the cms-internal fetch URL for auth.js is reachable
+        # from inside the cms container. Fails the job here — before
+        # Playwright — if any of those is broken, so the Playwright
+        # failure diagnostics become unambiguous.
+        run: |
+          set -e
+          echo "--- direct POST to app (through nginx proxy) ---"
+          curl -sf -X POST http://localhost:80/api/v1/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"admin@vtv.lv","password":"e2e-test-password"}' \
+            | head -c 200
+          echo ""
+          echo "--- POST from inside cms container to http://app:8123 (same path auth.js uses) ---"
+          docker compose exec -T cms wget -qO- \
+            --header='Content-Type: application/json' \
+            --post-data='{"email":"admin@vtv.lv","password":"e2e-test-password"}' \
+            http://app:8123/api/v1/auth/login \
+            | head -c 200
+
       - name: Run Playwright tests
         working-directory: cms/apps/web
         run: npx playwright test
