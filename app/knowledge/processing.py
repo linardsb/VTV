@@ -51,6 +51,7 @@ async def extract_text(file_path: str, source_type: str) -> tuple[str, bool]:
 
     extractors: dict[str, Callable[[str], str]] = {
         "docx": _extract_docx_sync,
+        "pptx": _extract_pptx_sync,
         "email": _extract_email_sync,
         "image": _extract_image_sync,
         "text": _extract_text_sync,
@@ -326,6 +327,118 @@ def _extract_docx_sync(file_path: str) -> str:
             cells = [cell.text.strip().replace("|", "\\|") for cell in row.cells]
             lines.append("| " + " | ".join(cells) + " |")
     return "\n\n".join(lines)
+
+
+def _extract_pptx_sync(file_path: str) -> str:
+    """Extract text from a PowerPoint deck as markdown.
+
+    Emits one ``# Slide N: {title}`` heading per slide so the semantic chunker
+    treats each slide as a section boundary. Body text becomes paragraphs,
+    multi-paragraph shapes render as bulleted lists, tables become markdown
+    pipe tables, and speaker notes are appended as ``**Notes:** {text}``.
+
+    Args:
+        file_path: Path to the .pptx file.
+
+    Returns:
+        Markdown-formatted deck text preserving slide order.
+    """
+    from pptx import Presentation
+
+    pres = Presentation(file_path)
+    parts: list[str] = []
+
+    for idx, slide in enumerate(pres.slides, start=1):
+        title_text = _pptx_slide_title(slide)
+        heading = f"# Slide {idx}: {title_text}" if title_text else f"# Slide {idx}"
+        parts.append(heading)
+
+        body_blocks = _pptx_collect_shape_text(slide.shapes, skip_title=True)
+        parts.extend(body_blocks)
+
+        notes = _pptx_extract_notes(slide)
+        if notes:
+            parts.append(f"**Notes:** {notes}")
+
+    return "\n\n".join(parts)
+
+
+def _pptx_slide_title(slide: Any) -> str:  # noqa: ANN401 — python-pptx lacks py.typed
+    """Return the slide title text, or empty string if none."""
+    shapes = getattr(slide, "shapes", None)
+    title_shape = getattr(shapes, "title", None) if shapes is not None else None
+    text = getattr(title_shape, "text", "") if title_shape is not None else ""
+    return str(text).strip()
+
+
+def _pptx_collect_shape_text(
+    shapes: Any,  # noqa: ANN401 — python-pptx lacks py.typed
+    skip_title: bool,
+) -> list[str]:
+    """Recursively flatten shapes (including grouped shapes) into markdown blocks."""
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+
+    blocks: list[str] = []
+    for shape in shapes:
+        shape_type = getattr(shape, "shape_type", None)
+        if shape_type == MSO_SHAPE_TYPE.GROUP:
+            blocks.extend(_pptx_collect_shape_text(shape.shapes, skip_title=False))
+            continue
+
+        if getattr(shape, "has_table", False):
+            blocks.append(_pptx_table_to_markdown(shape.table))
+            continue
+
+        if not getattr(shape, "has_text_frame", False):
+            continue
+
+        is_title = (
+            getattr(shape, "is_placeholder", False)
+            and getattr(getattr(shape, "placeholder_format", None), "idx", None) == 0
+        )
+        if skip_title and is_title:
+            continue
+
+        paragraphs = [p.text.strip() for p in shape.text_frame.paragraphs if p.text.strip()]
+        if not paragraphs:
+            continue
+        if len(paragraphs) > 1:
+            blocks.append("\n".join(f"- {line}" for line in paragraphs))
+        else:
+            blocks.append(paragraphs[0])
+
+    return blocks
+
+
+def _pptx_table_to_markdown(table: Any) -> str:  # noqa: ANN401 — python-pptx lacks py.typed
+    """Render a python-pptx table as a GitHub markdown pipe table."""
+    rows = list(table.rows)
+    if not rows:
+        return ""
+
+    def cell_text(cell: Any) -> str:  # noqa: ANN401 — python-pptx lacks py.typed
+        raw = str(getattr(cell, "text", "")).strip()
+        return raw.replace("|", "\\|").replace("\n", " ")
+
+    header = [cell_text(c) for c in rows[0].cells]
+    if not header:
+        return ""
+
+    body = [[cell_text(c) for c in row.cells] for row in rows[1:]]
+
+    lines = ["| " + " | ".join(header) + " |", "| " + " | ".join("---" for _ in header) + " |"]
+    lines.extend("| " + " | ".join(row) + " |" for row in body)
+    return "\n".join(lines)
+
+
+def _pptx_extract_notes(slide: Any) -> str:  # noqa: ANN401 — python-pptx lacks py.typed
+    """Extract speaker notes as plain text, or empty string."""
+    if not getattr(slide, "has_notes_slide", False):
+        return ""
+    notes_slide = slide.notes_slide
+    tf = getattr(notes_slide, "notes_text_frame", None)
+    text = getattr(tf, "text", "") if tf is not None else ""
+    return str(text).strip()
 
 
 def _extract_email_sync(file_path: str) -> str:

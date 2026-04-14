@@ -502,3 +502,59 @@ def test_extract_pdf_sync_ocr_fallback_on_empty_pdfplumber_result():
 
     assert ocr_applied is True
     assert "OCR extracted scanned content" in text
+
+
+# ---------------------------------------------------------------------------
+# PPTX extraction tests
+# ---------------------------------------------------------------------------
+
+
+async def test_extract_pptx_basic(sample_pptx_path: Path) -> None:
+    """PPTX extraction should emit slide heading and body text."""
+    text, ocr_applied = await extract_text(str(sample_pptx_path), "pptx")
+    assert ocr_applied is False
+    assert "# Slide 1: Safety Procedures" in text
+    assert "Evacuation Protocol" in text
+
+
+async def test_extract_pptx_preserves_slide_order(sample_pptx_path: Path) -> None:
+    """Slides should appear in deck order in the extracted markdown."""
+    text, _ = await extract_text(str(sample_pptx_path), "pptx")
+    assert text.index("# Slide 1") < text.index("# Slide 2") < text.index("# Slide 3")
+
+
+async def test_extract_pptx_emits_table_markdown(sample_pptx_path: Path) -> None:
+    """Tables on a slide should render as markdown pipe tables."""
+    text, _ = await extract_text(str(sample_pptx_path), "pptx")
+    assert "| Route | ETA |" in text
+    assert "| 3 | 08:15 |" in text
+
+
+async def test_extract_pptx_includes_speaker_notes(sample_pptx_path: Path) -> None:
+    """Speaker notes should be appended as a bold Notes block."""
+    text, _ = await extract_text(str(sample_pptx_path), "pptx")
+    assert "**Notes:** Review quarterly." in text
+
+
+async def test_extract_pptx_handles_empty_slide(sample_pptx_path: Path) -> None:
+    """Slides without title or content still emit a heading."""
+    text, _ = await extract_text(str(sample_pptx_path), "pptx")
+    assert "# Slide 4" in text
+
+
+async def test_extract_pptx_bulleted_body_rendered_as_list(sample_pptx_path: Path) -> None:
+    """Multi-paragraph body shapes should render as markdown bullets."""
+    text, _ = await extract_text(str(sample_pptx_path), "pptx")
+    assert "- Locate nearest exit" in text
+    assert "- Follow warden instructions" in text
+
+
+async def test_extract_pptx_heading_structure_feeds_chunker(sample_pptx_path: Path) -> None:
+    """Slide headings should populate chunk heading_path breadcrumbs."""
+    from app.knowledge.chunking import chunk_text_semantic
+
+    text, _ = await extract_text(str(sample_pptx_path), "pptx")
+    chunks = chunk_text_semantic(text)
+    assert len(chunks) >= 1
+    paths = [c.heading_path for c in chunks if c.heading_path]
+    assert any("Slide 1: Safety Procedures" in p for p in paths)
