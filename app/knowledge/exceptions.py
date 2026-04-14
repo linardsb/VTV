@@ -7,7 +7,7 @@ Inherits from core exceptions for automatic HTTP status code mapping:
 - UnsupportedDocumentTypeError -> 500
 """
 
-from app.core.exceptions import AppError, NotFoundError
+from app.core.exceptions import AppError, DomainValidationError, NotFoundError
 
 
 class KnowledgeBaseError(AppError):
@@ -36,3 +36,7 @@ class TagNotFoundError(NotFoundError):
 
 class DuplicateTagError(KnowledgeBaseError):
     """Raised when creating a tag with a name that already exists."""
+
+
+class DocumentVersionConflictError(DomainValidationError):
+    """Raised when version diff params are invalid (e.g. v1 == v2)."""

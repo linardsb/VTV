@@ -186,6 +186,8 @@ async def test_file_stored_on_ingest() -> None:
     service.repository.bulk_create_chunks = AsyncMock()
     service.repository.get_document = AsyncMock(return_value=mock_doc)
     service.repository.get_tags_for_document = AsyncMock(return_value=[])
+    service.repository.get_latest_by_title_domain = AsyncMock(return_value=None)
+    service.repository.mark_superseded = AsyncMock()
     mock_db.refresh = AsyncMock()
 
     from app.knowledge.schemas import DocumentUpload

@@ -6,6 +6,7 @@ and hybrid search (vector + fulltext + RRF fusion + reranking).
 
 from __future__ import annotations
 
+import difflib
 import json
 import re
 import shutil
@@ -22,6 +23,7 @@ from app.knowledge import chunking, hyde, processing
 from app.knowledge.embedding import EmbeddingProvider, get_embedding_provider
 from app.knowledge.exceptions import (
     DocumentNotFoundError,
+    DocumentVersionConflictError,
     DuplicateTagError,
     ProcessingError,
     TagNotFoundError,
@@ -33,10 +35,12 @@ from app.knowledge.reranker import RerankerProvider, get_reranker_provider
 from app.knowledge.schemas import (
     DocumentChunkResponse,
     DocumentContentResponse,
+    DocumentDiffResponse,
     DocumentResponse,
     DocumentTagRequest,
     DocumentUpdate,
     DocumentUpload,
+    DocumentVersionItem,
     DomainListResponse,
     SearchRequest,
     SearchResponse,
@@ -228,6 +232,27 @@ class KnowledgeService:
             source_type=source_type,
         )
 
+        # KB-3: same-title version detection. Only runs when the caller
+        # explicitly provided a title — auto-derived filename stems are not
+        # reliable keys for version chains.
+        parent_id: int | None = None
+        next_version: int = 1
+        if upload.title:
+            existing = await self.repository.get_latest_by_title_domain(
+                title=upload.title, domain=upload.domain
+            )
+            if existing is not None:
+                parent_id = existing.id
+                next_version = existing.version + 1
+                await self.repository.mark_superseded(existing.id)
+                logger.info(
+                    "knowledge.document.superseded",
+                    superseded_id=existing.id,
+                    superseded_version=existing.version,
+                    superseded_by_title=upload.title,
+                    domain=upload.domain,
+                )
+
         doc = await self.repository.create_document(
             filename=filename,
             domain=upload.domain,
@@ -240,6 +265,9 @@ class KnowledgeService:
             status="processing",
             ocr_applied=False,  # Updated after extraction if OCR is applied
             evergreen=upload.evergreen,
+            version=next_version,
+            parent_document_id=parent_id,
+            is_latest=True,
         )
 
         try:
@@ -636,6 +664,7 @@ class KnowledgeService:
             request.language,
             request.created_after,
             request.created_before,
+            include_superseded=request.include_superseded,
         )
         # KB-2: lemmatize Latvian queries so BM25 matches inflected forms.
         # Fail-safe: exceptions log and fall back to raw query via COALESCE.
@@ -661,6 +690,7 @@ class KnowledgeService:
             request.created_after,
             request.created_before,
             lemmatized_query=lemmatized_query,
+            include_superseded=request.include_superseded,
         )
 
         # Detect query type and select RRF weights
@@ -737,6 +767,8 @@ class KnowledgeService:
                     metadata_json=chunk.metadata_json,
                     document_created_at=d_created,
                     heading_path=chunk.heading_path,
+                    version=d.version,
+                    is_latest=d.is_latest,
                 )
             )
 
@@ -837,6 +869,7 @@ class KnowledgeService:
         domain: str | None = None,
         status: str | None = None,
         tag: str | None = None,
+        include_superseded: bool = False,
     ) -> PaginatedResponse[DocumentResponse]:
         """List documents with pagination and optional filtering.
 
@@ -845,6 +878,8 @@ class KnowledgeService:
             domain: Filter by domain.
             status: Filter by processing status.
             tag: Filter by tag name.
+            include_superseded: When False (default), hide rows whose
+                ``is_latest`` flag has been cleared by a newer version.
 
         Returns:
             Paginated list of DocumentResponse items.
@@ -855,8 +890,14 @@ class KnowledgeService:
             domain=domain,
             status=status,
             tag=tag,
+            include_superseded=include_superseded,
         )
-        total = await self.repository.count_documents(domain=domain, status=status, tag=tag)
+        total = await self.repository.count_documents(
+            domain=domain,
+            status=status,
+            tag=tag,
+            include_superseded=include_superseded,
+        )
 
         # Batch load tags for all documents in a single query (avoids N+1)
         doc_ids = [d.id for d in docs]
@@ -874,6 +915,93 @@ class KnowledgeService:
             page=pagination.page,
             page_size=pagination.page_size,
         )
+
+    # ------------------------------------------------------------------
+    # KB-3: Document versioning
+    # ------------------------------------------------------------------
+
+    async def get_document_versions(self, document_id: int) -> list[DocumentVersionItem]:
+        """Return the full version chain for ``document_id``, newest first.
+
+        Args:
+            document_id: Any row in the chain.
+
+        Returns:
+            List of ``DocumentVersionItem`` ordered by ``version`` descending.
+
+        Raises:
+            DocumentNotFoundError: When ``document_id`` does not exist.
+        """
+        versions = await self.repository.list_versions(document_id)
+        if not versions:
+            raise DocumentNotFoundError(f"Document {document_id} not found")
+        return [DocumentVersionItem.model_validate(d) for d in versions]
+
+    async def get_document_diff(self, document_id: int, v1: int, v2: int) -> DocumentDiffResponse:
+        """Produce a unified diff between two versions in the chain.
+
+        Args:
+            document_id: Any row in the chain.
+            v1: Version number of the "from" side.
+            v2: Version number of the "to" side.
+
+        Returns:
+            ``DocumentDiffResponse`` with the unified diff and line counts.
+
+        Raises:
+            DocumentVersionConflictError: When ``v1 == v2``.
+            DocumentNotFoundError: When the document or either version is missing.
+        """
+        if v1 == v2:
+            raise DocumentVersionConflictError("v1 and v2 must differ")
+        chain = await self.repository.list_versions(document_id)
+        if not chain:
+            raise DocumentNotFoundError(f"Document {document_id} not found")
+        by_version = {d.version: d for d in chain}
+        if v1 not in by_version or v2 not in by_version:
+            raise DocumentNotFoundError(f"Version not found in chain for document {document_id}")
+        doc_a = by_version[v1]
+        doc_b = by_version[v2]
+        text_a = await self._concatenate_chunks(doc_a.id)
+        text_b = await self._concatenate_chunks(doc_b.id)
+        diff_lines = list(
+            difflib.unified_diff(
+                text_a.splitlines(),
+                text_b.splitlines(),
+                fromfile=f"v{v1}",
+                tofile=f"v{v2}",
+                lineterm="",
+            )
+        )
+        added = sum(1 for line in diff_lines if line.startswith("+") and not line.startswith("+++"))
+        removed = sum(
+            1 for line in diff_lines if line.startswith("-") and not line.startswith("---")
+        )
+        # ``list_versions`` returns newest-first; the chain root (v=1) is last.
+        root = chain[-1]
+        logger.info(
+            "knowledge.document.diff_completed",
+            document_id=root.id,
+            v1=v1,
+            v2=v2,
+            lines_added=added,
+            lines_removed=removed,
+        )
+        return DocumentDiffResponse(
+            document_id=root.id,
+            v1=v1,
+            v2=v2,
+            v1_document_id=doc_a.id,
+            v2_document_id=doc_b.id,
+            unified_diff="\n".join(diff_lines),
+            lines_added=added,
+            lines_removed=removed,
+        )
+
+    async def _concatenate_chunks(self, doc_id: int) -> str:
+        """Concatenate a document's chunks in order for text comparison."""
+        chunks = await self.repository.get_chunks_by_document(doc_id)
+        return "\n".join(c.content for c in chunks)
 
     async def delete_document(self, document_id: int) -> None:
         """Delete a document, its chunks, and stored file.

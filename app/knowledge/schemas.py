@@ -2,9 +2,13 @@
 
 import json
 from datetime import datetime
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
+
+# KB-5: fixed vocabulary of entity types extracted from documents/queries.
+EntityType = Literal["route", "stop", "regulation", "person", "org"]
+ExtractionMethod = Literal["regex", "gazetteer", "spacy"]
 
 
 class DocumentUpload(BaseModel):
@@ -102,6 +106,11 @@ class DocumentResponse(BaseModel):
     ocr_applied: bool
     evergreen: bool
     tags: list[TagResponse] = []
+    # KB-3: version tracking. Defaults keep legacy constructors working — the
+    # ORM populates concrete values via ``from_attributes``.
+    version: int = 1
+    is_latest: bool = True
+    parent_document_id: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -153,6 +162,10 @@ class SearchRequest(BaseModel):
     created_before: datetime | None = Field(
         default=None, description="Filter documents created before this timestamp"
     )
+    include_superseded: bool = Field(
+        default=False,
+        description="Include superseded document versions in the search (KB-3).",
+    )
 
 
 class SearchResult(BaseModel):
@@ -174,6 +187,10 @@ class SearchResult(BaseModel):
     parent_content: str | None = None
     heading_path: str | None = None
 
+    # KB-3: version metadata for the source document.
+    version: int = 1
+    is_latest: bool = True
+
 
 class SearchResponse(BaseModel):
     """Search response with results and metadata."""
@@ -182,3 +199,32 @@ class SearchResponse(BaseModel):
     query: str
     total_candidates: int
     reranked: bool
+
+
+class DocumentVersionItem(BaseModel):
+    """One entry in a document's version history (KB-3)."""
+
+    id: int
+    version: int
+    status: str
+    is_latest: bool
+    parent_document_id: int | None
+    filename: str
+    file_size_bytes: int | None
+    chunk_count: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentDiffResponse(BaseModel):
+    """Unified-diff representation between two document versions (KB-3)."""
+
+    document_id: int
+    v1: int
+    v2: int
+    v1_document_id: int
+    v2_document_id: int
+    unified_diff: str
+    lines_added: int
+    lines_removed: int

@@ -708,3 +708,71 @@ async def test_get_chunks_by_ids_empty_list_no_query(
 
     assert result == []
     mock_db.execute.assert_not_called()
+
+
+# --- KB-3: Document versioning ---
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_get_latest_by_title_domain_filters_to_is_latest(
+    repo: KnowledgeRepository, mock_db: AsyncMock
+) -> None:
+    """Should return only the is_latest=true row for (title, domain)."""
+    latest = make_document(id=5, title="SOP-001", version=2, is_latest=True)
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = latest
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    found = await repo.get_latest_by_title_domain(title="SOP-001", domain="transit")
+
+    assert found is not None
+    assert found.id == 5
+    assert found.version == 2
+    assert found.is_latest is True
+    mock_db.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_list_versions_collects_chain(repo: KnowledgeRepository, mock_db: AsyncMock) -> None:
+    """BFS collects v1 -> v2 -> v3, returns ordered by version DESC."""
+    v1 = make_document(id=1, title="SOP-001", version=1, parent_document_id=None)
+    v2 = make_document(id=2, title="SOP-001", version=2, parent_document_id=1)
+    v3 = make_document(id=3, title="SOP-001", version=3, parent_document_id=2, is_latest=True)
+
+    # _find_chain_root walks parent links via get_document calls.
+    # Then _collect_descendants BFS-queries descendants of the root.
+    chain_state = {"call": 0}
+
+    async def fake_execute(stmt: object) -> MagicMock:
+        chain_state["call"] += 1
+        result = MagicMock()
+        if chain_state["call"] == 1:
+            # get_document(3) returns v3
+            result.scalar_one_or_none.return_value = v3
+        elif chain_state["call"] == 2:
+            # get_document(2) returns v2
+            result.scalar_one_or_none.return_value = v2
+        elif chain_state["call"] == 3:
+            # get_document(1) returns v1 (the root — parent_document_id is None)
+            result.scalar_one_or_none.return_value = v1
+        else:
+            # BFS descendant queries: first round returns v2 + v1 as
+            # "descendants" (our SQL ORs id==root with parent_id==root so
+            # root itself appears too), second round returns v3, third
+            # returns nothing.
+            rounds = [[v1, v2], [v3], []]
+            idx = chain_state["call"] - 4
+            scalars = MagicMock()
+            scalars.all.return_value = rounds[idx] if idx < len(rounds) else []
+            result.scalars.return_value = scalars
+        return result
+
+    mock_db.execute = AsyncMock(side_effect=fake_execute)
+
+    result = await repo.list_versions(document_id=3)
+
+    assert [d.version for d in result] == [3, 2, 1]
+    assert [d.id for d in result] == [3, 2, 1]

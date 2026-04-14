@@ -4,7 +4,7 @@
 from datetime import datetime
 from typing import cast
 
-from sqlalchemy import delete, distinct, func, select, text
+from sqlalchemy import delete, distinct, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +36,9 @@ class KnowledgeRepository:
         status: str = "pending",
         ocr_applied: bool = False,
         evergreen: bool = False,
+        version: int = 1,
+        parent_document_id: int | None = None,
+        is_latest: bool = True,
     ) -> Document:
         """Create a new document record.
 
@@ -66,6 +69,9 @@ class KnowledgeRepository:
             status=status,
             ocr_applied=ocr_applied,
             evergreen=evergreen,
+            version=version,
+            parent_document_id=parent_document_id,
+            is_latest=is_latest,
         )
         self.db.add(doc)
         await self.db.commit()
@@ -93,6 +99,7 @@ class KnowledgeRepository:
         status: str | None = None,
         language: str | None = None,
         tag: str | None = None,
+        include_superseded: bool = False,
     ) -> list[Document]:
         """List documents with pagination and optional filtering.
 
@@ -114,6 +121,8 @@ class KnowledgeRepository:
             query = query.where(Document.status == status)
         if language:
             query = query.where(Document.language == language)
+        if not include_superseded:
+            query = query.where(Document.is_latest.is_(True))
         if tag:
             query = query.join(document_tags, Document.id == document_tags.c.document_id)
             query = query.join(Tag, document_tags.c.tag_id == Tag.id)
@@ -128,6 +137,7 @@ class KnowledgeRepository:
         domain: str | None = None,
         status: str | None = None,
         tag: str | None = None,
+        include_superseded: bool = False,
     ) -> int:
         """Count documents matching the given filters.
 
@@ -144,6 +154,8 @@ class KnowledgeRepository:
             query = query.where(Document.domain == domain)
         if status:
             query = query.where(Document.status == status)
+        if not include_superseded:
+            query = query.where(Document.is_latest.is_(True))
         if tag:
             query = query.join(document_tags, Document.id == document_tags.c.document_id)
             query = query.join(Tag, document_tags.c.tag_id == Tag.id)
@@ -320,6 +332,8 @@ class KnowledgeRepository:
         language: str | None = None,
         created_after: datetime | None = None,
         created_before: datetime | None = None,
+        *,
+        include_superseded: bool = False,
     ) -> list[tuple[DocumentChunk, Document, float]]:
         """Search chunks by vector similarity (cosine distance).
 
@@ -350,6 +364,8 @@ class KnowledgeRepository:
             query = query.where(Document.created_at >= created_after)
         if created_before is not None:
             query = query.where(Document.created_at <= created_before)
+        if not include_superseded:
+            query = query.where(Document.is_latest.is_(True))
 
         result = await self.db.execute(query)
         rows: list[tuple[DocumentChunk, Document, float]] = [
@@ -367,6 +383,7 @@ class KnowledgeRepository:
         created_before: datetime | None = None,
         *,
         lemmatized_query: str | None = None,
+        include_superseded: bool = False,
     ) -> list[tuple[DocumentChunk, Document, float]]:
         """Search chunks using PostgreSQL full-text search.
 
@@ -414,12 +431,119 @@ class KnowledgeRepository:
             query = query.where(Document.created_at >= created_after)
         if created_before is not None:
             query = query.where(Document.created_at <= created_before)
+        if not include_superseded:
+            query = query.where(Document.is_latest.is_(True))
 
         result = await self.db.execute(query)
         rows: list[tuple[DocumentChunk, Document, float]] = [
             (row[0], row[1], float(row[2])) for row in result.all()
         ]
         return rows
+
+    # ------------------------------------------------------------------
+    # KB-3: Document versioning
+    # ------------------------------------------------------------------
+
+    async def get_latest_by_title_domain(self, *, title: str, domain: str) -> Document | None:
+        """Return the current latest version for a ``(title, domain)`` pair.
+
+        Used at ingest time to detect same-title re-uploads. Only rows with
+        ``is_latest=true`` are considered — failed or superseded rows never
+        become the supersede target.
+
+        Args:
+            title: Document title to match exactly.
+            domain: Knowledge domain to match exactly.
+
+        Returns:
+            The latest ``Document`` in the chain, or None when no prior exists.
+        """
+        stmt = (
+            select(Document)
+            .where(
+                Document.title == title,
+                Document.domain == domain,
+                Document.is_latest.is_(True),
+            )
+            .order_by(Document.version.desc())
+            .limit(1)
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def mark_superseded(self, doc_id: int) -> None:
+        """Flip ``status='superseded'`` and ``is_latest=false`` for a document.
+
+        Chunks remain intact (no cascade delete). The caller's transaction
+        commits this UPDATE together with the sibling ``create_document`` of
+        the new version — if either fails, both roll back.
+
+        Args:
+            doc_id: The document to mark superseded.
+        """
+        stmt = (
+            update(Document)
+            .where(Document.id == doc_id)
+            .values(status="superseded", is_latest=False)
+        )
+        await self.db.execute(stmt)
+
+    async def list_versions(self, document_id: int) -> list[Document]:
+        """Return every row in the version chain containing ``document_id``.
+
+        Walks ``parent_document_id`` to the chain root, then BFS-collects all
+        descendants. Results are ordered by ``version`` descending (newest
+        first). Returns an empty list when ``document_id`` does not exist.
+
+        Args:
+            document_id: Any row in the chain.
+
+        Returns:
+            Chain members ordered newest-first.
+        """
+        root = await self._find_chain_root(document_id)
+        if root is None:
+            return []
+        return await self._collect_descendants(root)
+
+    async def _find_chain_root(self, doc_id: int) -> Document | None:
+        """Walk ``parent_document_id`` upward to the root of the version chain.
+
+        Depth is capped at 100 hops to defend against pathological cycles
+        (which shouldn't be possible given the directional FK, but the guard
+        is cheap and prevents an infinite loop on data corruption).
+        """
+        current = await self.get_document(doc_id)
+        if current is None:
+            return None
+        for _ in range(100):
+            if current.parent_document_id is None:
+                return current
+            parent = await self.get_document(current.parent_document_id)
+            if parent is None:
+                return current
+            current = parent
+        return current
+
+    async def _collect_descendants(self, root: Document) -> list[Document]:
+        """BFS-collect all descendants of ``root`` + root, ordered by version DESC."""
+        collected: dict[int, Document] = {root.id: root}
+        frontier: list[int] = [root.id]
+        while frontier:
+            stmt = select(Document).where(
+                or_(
+                    Document.parent_document_id.in_(frontier),
+                    Document.id.in_(frontier),
+                )
+            )
+            result = await self.db.execute(stmt)
+            next_frontier: list[int] = []
+            for doc in result.scalars().all():
+                if doc.id not in collected:
+                    collected[doc.id] = doc
+                    next_frontier.append(doc.id)
+            frontier = next_frontier
+        return sorted(collected.values(), key=lambda d: d.version, reverse=True)
 
     # ------------------------------------------------------------------
     # Document OCR status

@@ -17,10 +17,12 @@ from app.core.rate_limit import limiter
 from app.knowledge.exceptions import DuplicateTagError
 from app.knowledge.schemas import (
     DocumentContentResponse,
+    DocumentDiffResponse,
     DocumentResponse,
     DocumentTagRequest,
     DocumentUpdate,
     DocumentUpload,
+    DocumentVersionItem,
     DomainListResponse,
     SearchRequest,
     SearchResponse,
@@ -170,12 +172,19 @@ async def list_documents(
     domain: str | None = Query(None, max_length=50),
     document_status: str | None = Query(None, alias="status", max_length=20),
     tag: str | None = Query(None, max_length=100),
+    include_superseded: bool = Query(False),
     service: KnowledgeService = Depends(get_service),  # noqa: B008
     _current_user: User = Depends(require_role("admin", "editor", "dispatcher")),  # noqa: B008
 ) -> PaginatedResponse[DocumentResponse]:
     """List documents with pagination and optional filtering."""
     _ = request
-    return await service.list_documents(pagination, domain=domain, status=document_status, tag=tag)
+    return await service.list_documents(
+        pagination,
+        domain=domain,
+        status=document_status,
+        tag=tag,
+        include_superseded=include_superseded,
+    )
 
 
 @router.get("/documents/{document_id}", response_model=DocumentResponse)
@@ -229,6 +238,37 @@ async def download_document(
         filename=filename,
         media_type="application/octet-stream",
     )
+
+
+@router.get(
+    "/documents/{document_id}/versions",
+    response_model=list[DocumentVersionItem],
+)
+@limiter.limit("30/minute")
+async def get_document_versions(
+    request: Request,
+    document_id: int,
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor", "dispatcher")),  # noqa: B008
+) -> list[DocumentVersionItem]:
+    """Return every version in the chain containing ``document_id``."""
+    _ = request
+    return await service.get_document_versions(document_id)
+
+
+@router.get("/documents/{document_id}/diff", response_model=DocumentDiffResponse)
+@limiter.limit("30/minute")
+async def get_document_diff(
+    request: Request,
+    document_id: int,
+    v1: int = Query(..., ge=1, le=10_000),
+    v2: int = Query(..., ge=1, le=10_000),
+    service: KnowledgeService = Depends(get_service),  # noqa: B008
+    _current_user: User = Depends(require_role("admin", "editor", "dispatcher")),  # noqa: B008
+) -> DocumentDiffResponse:
+    """Return a unified diff between two versions of the same document chain."""
+    _ = request
+    return await service.get_document_diff(document_id, v1, v2)
 
 
 @router.get("/documents/{document_id}/content", response_model=DocumentContentResponse)
