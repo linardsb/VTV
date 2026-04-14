@@ -55,6 +55,7 @@ from app.memory.lifecycle import start_memory_tasks, stop_memory_tasks
 from app.memory.routes import router as memory_router
 from app.ml.anomaly.evaluator import start_anomaly_evaluator, stop_anomaly_evaluator
 from app.ml.anomaly.off_route import start_off_route_evaluator, stop_off_route_evaluator
+from app.ml.anomaly.routes import router as anomaly_router
 from app.public_api.routes import key_mgmt_router as public_api_key_mgmt_router
 from app.public_api.routes import public_router as public_api_router
 from app.schedules.feed_task import start_feed_import_task, stop_feed_import_task
@@ -363,6 +364,7 @@ app.include_router(public_api_router)
 app.include_router(jobs_router)
 app.include_router(assignments_router)
 app.include_router(audit_router)
+app.include_router(anomaly_router)
 
 # Prometheus metrics endpoint (OPS-2.1)
 # Access control via nginx IP allowlist — scrapers don't carry JWTs.
