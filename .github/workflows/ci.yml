@@ -220,7 +220,7 @@ jobs:
         # lands inside the container; otherwise the script falls back to
         # "admin" and the seeded password drifts from what Playwright
         # sends (e2e-test-password), re-producing the CredentialsSignin.
-        run: docker compose exec -T -e DEMO_USER_PASSWORD=e2e-test-password app python scripts/seed_admin.py
+        run: docker compose exec -T -e DEMO_USER_PASSWORD=e2e-test-password app python scripts/seed_admin.py  # pragma: allowlist secret
 
       - name: Smoke-test admin login end-to-end
         # Proves (a) the seed hit the DB the app reads from,
