@@ -152,7 +152,7 @@ class SpacyEntityExtractor:
 
     def __init__(self, model_name: str = "xx_sent_ud_sm") -> None:
         self._model_name = model_name
-        self._nlp: Any | None = None  # noqa: ANN401
+        self._nlp: Any | None = None
 
     async def warm_up(self) -> None:
         """Load the spaCy model in a worker thread; log and skip on failure."""

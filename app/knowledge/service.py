@@ -21,6 +21,7 @@ from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
 from app.knowledge import chunking, hyde, processing
 from app.knowledge.embedding import EmbeddingProvider, get_embedding_provider
+from app.knowledge.entity_extractor import EntityExtractor, get_entity_extractor
 from app.knowledge.exceptions import (
     DocumentNotFoundError,
     DocumentVersionConflictError,
@@ -28,7 +29,6 @@ from app.knowledge.exceptions import (
     ProcessingError,
     TagNotFoundError,
 )
-from app.knowledge.entity_extractor import EntityExtractor, get_entity_extractor
 from app.knowledge.lemmatizer import LemmaTokenizer, get_lemmatizer_provider
 from app.knowledge.models import Document, DocumentChunk
 from app.knowledge.repository import KnowledgeRepository
@@ -951,10 +951,10 @@ class KnowledgeService:
                             break
                 name_map = await self.repository.get_entity_names_for_chunks(top_chunk_ids)
                 for r in results:
-                    cid = result_chunk_ids.get(id(r))
-                    if cid is None:
+                    resolved_cid = result_chunk_ids.get(id(r))
+                    if resolved_cid is None:
                         continue
-                    names = name_map.get(cid)
+                    names = name_map.get(resolved_cid)
                     if names:
                         r.entities = names
             except Exception as exc:
