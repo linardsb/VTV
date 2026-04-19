@@ -12,6 +12,16 @@ from app.auth.models import User
 from app.auth.token import create_access_token
 
 
+@pytest.fixture(autouse=True)
+def _mock_token_revocation():
+    """Mock is_token_revoked to return False — Redis unavailable in unit tests,
+    and fail-closed behavior would reject all tokens otherwise."""
+    with patch(
+        "app.auth.dependencies.is_token_revoked", new_callable=AsyncMock, return_value=False
+    ):
+        yield
+
+
 def _mock_request() -> MagicMock:
     """Build a mock Request for get_current_user / require_role calls."""
     mock = MagicMock(spec=Request)
