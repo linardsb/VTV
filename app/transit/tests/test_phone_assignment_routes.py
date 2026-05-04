@@ -73,7 +73,13 @@ def _make_assignment_obj(
 
 
 class _FakeDBSession:
-    """Minimal async DB session stub for route tests."""
+    """Minimal async DB session stub for route tests.
+
+    Mirrors the production duplicate-check semantics: only an *active* existing
+    row participates in the ``scalar_one_or_none`` lookup. Deactivated rows are
+    excluded — matching ``VehiclePhoneAssignment.active.is_(True)`` filtering
+    in ``app/transit/routes.py:301-306``.
+    """
 
     def __init__(self, *, existing_assignment: MagicMock | None = None) -> None:
         self._existing = existing_assignment
@@ -82,8 +88,15 @@ class _FakeDBSession:
 
     async def execute(self, stmt: object) -> MagicMock:  # noqa: ARG002
         result = MagicMock()
-        # For the duplicate check (scalar_one_or_none) and list query (scalars().all())
-        result.scalar_one_or_none.return_value = self._existing
+        # Duplicate check filters by active=True — simulate that here so the
+        # mock matches real DB behaviour after the partial-unique-index migration
+        # (alembic ``y9z0a1b2c3d4``). Inactive rows must NOT block re-creation.
+        active_existing = (
+            self._existing
+            if self._existing is not None and bool(getattr(self._existing, "active", False))
+            else None
+        )
+        result.scalar_one_or_none.return_value = active_existing
         mock_scalars = MagicMock()
         mock_scalars.all.return_value = [self._existing] if self._existing else []
         result.scalars.return_value = mock_scalars
@@ -170,6 +183,24 @@ def test_create_duplicate_phone_rejected(client: TestClient) -> None:
         json={"phone_identifier": "user1_phone", "vehicle_id": 42},
     )
     assert resp.status_code == 409
+
+
+def test_create_after_deactivate_allows_reuse(client: TestClient) -> None:
+    # Regression for T-002: the application soft-deletes by toggling ``active=False``,
+    # so the duplicate check must NOT count deactivated rows. The DB-level partial
+    # unique index (alembic ``y9z0a1b2c3d4``) provides the matching guarantee.
+    deactivated = _make_assignment_obj(active=False)
+    db = _FakeDBSession(existing_assignment=deactivated)
+    app.dependency_overrides[get_db] = lambda: db
+
+    resp = client.post(
+        "/api/v1/transit/phone-assignments",
+        json={"phone_identifier": "user1_phone", "vehicle_id": 99},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["phone_identifier"] == "user1_phone"
+    assert data["vehicle_id"] == 99
 
 
 # ── LIST ────────────────────────────────────────────────────────────

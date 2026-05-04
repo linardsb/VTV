@@ -8,7 +8,17 @@ compression policies, and continuous aggregates.
 import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, SmallInteger, String
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -129,17 +139,31 @@ class EticketImport(TimestampMixin, Base):
 
 
 class VehiclePhoneAssignment(Base, TimestampMixin):
-    """Maps a phone (OwnTracks device) to a vehicle, route, and driver."""
+    """Maps a phone (OwnTracks device) to a vehicle, route, and driver.
+
+    The ``phone_identifier`` is unique among *active* rows only — deactivated
+    rows (``active=False``) do not block re-assignment, since the application
+    soft-deletes via the ``active`` flag rather than removing rows.
+    """
 
     __tablename__ = "vehicle_phone_assignments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    phone_identifier: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    phone_identifier: Mapped[str] = mapped_column(String(100), nullable=False)
     vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=False)
     route_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("routes.id"), nullable=True)
     driver_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("drivers.id"), nullable=True)
     assigned_by: Mapped[str] = mapped_column(String(100), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    __table_args__ = (
+        Index(
+            "uq_phone_assignments_active_phone_identifier",
+            "phone_identifier",
+            unique=True,
+            postgresql_where=text("active = true"),
+        ),
+    )
 
 
 class ShareLink(Base, TimestampMixin):
