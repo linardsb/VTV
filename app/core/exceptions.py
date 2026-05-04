@@ -39,6 +39,28 @@ class RBACConfigurationError(AppError):
     pass
 
 
+class ConflictError(AppError):
+    """Raised when a request conflicts with current resource state.
+
+    Examples: creating a resource whose unique key collides with an existing
+    active row, attempting a state transition that contradicts the current
+    state. Maps to HTTP 409 Conflict.
+    """
+
+    pass
+
+
+class GoneError(AppError):
+    """Raised when a resource exists historically but is no longer available.
+
+    Distinct from ``NotFoundError`` (which means "never existed or unknown").
+    Examples: an expired share link, a finalised job that has been purged.
+    Maps to HTTP 410 Gone.
+    """
+
+    pass
+
+
 # Global exception handlers
 async def app_exception_handler(request: Request, exc: AppError) -> JSONResponse:
     """Handle application exceptions globally.
@@ -64,6 +86,10 @@ async def app_exception_handler(request: Request, exc: AppError) -> JSONResponse
     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     if isinstance(exc, NotFoundError):
         status_code = status.HTTP_404_NOT_FOUND
+    elif isinstance(exc, ConflictError):
+        status_code = status.HTTP_409_CONFLICT
+    elif isinstance(exc, GoneError):
+        status_code = status.HTTP_410_GONE
     elif isinstance(exc, DomainValidationError):
         status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
 
@@ -192,6 +218,8 @@ def setup_exception_handlers(app: FastAPI) -> None:
 
     app.add_exception_handler(AppError, handler)
     app.add_exception_handler(NotFoundError, handler)
+    app.add_exception_handler(ConflictError, handler)
+    app.add_exception_handler(GoneError, handler)
     app.add_exception_handler(DomainValidationError, handler)
 
     # Auth-specific handlers (401, 423)

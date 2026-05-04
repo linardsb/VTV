@@ -20,6 +20,7 @@ from app.auth.models import User
 from app.core.agents.exceptions import TransitDataError
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.exceptions import ConflictError, DomainValidationError, GoneError, NotFoundError
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.transit.journey_planner import get_journey_planner
@@ -56,7 +57,7 @@ def _parse_iso_time(value: str) -> dt.datetime:
     try:
         return dt.datetime.fromisoformat(value).replace(tzinfo=dt.UTC)
     except ValueError as err:
-        raise HTTPException(status_code=422, detail=f"Invalid ISO 8601 time: {value}") from err
+        raise DomainValidationError(f"Invalid ISO 8601 time: {value}") from err
 
 
 @router.get("/vehicles", response_model=VehiclePositionsResponse)
@@ -306,7 +307,7 @@ async def create_phone_assignment(
         )
     )
     if existing.scalar_one_or_none() is not None:
-        raise HTTPException(status_code=409, detail="Phone identifier already assigned")
+        raise ConflictError("Phone identifier already assigned")
 
     assignment = VehiclePhoneAssignment(
         phone_identifier=body.phone_identifier,
@@ -361,7 +362,7 @@ async def delete_phone_assignment(
     )
     assignment = result.scalar_one_or_none()
     if assignment is None:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise NotFoundError("Assignment not found")
 
     assignment.active = False
     await db.commit()
@@ -393,10 +394,7 @@ async def plan_journey(
     """Plan a multi-modal journey via OpenTripPlanner with GTFS-RT delay enrichment."""
     _ = request
     if depart_at is not None and arrive_by is not None:
-        raise HTTPException(
-            status_code=422,
-            detail="depart_at and arrive_by are mutually exclusive",
-        )
+        raise DomainValidationError("depart_at and arrive_by are mutually exclusive")
     depart_dt = _parse_iso_time(depart_at) if depart_at else None
     arrive_dt = _parse_iso_time(arrive_by) if arrive_by else None
     planner = get_journey_planner()
@@ -484,7 +482,7 @@ async def resolve_share_link(
     _ = request
     payload = decode_share_token(token)
     if payload is None:
-        raise HTTPException(status_code=404, detail="Share link not found")
+        raise NotFoundError("Share link not found")
     token_hash_val = hash_token(token)
     result = await db.execute(
         select(ShareLink).where(
@@ -494,9 +492,9 @@ async def resolve_share_link(
     )
     link = result.scalar_one_or_none()
     if link is None:
-        raise HTTPException(status_code=404, detail="Share link not found")
+        raise NotFoundError("Share link not found")
     if link.expires_at < dt.datetime.now(dt.UTC):
-        raise HTTPException(status_code=410, detail="Share link expired")
+        raise GoneError("Share link expired")
 
     service = get_transit_service()
     positions = await service.get_vehicle_positions(

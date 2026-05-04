@@ -9,7 +9,9 @@ from fastapi.responses import JSONResponse
 from app.auth.exceptions import AccountLockedError, InvalidCredentialsError
 from app.core.exceptions import (
     AppError,
+    ConflictError,
     DomainValidationError,
+    GoneError,
     NotFoundError,
     account_locked_handler,
     app_exception_handler,
@@ -158,13 +160,17 @@ def test_setup_exception_handlers_registers_handlers():
     setup_exception_handlers(mock_app)
 
     # Verify add_exception_handler was called for each exception type
-    # 5 core + 3 public API (InvalidAPIKeyError, APIKeyRevokedError, APIKeyRateLimitError)
-    assert mock_app.add_exception_handler.call_count == 8
+    # 7 core (AppError, NotFoundError, ConflictError, GoneError, DomainValidationError,
+    # InvalidCredentialsError, AccountLockedError) + 3 public API (InvalidAPIKeyError,
+    # APIKeyRevokedError, APIKeyRateLimitError)
+    assert mock_app.add_exception_handler.call_count == 10
 
     # Verify the exception types that were registered
     call_args_list = [call[0][0] for call in mock_app.add_exception_handler.call_args_list]
     assert AppError in call_args_list
     assert NotFoundError in call_args_list
+    assert ConflictError in call_args_list
+    assert GoneError in call_args_list
     assert DomainValidationError in call_args_list
     assert InvalidCredentialsError in call_args_list
     assert AccountLockedError in call_args_list
