@@ -159,7 +159,7 @@ def test_create_tag_duplicate():
     try:
         response = client.post("/api/v1/knowledge/tags", json={"name": "transit"})
         assert response.status_code == 409
-        assert "already exists" in response.json()["detail"]
+        assert "already exists" in response.json()["error"]
     finally:
         app.dependency_overrides.pop(get_service, None)
 

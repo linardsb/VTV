@@ -10,7 +10,7 @@ Endpoints:
 
 import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analytics.daily_adherence import get_daily_reports
@@ -32,6 +32,7 @@ from app.analytics.service import AnalyticsService
 from app.auth.dependencies import get_current_user
 from app.auth.models import User
 from app.core.database import get_db
+from app.core.exceptions import BadRequestError, ServiceUnavailableError
 from app.core.logging import get_logger
 from app.core.rate_limit import _analytics_subbucket_key, limiter
 
@@ -125,7 +126,7 @@ async def get_on_time_performance(
             time_until=time_until,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise BadRequestError(str(e)) from e
     except Exception as e:
         logger.error(
             "analytics.api.on_time_failed",
@@ -133,10 +134,7 @@ async def get_on_time_performance(
             error=str(e),
             error_type=type(e).__name__,
         )
-        raise HTTPException(
-            status_code=503,
-            detail="Transit data temporarily unavailable",
-        ) from e
+        raise ServiceUnavailableError("Transit data temporarily unavailable") from e
 
 
 @router.get("/adherence/daily", response_model=list[DailyAdherenceReportResponse])
@@ -164,13 +162,13 @@ async def get_daily_adherence_reports(
         parsed_from = datetime.date.fromisoformat(date_from)
         parsed_to = datetime.date.fromisoformat(date_to)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail="Invalid date format") from e
+        raise BadRequestError("Invalid date format") from e
 
     if parsed_from > parsed_to:
-        raise HTTPException(status_code=400, detail="date_from must be <= date_to")
+        raise BadRequestError("date_from must be <= date_to")
 
     if (parsed_to - parsed_from).days > 90:
-        raise HTTPException(status_code=400, detail="Date range must not exceed 90 days")
+        raise BadRequestError("Date range must not exceed 90 days")
 
     logger.info(
         "analytics.api.adherence_daily_requested",

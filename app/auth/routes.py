@@ -23,6 +23,7 @@ from app.auth.service import AuthService
 from app.auth.token import decode_token, revoke_token
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.exceptions import NotFoundError
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.shared.schemas import PaginatedResponse
@@ -207,4 +208,4 @@ async def delete_user_data(
     _ = request
     deleted = await service.delete_user_data(user_id, current_user.id)
     if not deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise NotFoundError("User not found")

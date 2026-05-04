@@ -421,7 +421,7 @@ def test_adherence_endpoint_invalid_date_from_gt_to(client: TestClient) -> None:
         params={"date_from": "2026-04-10", "date_to": "2026-04-01"},
     )
     assert resp.status_code == 400
-    assert "date_from" in resp.json()["detail"]
+    assert "date_from" in resp.json()["error"]
 
 
 def test_adherence_endpoint_range_exceeds_90_days(client: TestClient) -> None:
@@ -431,7 +431,7 @@ def test_adherence_endpoint_range_exceeds_90_days(client: TestClient) -> None:
         params={"date_from": "2026-01-01", "date_to": "2026-12-31"},
     )
     assert resp.status_code == 400
-    assert "90 days" in resp.json()["detail"]
+    assert "90 days" in resp.json()["error"]
 
 
 def test_adherence_endpoint_requires_auth() -> None:

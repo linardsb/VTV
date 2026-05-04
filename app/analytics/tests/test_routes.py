@@ -149,7 +149,7 @@ def test_on_time_performance_bad_date(mock_service_cls: MagicMock) -> None:
     client = TestClient(app)
     response = client.get("/api/v1/analytics/on-time-performance?date=2026-03-07")
     assert response.status_code == 400
-    assert "Invalid date" in response.json()["detail"]
+    assert "Invalid date" in response.json()["error"]
 
 
 @patch("app.analytics.routes.AnalyticsService")
@@ -162,7 +162,7 @@ def test_on_time_performance_transit_unavailable(mock_service_cls: MagicMock) ->
     client = TestClient(app)
     response = client.get("/api/v1/analytics/on-time-performance")
     assert response.status_code == 503
-    assert "temporarily unavailable" in response.json()["detail"]
+    assert "temporarily unavailable" in response.json()["error"]
 
 
 @patch("app.analytics.routes.AnalyticsService")

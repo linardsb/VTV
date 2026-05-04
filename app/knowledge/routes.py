@@ -5,7 +5,7 @@ import re
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from fastapi.requests import Request
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import get_current_user, require_role
 from app.auth.models import User
 from app.core.database import get_db
+from app.core.exceptions import (
+    ConflictError,
+    DomainValidationError,
+    PayloadTooLargeError,
+    UnsupportedMediaTypeError,
+)
 from app.core.rate_limit import limiter
 from app.core.redis import get_redis
 from app.knowledge.exceptions import DuplicateTagError
@@ -126,14 +132,12 @@ async def upload_document(
     )
     source_type = _detect_source_type(file.content_type)
     if source_type == "unknown":
-        raise HTTPException(
-            status_code=415,
-            detail=f"Unsupported file type: {file.content_type}. Supported: PDF, DOCX, XLSX, CSV, TXT, images, email.",
+        raise UnsupportedMediaTypeError(
+            f"Unsupported file type: {file.content_type}. Supported: PDF, DOCX, XLSX, CSV, TXT, images, email."
         )
     if not await _verify_magic_bytes(file, source_type):
-        raise HTTPException(
-            status_code=415,
-            detail=f"File content does not match declared type: {file.content_type}",
+        raise UnsupportedMediaTypeError(
+            f"File content does not match declared type: {file.content_type}"
         )
 
     # Sanitize filename: strip path components, limit to basename
@@ -153,7 +157,7 @@ async def upload_document(
             if size > max_upload_size:
                 tmp.close()
                 Path(tmp.name).unlink(missing_ok=True)
-                raise HTTPException(status_code=413, detail="File exceeds 50MB limit")
+                raise PayloadTooLargeError("File exceeds 50MB limit")
             tmp.write(chunk)
         tmp.flush()
         tmp.close()
@@ -344,7 +348,7 @@ async def create_tag(
     try:
         return await service.create_tag(body)
     except DuplicateTagError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+        raise ConflictError(str(e)) from e
 
 
 @router.delete("/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -434,7 +438,7 @@ async def submit_search_feedback(
     """Record a thumbs-up/down signal for a cited chunk (KB-4)."""
     _ = request
     if not re.fullmatch(r"[0-9a-f]{32}", query_hash):
-        raise HTTPException(status_code=422, detail="query_hash must be 32 hex chars")
+        raise DomainValidationError("query_hash must be 32 hex chars")
     redis = await get_redis()
     service = FeedbackService(db, redis)
     await service.record(
