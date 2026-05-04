@@ -75,10 +75,16 @@ def create_unified_deps(settings: Settings | None = None) -> UnifiedDeps:
         verify=settings.obsidian_verify_ssl,
         headers={"Authorization": f"Bearer {settings.obsidian_api_key or ''}"},
     )
-    ckan_client = httpx.AsyncClient(
-        timeout=httpx.Timeout(15.0, connect=5.0),
-        limits=httpx.Limits(max_connections=5, max_keepalive_connections=3),
-    )
+    # Only construct the CKAN client when the feature flag is on. The
+    # ``search_intercity_*`` agent tools see ``ckan_http_client=None`` as a
+    # "not configured" signal and respond with a clear ``TransitDataError``;
+    # see T-003 fix and ``app/core/config.py::Settings.intercity_search_enabled``.
+    ckan_client: httpx.AsyncClient | None = None
+    if settings.intercity_search_enabled:
+        ckan_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(15.0, connect=5.0),
+            limits=httpx.Limits(max_connections=5, max_keepalive_connections=3),
+        )
     from app.core.database import get_db_context
 
     return UnifiedDeps(

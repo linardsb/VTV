@@ -148,6 +148,29 @@ async def test_search_stops_no_ckan_client() -> None:
         await search_intercity_stops(ctx, query="Test")
 
 
+def test_intercity_search_disabled_by_default_skips_ckan_client_init() -> None:
+    # Regression for T-003: ``CKAN_RESOURCES`` in app/transit/ckan_client.py contains
+    # placeholder IDs that do not resolve against the real ATD dataset (the dataset
+    # publishes a single GTFS ZIP, not Datastore-enabled per-table resources). The
+    # ``intercity_search_enabled`` config flag must default to False and must keep
+    # ``ckan_http_client=None`` so the agent tools fail closed with a clear
+    # TransitDataError instead of running broken SQL against a stale resource id.
+    from app.core.agents.tools.transit.deps import create_unified_deps
+    from app.core.config import Settings
+
+    disabled = Settings(  # pyright: ignore[reportCallIssue]
+        intercity_search_enabled=False,
+    )
+    deps_disabled = create_unified_deps(settings=disabled)
+    assert deps_disabled.ckan_http_client is None
+
+    enabled = Settings(  # pyright: ignore[reportCallIssue]
+        intercity_search_enabled=True,
+    )
+    deps_enabled = create_unified_deps(settings=enabled)
+    assert deps_enabled.ckan_http_client is not None
+
+
 @pytest.mark.asyncio
 async def test_search_routes_by_name() -> None:
     """Route name query returns matching routes."""

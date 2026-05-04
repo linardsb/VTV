@@ -23,10 +23,22 @@ from app.core.redis import get_redis
 logger = get_logger(__name__)
 
 # ATD intercity GTFS dataset resource IDs (data.gov.lv)
-# Dataset: https://data.gov.lv/dati/lv/dataset/marsrutu-saraksti-gtfs-formata
-# TODO(LV-1.1): Fetch actual resource IDs once data.gov.lv is reachable:
-#   curl -s "https://data.gov.lv/dati/api/3/action/package_show?id=marsrutu-saraksti-gtfs-formata" \
-#     | jq '.result.resources[] | {name, id, format}'
+#
+# WARNING (T-003 — known broken; gated by ``Settings.intercity_search_enabled``,
+# default ``False``). These IDs are placeholders. The original TODO assumed each
+# GTFS table is published as a separate Datastore-enabled CKAN resource, but
+# verification against data.gov.lv (dataset slug ``atd-gtfs``) shows the ATD
+# publishes the full GTFS feed as a single ZIP file (``gtfs-latvia-lv.zip``,
+# resource ``b0a020e4-1ee6-4e1a-9a94-63b1f8defd6d``) — there is no per-table
+# Datastore SQL surface. The ``search_intercity_*`` agent tools therefore
+# cannot work as written until the pipeline imports that ZIP into local tables
+# (similar to ``historical_gtfs_importer.py``). Until that redesign lands, the
+# feature flag in ``app/core/config.py`` keeps ``UnifiedDeps.ckan_http_client``
+# unset, so ``_get_ckan_client()`` raises a clear ``TransitDataError``.
+#
+# DO NOT enable ``intercity_search_enabled`` in production without first
+# replacing this dict with real Datastore-enabled resource IDs from a CKAN
+# dataset that exposes GTFS tables individually.
 CKAN_RESOURCES: dict[str, str] = {
     "agency": "b6884e21-0f28-4f98-a182-a673a2ce6270",
     "stops": "a17a6ee2-14ca-4a78-8e35-e82ccbc0e1f6",

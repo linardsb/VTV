@@ -466,6 +466,14 @@ class Settings(BaseSettings):
     gtfs_backfill_rate_limit_seconds: float = 1.0
 
     # CKAN Datastore SQL API (LV-1.1 — intercity transit data)
+    # NOTE (T-003): default disabled. The agent tools `search_intercity_*`
+    # query data.gov.lv assuming each GTFS table is published as a separate
+    # Datastore-enabled resource, but the actual ATD dataset (`atd-gtfs`)
+    # publishes a single GTFS ZIP. The placeholder resource IDs in
+    # ``app/transit/ckan_client.py:CKAN_RESOURCES`` will not resolve until
+    # the data ingestion path is redesigned to import the ZIP into local
+    # tables. Keep this flag off in production until that work lands.
+    intercity_search_enabled: bool = False
     ckan_datastore_sql_url: str = "https://data.gov.lv/dati/api/3/action/datastore_search_sql"
     ckan_cache_ttl_s: int = 300
     ckan_rate_limit_delay_s: float = 1.0
