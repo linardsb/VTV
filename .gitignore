@@ -57,9 +57,6 @@ cms/apps/web/.next/
 # ui-ux-pro-max skill (installed locally, not committed)
 .claude/skills/ui-ux-pro-max/
 
-# MCP config (contains API tokens)
-.mcp.json
-
 # Playwright MCP runtime logs
 .playwright-mcp/
 

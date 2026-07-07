@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "glitchtip": {
+      "command": "npx",
+      "args": ["-y", "mcp-glitchtip"],
+      "env": {
+        "GLITCHTIP_TOKEN": "${GLITCHTIP_TOKEN}",
+        "GLITCHTIP_ORGANIZATION": "vtv",
+        "GLITCHTIP_BASE_URL": "https://app.glitchtip.com"
+      }
+    },
+    "jcodemunch": {
+      "command": "uvx",
+      "args": ["jcodemunch-mcp"]
+    }
+  }
+}
