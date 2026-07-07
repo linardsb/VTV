@@ -3,7 +3,7 @@
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, UploadFile, status
+from fastapi import APIRouter, Depends, Path, Query, UploadFile, status
 from fastapi.requests import Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,7 @@ from app.auth.dependencies import get_current_user, require_role
 from app.auth.models import User
 from app.core.auth.scope import RequestScope, get_request_scope
 from app.core.database import get_db
+from app.core.exceptions import PayloadTooLargeError
 from app.core.rate_limit import limiter
 from app.schedules.schemas import (
     AgencyCreate,
@@ -435,9 +436,8 @@ async def import_gtfs(
     while chunk := await file.read(8192):
         total_size += len(chunk)
         if total_size > MAX_GTFS_UPLOAD_BYTES:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"File exceeds {MAX_GTFS_UPLOAD_BYTES // (1024 * 1024)}MB upload limit",
+            raise PayloadTooLargeError(
+                f"File exceeds {MAX_GTFS_UPLOAD_BYTES // (1024 * 1024)}MB upload limit"
             )
         chunks.append(chunk)
     zip_data = b"".join(chunks)

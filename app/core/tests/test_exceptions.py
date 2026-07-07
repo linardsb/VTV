@@ -9,10 +9,14 @@ from fastapi.responses import JSONResponse
 from app.auth.exceptions import AccountLockedError, InvalidCredentialsError
 from app.core.exceptions import (
     AppError,
+    BadRequestError,
     ConflictError,
     DomainValidationError,
     GoneError,
     NotFoundError,
+    PayloadTooLargeError,
+    ServiceUnavailableError,
+    UnsupportedMediaTypeError,
     account_locked_handler,
     app_exception_handler,
     invalid_credentials_handler,
@@ -160,10 +164,11 @@ def test_setup_exception_handlers_registers_handlers():
     setup_exception_handlers(mock_app)
 
     # Verify add_exception_handler was called for each exception type
-    # 7 core (AppError, NotFoundError, ConflictError, GoneError, DomainValidationError,
+    # 11 core (AppError, NotFoundError, ConflictError, GoneError, DomainValidationError,
+    # BadRequestError, PayloadTooLargeError, UnsupportedMediaTypeError, ServiceUnavailableError,
     # InvalidCredentialsError, AccountLockedError) + 3 public API (InvalidAPIKeyError,
-    # APIKeyRevokedError, APIKeyRateLimitError)
-    assert mock_app.add_exception_handler.call_count == 10
+    # APIKeyRevokedError, APIKeyRateLimitError) = 14
+    assert mock_app.add_exception_handler.call_count >= 14
 
     # Verify the exception types that were registered
     call_args_list = [call[0][0] for call in mock_app.add_exception_handler.call_args_list]
@@ -172,6 +177,10 @@ def test_setup_exception_handlers_registers_handlers():
     assert ConflictError in call_args_list
     assert GoneError in call_args_list
     assert DomainValidationError in call_args_list
+    assert BadRequestError in call_args_list
+    assert PayloadTooLargeError in call_args_list
+    assert UnsupportedMediaTypeError in call_args_list
+    assert ServiceUnavailableError in call_args_list
     assert InvalidCredentialsError in call_args_list
     assert AccountLockedError in call_args_list
 

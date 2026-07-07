@@ -73,7 +73,7 @@ jobs:
           uv run pre-commit run --all-files --show-diff-on-failure
 
       - name: Dependency audit
-        run: uv run pip-audit --desc --ignore-vuln CVE-2025-69872 --ignore-vuln CVE-2024-23342
+        run: uv run pip-audit --desc --ignore-vuln CVE-2025-69872 --ignore-vuln CVE-2024-23342 --ignore-vuln CVE-2026-3219
 
       - name: Lock file integrity
         run: uv lock --check

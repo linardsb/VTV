@@ -1,4 +1,26 @@
-"""Custom exception classes and global exception handlers."""
+"""Custom exception classes and global exception handlers.
+
+AppError hierarchy and HTTP status mapping (handled in `app_exception_handler`):
+
+- ``AppError`` — base, maps to 500
+- ``NotFoundError`` — 404
+- ``ConflictError`` — 409
+- ``GoneError`` — 410
+- ``DomainValidationError`` — 422
+- ``BadRequestError`` — 400 (semantic input error: invalid combination of
+  values that parsed cleanly, e.g., ``date_from > date_to``)
+- ``PayloadTooLargeError`` — 413 (per-route body size limits)
+- ``UnsupportedMediaTypeError`` — 415 (rejected file type / content mismatch)
+- ``ServiceUnavailableError`` — 503 (transient upstream dependency failure)
+- ``RBACConfigurationError`` — 500 (programmer error: missing scope)
+
+Auth-flow specific (separate handlers, not in the polymorphic chain):
+
+- ``InvalidCredentialsError`` — 401 (login)
+- ``AccountLockedError`` — 423
+- ``InvalidAPIKeyError`` / ``APIKeyRevokedError`` — 401 (Public API)
+- ``APIKeyRateLimitError`` — 429 (Public API)
+"""
 
 from typing import Any, cast
 
@@ -61,6 +83,53 @@ class GoneError(AppError):
     pass
 
 
+class BadRequestError(AppError):
+    """Raised for semantic input errors that parsed cleanly but are invalid.
+
+    Distinct from ``DomainValidationError`` (which is for shape-level /
+    Pydantic-level issues): use ``BadRequestError`` when the request body or
+    query parameters parse successfully but the *combination* of values is
+    rejected (e.g., ``date_from > date_to``, range > 90 days). Maps to HTTP
+    400 Bad Request.
+    """
+
+    pass
+
+
+class PayloadTooLargeError(AppError):
+    """Raised when a request body exceeds a per-route size limit.
+
+    The global ``BodySizeLimitMiddleware`` returns 413 directly for the
+    100KB middleware ceiling; this exception is for per-route enforcement
+    above that ceiling (e.g., 50MB knowledge upload, GTFS ZIP upload).
+    Maps to HTTP 413 Request Entity Too Large.
+    """
+
+    pass
+
+
+class UnsupportedMediaTypeError(AppError):
+    """Raised when an upload's declared or detected media type is rejected.
+
+    Used for unsupported file extensions and for magic-byte mismatches
+    against the declared ``Content-Type``. Maps to HTTP 415 Unsupported
+    Media Type.
+    """
+
+    pass
+
+
+class ServiceUnavailableError(AppError):
+    """Raised when a transient upstream dependency failure prevents serving.
+
+    Examples: GTFS-RT poller has stale data, OpenTripPlanner timed out,
+    LLM provider unreachable through the fallback chain. Maps to HTTP 503
+    Service Unavailable.
+    """
+
+    pass
+
+
 # Global exception handlers
 async def app_exception_handler(request: Request, exc: AppError) -> JSONResponse:
     """Handle application exceptions globally.
@@ -92,6 +161,14 @@ async def app_exception_handler(request: Request, exc: AppError) -> JSONResponse
         status_code = status.HTTP_410_GONE
     elif isinstance(exc, DomainValidationError):
         status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    elif isinstance(exc, BadRequestError):
+        status_code = status.HTTP_400_BAD_REQUEST
+    elif isinstance(exc, PayloadTooLargeError):
+        status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    elif isinstance(exc, UnsupportedMediaTypeError):
+        status_code = status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+    elif isinstance(exc, ServiceUnavailableError):
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     return JSONResponse(
         status_code=status_code,
@@ -221,6 +298,10 @@ def setup_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ConflictError, handler)
     app.add_exception_handler(GoneError, handler)
     app.add_exception_handler(DomainValidationError, handler)
+    app.add_exception_handler(BadRequestError, handler)
+    app.add_exception_handler(PayloadTooLargeError, handler)
+    app.add_exception_handler(UnsupportedMediaTypeError, handler)
+    app.add_exception_handler(ServiceUnavailableError, handler)
 
     # Auth-specific handlers (401, 423)
     app.add_exception_handler(InvalidCredentialsError, cast(Any, invalid_credentials_handler))

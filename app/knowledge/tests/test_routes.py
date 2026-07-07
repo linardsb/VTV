@@ -142,13 +142,13 @@ def test_upload_document_success():
 
 
 async def test_upload_exceeds_size_limit():
-    """Route-level streaming check should raise HTTPException 413 for files >50MB.
+    """Route-level streaming check should raise PayloadTooLargeError for files >50MB.
 
     Directly invokes the upload_document handler with a mock UploadFile whose
-    async reads simulate a stream exceeding the 50MB limit.
+    async reads simulate a stream exceeding the 50MB limit. PayloadTooLargeError
+    maps to HTTP 413 via the global app_exception_handler.
     """
-    from fastapi import HTTPException
-
+    from app.core.exceptions import PayloadTooLargeError
     from app.knowledge.routes import upload_document
 
     max_upload_size = 50 * 1024 * 1024
@@ -169,7 +169,7 @@ async def test_upload_exceeds_size_limit():
     mock_request = MagicMock()
     mock_svc = _mock_service()
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(PayloadTooLargeError) as exc_info:
         await upload_document(
             request=mock_request,
             file=mock_file,
@@ -181,8 +181,7 @@ async def test_upload_exceeds_size_limit():
             service=mock_svc,
         )
 
-    assert exc_info.value.status_code == 413
-    assert "50MB" in str(exc_info.value.detail)
+    assert "50MB" in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +230,7 @@ def test_upload_unsupported_type():
             data={"domain": "transit"},
         )
         assert response.status_code == 415
-        assert "Unsupported file type" in response.json()["detail"]
+        assert "Unsupported file type" in response.json()["error"]
         # Service should never be called for unsupported types
         mock_svc.ingest_document.assert_not_awaited()
     finally:

@@ -10,7 +10,7 @@ Endpoints:
 
 import datetime as dt
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
+from fastapi import APIRouter, Depends, Path, Query, Request
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +20,13 @@ from app.auth.models import User
 from app.core.agents.exceptions import TransitDataError
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.core.exceptions import ConflictError, DomainValidationError, GoneError, NotFoundError
+from app.core.exceptions import (
+    ConflictError,
+    DomainValidationError,
+    GoneError,
+    NotFoundError,
+    ServiceUnavailableError,
+)
 from app.core.logging import get_logger
 from app.core.rate_limit import limiter
 from app.transit.journey_planner import get_journey_planner
@@ -409,7 +415,7 @@ async def plan_journey(
             modes=modes,
         )
     except TransitDataError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise ServiceUnavailableError(str(exc)) from exc
 
 
 # ── LV-3.4 Trip share links ─────────────────────────────────────────
