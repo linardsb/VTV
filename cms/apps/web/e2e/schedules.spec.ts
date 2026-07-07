@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { waitForDataOrEmpty } from "./helpers";
+import { waitForDataOrEmpty, waitForTableSettled } from "./helpers";
 
 test.describe("Schedules page", () => {
   test.beforeEach(async ({ page }) => {
@@ -39,16 +39,8 @@ test.describe("Schedules page", () => {
 
     test("clicking row opens detail sheet", async ({ page }) => {
       await page.getByRole("tab", { name: /calendars|kalendāri/i }).click();
-      // Wait for data or empty state
-      const emptyState = page.getByText(/no.*found|nav.*atrast/i);
-      const table = page.getByRole("table");
-      const firstRow = table.getByRole("row").nth(1);
-      await Promise.race([
-        firstRow.waitFor({ state: "visible", timeout: 5000 }),
-        emptyState.waitFor({ state: "visible", timeout: 5000 }),
-      ]).catch(() => {});
-      if (await emptyState.isVisible()) return; // No data — skip
-      if (!(await firstRow.isVisible())) return;
+      if (!(await waitForTableSettled(page))) return; // No data — skip
+      const firstRow = page.getByRole("table").getByRole("row").nth(1);
       // Retry click+dialog check to handle React rendering timing under parallel load
       await expect(async () => {
         await firstRow.getByRole("cell").first().click();
@@ -72,16 +64,8 @@ test.describe("Schedules page", () => {
 
     test("calendar detail shows operating days", async ({ page }) => {
       await page.getByRole("tab", { name: /calendars|kalendāri/i }).click();
-      // Wait for data or empty state
-      const emptyState = page.getByText(/no.*found|nav.*atrast/i);
-      const table = page.getByRole("table");
-      const firstRow = table.getByRole("row").nth(1);
-      await Promise.race([
-        firstRow.waitFor({ state: "visible", timeout: 5000 }),
-        emptyState.waitFor({ state: "visible", timeout: 5000 }),
-      ]).catch(() => {});
-      if (await emptyState.isVisible()) return; // No data — skip
-      if (!(await firstRow.isVisible())) return;
+      if (!(await waitForTableSettled(page))) return; // No data — skip
+      const firstRow = page.getByRole("table").getByRole("row").nth(1);
       // Retry click+dialog check to handle React rendering timing under parallel load
       await expect(async () => {
         await firstRow.getByRole("cell").first().click();
@@ -125,16 +109,13 @@ test.describe("Schedules page", () => {
 
     test("clicking trip row opens detail", async ({ page }) => {
       await page.getByRole("tab", { name: /trips|reisi/i }).click();
-      await waitForDataOrEmpty(page);
-      const table = page.getByRole("table");
-      const firstRow = table.getByRole("row").nth(1);
-      if (await firstRow.isVisible()) {
-        // Retry click+dialog check to handle React rendering timing under parallel load
-        await expect(async () => {
-          await firstRow.getByRole("cell").first().click();
-          await expect(page.getByRole("dialog")).toBeVisible();
-        }).toPass({ timeout: 10000 });
-      }
+      if (!(await waitForTableSettled(page))) return; // No data — skip
+      const firstRow = page.getByRole("table").getByRole("row").nth(1);
+      // Retry click+dialog check to handle React rendering timing under parallel load
+      await expect(async () => {
+        await firstRow.getByRole("cell").first().click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+      }).toPass({ timeout: 10000 });
     });
 
     test("create trip button opens form", async ({ page }) => {

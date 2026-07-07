@@ -12,7 +12,7 @@ dependencies = [
     "bcrypt>=5.0.0",
     "email-validator>=2.0.0",
     "cachetools>=5.5.0",
-    "fastapi>=0.120.1",
+    "fastapi>=0.139.0",
     "google-genai>=1.0.0",
     "gunicorn>=23.0.0",
     "gtfs-realtime-bindings>=1.0.0",
@@ -21,7 +21,7 @@ dependencies = [
     "openpyxl>=3.1.5",
     "pgvector>=0.4.2",
     "pillow>=12.2.0",
-    "pydantic-ai>=1.58.0",
+    "pydantic-ai>=1.102.0,<2",  # CVE-2026-46678, CVE-2026-48782 (SSRF metadata bypass); hold on v1 line pending 2.x migration
     "pydantic-settings>=2.11.0",
     "qrcode>=8.0",
     "pymupdf>=1.27.1",
@@ -80,16 +80,23 @@ ner = [
 # These come via fastmcp/mcp/python-jose/pydantic-ai/openai — we pin minimums
 # via override-dependencies so uv picks up CVE fixes during resolution.
 override-dependencies = [
-    "aiohttp>=3.13.4",       # CVE-2026-22815, CVE-2026-34513..34525 (10 CVEs: DoS, header injection, auth leak)
+    "aiohttp>=3.14.1",       # PYSEC-2026-237, CVE-2026-34993/47265/50269/54273..54280 (SNI bypass, cookie leak, DoS)
     "authlib>=1.6.11",       # CVE-2026-27962, CVE-2026-28490, GHSA-jj8c-mmj3-mmgv (JWK header injection, crit bypass, OAuth cache CSRF)
     "fastmcp>=3.2.0",        # CVE-2025-64340, CVE-2026-27124 (Windows CLI command injection, OAuthProxy Confused Deputy)
-    "cryptography>=46.0.7",  # CVE-2026-34073, CVE-2026-39892 (name constraint bypass, buffer overflow)
+    "cryptography>=48.0.1",  # GHSA-537c-gmf6-5ccf (bundled OpenSSL 20260609 advisory) + CVE-2026-34073/39892
     "ecdsa>=0.19.2",         # CVE-2026-33936
+    "idna>=3.15",            # PYSEC-2026-215 (idna.encode DoS on long input)
+    "joserfc>=1.6.8",        # CVE-2026-49852 (empty HMAC key auth bypass), CVE-2026-48990 (RFC7797 size-limit bypass)
+    "mako>=1.3.12",          # CVE-2026-44307 (Windows backslash path traversal)
+    "msgpack>=1.2.1",        # GHSA-6v7p-g79w-8964 (SEGV on Unpacker reuse after error)
+    "pip>=26.1.2",           # PYSEC-2026-196, CVE-2026-6357 (entry-point path escape, self-update import)
     "pyasn1>=0.6.3",         # CVE-2026-30922 (DoS via deep ASN.1 nesting)
     "pygments>=2.20.0",      # CVE-2026-4539 (ReDoS in AdlLexer)
-    "pyjwt>=2.12.0",         # CVE-2026-32597 (unvalidated crit header)
-    "python-multipart>=0.0.26",  # CVE-2026-40347 (multipart preamble/epilogue DoS)
+    "pyjwt>=2.13.0",         # PYSEC-2026-175..179 (JWK/HMAC confusion, jku SSRF, detached-JWS DoS) + CVE-2026-32597
+    "python-multipart>=0.0.31",  # CVE-2026-53538/53539/53540 (param smuggling, O(n^2) DoS, negative Content-Length) + CVE-2026-40347
     "requests>=2.33.0",      # CVE-2026-25645 (extract_zipped_paths tmpfile hijack)
+    "starlette>=1.3.1",      # PYSEC-2026-161/248/249, CVE-2026-48817/48818 (Host-header path, url smuggling, form limits, HTTPEndpoint, StaticFiles UNC)
+    "urllib3>=2.7.0",        # PYSEC-2026-141/142 (redirect header leak, streaming decompression DoS)
 ]
 
 [tool.ruff]
