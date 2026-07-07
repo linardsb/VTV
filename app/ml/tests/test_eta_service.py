@@ -223,7 +223,13 @@ class TestHotReload:
         service = ETAService(settings)
         service._model = MagicMock()
         service._model_version = 1
-        service._last_reload_check = 0.0  # Force check
+        # Force a check: place the last-check far enough in the past that the
+        # reload interval has elapsed regardless of the absolute monotonic clock.
+        # (0.0 only works when time.monotonic() already exceeds the interval,
+        # which fails on freshly-booted CI runners where monotonic() is small.)
+        service._last_reload_check = (
+            time.monotonic() - settings.eta_model_reload_interval_seconds - 1
+        )
 
         new_model = MagicMock()
         new_metadata = _make_metadata(version=2)
